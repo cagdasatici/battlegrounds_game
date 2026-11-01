@@ -138,6 +138,20 @@ function recorder(room: Pair["ra"]) {
   return { snaps, stop: () => clearInterval(timer) };
 }
 
+/** T17 spawns: B may sit on a satellite island, so A stands on B's arena-centre side (same rule as placeAhead in td-awakened.test.ts). */
+function faceCentre(c: Ctx, dist = SEAT_DIST): void {
+  const bp = c.room.movement!.position(c.bId)!;
+  const north = bp[2] > 0; // B on the +Z side: A stands toward the centre and faces +Z
+  c.place("B", bp[0], bp[2], north ? 0 : Math.PI);
+  c.place("A", bp[0], bp[2] + (north ? -dist : dist), north ? Math.PI : 0);
+}
+/** Awakens 8 m away so the Ocean Surge burst (5 m, spec 15) does not reach the victim, then closes to 1.5 m. */
+const awakenedCentre = async (c: Ctx): Promise<void> => {
+  faceCentre(c, 8); await sleep(60);
+  await c.awaken("A");
+  faceCentre(c); await sleep(60);
+};
+
 const plain = async (c: Ctx): Promise<void> => { faceEachOther(c); await sleep(60); };
 const awakened = async (c: Ctx): Promise<void> => {
   faceEachOther(c); await sleep(60);
@@ -178,11 +192,20 @@ const ROWS: Row[] = [
   // Ocean Surge burst (spec 15): 20 HP in 5 m at activation tick 48, U, R72 ragdoll; the Awakened form starts at completion.
   { move: "td.activate", casterKit: "td", victimKit: "sv", setup: filled, edge: { kind: "awaken" }, expectVictimHp100: 10000 - 2000,
     expectVictimAction: "Ragdolled", waitTicks: 75, expectCasterForm: "Awakened" },
+  // T16 awakened rows (docs/test-results/T16.md): td caster awakened, sv victim; totals are sums of the damage tables.
+  // a1: capture 4 + 4+4+4 + 10 = 26 HP, release +33 after the capture, ragdoll 60.
+  { move: "td.a1", casterKit: "td", victimKit: "sv", setup: awakenedCentre, edge: sk(1), expectVictimHp100: 10000 - 2600,
+    expectVictimAction: "Ragdolled", waitTicks: 60 },
+  // a2: capture deals 0, 69 HP at capture+72, release +78, ragdoll 90 (no other targets, so no area hit on the victim).
+  { move: "td.a2", casterKit: "td", victimKit: "sv", setup: awakenedCentre, edge: sk(2), expectVictimHp100: 10000 - 6900,
+    expectVictimAction: "Ragdolled", waitTicks: 110 },
+  // a3: 12 HP at activeStart, 26 HP at +17 (ragdoll 72), no capture.
+  { move: "td.a3", casterKit: "td", victimKit: "sv", setup: awakenedCentre, edge: sk(3), expectVictimHp100: 10000 - 3800,
+    expectVictimAction: "Ragdolled", waitTicks: 45 },
+  // a4 close branch (victim within 2 m): 8 HP capture + 22 HP at +36, release +37, ragdoll 72.
+  { move: "td.a4", casterKit: "td", victimKit: "sv", setup: awakenedCentre, edge: sk(4), expectVictimHp100: 10000 - 3000,
+    expectVictimAction: "Ragdolled", waitTicks: 65 },
 ];
-
-describe("R12 pending rows (td awakened, T16 in progress elsewhere)", () => {
-  for (const m of ["td.a1", "td.a2", "td.a3", "td.a4"]) test.todo(`${m} wire row: append to ROWS when T16 lands`);
-});
 
 describe("R12 kit matrix over real Colyseus clients: two observers see identical results", () => {
   for (const row of ROWS) {
