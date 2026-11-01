@@ -1,7 +1,7 @@
 # BOT4C — Connect the sparring client journey
 
 Date: 1 November 2026. Prerequisite: BOT3 99e5722 (ledger 848898f).
-Status: IMPLEMENTED (DEVICE CHECK PENDING).
+Status: IMPLEMENTED (DEVICE CHECK PENDING). Implementation commit: b0c2383.
 
 ## Behavior and scope
 
