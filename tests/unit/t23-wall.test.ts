@@ -20,7 +20,7 @@ describe("wall definitions", () => {
       expect(d.cooldown).toBe(360);
     }
     // The shared template adds no Artificer kit move: apart from it, ea.* is exactly T20's base set.
-    expect(ALL_ABILITY_DEFS.filter((d) => d.id.startsWith("ea.") && !/^ea\.(wall|pickup|throw)$/.test(d.id)).map((d) => d.id)).toEqual(["ea.b1", "ea.b2", "ea.b3", "ea.b4"]);
+    expect(ALL_ABILITY_DEFS.filter((d) => d.id.startsWith("ea.") && !/^ea\.(wall|pickup|throw)$/.test(d.id)).map((d) => d.id)).toEqual(["ea.b1", "ea.b2", "ea.b3", "ea.b4", "ea.a1", "ea.a2", "ea.a3", "ea.a4"]);
   });
 });
 
