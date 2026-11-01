@@ -87,7 +87,7 @@ export class ArenaRoom extends Room {
   wallNow: () => number = () => performance.now();
   protected readonly pipeline: TickPipeline = new TickPipeline({
     state: this.state, combat: this.combat, m1: this.m1, abilities: this.abilities, awakening: this.awakening,
-    projectiles: this.projectiles, urns: this.urns, movement: () => this.movement, world: () => this.world, seats: () => this.seats, extraBodies: () => this.extraBodyIds(),
+    projectiles: this.projectiles, urns: this.urns, movement: () => this.movement, world: () => this.world, seats: () => this.pipelineSeats(), beforeDrain: (tick) => this.beforeDrain(tick), extraBodies: () => this.extraBodyIds(),
     poseOf: (id) => this.poseOf(id), respawn: this.respawns, nextLifeId: () => ++this.lifeSeq,
     sendActionResult: (sid, seat, edgeId, seq, tick, ok, reason, castId) => this.sendActionResult(sid, seat, edgeId, seq, tick, ok, reason, castId),
     broadcastEvent: (tick, kind, actor, target, lifeId, moveId, dmg, extra) => this.broadcastEvent(tick, kind, actor, target, lifeId, moveId, dmg, extra),
@@ -227,6 +227,10 @@ export class ArenaRoom extends Room {
     this.world = null;
   }
 
+  protected authServices(): AuthServices | null { return authServices; }
+  protected pipelineSeats(): ReadonlyMap<string, PipelineSeat> { return this.seats; }
+  protected beforeDrain(_tick: number): void {}
+
   // ---- internals ----
   protected playerOf(seat: Seat): PlayerSchema | undefined {
     return this.state.players.get(String(seat.entityId));
@@ -315,7 +319,7 @@ export class ArenaRoom extends Room {
   protected chooseSpawn(): MapVec3 {
     const w = this.world!;
     const occupied: Pt[] = [];
-    for (const s of this.seats.values()) {
+    for (const s of this.pipelineSeats().values()) {
       const f = this.combat.get(s.entityId), p = this.movement?.position(s.entityId);
       if (p && f && f.action !== "Dead") occupied.push({ x: p[0], z: p[2] });
     }

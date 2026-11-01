@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { InviteStore } from "./InviteStore.js";
 import { SessionStore } from "./SessionStore.js";
+import { SparringDirectory } from "./SparringDirectory.js";
 import { JoinTicketStore } from "./JoinTicketStore.js";
 
 export interface AuthConfig {
@@ -20,6 +21,9 @@ export interface AuthConfig {
 
 export interface AuthServices {
   config: AuthConfig;
+  sparring: SparringDirectory;
+  now: () => number;
+  closeRoom: (code: string) => Promise<void>;
   invites: InviteStore;
   sessions: SessionStore;
   tickets: JoinTicketStore;
@@ -31,5 +35,5 @@ export function createAuthServices(config: AuthConfig, now: () => number = Date.
   const sessions = new SessionStore(join(config.dataDir, "sessions.json"), now);
   const tickets = new JoinTicketStore(now);
   sessions.onRevoke((id) => tickets.revokeSession(id));
-  return { config, invites: new InviteStore(join(config.dataDir, "invites.json"), now), sessions, tickets, ensureRoom: null };
+  return { config, now, sparring: new SparringDirectory((id) => sessions.getById(id) !== null, now), closeRoom: async () => undefined, invites: new InviteStore(join(config.dataDir, "invites.json"), now), sessions, tickets, ensureRoom: null };
 }

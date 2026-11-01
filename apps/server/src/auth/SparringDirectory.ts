@@ -154,6 +154,12 @@ export class SparringDirectory {
     return { bots: [...this.owned(host, roomCode).bots] };
   }
 
+  /** Internal server lookup; returns no bearer credentials. */
+  describe(code: string): { hostId: string; bots: Difficulty[] } | null {
+    const match = this.matches.get(code);
+    return match && this.live(match) ? { hostId: match.hostId, bots: [...match.bots] } : null;
+  }
+
   private live(match: Match): boolean {
     const host = match.seats.get(key({ kind: "host", id: match.hostId }));
     return this.isHostLive(match.hostId) && !!host && (host.deadline === null || host.deadline > this.now());
