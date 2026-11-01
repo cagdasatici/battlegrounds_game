@@ -234,8 +234,12 @@ export class ArenaRoom extends Room {
       }
       const castScale = this.abilities.moveScaleOf(seat.entityId);
       const locked = !!f && (locomotionLocked(f) || f.action === "Dash" || (castScale === 0 && f.action !== "Idle"));
+      // moveScale (spec 14): during an ability cast with 0 < scale < 1 the player's movement intent is scaled and
+      // running is suppressed (T12, sv.b2 moveScale 0.15). turnRate facing lock is not enforced yet.
+      const scaled = castScale !== null && castScale > 0 && castScale < 1 && f !== undefined && f.action !== "Idle";
+      const mScale = scaled ? castScale : 1;
       intents.set(seat.entityId, locked ? NEUTRAL_MOVE
-        : { moveX: h.moveX, moveZ: h.moveZ, run: h.runHeld, guard: f?.action === "Guard" || h.blockHeld, jumpPressed });
+        : { moveX: h.moveX * mScale, moveZ: h.moveZ * mScale, run: scaled ? false : h.runHeld, guard: f?.action === "Guard" || h.blockHeld, jumpPressed });
     }
     if (mv) {
       mv.step(tick, (id) => intents.get(id) ?? NEUTRAL_MOVE, (id) => this.dashOverride(id));

@@ -349,3 +349,176 @@ describe("sv.b1 Fault Strike behaviour", () => {
     expect(r.results.find((x) => x.r.killed)!.r.damage100).toBe(600);
   });
 });
+
+describe("sv.b2 Gravel Flurry", () => {
+  const SCHEDULE = [T0 + 10, T0 + 18, T0 + 26, T0 + 34, T0 + 42, T0 + 49];
+
+  test("definition matches the spec 15 table", () => {
+    const d = def("sv.b2");
+    expect([d.slot, d.form, d.handler]).toEqual([2, "Base", "barrage"]);
+    expect([d.startup, d.active, d.recovery, d.cooldown]).toEqual([10, 40, 18, 900]);
+    expect(d.hitOffsets).toEqual([0, 8, 16, 24, 32, 39]);
+    expect(d.damage100).toEqual([200, 200, 200, 200, 200, 500]);
+    expect(d.damage100.reduce((a, b) => a + b, 0)).toBe(1500);
+    expect([d.range, d.block, d.stunTicks, d.ragdollTicks, d.maxTargets, d.maxHitsPerTarget]).toEqual([2.5, "B", 12, 0, 3, 6]);
+    expect([d.moveScale, d.turnRate, d.armor]).toEqual([0.15, 90, "none"]);
+    expect(d.targetStates).toContain("ragdoll");
+  });
+
+  test("six hits on exact ticks: 2,2,2,2,2 then 5 HP (15 total)", () => {
+    const r = rig();
+    r.step(T0, 2);
+    for (let t = T0 + 1; t <= T0 + 60; t++) {
+      r.step(t);
+      const done = SCHEDULE.filter((s) => s <= t).length;
+      expect(r.hp(2)).toBe(10000 - (done === 6 ? 1500 : done * 200));
+    }
+    expect(r.hitsOn(2).map((x) => x.tick)).toEqual(SCHEDULE);
+    expect(r.hitsOn(2).map((x) => x.r.damage100)).toEqual([200, 200, 200, 200, 200, 500]);
+  });
+
+  test("reactions: intermediate stun 12 at the hit tick, final ragdoll 60 with launch F7 U2", () => {
+    const r = rig();
+    r.step(T0, 2);
+    r.run(T0 + 1, T0 + 10);
+    expect(r.cs.get(2)!.action).toBe("Stunned");
+    expect(r.cs.get(2)!.actionEndTick).toBe(T0 + 10 + 12);
+    expect(r.launches).toHaveLength(0);
+    r.run(T0 + 11, T0 + 49);
+    const v = r.cs.get(2)!;
+    expect(v.action).toBe("Ragdolled");
+    expect([v.actionStartTick, v.actionEndTick]).toEqual([T0 + 49, T0 + 49 + 60]);
+    expect(r.launches.map((x) => [x.tick, x.l.targetId, x.l.vx + 0, x.l.vy, x.l.vz])).toEqual([[T0 + 49, 2, 0, 2, -7]]);
+  });
+
+  test("movement scale 0.15 applies for the whole cast and ends at startTick+68", () => {
+    const r = rig();
+    r.step(T0, 2);
+    expect(r.runner.moveScaleOf(1)).toBe(0.15);
+    r.run(T0 + 1, T0 + 67);
+    expect(r.runner.moveScaleOf(1)).toBe(0.15);
+    r.step(T0 + 68);
+    expect(r.runner.moveScaleOf(1)).toBeNull();
+  });
+
+  test("acceptance: a target entering only at offset 39 receives 5 HP, not the missed hits", () => {
+    const r = rig();
+    r.place(2, 0, 1, -9);
+    r.step(T0, 2);
+    r.run(T0 + 1, T0 + 48);
+    r.place(2, 0, 1, -1.5);
+    r.step(T0 + 49);
+    expect(r.hp(2)).toBe(9500);
+    expect(r.hitsOn(2)).toHaveLength(1);
+    const mid = rig();
+    mid.place(2, 0, 1, -9);
+    mid.step(T0, 2);
+    mid.run(T0 + 1, T0 + 25);
+    mid.place(2, 0, 1, -1.5);
+    mid.run(T0 + 26, T0 + 60);
+    expect(mid.hp(2)).toBe(10000 - (200 + 200 + 200 + 500)); // hits at offsets 16, 24, 32 and 39 only
+  });
+
+  test("maximum 15 HP and 6 hits per target over the whole cast", () => {
+    const r = rig();
+    r.step(T0, 2);
+    r.run(T0 + 1, T0 + 80);
+    expect(r.hp(2)).toBe(8500);
+    expect(r.hitsOn(2)).toHaveLength(6);
+  });
+
+  test("maximum 3 targets: the 4th and farthest is never hit", () => {
+    const r = rig(5);
+    r.place(2, 0, 1, -1); r.place(3, 0, 1, -1.5); r.place(4, 0, 1, -2); r.place(5, 0, 1, -2.4);
+    r.step(T0, 2);
+    r.run(T0 + 1, T0 + 60);
+    expect([2, 3, 4].map((id) => r.hp(id))).toEqual([8500, 8500, 8500]);
+    expect(r.hp(5)).toBe(10000);
+  });
+
+  test("block: guard blocks every group, each consumes its entry, no damage and no reactions", () => {
+    const r = rig();
+    r.run(T0 - 5, T0 - 1, [2]);
+    r.step(T0, 2, [2]);
+    r.run(T0 + 1, T0 + 60, [2]);
+    expect(r.hp(2)).toBe(10000);
+    expect(r.results.filter((x) => x.r.outcome === "blocked").map((x) => x.tick)).toEqual(SCHEDULE);
+    expect(r.cs.get(2)!.action).toBe("Guard");
+    expect(r.launches).toHaveLength(0);
+  });
+
+  test("counter consumes exactly one scheduled hit; the remaining five still land", () => {
+    const r = rig();
+    r.cs.get(2)!.counterOpenUntil = T0 + 12;
+    r.step(T0, 2);
+    r.run(T0 + 1, T0 + 60);
+    expect(r.results.filter((x) => x.r.outcome === "countered").map((x) => x.tick)).toEqual([T0 + 10]);
+    expect(r.hp(2)).toBe(10000 - 1300);
+  });
+
+  test("duplicate hit: one hit per target per tick group, never two in a tick", () => {
+    const r = rig();
+    r.step(T0, 2);
+    r.run(T0 + 1, T0 + 60);
+    const perTick = new Map<number, number>();
+    for (const x of r.results) perTick.set(x.tick, (perTick.get(x.tick) ?? 0) + 1);
+    expect([...perTick.values()].every((n) => n === 1)).toBe(true);
+    expect(r.results.every((x) => x.r.outcome === "hit")).toBe(true);
+  });
+
+  test("supports ragdolled targets: damage only on intermediate hits (ragdoll kept), final hit re-ragdolls 60", () => {
+    const r = rig();
+    applyReaction(r.cs.get(2)!, T0 - 5, { kind: "ragdoll", ticks: 400 }, false);
+    r.step(T0, 2);
+    r.run(T0 + 1, T0 + 48);
+    expect(r.cs.get(2)!.action).toBe("Ragdolled");
+    expect(r.cs.get(2)!.actionStartTick).toBe(T0 - 5);
+    expect(r.hp(2)).toBe(10000 - 1000);
+    r.step(T0 + 49);
+    expect(r.hp(2)).toBe(8500);
+    expect([r.cs.get(2)!.actionStartTick, r.cs.get(2)!.actionEndTick]).toEqual([T0 + 49, T0 + 109]);
+  });
+
+  test("interruption: a stun on the attacker voids the remaining hits, including in the tick of a scheduled hit", () => {
+    const r = rig();
+    r.step(T0, 2);
+    r.run(T0 + 1, T0 + 19);
+    applyReaction(r.cs.get(1)!, T0 + 20, { kind: "stun", ticks: 24 }, false); // third party hit
+    r.run(T0 + 20, T0 + 70);
+    expect(r.hp(2)).toBe(9600);
+    const same = rig();
+    same.step(T0, 2);
+    same.run(T0 + 1, T0 + 25);
+    applyReaction(same.cs.get(1)!, T0 + 26, { kind: "stun", ticks: 24 }, false); // before the tick 26 query
+    same.run(T0 + 26, T0 + 70);
+    expect(same.hp(2)).toBe(9600);
+    expect(same.runner.castOf(1)).toBeUndefined();
+  });
+
+  test("death of the attacker stops the flurry; death of the victim clamps and yields one KO", () => {
+    const a = rig();
+    a.step(T0, 2);
+    a.run(T0 + 1, T0 + 29);
+    a.cs.kill(1, T0 + 30);
+    a.run(T0 + 30, T0 + 70);
+    expect(a.hp(2)).toBe(9400);
+    const v = rig();
+    v.cs.get(2)!.hp100 = 300;
+    v.step(T0, 2);
+    v.run(T0 + 1, T0 + 70);
+    expect(v.cs.get(2)!.action).toBe("Dead");
+    expect(v.cs.get(2)!.koCount).toBe(1);
+    expect(v.results.filter((x) => x.r.killed)).toHaveLength(1);
+    expect(v.results.filter((x) => x.r.outcome === "hit").map((x) => x.r.damage100)).toEqual([200, 100]);
+  });
+
+  test("miss spends the cooldown; ready exactly 900 ticks after the press", () => {
+    const r = rig(1);
+    r.step(T0, 2);
+    r.run(T0 + 1, T0 + 100);
+    r.step(T0 + 899, 2);
+    expect(r.outcomes.at(-1)!.o).toEqual({ kind: "rejected", reason: "COOLDOWN" });
+    r.step(T0 + 900, 2);
+    expect(r.outcomes.at(-1)!.o.kind).toBe("started");
+  });
+});
