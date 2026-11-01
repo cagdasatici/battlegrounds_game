@@ -16,7 +16,7 @@ import type { IntentSampler } from "../input/IntentSampler.js";
 import type { PointerRouter } from "../input/PointerRouter.js";
 import { Prediction, type Collide, type Correction, type OwnerSnapshot } from "../net/Prediction.js";
 import type { ClockSync } from "../net/ClockSync.js";
-import type { CameraRig } from "../scene/CameraRig.js";
+import type { CameraRig, Framed } from "../scene/CameraRig.js";
 import type { LoopProjectile } from "../scene/ProjectileViews.js";
 import type { GameScene } from "../scene/GameScene.js";
 
@@ -92,6 +92,9 @@ export class GameLoop {
   private tokens: number = RATE_LIMITS.inputBurst;
   private tokenMs = 0;
   private readonly known = new Map<string, KitId>();
+  private readonly remoteAction = new Map<string, Action>();
+  /** Last camera framing inputs (debug probe only): local capsule centre and the opponent the camera considered. */
+  framing: { local: { x: number; y: number; z: number }; opponent: Framed | null } | null = null;
 
   constructor(private readonly d: LoopDeps) {
     this.raf = d.raf ?? ((cb) => requestAnimationFrame(cb));
@@ -119,6 +122,8 @@ export class GameLoop {
     this.rafId = null;
     for (const id of this.known.keys()) this.d.scene.removeFighter(id);
     this.known.clear();
+    this.remoteAction.clear();
+    this.framing = null;
     this.d.scene.projectiles.clear();
     this.prediction = null;
   }
@@ -176,12 +181,14 @@ export class GameLoop {
           vx: fromCm(p.vx), vy: fromCm(p.vy), vz: fromCm(p.vz), yaw: fromYaw(p.facingYaw),
         });
       }
+      if (p.owner === undefined) this.remoteAction.set(key, p.action);
       this.d.scene.viewFor(key)?.setAction(p.action, p.moveId ?? "", Math.max(0, (p.actionEndTick ?? 0) - (p.actionStartTick ?? 0)));
     }
     for (const key of [...this.known.keys()]) {
       if (seen.has(key)) continue;
       this.d.scene.removeFighter(key);
       this.known.delete(key);
+      this.remoteAction.delete(key);
       if (this.localEntityId !== null && String(this.localEntityId) === key) this.resetPrediction();
     }
     this.lastSeenServerTick = st.serverTick;
@@ -275,6 +282,21 @@ export class GameLoop {
     const view = this.d.scene.viewFor(String(this.localEntityId));
     view?.setPose(mesh.x, mesh.y, mesh.z, pred.state.facingYaw);
     const r = this.d.router;
-    this.d.scene.setCamera(this.d.camera.update(mesh, r.yaw, r.pitch, dtSec));
+    const opponent = this.lastAction === "Dead" ? null : this.nearestOpponent(mesh);
+    this.framing = { local: { x: mesh.x, y: mesh.y, z: mesh.z }, opponent };
+    this.d.scene.setCamera(this.d.camera.update(mesh, r.yaw, r.pitch, dtSec, opponent));
+  }
+
+  /** Nearest living remote fighter by presented pose, or null (spectator, empty room, all dead). Presentation only. */
+  private nearestOpponent(from: { x: number; z: number }): Framed | null {
+    let best: Framed | null = null, bestD = Infinity;
+    for (const [key, action] of this.remoteAction) {
+      if (action === "Dead") continue;
+      const v = this.d.scene.viewFor(key);
+      if (!v) continue;
+      const g = v.group.position, d = Math.hypot(g.x - from.x, g.z - from.z);
+      if (d < bestD) { bestD = d; best = { centre: { x: g.x, y: g.y, z: g.z }, yaw: v.group.rotation.y }; }
+    }
+    return best;
   }
 }

@@ -1,0 +1,3205 @@
+{
+  "note": "Dev client on SwiftShader; synthetic placement fixture, real input. Visibility is the client's pure framing predicate (head plus one shoulder, not behind the local torso, inside the frustum). Only the right stance is gated; aligned and left are recorded diagnostics.",
+  "summary": {
+    "aligned": 0,
+    "right": 6,
+    "left": 0,
+    "of": 6
+  },
+  "views": [
+    {
+      "stance": "aligned",
+      "spot": "centre",
+      "view": "attacker",
+      "ok": false
+    },
+    {
+      "stance": "aligned",
+      "spot": "centre",
+      "view": "defender",
+      "ok": false
+    },
+    {
+      "stance": "aligned",
+      "spot": "wall",
+      "view": "attacker",
+      "ok": false
+    },
+    {
+      "stance": "aligned",
+      "spot": "wall",
+      "view": "defender",
+      "ok": false
+    },
+    {
+      "stance": "aligned",
+      "spot": "bridge",
+      "view": "attacker",
+      "ok": false
+    },
+    {
+      "stance": "aligned",
+      "spot": "bridge",
+      "view": "defender",
+      "ok": false
+    },
+    {
+      "stance": "right",
+      "spot": "centre",
+      "view": "attacker",
+      "ok": true
+    },
+    {
+      "stance": "right",
+      "spot": "centre",
+      "view": "defender",
+      "ok": true
+    },
+    {
+      "stance": "right",
+      "spot": "wall",
+      "view": "attacker",
+      "ok": true
+    },
+    {
+      "stance": "right",
+      "spot": "wall",
+      "view": "defender",
+      "ok": true
+    },
+    {
+      "stance": "right",
+      "spot": "bridge",
+      "view": "attacker",
+      "ok": true
+    },
+    {
+      "stance": "right",
+      "spot": "bridge",
+      "view": "defender",
+      "ok": true
+    },
+    {
+      "stance": "left",
+      "spot": "centre",
+      "view": "attacker",
+      "ok": false
+    },
+    {
+      "stance": "left",
+      "spot": "centre",
+      "view": "defender",
+      "ok": false
+    },
+    {
+      "stance": "left",
+      "spot": "wall",
+      "view": "attacker",
+      "ok": false
+    },
+    {
+      "stance": "left",
+      "spot": "wall",
+      "view": "defender",
+      "ok": false
+    },
+    {
+      "stance": "left",
+      "spot": "bridge",
+      "view": "attacker",
+      "ok": false
+    },
+    {
+      "stance": "left",
+      "spot": "bridge",
+      "view": "defender",
+      "ok": false
+    }
+  ],
+  "spots": [
+    {
+      "stance": "aligned",
+      "spot": "centre",
+      "phasesCaptured": [
+        "Windup",
+        "Impact",
+        "Recovery"
+      ],
+      "shots": [
+        "aligned-centre-attacker-windup.png",
+        "aligned-centre-defender-windup.png",
+        "aligned-centre-attacker-impact.png",
+        "aligned-centre-defender-impact.png",
+        "aligned-centre-attacker-recovery.png",
+        "aligned-centre-defender-recovery.png"
+      ],
+      "impact": true,
+      "pre": [
+        {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": 0.55,
+            "y": 2.02,
+            "z": 8
+          },
+          "pivot": {
+            "x": 0.55,
+            "y": 2.02,
+            "z": 1.5
+          },
+          "yaw": 0,
+          "local": {
+            "x": 0,
+            "y": 0.92,
+            "z": 1.5
+          },
+          "opponent": {
+            "centre": {
+              "x": 0,
+              "y": 0.92,
+              "z": 0
+            },
+            "yaw": 3.141592653589793
+          },
+          "markers": {
+            "head": {
+              "x": 0,
+              "y": 1.67,
+              "z": 0
+            },
+            "shoulderLeft": {
+              "x": 0.25,
+              "y": 1.42,
+              "z": 3.061616997868383e-17
+            },
+            "shoulderRight": {
+              "x": -0.25,
+              "y": 1.42,
+              "z": -3.061616997868383e-17
+            }
+          },
+          "visible": {
+            "head": false,
+            "shoulderLeft": true,
+            "shoulderRight": false,
+            "ok": false
+          },
+          "screen": {
+            "head": {
+              "x": 466.27385868018166,
+              "y": 413.09845356715715,
+              "depth": 8
+            },
+            "shoulderLeft": {
+              "x": 487.0584683710082,
+              "y": 433.8830632579836,
+              "depth": 8
+            },
+            "shoulderRight": {
+              "x": 445.48924898935513,
+              "y": 433.8830632579836,
+              "depth": 8
+            }
+          }
+        },
+        {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": -0.5499999999999993,
+            "y": 2.0188179294159636,
+            "z": -6.5
+          },
+          "pivot": {
+            "x": -0.55,
+            "y": 2.0188179294159636,
+            "z": -6.735557395310444e-17
+          },
+          "yaw": 3.141592653589793,
+          "local": {
+            "x": 0,
+            "y": 0.9188179294159636,
+            "z": 0
+          },
+          "opponent": {
+            "centre": {
+              "x": 0,
+              "y": 0.92,
+              "z": 1.5
+            },
+            "yaw": 0
+          },
+          "markers": {
+            "head": {
+              "x": 0,
+              "y": 1.67,
+              "z": 1.5
+            },
+            "shoulderLeft": {
+              "x": -0.25,
+              "y": 1.42,
+              "z": 1.5
+            },
+            "shoulderRight": {
+              "x": 0.25,
+              "y": 1.42,
+              "z": 1.5
+            }
+          },
+          "visible": {
+            "head": false,
+            "shoulderLeft": true,
+            "shoulderRight": false,
+            "ok": false
+          },
+          "screen": {
+            "head": {
+              "x": 466.2738586801816,
+              "y": 413.0001780642923,
+              "depth": 8
+            },
+            "shoulderLeft": {
+              "x": 487.05846837100813,
+              "y": 433.7847877551188,
+              "depth": 8
+            },
+            "shoulderRight": {
+              "x": 445.4892489893551,
+              "y": 433.7847877551188,
+              "depth": 8
+            }
+          }
+        }
+      ],
+      "impactViews": {
+        "host": {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": 0.55,
+            "y": 2.02,
+            "z": 8
+          },
+          "pivot": {
+            "x": 0.55,
+            "y": 2.02,
+            "z": 1.5
+          },
+          "yaw": 0,
+          "local": {
+            "x": 0,
+            "y": 0.92,
+            "z": 1.5
+          },
+          "opponent": {
+            "centre": {
+              "x": 0,
+              "y": 0.92,
+              "z": 0
+            },
+            "yaw": 3.141592653589793
+          },
+          "markers": {
+            "head": {
+              "x": 0,
+              "y": 1.67,
+              "z": 0
+            },
+            "shoulderLeft": {
+              "x": 0.25,
+              "y": 1.42,
+              "z": 3.061616997868383e-17
+            },
+            "shoulderRight": {
+              "x": -0.25,
+              "y": 1.42,
+              "z": -3.061616997868383e-17
+            }
+          },
+          "visible": {
+            "head": false,
+            "shoulderLeft": true,
+            "shoulderRight": false,
+            "ok": false
+          },
+          "screen": {
+            "head": {
+              "x": 466.27385868018166,
+              "y": 413.09845356715715,
+              "depth": 8
+            },
+            "shoulderLeft": {
+              "x": 487.0584683710082,
+              "y": 433.8830632579836,
+              "depth": 8
+            },
+            "shoulderRight": {
+              "x": 445.48924898935513,
+              "y": 433.8830632579836,
+              "depth": 8
+            }
+          }
+        },
+        "guest": {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": -0.5499999999999993,
+            "y": 2.02,
+            "z": -6.5
+          },
+          "pivot": {
+            "x": -0.55,
+            "y": 2.02,
+            "z": -6.735557395310444e-17
+          },
+          "yaw": 3.141592653589793,
+          "local": {
+            "x": 0,
+            "y": 0.92,
+            "z": 0
+          },
+          "opponent": {
+            "centre": {
+              "x": 0,
+              "y": 0.92,
+              "z": 1.5
+            },
+            "yaw": 0
+          },
+          "markers": {
+            "head": {
+              "x": 0,
+              "y": 1.67,
+              "z": 1.5
+            },
+            "shoulderLeft": {
+              "x": -0.25,
+              "y": 1.42,
+              "z": 1.5
+            },
+            "shoulderRight": {
+              "x": 0.25,
+              "y": 1.42,
+              "z": 1.5
+            }
+          },
+          "visible": {
+            "head": false,
+            "shoulderLeft": true,
+            "shoulderRight": false,
+            "ok": false
+          },
+          "screen": {
+            "head": {
+              "x": 466.2738586801816,
+              "y": 413.09845356715715,
+              "depth": 8
+            },
+            "shoulderLeft": {
+              "x": 487.05846837100813,
+              "y": 433.8830632579836,
+              "depth": 8
+            },
+            "shoulderRight": {
+              "x": 445.4892489893551,
+              "y": 433.8830632579836,
+              "depth": 8
+            }
+          }
+        }
+      },
+      "samples": [
+        {
+          "t": 2,
+          "act": "Idle",
+          "hit": false,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 36,
+          "act": "Idle",
+          "hit": false,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 68,
+          "act": "Idle",
+          "hit": false,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 102,
+          "act": "Windup",
+          "hit": false,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 851,
+          "act": "Windup",
+          "hit": true,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 1637,
+          "act": "Recovery",
+          "hit": true,
+          "host": true,
+          "guest": false
+        }
+      ]
+    },
+    {
+      "stance": "aligned",
+      "spot": "wall",
+      "phasesCaptured": [
+        "Windup",
+        "Impact",
+        "Recovery"
+      ],
+      "shots": [
+        "aligned-wall-attacker-windup.png",
+        "aligned-wall-defender-windup.png",
+        "aligned-wall-attacker-impact.png",
+        "aligned-wall-defender-impact.png",
+        "aligned-wall-attacker-recovery.png",
+        "aligned-wall-defender-recovery.png"
+      ],
+      "impact": true,
+      "pre": [
+        {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": -1,
+            "y": 2.017035776672419,
+            "z": 0.5500000000000005
+          },
+          "pivot": {
+            "x": 5.5,
+            "y": 2.017035776672419,
+            "z": 0.55
+          },
+          "yaw": -1.5707963267948966,
+          "local": {
+            "x": 5.5,
+            "y": 0.9170357766724192,
+            "z": 0
+          },
+          "opponent": {
+            "centre": {
+              "x": 7.4,
+              "y": 0.92,
+              "z": 0
+            },
+            "yaw": 1.5707963267948966
+          },
+          "markers": {
+            "head": {
+              "x": 7.4,
+              "y": 1.67,
+              "z": 0
+            },
+            "shoulderLeft": {
+              "x": 7.4,
+              "y": 1.42,
+              "z": 0.25
+            },
+            "shoulderRight": {
+              "x": 7.4,
+              "y": 1.42,
+              "z": -0.25
+            }
+          },
+          "visible": {
+            "head": false,
+            "shoulderLeft": true,
+            "shoulderRight": false,
+            "ok": false
+          },
+          "screen": {
+            "head": {
+              "x": 468.4512939811254,
+              "y": 411.4781073024345,
+              "depth": 8.4
+            },
+            "shoulderLeft": {
+              "x": 488.2461603533411,
+              "y": 431.2729736746503,
+              "depth": 8.4
+            },
+            "shoulderRight": {
+              "x": 448.65642760890967,
+              "y": 431.2729736746503,
+              "depth": 8.4
+            }
+          }
+        },
+        {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": 13.9,
+            "y": 2.02,
+            "z": -0.5499999999999996
+          },
+          "pivot": {
+            "x": 7.4,
+            "y": 2.02,
+            "z": -0.55
+          },
+          "yaw": 1.5707963267948966,
+          "local": {
+            "x": 7.4,
+            "y": 0.92,
+            "z": 0
+          },
+          "opponent": {
+            "centre": {
+              "x": 5.5,
+              "y": 0.92,
+              "z": 0
+            },
+            "yaw": 4.71238898038469
+          },
+          "markers": {
+            "head": {
+              "x": 5.5,
+              "y": 1.67,
+              "z": 0
+            },
+            "shoulderLeft": {
+              "x": 5.5,
+              "y": 1.42,
+              "z": -0.25
+            },
+            "shoulderRight": {
+              "x": 5.5,
+              "y": 1.42,
+              "z": 0.25
+            }
+          },
+          "visible": {
+            "head": false,
+            "shoulderLeft": true,
+            "shoulderRight": false,
+            "ok": false
+          },
+          "screen": {
+            "head": {
+              "x": 468.45129398112533,
+              "y": 411.71281292110206,
+              "depth": 8.4
+            },
+            "shoulderLeft": {
+              "x": 488.2461603533411,
+              "y": 431.5076792933178,
+              "depth": 8.4
+            },
+            "shoulderRight": {
+              "x": 448.6564276089096,
+              "y": 431.5076792933178,
+              "depth": 8.4
+            }
+          }
+        }
+      ],
+      "impactViews": {
+        "host": {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": -1,
+            "y": 2.016635170013178,
+            "z": 0.5500000000000005
+          },
+          "pivot": {
+            "x": 5.5,
+            "y": 2.016635170013178,
+            "z": 0.55
+          },
+          "yaw": -1.5707963267948966,
+          "local": {
+            "x": 5.5,
+            "y": 0.9166351700131782,
+            "z": 0
+          },
+          "opponent": {
+            "centre": {
+              "x": 7.4,
+              "y": 0.92,
+              "z": 0
+            },
+            "yaw": 1.5707963267948966
+          },
+          "markers": {
+            "head": {
+              "x": 7.4,
+              "y": 1.67,
+              "z": 0
+            },
+            "shoulderLeft": {
+              "x": 7.4,
+              "y": 1.42,
+              "z": 0.25
+            },
+            "shoulderRight": {
+              "x": 7.4,
+              "y": 1.42,
+              "z": -0.25
+            }
+          },
+          "visible": {
+            "head": false,
+            "shoulderLeft": true,
+            "shoulderRight": false,
+            "ok": false
+          },
+          "screen": {
+            "head": {
+              "x": 468.4512939811254,
+              "y": 411.44638748128455,
+              "depth": 8.4
+            },
+            "shoulderLeft": {
+              "x": 488.2461603533411,
+              "y": 431.2412538535003,
+              "depth": 8.4
+            },
+            "shoulderRight": {
+              "x": 448.65642760890967,
+              "y": 431.2412538535003,
+              "depth": 8.4
+            }
+          }
+        },
+        "guest": {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": 13.9,
+            "y": 2.02,
+            "z": -0.5499999999999996
+          },
+          "pivot": {
+            "x": 7.4,
+            "y": 2.02,
+            "z": -0.55
+          },
+          "yaw": 1.5707963267948966,
+          "local": {
+            "x": 7.4,
+            "y": 0.92,
+            "z": 0
+          },
+          "opponent": {
+            "centre": {
+              "x": 5.5,
+              "y": 0.92,
+              "z": 0
+            },
+            "yaw": 4.71238898038469
+          },
+          "markers": {
+            "head": {
+              "x": 5.5,
+              "y": 1.67,
+              "z": 0
+            },
+            "shoulderLeft": {
+              "x": 5.5,
+              "y": 1.42,
+              "z": -0.25
+            },
+            "shoulderRight": {
+              "x": 5.5,
+              "y": 1.42,
+              "z": 0.25
+            }
+          },
+          "visible": {
+            "head": false,
+            "shoulderLeft": true,
+            "shoulderRight": false,
+            "ok": false
+          },
+          "screen": {
+            "head": {
+              "x": 468.45129398112533,
+              "y": 411.71281292110206,
+              "depth": 8.4
+            },
+            "shoulderLeft": {
+              "x": 488.2461603533411,
+              "y": 431.5076792933178,
+              "depth": 8.4
+            },
+            "shoulderRight": {
+              "x": 448.6564276089096,
+              "y": 431.5076792933178,
+              "depth": 8.4
+            }
+          }
+        }
+      },
+      "samples": [
+        {
+          "t": 2,
+          "act": "Idle",
+          "hit": false,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 34,
+          "act": "Idle",
+          "hit": false,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 68,
+          "act": "Idle",
+          "hit": false,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 101,
+          "act": "Windup",
+          "hit": false,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 950,
+          "act": "Recovery",
+          "hit": true,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 1776,
+          "act": "Active",
+          "hit": true,
+          "host": false,
+          "guest": true
+        },
+        {
+          "t": 1810,
+          "act": "Active",
+          "hit": true,
+          "host": false,
+          "guest": true
+        },
+        {
+          "t": 1843,
+          "act": "Active",
+          "hit": true,
+          "host": false,
+          "guest": true
+        },
+        {
+          "t": 1877,
+          "act": "Recovery",
+          "hit": true,
+          "host": false,
+          "guest": false
+        }
+      ]
+    },
+    {
+      "stance": "aligned",
+      "spot": "bridge",
+      "phasesCaptured": [
+        "Windup",
+        "Impact",
+        "Recovery"
+      ],
+      "shots": [
+        "aligned-bridge-attacker-windup.png",
+        "aligned-bridge-defender-windup.png",
+        "aligned-bridge-attacker-impact.png",
+        "aligned-bridge-defender-impact.png",
+        "aligned-bridge-attacker-recovery.png",
+        "aligned-bridge-defender-recovery.png"
+      ],
+      "impact": true,
+      "pre": [
+        {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": 19.7,
+            "y": 2.019886189492827,
+            "z": 0.5500000000000005
+          },
+          "pivot": {
+            "x": 26.2,
+            "y": 2.019886189492827,
+            "z": 0.55
+          },
+          "yaw": -1.5707963267948966,
+          "local": {
+            "x": 26.2,
+            "y": 0.9198861894928269,
+            "z": 0
+          },
+          "opponent": {
+            "centre": {
+              "x": 27.9,
+              "y": 0.92,
+              "z": 0
+            },
+            "yaw": 1.5707963267948966
+          },
+          "markers": {
+            "head": {
+              "x": 27.9,
+              "y": 1.67,
+              "z": 0
+            },
+            "shoulderLeft": {
+              "x": 27.9,
+              "y": 1.42,
+              "z": 0.25
+            },
+            "shoulderRight": {
+              "x": 27.9,
+              "y": 1.42,
+              "z": -0.25
+            }
+          },
+          "visible": {
+            "head": false,
+            "shoulderLeft": true,
+            "shoulderRight": false,
+            "ok": false
+          },
+          "screen": {
+            "head": {
+              "x": 467.3891304196894,
+              "y": 412.379503940757,
+              "depth": 8.2
+            },
+            "shoulderLeft": {
+              "x": 487.66679841073966,
+              "y": 432.6571719318072,
+              "depth": 8.2
+            },
+            "shoulderRight": {
+              "x": 447.11146242863913,
+              "y": 432.6571719318072,
+              "depth": 8.2
+            }
+          }
+        },
+        {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": 34.4,
+            "y": 2.0196774934697896,
+            "z": -0.5499999999999996
+          },
+          "pivot": {
+            "x": 27.9,
+            "y": 2.0196774934697896,
+            "z": -0.55
+          },
+          "yaw": 1.5707963267948966,
+          "local": {
+            "x": 27.9,
+            "y": 0.9196774934697897,
+            "z": 0
+          },
+          "opponent": {
+            "centre": {
+              "x": 26.2,
+              "y": 0.92,
+              "z": 0
+            },
+            "yaw": 4.71238898038469
+          },
+          "markers": {
+            "head": {
+              "x": 26.2,
+              "y": 1.67,
+              "z": 0
+            },
+            "shoulderLeft": {
+              "x": 26.2,
+              "y": 1.42,
+              "z": -0.25
+            },
+            "shoulderRight": {
+              "x": 26.2,
+              "y": 1.42,
+              "z": 0.25
+            }
+          },
+          "visible": {
+            "head": false,
+            "shoulderLeft": true,
+            "shoulderRight": false,
+            "ok": false
+          },
+          "screen": {
+            "head": {
+              "x": 467.38913041968937,
+              "y": 412.3625764660922,
+              "depth": 8.2
+            },
+            "shoulderLeft": {
+              "x": 487.66679841073966,
+              "y": 432.6402444571425,
+              "depth": 8.2
+            },
+            "shoulderRight": {
+              "x": 447.11146242863913,
+              "y": 432.6402444571425,
+              "depth": 8.2
+            }
+          }
+        }
+      ],
+      "impactViews": {
+        "host": {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": 19.7,
+            "y": 2.019886189492827,
+            "z": 0.5500000000000005
+          },
+          "pivot": {
+            "x": 26.2,
+            "y": 2.019886189492827,
+            "z": 0.55
+          },
+          "yaw": -1.5707963267948966,
+          "local": {
+            "x": 26.2,
+            "y": 0.9198861894928269,
+            "z": 0
+          },
+          "opponent": {
+            "centre": {
+              "x": 27.9,
+              "y": 0.92,
+              "z": 0
+            },
+            "yaw": 1.5707963267948966
+          },
+          "markers": {
+            "head": {
+              "x": 27.9,
+              "y": 1.67,
+              "z": 0
+            },
+            "shoulderLeft": {
+              "x": 27.9,
+              "y": 1.42,
+              "z": 0.25
+            },
+            "shoulderRight": {
+              "x": 27.9,
+              "y": 1.42,
+              "z": -0.25
+            }
+          },
+          "visible": {
+            "head": false,
+            "shoulderLeft": true,
+            "shoulderRight": false,
+            "ok": false
+          },
+          "screen": {
+            "head": {
+              "x": 467.3891304196894,
+              "y": 412.379503940757,
+              "depth": 8.2
+            },
+            "shoulderLeft": {
+              "x": 487.66679841073966,
+              "y": 432.6571719318072,
+              "depth": 8.2
+            },
+            "shoulderRight": {
+              "x": 447.11146242863913,
+              "y": 432.6571719318072,
+              "depth": 8.2
+            }
+          }
+        },
+        "guest": {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": 34.4,
+            "y": 2.02,
+            "z": -0.5499999999999996
+          },
+          "pivot": {
+            "x": 27.9,
+            "y": 2.02,
+            "z": -0.55
+          },
+          "yaw": 1.5707963267948966,
+          "local": {
+            "x": 27.9,
+            "y": 0.92,
+            "z": 0
+          },
+          "opponent": {
+            "centre": {
+              "x": 26.2,
+              "y": 0.92,
+              "z": 0
+            },
+            "yaw": 4.71238898038469
+          },
+          "markers": {
+            "head": {
+              "x": 26.2,
+              "y": 1.67,
+              "z": 0
+            },
+            "shoulderLeft": {
+              "x": 26.2,
+              "y": 1.42,
+              "z": -0.25
+            },
+            "shoulderRight": {
+              "x": 26.2,
+              "y": 1.42,
+              "z": 0.25
+            }
+          },
+          "visible": {
+            "head": false,
+            "shoulderLeft": true,
+            "shoulderRight": false,
+            "ok": false
+          },
+          "screen": {
+            "head": {
+              "x": 467.38913041968937,
+              "y": 412.3887351874704,
+              "depth": 8.2
+            },
+            "shoulderLeft": {
+              "x": 487.66679841073966,
+              "y": 432.6664031785207,
+              "depth": 8.2
+            },
+            "shoulderRight": {
+              "x": 447.11146242863913,
+              "y": 432.6664031785207,
+              "depth": 8.2
+            }
+          }
+        }
+      },
+      "samples": [
+        {
+          "t": 2,
+          "act": "Idle",
+          "hit": false,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 34,
+          "act": "Idle",
+          "hit": false,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 66,
+          "act": "Windup",
+          "hit": false,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 952,
+          "act": "Active",
+          "hit": true,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 1760,
+          "act": "Recovery",
+          "hit": true,
+          "host": false,
+          "guest": false
+        }
+      ]
+    },
+    {
+      "stance": "right",
+      "spot": "centre",
+      "phasesCaptured": [
+        "Windup",
+        "Impact",
+        "Recovery"
+      ],
+      "shots": [
+        "right-centre-attacker-windup.png",
+        "right-centre-defender-windup.png",
+        "right-centre-attacker-impact.png",
+        "right-centre-defender-impact.png",
+        "right-centre-attacker-recovery.png",
+        "right-centre-defender-recovery.png"
+      ],
+      "impact": true,
+      "pre": [
+        {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": 0.55,
+            "y": 2.02,
+            "z": 8
+          },
+          "pivot": {
+            "x": 0.55,
+            "y": 2.02,
+            "z": 1.5
+          },
+          "yaw": 0,
+          "local": {
+            "x": 0,
+            "y": 0.92,
+            "z": 1.5
+          },
+          "opponent": {
+            "centre": {
+              "x": 0.3,
+              "y": 0.92,
+              "z": 0
+            },
+            "yaw": 3.141592653589793
+          },
+          "markers": {
+            "head": {
+              "x": 0.3,
+              "y": 1.67,
+              "z": 0
+            },
+            "shoulderLeft": {
+              "x": 0.55,
+              "y": 1.42,
+              "z": 3.061616997868383e-17
+            },
+            "shoulderRight": {
+              "x": 0.04999999999999999,
+              "y": 1.42,
+              "z": -3.061616997868383e-17
+            }
+          },
+          "visible": {
+            "head": true,
+            "shoulderLeft": true,
+            "shoulderRight": false,
+            "ok": true
+          },
+          "screen": {
+            "head": {
+              "x": 491.2153903091735,
+              "y": 413.09845356715715,
+              "depth": 8
+            },
+            "shoulderLeft": {
+              "x": 512,
+              "y": 433.8830632579836,
+              "depth": 8
+            },
+            "shoulderRight": {
+              "x": 470.43078061834694,
+              "y": 433.8830632579836,
+              "depth": 8
+            }
+          }
+        },
+        {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": -0.24999999999999925,
+            "y": 2.0199660987523385,
+            "z": -6.5
+          },
+          "pivot": {
+            "x": -0.25000000000000006,
+            "y": 2.0199660987523385,
+            "z": -6.735557395310444e-17
+          },
+          "yaw": 3.141592653589793,
+          "local": {
+            "x": 0.3,
+            "y": 0.9199660987523385,
+            "z": 0
+          },
+          "opponent": {
+            "centre": {
+              "x": 0,
+              "y": 0.92,
+              "z": 1.5
+            },
+            "yaw": 0
+          },
+          "markers": {
+            "head": {
+              "x": 0,
+              "y": 1.67,
+              "z": 1.5
+            },
+            "shoulderLeft": {
+              "x": -0.25,
+              "y": 1.42,
+              "z": 1.5
+            },
+            "shoulderRight": {
+              "x": 0.25,
+              "y": 1.42,
+              "z": 1.5
+            }
+          },
+          "visible": {
+            "head": true,
+            "shoulderLeft": true,
+            "shoulderRight": false,
+            "ok": true
+          },
+          "screen": {
+            "head": {
+              "x": 491.2153903091735,
+              "y": 413.09563507035443,
+              "depth": 8
+            },
+            "shoulderLeft": {
+              "x": 512,
+              "y": 433.88024476118096,
+              "depth": 8
+            },
+            "shoulderRight": {
+              "x": 470.43078061834694,
+              "y": 433.88024476118096,
+              "depth": 8
+            }
+          }
+        }
+      ],
+      "impactViews": {
+        "host": {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": 0.55,
+            "y": 2.02,
+            "z": 8
+          },
+          "pivot": {
+            "x": 0.55,
+            "y": 2.02,
+            "z": 1.5
+          },
+          "yaw": 0,
+          "local": {
+            "x": 0,
+            "y": 0.92,
+            "z": 1.5
+          },
+          "opponent": {
+            "centre": {
+              "x": 0.3,
+              "y": 0.92,
+              "z": 0
+            },
+            "yaw": 3.141592653589793
+          },
+          "markers": {
+            "head": {
+              "x": 0.3,
+              "y": 1.67,
+              "z": 0
+            },
+            "shoulderLeft": {
+              "x": 0.55,
+              "y": 1.42,
+              "z": 3.061616997868383e-17
+            },
+            "shoulderRight": {
+              "x": 0.04999999999999999,
+              "y": 1.42,
+              "z": -3.061616997868383e-17
+            }
+          },
+          "visible": {
+            "head": true,
+            "shoulderLeft": true,
+            "shoulderRight": false,
+            "ok": true
+          },
+          "screen": {
+            "head": {
+              "x": 491.2153903091735,
+              "y": 413.09845356715715,
+              "depth": 8
+            },
+            "shoulderLeft": {
+              "x": 512,
+              "y": 433.8830632579836,
+              "depth": 8
+            },
+            "shoulderRight": {
+              "x": 470.43078061834694,
+              "y": 433.8830632579836,
+              "depth": 8
+            }
+          }
+        },
+        "guest": {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": -0.24999999999999925,
+            "y": 2.02,
+            "z": -6.5
+          },
+          "pivot": {
+            "x": -0.25000000000000006,
+            "y": 2.02,
+            "z": -6.735557395310444e-17
+          },
+          "yaw": 3.141592653589793,
+          "local": {
+            "x": 0.3,
+            "y": 0.92,
+            "z": 0
+          },
+          "opponent": {
+            "centre": {
+              "x": 0,
+              "y": 0.92,
+              "z": 1.5
+            },
+            "yaw": 0
+          },
+          "markers": {
+            "head": {
+              "x": 0,
+              "y": 1.67,
+              "z": 1.5
+            },
+            "shoulderLeft": {
+              "x": -0.25,
+              "y": 1.42,
+              "z": 1.5
+            },
+            "shoulderRight": {
+              "x": 0.25,
+              "y": 1.42,
+              "z": 1.5
+            }
+          },
+          "visible": {
+            "head": true,
+            "shoulderLeft": true,
+            "shoulderRight": false,
+            "ok": true
+          },
+          "screen": {
+            "head": {
+              "x": 491.2153903091735,
+              "y": 413.09845356715715,
+              "depth": 8
+            },
+            "shoulderLeft": {
+              "x": 512,
+              "y": 433.8830632579836,
+              "depth": 8
+            },
+            "shoulderRight": {
+              "x": 470.43078061834694,
+              "y": 433.8830632579836,
+              "depth": 8
+            }
+          }
+        }
+      },
+      "samples": [
+        {
+          "t": 2,
+          "act": "Idle",
+          "hit": false,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 35,
+          "act": "Idle",
+          "hit": false,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 66,
+          "act": "Idle",
+          "hit": false,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 99,
+          "act": "Windup",
+          "hit": false,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 849,
+          "act": "Windup",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1572,
+          "act": "Recovery",
+          "hit": true,
+          "host": true,
+          "guest": true
+        }
+      ]
+    },
+    {
+      "stance": "right",
+      "spot": "wall",
+      "phasesCaptured": [
+        "Windup",
+        "Impact",
+        "Recovery"
+      ],
+      "shots": [
+        "right-wall-attacker-windup.png",
+        "right-wall-defender-windup.png",
+        "right-wall-attacker-impact.png",
+        "right-wall-defender-impact.png",
+        "right-wall-attacker-recovery.png",
+        "right-wall-defender-recovery.png"
+      ],
+      "impact": true,
+      "pre": [
+        {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": -1,
+            "y": 2.0162605522746455,
+            "z": 0.5500000000000005
+          },
+          "pivot": {
+            "x": 5.5,
+            "y": 2.0162605522746455,
+            "z": 0.55
+          },
+          "yaw": -1.5707963267948966,
+          "local": {
+            "x": 5.5,
+            "y": 0.9162605522746453,
+            "z": 0
+          },
+          "opponent": {
+            "centre": {
+              "x": 7.4,
+              "y": 0.92,
+              "z": 0.3
+            },
+            "yaw": 1.5707963267948966
+          },
+          "markers": {
+            "head": {
+              "x": 7.4,
+              "y": 1.67,
+              "z": 0.3
+            },
+            "shoulderLeft": {
+              "x": 7.4,
+              "y": 1.42,
+              "z": 0.55
+            },
+            "shoulderRight": {
+              "x": 7.4,
+              "y": 1.42,
+              "z": 0.04999999999999999
+            }
+          },
+          "visible": {
+            "head": true,
+            "shoulderLeft": true,
+            "shoulderRight": false,
+            "ok": true
+          },
+          "screen": {
+            "head": {
+              "x": 492.2051336277843,
+              "y": 411.4167254489849,
+              "depth": 8.4
+            },
+            "shoulderLeft": {
+              "x": 512,
+              "y": 431.21159182120067,
+              "depth": 8.4
+            },
+            "shoulderRight": {
+              "x": 472.41026725556856,
+              "y": 431.21159182120067,
+              "depth": 8.4
+            }
+          }
+        },
+        {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": 13.9,
+            "y": 2.017743442421779,
+            "z": -0.24999999999999967
+          },
+          "pivot": {
+            "x": 7.4,
+            "y": 2.017743442421779,
+            "z": -0.25000000000000006
+          },
+          "yaw": 1.5707963267948966,
+          "local": {
+            "x": 7.4,
+            "y": 0.9177434424217791,
+            "z": 0.3
+          },
+          "opponent": {
+            "centre": {
+              "x": 5.5,
+              "y": 0.92,
+              "z": 0
+            },
+            "yaw": 4.71238898038469
+          },
+          "markers": {
+            "head": {
+              "x": 5.5,
+              "y": 1.67,
+              "z": 0
+            },
+            "shoulderLeft": {
+              "x": 5.5,
+              "y": 1.42,
+              "z": -0.25
+            },
+            "shoulderRight": {
+              "x": 5.5,
+              "y": 1.42,
+              "z": 0.25
+            }
+          },
+          "visible": {
+            "head": true,
+            "shoulderLeft": true,
+            "shoulderRight": false,
+            "ok": true
+          },
+          "screen": {
+            "head": {
+              "x": 492.2051336277842,
+              "y": 411.53413989821365,
+              "depth": 8.4
+            },
+            "shoulderLeft": {
+              "x": 512,
+              "y": 431.32900627042943,
+              "depth": 8.4
+            },
+            "shoulderRight": {
+              "x": 472.4102672555685,
+              "y": 431.32900627042943,
+              "depth": 8.4
+            }
+          }
+        }
+      ],
+      "impactViews": {
+        "host": {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": -1,
+            "y": 2.0167964035647454,
+            "z": 0.5500000000000005
+          },
+          "pivot": {
+            "x": 5.5,
+            "y": 2.0167964035647454,
+            "z": 0.55
+          },
+          "yaw": -1.5707963267948966,
+          "local": {
+            "x": 5.5,
+            "y": 0.9167964035647456,
+            "z": 0
+          },
+          "opponent": {
+            "centre": {
+              "x": 7.4,
+              "y": 0.92,
+              "z": 0.3
+            },
+            "yaw": 1.5707963267948966
+          },
+          "markers": {
+            "head": {
+              "x": 7.4,
+              "y": 1.67,
+              "z": 0.3
+            },
+            "shoulderLeft": {
+              "x": 7.4,
+              "y": 1.42,
+              "z": 0.55
+            },
+            "shoulderRight": {
+              "x": 7.4,
+              "y": 1.42,
+              "z": 0.04999999999999999
+            }
+          },
+          "visible": {
+            "head": true,
+            "shoulderLeft": true,
+            "shoulderRight": false,
+            "ok": true
+          },
+          "screen": {
+            "head": {
+              "x": 492.2051336277843,
+              "y": 411.4591538677165,
+              "depth": 8.4
+            },
+            "shoulderLeft": {
+              "x": 512,
+              "y": 431.2540202399323,
+              "depth": 8.4
+            },
+            "shoulderRight": {
+              "x": 472.41026725556856,
+              "y": 431.2540202399323,
+              "depth": 8.4
+            }
+          }
+        },
+        "guest": {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": 13.9,
+            "y": 2.02,
+            "z": -0.24999999999999967
+          },
+          "pivot": {
+            "x": 7.4,
+            "y": 2.02,
+            "z": -0.25000000000000006
+          },
+          "yaw": 1.5707963267948966,
+          "local": {
+            "x": 7.4,
+            "y": 0.92,
+            "z": 0.3
+          },
+          "opponent": {
+            "centre": {
+              "x": 5.5,
+              "y": 0.92,
+              "z": 0
+            },
+            "yaw": 4.71238898038469
+          },
+          "markers": {
+            "head": {
+              "x": 5.5,
+              "y": 1.67,
+              "z": 0
+            },
+            "shoulderLeft": {
+              "x": 5.5,
+              "y": 1.42,
+              "z": -0.25
+            },
+            "shoulderRight": {
+              "x": 5.5,
+              "y": 1.42,
+              "z": 0.25
+            }
+          },
+          "visible": {
+            "head": true,
+            "shoulderLeft": true,
+            "shoulderRight": false,
+            "ok": true
+          },
+          "screen": {
+            "head": {
+              "x": 492.2051336277842,
+              "y": 411.71281292110206,
+              "depth": 8.4
+            },
+            "shoulderLeft": {
+              "x": 512,
+              "y": 431.5076792933178,
+              "depth": 8.4
+            },
+            "shoulderRight": {
+              "x": 472.4102672555685,
+              "y": 431.5076792933178,
+              "depth": 8.4
+            }
+          }
+        }
+      },
+      "samples": [
+        {
+          "t": 2,
+          "act": "Idle",
+          "hit": false,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 34,
+          "act": "Idle",
+          "hit": false,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 68,
+          "act": "Idle",
+          "hit": false,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 102,
+          "act": "Windup",
+          "hit": false,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 974,
+          "act": "Recovery",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1805,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1839,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1872,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1906,
+          "act": "Recovery",
+          "hit": true,
+          "host": true,
+          "guest": true
+        }
+      ]
+    },
+    {
+      "stance": "right",
+      "spot": "bridge",
+      "phasesCaptured": [
+        "Windup",
+        "Impact",
+        "Recovery"
+      ],
+      "shots": [
+        "right-bridge-attacker-windup.png",
+        "right-bridge-defender-windup.png",
+        "right-bridge-attacker-impact.png",
+        "right-bridge-defender-impact.png",
+        "right-bridge-attacker-recovery.png",
+        "right-bridge-defender-recovery.png"
+      ],
+      "impact": true,
+      "pre": [
+        {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": 19.7,
+            "y": 2.019886189492827,
+            "z": 0.5500000000000005
+          },
+          "pivot": {
+            "x": 26.2,
+            "y": 2.019886189492827,
+            "z": 0.55
+          },
+          "yaw": -1.5707963267948966,
+          "local": {
+            "x": 26.2,
+            "y": 0.9198861894928269,
+            "z": 0
+          },
+          "opponent": {
+            "centre": {
+              "x": 27.9,
+              "y": 0.92,
+              "z": 0.3
+            },
+            "yaw": 1.5707963267948966
+          },
+          "markers": {
+            "head": {
+              "x": 27.9,
+              "y": 1.67,
+              "z": 0.3
+            },
+            "shoulderLeft": {
+              "x": 27.9,
+              "y": 1.42,
+              "z": 0.55
+            },
+            "shoulderRight": {
+              "x": 27.9,
+              "y": 1.42,
+              "z": 0.04999999999999999
+            }
+          },
+          "visible": {
+            "head": true,
+            "shoulderLeft": true,
+            "shoulderRight": false,
+            "ok": true
+          },
+          "screen": {
+            "head": {
+              "x": 491.7223320089497,
+              "y": 412.379503940757,
+              "depth": 8.2
+            },
+            "shoulderLeft": {
+              "x": 512,
+              "y": 432.6571719318072,
+              "depth": 8.2
+            },
+            "shoulderRight": {
+              "x": 471.44466401789947,
+              "y": 432.6571719318072,
+              "depth": 8.2
+            }
+          }
+        },
+        {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": 34.4,
+            "y": 2.0197657879889013,
+            "z": -0.24999999999999967
+          },
+          "pivot": {
+            "x": 27.9,
+            "y": 2.0197657879889013,
+            "z": -0.25000000000000006
+          },
+          "yaw": 1.5707963267948966,
+          "local": {
+            "x": 27.9,
+            "y": 0.9197657879889012,
+            "z": 0.3
+          },
+          "opponent": {
+            "centre": {
+              "x": 26.2,
+              "y": 0.92,
+              "z": 0
+            },
+            "yaw": 4.71238898038469
+          },
+          "markers": {
+            "head": {
+              "x": 26.2,
+              "y": 1.67,
+              "z": 0
+            },
+            "shoulderLeft": {
+              "x": 26.2,
+              "y": 1.42,
+              "z": -0.25
+            },
+            "shoulderRight": {
+              "x": 26.2,
+              "y": 1.42,
+              "z": 0.25
+            }
+          },
+          "visible": {
+            "head": true,
+            "shoulderLeft": true,
+            "shoulderRight": false,
+            "ok": true
+          },
+          "screen": {
+            "head": {
+              "x": 491.7223320089497,
+              "y": 412.369738093868,
+              "depth": 8.2
+            },
+            "shoulderLeft": {
+              "x": 512,
+              "y": 432.6474060849183,
+              "depth": 8.2
+            },
+            "shoulderRight": {
+              "x": 471.4446640178994,
+              "y": 432.6474060849183,
+              "depth": 8.2
+            }
+          }
+        }
+      ],
+      "impactViews": {
+        "host": {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": 19.7,
+            "y": 2.019886189492827,
+            "z": 0.5500000000000005
+          },
+          "pivot": {
+            "x": 26.2,
+            "y": 2.019886189492827,
+            "z": 0.55
+          },
+          "yaw": -1.5707963267948966,
+          "local": {
+            "x": 26.2,
+            "y": 0.9198861894928269,
+            "z": 0
+          },
+          "opponent": {
+            "centre": {
+              "x": 27.9,
+              "y": 0.92,
+              "z": 0.3
+            },
+            "yaw": 1.5707963267948966
+          },
+          "markers": {
+            "head": {
+              "x": 27.9,
+              "y": 1.67,
+              "z": 0.3
+            },
+            "shoulderLeft": {
+              "x": 27.9,
+              "y": 1.42,
+              "z": 0.55
+            },
+            "shoulderRight": {
+              "x": 27.9,
+              "y": 1.42,
+              "z": 0.04999999999999999
+            }
+          },
+          "visible": {
+            "head": true,
+            "shoulderLeft": true,
+            "shoulderRight": false,
+            "ok": true
+          },
+          "screen": {
+            "head": {
+              "x": 491.7223320089497,
+              "y": 412.379503940757,
+              "depth": 8.2
+            },
+            "shoulderLeft": {
+              "x": 512,
+              "y": 432.6571719318072,
+              "depth": 8.2
+            },
+            "shoulderRight": {
+              "x": 471.44466401789947,
+              "y": 432.6571719318072,
+              "depth": 8.2
+            }
+          }
+        },
+        "guest": {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": 34.4,
+            "y": 2.02,
+            "z": -0.24999999999999967
+          },
+          "pivot": {
+            "x": 27.9,
+            "y": 2.02,
+            "z": -0.25000000000000006
+          },
+          "yaw": 1.5707963267948966,
+          "local": {
+            "x": 27.9,
+            "y": 0.92,
+            "z": 0.3
+          },
+          "opponent": {
+            "centre": {
+              "x": 26.2,
+              "y": 0.92,
+              "z": 0
+            },
+            "yaw": 4.71238898038469
+          },
+          "markers": {
+            "head": {
+              "x": 26.2,
+              "y": 1.67,
+              "z": 0
+            },
+            "shoulderLeft": {
+              "x": 26.2,
+              "y": 1.42,
+              "z": -0.25
+            },
+            "shoulderRight": {
+              "x": 26.2,
+              "y": 1.42,
+              "z": 0.25
+            }
+          },
+          "visible": {
+            "head": true,
+            "shoulderLeft": true,
+            "shoulderRight": false,
+            "ok": true
+          },
+          "screen": {
+            "head": {
+              "x": 491.7223320089497,
+              "y": 412.3887351874704,
+              "depth": 8.2
+            },
+            "shoulderLeft": {
+              "x": 512,
+              "y": 432.6664031785207,
+              "depth": 8.2
+            },
+            "shoulderRight": {
+              "x": 471.4446640178994,
+              "y": 432.6664031785207,
+              "depth": 8.2
+            }
+          }
+        }
+      },
+      "samples": [
+        {
+          "t": 2,
+          "act": "Idle",
+          "hit": false,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 35,
+          "act": "Idle",
+          "hit": false,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 69,
+          "act": "Windup",
+          "hit": false,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 959,
+          "act": "Recovery",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1756,
+          "act": "Recovery",
+          "hit": true,
+          "host": true,
+          "guest": true
+        }
+      ]
+    },
+    {
+      "stance": "left",
+      "spot": "centre",
+      "phasesCaptured": [
+        "Windup",
+        "Impact",
+        "Recovery"
+      ],
+      "shots": [
+        "left-centre-attacker-windup.png",
+        "left-centre-defender-windup.png",
+        "left-centre-attacker-impact.png",
+        "left-centre-defender-impact.png",
+        "left-centre-attacker-recovery.png",
+        "left-centre-defender-recovery.png"
+      ],
+      "impact": true,
+      "pre": [
+        {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": 0.55,
+            "y": 2.02,
+            "z": 8
+          },
+          "pivot": {
+            "x": 0.55,
+            "y": 2.02,
+            "z": 1.5
+          },
+          "yaw": 0,
+          "local": {
+            "x": 0,
+            "y": 0.92,
+            "z": 1.5
+          },
+          "opponent": {
+            "centre": {
+              "x": -0.3,
+              "y": 0.92,
+              "z": 0
+            },
+            "yaw": 3.141592653589793
+          },
+          "markers": {
+            "head": {
+              "x": -0.3,
+              "y": 1.67,
+              "z": 0
+            },
+            "shoulderLeft": {
+              "x": -0.04999999999999999,
+              "y": 1.42,
+              "z": 3.061616997868383e-17
+            },
+            "shoulderRight": {
+              "x": -0.55,
+              "y": 1.42,
+              "z": -3.061616997868383e-17
+            }
+          },
+          "visible": {
+            "head": false,
+            "shoulderLeft": false,
+            "shoulderRight": true,
+            "ok": false
+          },
+          "screen": {
+            "head": {
+              "x": 441.3323270511898,
+              "y": 413.09845356715715,
+              "depth": 8
+            },
+            "shoulderLeft": {
+              "x": 462.1169367420163,
+              "y": 433.8830632579836,
+              "depth": 8
+            },
+            "shoulderRight": {
+              "x": 420.54771736036327,
+              "y": 433.8830632579836,
+              "depth": 8
+            }
+          }
+        },
+        {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": -0.8499999999999993,
+            "y": 2.02,
+            "z": -6.5
+          },
+          "pivot": {
+            "x": -0.8500000000000001,
+            "y": 2.02,
+            "z": -6.735557395310444e-17
+          },
+          "yaw": 3.141592653589793,
+          "local": {
+            "x": -0.3,
+            "y": 0.92,
+            "z": 0
+          },
+          "opponent": {
+            "centre": {
+              "x": 0,
+              "y": 0.92,
+              "z": 1.5
+            },
+            "yaw": 0
+          },
+          "markers": {
+            "head": {
+              "x": 0,
+              "y": 1.67,
+              "z": 1.5
+            },
+            "shoulderLeft": {
+              "x": -0.25,
+              "y": 1.42,
+              "z": 1.5
+            },
+            "shoulderRight": {
+              "x": 0.25,
+              "y": 1.42,
+              "z": 1.5
+            }
+          },
+          "visible": {
+            "head": false,
+            "shoulderLeft": false,
+            "shoulderRight": true,
+            "ok": false
+          },
+          "screen": {
+            "head": {
+              "x": 441.3323270511898,
+              "y": 413.09845356715715,
+              "depth": 8
+            },
+            "shoulderLeft": {
+              "x": 462.1169367420163,
+              "y": 433.8830632579836,
+              "depth": 8
+            },
+            "shoulderRight": {
+              "x": 420.54771736036327,
+              "y": 433.8830632579836,
+              "depth": 8
+            }
+          }
+        }
+      ],
+      "impactViews": {
+        "host": {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": 0.55,
+            "y": 2.02,
+            "z": 8
+          },
+          "pivot": {
+            "x": 0.55,
+            "y": 2.02,
+            "z": 1.5
+          },
+          "yaw": 0,
+          "local": {
+            "x": 0,
+            "y": 0.92,
+            "z": 1.5
+          },
+          "opponent": {
+            "centre": {
+              "x": -0.3,
+              "y": 0.92,
+              "z": 0
+            },
+            "yaw": 3.141592653589793
+          },
+          "markers": {
+            "head": {
+              "x": -0.3,
+              "y": 1.67,
+              "z": 0
+            },
+            "shoulderLeft": {
+              "x": -0.04999999999999999,
+              "y": 1.42,
+              "z": 3.061616997868383e-17
+            },
+            "shoulderRight": {
+              "x": -0.55,
+              "y": 1.42,
+              "z": -3.061616997868383e-17
+            }
+          },
+          "visible": {
+            "head": false,
+            "shoulderLeft": false,
+            "shoulderRight": true,
+            "ok": false
+          },
+          "screen": {
+            "head": {
+              "x": 441.3323270511898,
+              "y": 413.09845356715715,
+              "depth": 8
+            },
+            "shoulderLeft": {
+              "x": 462.1169367420163,
+              "y": 433.8830632579836,
+              "depth": 8
+            },
+            "shoulderRight": {
+              "x": 420.54771736036327,
+              "y": 433.8830632579836,
+              "depth": 8
+            }
+          }
+        },
+        "guest": {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": -0.8499999999999993,
+            "y": 2.02,
+            "z": -6.5
+          },
+          "pivot": {
+            "x": -0.8500000000000001,
+            "y": 2.02,
+            "z": -6.735557395310444e-17
+          },
+          "yaw": 3.141592653589793,
+          "local": {
+            "x": -0.3,
+            "y": 0.92,
+            "z": 0
+          },
+          "opponent": {
+            "centre": {
+              "x": 0,
+              "y": 0.92,
+              "z": 1.5
+            },
+            "yaw": 0
+          },
+          "markers": {
+            "head": {
+              "x": 0,
+              "y": 1.67,
+              "z": 1.5
+            },
+            "shoulderLeft": {
+              "x": -0.25,
+              "y": 1.42,
+              "z": 1.5
+            },
+            "shoulderRight": {
+              "x": 0.25,
+              "y": 1.42,
+              "z": 1.5
+            }
+          },
+          "visible": {
+            "head": false,
+            "shoulderLeft": false,
+            "shoulderRight": true,
+            "ok": false
+          },
+          "screen": {
+            "head": {
+              "x": 441.3323270511898,
+              "y": 413.09845356715715,
+              "depth": 8
+            },
+            "shoulderLeft": {
+              "x": 462.1169367420163,
+              "y": 433.8830632579836,
+              "depth": 8
+            },
+            "shoulderRight": {
+              "x": 420.54771736036327,
+              "y": 433.8830632579836,
+              "depth": 8
+            }
+          }
+        }
+      },
+      "samples": [
+        {
+          "t": 2,
+          "act": "Idle",
+          "hit": false,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 34,
+          "act": "Idle",
+          "hit": false,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 66,
+          "act": "Idle",
+          "hit": false,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 98,
+          "act": "Windup",
+          "hit": false,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 852,
+          "act": "Windup",
+          "hit": true,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 1640,
+          "act": "Recovery",
+          "hit": true,
+          "host": true,
+          "guest": false
+        }
+      ]
+    },
+    {
+      "stance": "left",
+      "spot": "wall",
+      "phasesCaptured": [
+        "Windup",
+        "Impact",
+        "Recovery"
+      ],
+      "shots": [
+        "left-wall-attacker-windup.png",
+        "left-wall-defender-windup.png",
+        "left-wall-attacker-impact.png",
+        "left-wall-defender-impact.png",
+        "left-wall-attacker-recovery.png",
+        "left-wall-defender-recovery.png"
+      ],
+      "impact": true,
+      "pre": [
+        {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": -1,
+            "y": 2.017035776672419,
+            "z": 0.5500000000000005
+          },
+          "pivot": {
+            "x": 5.5,
+            "y": 2.017035776672419,
+            "z": 0.55
+          },
+          "yaw": -1.5707963267948966,
+          "local": {
+            "x": 5.5,
+            "y": 0.9170357766724192,
+            "z": 0
+          },
+          "opponent": {
+            "centre": {
+              "x": 7.4,
+              "y": 0.92,
+              "z": -0.3
+            },
+            "yaw": 1.5707963267948966
+          },
+          "markers": {
+            "head": {
+              "x": 7.4,
+              "y": 1.67,
+              "z": -0.3
+            },
+            "shoulderLeft": {
+              "x": 7.4,
+              "y": 1.42,
+              "z": -0.04999999999999999
+            },
+            "shoulderRight": {
+              "x": 7.4,
+              "y": 1.42,
+              "z": -0.55
+            }
+          },
+          "visible": {
+            "head": false,
+            "shoulderLeft": false,
+            "shoulderRight": true,
+            "ok": false
+          },
+          "screen": {
+            "head": {
+              "x": 444.6974543344665,
+              "y": 411.4781073024345,
+              "depth": 8.4
+            },
+            "shoulderLeft": {
+              "x": 464.4923207066822,
+              "y": 431.2729736746503,
+              "depth": 8.4
+            },
+            "shoulderRight": {
+              "x": 424.9025879622508,
+              "y": 431.2729736746503,
+              "depth": 8.4
+            }
+          }
+        },
+        {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": 13.9,
+            "y": 2.02,
+            "z": -0.8499999999999996
+          },
+          "pivot": {
+            "x": 7.4,
+            "y": 2.02,
+            "z": -0.8500000000000001
+          },
+          "yaw": 1.5707963267948966,
+          "local": {
+            "x": 7.4,
+            "y": 0.92,
+            "z": -0.3
+          },
+          "opponent": {
+            "centre": {
+              "x": 5.5,
+              "y": 0.92,
+              "z": 0
+            },
+            "yaw": 4.71238898038469
+          },
+          "markers": {
+            "head": {
+              "x": 5.5,
+              "y": 1.67,
+              "z": 0
+            },
+            "shoulderLeft": {
+              "x": 5.5,
+              "y": 1.42,
+              "z": -0.25
+            },
+            "shoulderRight": {
+              "x": 5.5,
+              "y": 1.42,
+              "z": 0.25
+            }
+          },
+          "visible": {
+            "head": false,
+            "shoulderLeft": false,
+            "shoulderRight": true,
+            "ok": false
+          },
+          "screen": {
+            "head": {
+              "x": 444.69745433446644,
+              "y": 411.71281292110206,
+              "depth": 8.4
+            },
+            "shoulderLeft": {
+              "x": 464.4923207066822,
+              "y": 431.5076792933178,
+              "depth": 8.4
+            },
+            "shoulderRight": {
+              "x": 424.9025879622507,
+              "y": 431.5076792933178,
+              "depth": 8.4
+            }
+          }
+        }
+      ],
+      "impactViews": {
+        "host": {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": -1,
+            "y": 2.0177567800087854,
+            "z": 0.5500000000000005
+          },
+          "pivot": {
+            "x": 5.5,
+            "y": 2.0177567800087854,
+            "z": 0.55
+          },
+          "yaw": -1.5707963267948966,
+          "local": {
+            "x": 5.5,
+            "y": 0.9177567800087855,
+            "z": 0
+          },
+          "opponent": {
+            "centre": {
+              "x": 7.4,
+              "y": 0.92,
+              "z": -0.3
+            },
+            "yaw": 1.5707963267948966
+          },
+          "markers": {
+            "head": {
+              "x": 7.4,
+              "y": 1.67,
+              "z": -0.3
+            },
+            "shoulderLeft": {
+              "x": 7.4,
+              "y": 1.42,
+              "z": -0.04999999999999999
+            },
+            "shoulderRight": {
+              "x": 7.4,
+              "y": 1.42,
+              "z": -0.55
+            }
+          },
+          "visible": {
+            "head": false,
+            "shoulderLeft": false,
+            "shoulderRight": true,
+            "ok": false
+          },
+          "screen": {
+            "head": {
+              "x": 444.6974543344665,
+              "y": 411.53519596122374,
+              "depth": 8.4
+            },
+            "shoulderLeft": {
+              "x": 464.4923207066822,
+              "y": 431.33006233343946,
+              "depth": 8.4
+            },
+            "shoulderRight": {
+              "x": 424.9025879622508,
+              "y": 431.33006233343946,
+              "depth": 8.4
+            }
+          }
+        },
+        "guest": {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": 13.9,
+            "y": 2.02,
+            "z": -0.8499999999999996
+          },
+          "pivot": {
+            "x": 7.4,
+            "y": 2.02,
+            "z": -0.8500000000000001
+          },
+          "yaw": 1.5707963267948966,
+          "local": {
+            "x": 7.4,
+            "y": 0.92,
+            "z": -0.3
+          },
+          "opponent": {
+            "centre": {
+              "x": 5.5,
+              "y": 0.92,
+              "z": 0
+            },
+            "yaw": 4.71238898038469
+          },
+          "markers": {
+            "head": {
+              "x": 5.5,
+              "y": 1.67,
+              "z": 0
+            },
+            "shoulderLeft": {
+              "x": 5.5,
+              "y": 1.42,
+              "z": -0.25
+            },
+            "shoulderRight": {
+              "x": 5.5,
+              "y": 1.42,
+              "z": 0.25
+            }
+          },
+          "visible": {
+            "head": false,
+            "shoulderLeft": false,
+            "shoulderRight": true,
+            "ok": false
+          },
+          "screen": {
+            "head": {
+              "x": 444.69745433446644,
+              "y": 411.71281292110206,
+              "depth": 8.4
+            },
+            "shoulderLeft": {
+              "x": 464.4923207066822,
+              "y": 431.5076792933178,
+              "depth": 8.4
+            },
+            "shoulderRight": {
+              "x": 424.9025879622507,
+              "y": 431.5076792933178,
+              "depth": 8.4
+            }
+          }
+        }
+      },
+      "samples": [
+        {
+          "t": 2,
+          "act": "Idle",
+          "hit": false,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 36,
+          "act": "Idle",
+          "hit": false,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 70,
+          "act": "Idle",
+          "hit": false,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 103,
+          "act": "Windup",
+          "hit": false,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 968,
+          "act": "Recovery",
+          "hit": true,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 1789,
+          "act": "Active",
+          "hit": true,
+          "host": false,
+          "guest": true
+        },
+        {
+          "t": 1824,
+          "act": "Active",
+          "hit": true,
+          "host": false,
+          "guest": true
+        },
+        {
+          "t": 1856,
+          "act": "Active",
+          "hit": true,
+          "host": false,
+          "guest": true
+        },
+        {
+          "t": 1890,
+          "act": "Recovery",
+          "hit": true,
+          "host": false,
+          "guest": true
+        }
+      ]
+    },
+    {
+      "stance": "left",
+      "spot": "bridge",
+      "phasesCaptured": [
+        "Windup",
+        "Impact",
+        "Recovery"
+      ],
+      "shots": [
+        "left-bridge-attacker-windup.png",
+        "left-bridge-defender-windup.png",
+        "left-bridge-attacker-impact.png",
+        "left-bridge-defender-impact.png",
+        "left-bridge-attacker-recovery.png",
+        "left-bridge-defender-recovery.png"
+      ],
+      "impact": true,
+      "pre": [
+        {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": 19.7,
+            "y": 2.019886189492827,
+            "z": 0.5500000000000005
+          },
+          "pivot": {
+            "x": 26.2,
+            "y": 2.019886189492827,
+            "z": 0.55
+          },
+          "yaw": -1.5707963267948966,
+          "local": {
+            "x": 26.2,
+            "y": 0.9198861894928269,
+            "z": 0
+          },
+          "opponent": {
+            "centre": {
+              "x": 27.9,
+              "y": 0.92,
+              "z": -0.3
+            },
+            "yaw": 1.5707963267948966
+          },
+          "markers": {
+            "head": {
+              "x": 27.9,
+              "y": 1.67,
+              "z": -0.3
+            },
+            "shoulderLeft": {
+              "x": 27.9,
+              "y": 1.42,
+              "z": -0.04999999999999999
+            },
+            "shoulderRight": {
+              "x": 27.9,
+              "y": 1.42,
+              "z": -0.55
+            }
+          },
+          "visible": {
+            "head": false,
+            "shoulderLeft": false,
+            "shoulderRight": true,
+            "ok": false
+          },
+          "screen": {
+            "head": {
+              "x": 443.0559288304291,
+              "y": 412.379503940757,
+              "depth": 8.2
+            },
+            "shoulderLeft": {
+              "x": 463.3335968214793,
+              "y": 432.6571719318072,
+              "depth": 8.2
+            },
+            "shoulderRight": {
+              "x": 422.7782608393788,
+              "y": 432.6571719318072,
+              "depth": 8.2
+            }
+          }
+        },
+        {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": 34.4,
+            "y": 2.02,
+            "z": -0.8499999999999996
+          },
+          "pivot": {
+            "x": 27.9,
+            "y": 2.02,
+            "z": -0.8500000000000001
+          },
+          "yaw": 1.5707963267948966,
+          "local": {
+            "x": 27.9,
+            "y": 0.92,
+            "z": -0.3
+          },
+          "opponent": {
+            "centre": {
+              "x": 26.2,
+              "y": 0.92,
+              "z": 0
+            },
+            "yaw": 4.71238898038469
+          },
+          "markers": {
+            "head": {
+              "x": 26.2,
+              "y": 1.67,
+              "z": 0
+            },
+            "shoulderLeft": {
+              "x": 26.2,
+              "y": 1.42,
+              "z": -0.25
+            },
+            "shoulderRight": {
+              "x": 26.2,
+              "y": 1.42,
+              "z": 0.25
+            }
+          },
+          "visible": {
+            "head": false,
+            "shoulderLeft": false,
+            "shoulderRight": true,
+            "ok": false
+          },
+          "screen": {
+            "head": {
+              "x": 443.055928830429,
+              "y": 412.3887351874704,
+              "depth": 8.2
+            },
+            "shoulderLeft": {
+              "x": 463.3335968214793,
+              "y": 432.6664031785207,
+              "depth": 8.2
+            },
+            "shoulderRight": {
+              "x": 422.77826083937873,
+              "y": 432.6664031785207,
+              "depth": 8.2
+            }
+          }
+        }
+      ],
+      "impactViews": {
+        "host": {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": 19.7,
+            "y": 2.019886189492827,
+            "z": 0.5500000000000005
+          },
+          "pivot": {
+            "x": 26.2,
+            "y": 2.019886189492827,
+            "z": 0.55
+          },
+          "yaw": -1.5707963267948966,
+          "local": {
+            "x": 26.2,
+            "y": 0.9198861894928269,
+            "z": 0
+          },
+          "opponent": {
+            "centre": {
+              "x": 27.9,
+              "y": 0.92,
+              "z": -0.3
+            },
+            "yaw": 1.5707963267948966
+          },
+          "markers": {
+            "head": {
+              "x": 27.9,
+              "y": 1.67,
+              "z": -0.3
+            },
+            "shoulderLeft": {
+              "x": 27.9,
+              "y": 1.42,
+              "z": -0.04999999999999999
+            },
+            "shoulderRight": {
+              "x": 27.9,
+              "y": 1.42,
+              "z": -0.55
+            }
+          },
+          "visible": {
+            "head": false,
+            "shoulderLeft": false,
+            "shoulderRight": true,
+            "ok": false
+          },
+          "screen": {
+            "head": {
+              "x": 443.0559288304291,
+              "y": 412.379503940757,
+              "depth": 8.2
+            },
+            "shoulderLeft": {
+              "x": 463.3335968214793,
+              "y": 432.6571719318072,
+              "depth": 8.2
+            },
+            "shoulderRight": {
+              "x": 422.7782608393788,
+              "y": 432.6571719318072,
+              "depth": 8.2
+            }
+          }
+        },
+        "guest": {
+          "offset": 0.55,
+          "distance": 6.5,
+          "position": {
+            "x": 34.4,
+            "y": 2.02,
+            "z": -0.8499999999999996
+          },
+          "pivot": {
+            "x": 27.9,
+            "y": 2.02,
+            "z": -0.8500000000000001
+          },
+          "yaw": 1.5707963267948966,
+          "local": {
+            "x": 27.9,
+            "y": 0.92,
+            "z": -0.3
+          },
+          "opponent": {
+            "centre": {
+              "x": 26.2,
+              "y": 0.92,
+              "z": 0
+            },
+            "yaw": 4.71238898038469
+          },
+          "markers": {
+            "head": {
+              "x": 26.2,
+              "y": 1.67,
+              "z": 0
+            },
+            "shoulderLeft": {
+              "x": 26.2,
+              "y": 1.42,
+              "z": -0.25
+            },
+            "shoulderRight": {
+              "x": 26.2,
+              "y": 1.42,
+              "z": 0.25
+            }
+          },
+          "visible": {
+            "head": false,
+            "shoulderLeft": false,
+            "shoulderRight": true,
+            "ok": false
+          },
+          "screen": {
+            "head": {
+              "x": 443.055928830429,
+              "y": 412.3887351874704,
+              "depth": 8.2
+            },
+            "shoulderLeft": {
+              "x": 463.3335968214793,
+              "y": 432.6664031785207,
+              "depth": 8.2
+            },
+            "shoulderRight": {
+              "x": 422.77826083937873,
+              "y": 432.6664031785207,
+              "depth": 8.2
+            }
+          }
+        }
+      },
+      "samples": [
+        {
+          "t": 2,
+          "act": "Idle",
+          "hit": false,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 34,
+          "act": "Idle",
+          "hit": false,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 68,
+          "act": "Windup",
+          "hit": false,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 957,
+          "act": "Recovery",
+          "hit": true,
+          "host": false,
+          "guest": false
+        },
+        {
+          "t": 1777,
+          "act": "Recovery",
+          "hit": true,
+          "host": false,
+          "guest": false
+        }
+      ]
+    }
+  ]
+}

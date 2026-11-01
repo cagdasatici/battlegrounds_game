@@ -27,7 +27,7 @@ import { PointerRouter, attachPointerRouter } from "./input/PointerRouter.js";
 import { ClockSync } from "./net/ClockSync.js";
 import { createRapierCollide, initRapier } from "./net/RapierCollide.js";
 import { RoomClient } from "./net/RoomClient.js";
-import { CameraRig } from "./scene/CameraRig.js";
+import { CameraRig, fighterMarkers, framingOk, projectPoint } from "./scene/CameraRig.js";
 import { GameScene, hasWebGL2, isSoftwareRenderer, type Quality } from "./scene/GameScene.js";
 import { Hud, readSafeRect } from "./ui/Hud.js";
 import {
@@ -194,7 +194,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       gs = new GameScene(renderer, m.colliders, window);
       if (softwareGl) gs.setQuality("low");
       await gs.loadEnvironment();
-      gs.setCamera({ position: { x: 0, y: 20, z: 40 }, pivot: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0, distance: 40 });
+      gs.setCamera({ position: { x: 0, y: 20, z: 40 }, pivot: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0, distance: 40, shoulderOffset: 0 });
       map = m;
       const idle = (): void => { if (matchCleanups.length === 0) gs?.render(); rafId = requestAnimationFrame(idle); };
       rafId = requestAnimationFrame(idle);
@@ -492,6 +492,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
 
     if (opts.debug) {
       (window as unknown as { __eb: unknown }).__eb = {
+        /** Test-only: sets the player-controlled camera yaw so both fighters can face each other. */
+        setCameraYaw: (y: number) => { router.yaw = y; },
         snapshot: () => ({
           localEntityId: loop.localEntityId,
           serverTick: (r.state as { serverTick?: number }).serverTick ?? 0,
@@ -502,6 +504,18 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
           render: glRenderer ? { calls: glRenderer.info.render.calls, triangles: glRenderer.info.render.triangles, tier: adaptive.level } : null,
           fx: { active: g.effects.activeCount, capacity: g.effects.capacity, flashing: [...players().keys()].filter((id) => g.viewFor(id)?.flashing), shaking: cam.shaking },
           corrections: { ...loop.correctionCounts },
+          camera: (() => {
+            const f = loop.framing;
+            if (!f) return null;
+            const markers = f.opponent ? fighterMarkers(f.opponent) : null;
+            const aspect = g.camera.aspect;
+            return { offset: cam.shoulderOffset, distance: cam.pose.distance, position: cam.pose.position, pivot: cam.pose.pivot, yaw: router.yaw, local: f.local, opponent: f.opponent, markers,
+              visible: f.opponent ? framingOk(cam.pose, f.local, f.opponent, aspect) : null,
+              screen: markers ? Object.fromEntries(Object.entries(markers).map(([k, v]) => {
+                const q = projectPoint(cam.pose, v, aspect);
+                return [k, { x: (q.x + 1) / 2 * window.innerWidth, y: (1 - q.y) / 2 * window.innerHeight, depth: q.depth }];
+              })) : null };
+          })(),
           predicted: loop.prediction ? { ...loop.prediction.pos } : null,
           players: [...players().values()].map((p) => ({
             entityId: p.entityId, name: p.displayName, kitId: p.kitId, hp100: p.hp100, action: p.action, moveId: p.moveId ?? "", ready: p.ready ?? false,

@@ -3,7 +3,7 @@ import { COMBAT } from "../../packages/shared/src/config/combat.js";
 import type { Collider } from "../../packages/shared/src/config/arena.js";
 import { NEUTRAL_MOVE, type MoveIntent } from "../../packages/shared/src/movement.js";
 import { parseInputPacket } from "../../packages/shared/src/index.js";
-import { CAMERA, CameraRig, cameraRelativeToWorld, sphereCast } from "../../apps/client/src/scene/CameraRig.js";
+import { CAMERA, CLOSE_COMBAT, CameraRig, cameraRelativeToWorld, framingOk, sphereCast } from "../../apps/client/src/scene/CameraRig.js";
 import { Prediction, PREDICTION, type Collide, type OwnerSnapshot } from "../../apps/client/src/net/Prediction.js";
 import { ClockSync } from "../../apps/client/src/net/ClockSync.js";
 import { SnapshotBuffer } from "../../apps/client/src/net/SnapshotBuffer.js";
@@ -173,6 +173,73 @@ describe("CameraRig (section 9)", () => {
     r.setDistance(1); expect(r.distanceSetting).toBe(3.5);
     r.setDistance(99); expect(r.distanceSetting).toBe(10);
     r.setDistance(Number.NaN); expect(r.distanceSetting).toBe(6.5);
+  });
+});
+
+describe("QC01 close-combat framing", () => {
+  const me = { x: 0, y: 0.9, z: 0 };
+  // Camera at +Z looking -Z; an opponent 1.5 m ahead on the same line hides behind the local torso.
+  const hidden = { centre: { x: 0.2, y: 0.9, z: -1.5 }, yaw: Math.PI };
+  const settle = (r: CameraRig, o: { centre: { x: number; y: number; z: number }; yaw: number } | null, s = 0.3) => r.update(me, 0, 0, s, o);
+  test("hidden opponent is not framed without offset, and is framed after the shoulder offset", () => {
+    const flat = new CameraRig([]).update(me, 0, 0, 0.3, null);
+    expect(framingOk(flat, me, hidden, 16 / 9).ok).toBe(false);
+    const r = new CameraRig([]); settle(r, hidden);
+    const pose = settle(r, hidden);
+    near(pose.shoulderOffset, CLOSE_COMBAT.maxOffset);
+    expect(framingOk(pose, me, hidden, 16 / 9).ok).toBe(true);
+    near(pose.yaw, 0); near(pose.distance, CAMERA.defaultDistance); // aim and boom length unchanged
+  });
+  test("eases over 0.15 s", () => {
+    const r = new CameraRig([]);
+    near(r.update(me, 0, 0, 0.075, hidden).shoulderOffset, CLOSE_COMBAT.maxOffset / 2);
+    near(r.update(me, 0, 0, 0.075, hidden).shoulderOffset, CLOSE_COMBAT.maxOffset);
+  });
+  test("exit hysteresis: stays between 2.5 and 3 m, restores above 3 m", () => {
+    const r = new CameraRig([]); settle(r, hidden);
+    const mid = { ...hidden, centre: { ...hidden.centre, z: -2.8 } };
+    near(settle(r, mid).shoulderOffset, CLOSE_COMBAT.maxOffset);
+    near(settle(r, { ...hidden, centre: { ...hidden.centre, z: -3.1 } }).shoulderOffset, 0);
+    near(settle(r, mid).shoulderOffset, 0); // not re-entered at 2.8 m
+  });
+  test("opponent that is not hidden never triggers", () => {
+    const r = new CameraRig([]);
+    near(settle(r, { centre: { x: 3, y: 0.9, z: -1.5 }, yaw: 0 }).shoulderOffset, 0);
+  });
+  test("obstructed right shoulder keeps zero offset and the pivot never enters the collider", () => {
+    const post: Collider = { id: "p", role: "obstacle", shape: "cuboid", centre: [0.6, 1, 0], halfExtents: [0.2, 3, 3] };
+    const r = new CameraRig([post]); settle(r, hidden);
+    const pose = settle(r, hidden);
+    near(pose.shoulderOffset, 0); near(pose.pivot.x, 0);
+  });
+  test("a shoulder obstruction appearing mid-offset clamps at once", () => {
+    const r = new CameraRig([]); settle(r, hidden);
+    r.setColliders([{ id: "p", role: "obstacle", shape: "cuboid", centre: [0.9, 1, 0], halfExtents: [0.2, 3, 3] }]);
+    const pose = settle(r, hidden, 1 / 60);
+    expect(pose.pivot.x).toBeLessThanOrEqual(0.7 - CAMERA.castRadius - CAMERA.clearance + 1e-9);
+  });
+  test("local death, spectator or empty target restores the camera", () => {
+    const r = new CameraRig([]); settle(r, hidden);
+    near(settle(r, null).shoulderOffset, 0);
+  });
+  test("Reduced Motion: fixed clamped shoulder, no easing, no switching, track disabled", () => {
+    const r = new CameraRig([]); r.reducedMotion = true;
+    r.playTrack({ ms: 600, orbitRad: 1, distance: 4 });
+    const pose = r.update(me, 0, 0, 1 / 60, { centre: { x: 8, y: 0.9, z: -8 }, yaw: 0 });
+    near(pose.shoulderOffset, CLOSE_COMBAT.maxOffset); // first frame, no ease
+    expect(r.tracking).toBe(false); near(pose.yaw, 0);
+    near(r.update(me, 0, 0, 1 / 60, null).shoulderOffset, 0);
+    const clamp = new CameraRig([{ id: "p", role: "obstacle", shape: "cuboid", centre: [0.8, 1, 0], halfExtents: [0.2, 3, 3] }]); clamp.reducedMotion = true;
+    const c = clamp.update(me, 0, 0, 1 / 60, hidden).shoulderOffset;
+    expect(c).toBeGreaterThan(0); expect(c).toBeLessThan(CLOSE_COMBAT.maxOffset);
+  });
+  test("capture track keeps ownership of yaw and distance while the offset applies", () => {
+    const r = new CameraRig([]); settle(r, hidden);
+    r.playTrack({ ms: 600, orbitRad: 0.5, distance: 5 });
+    const pose = r.update(me, 0, 0, 0.3, hidden);
+    expect(pose.distance).toBeLessThan(CAMERA.defaultDistance); // the track still owns the boom length
+    expect(r.tracking).toBe(true);
+    expect(r.shoulderOffset).toBeGreaterThan(0);
   });
 });
 
