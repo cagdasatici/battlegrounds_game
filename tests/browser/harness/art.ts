@@ -6,6 +6,7 @@ import { GameScene } from "../../../apps/client/src/scene/GameScene.js";
 const renderer = new WebGLRenderer({ antialias: true });
 document.body.append(renderer.domElement);
 const gs = new GameScene(renderer, buildIslandsMap().colliders, window);
+void gs.loadEnvironment();
 const kits = ["sv", "td", "ea"] as const;
 kits.forEach((k, i) => {
   const v = gs.addFighter(k, k);
@@ -24,5 +25,6 @@ requestAnimationFrame(loop);
   act: (kit: "sv" | "td" | "ea", action: string, moveId = "") => gs.viewFor(kit)?.setAction(action, moveId, 30),
   clip: (kit: "sv" | "td" | "ea") => gs.viewFor(kit)?.currentClip ?? "",
   hide: (prefix: string) => gs.scene.traverse((o) => { if (o.name.startsWith(prefix)) o.visible = false; }),
+  envState: () => gs.envStatus,
   quality: (q: "low" | "medium" | "high") => gs.setQuality(q),
 };
