@@ -14,6 +14,7 @@ import { CAMERA, type CameraPose } from "./CameraRig.js";
 import { EffectsPool } from "./EffectsPool.js";
 import { makeToonRamp } from "./FighterModel.js";
 import { FighterView } from "./FighterView.js";
+import { ProjectileViews } from "./ProjectileViews.js";
 import { SnapshotBuffer } from "../net/SnapshotBuffer.js";
 
 export type Quality = "low" | "medium" | "high";
@@ -62,6 +63,7 @@ export class GameScene {
   readonly scene = new Scene();
   readonly camera = new PerspectiveCamera(CAMERA.fovDeg, 1, CAMERA.near, CAMERA.far);
   readonly effects = new EffectsPool();
+  readonly projectiles = new ProjectileViews(this.scene);
   private geometries = new Set<BufferGeometry>();
   private materials = new Set<Material>();
   private fighters = new Map<string, { view: FighterView; buffer: SnapshotBuffer }>();
@@ -210,6 +212,7 @@ export class GameScene {
     this.win.removeEventListener("resize", this.onResize);
     for (const id of [...this.fighters.keys()]) this.removeFighter(id);
     this.effects.dispose();
+    this.projectiles.dispose();
     for (const g of this.geometries) g.dispose();
     for (const m of this.materials) m.dispose();
     if (this.env) {

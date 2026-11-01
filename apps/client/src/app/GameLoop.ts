@@ -17,6 +17,7 @@ import type { PointerRouter } from "../input/PointerRouter.js";
 import { Prediction, type Collide, type Correction, type OwnerSnapshot } from "../net/Prediction.js";
 import type { ClockSync } from "../net/ClockSync.js";
 import type { CameraRig } from "../scene/CameraRig.js";
+import type { LoopProjectile } from "../scene/ProjectileViews.js";
 import type { GameScene } from "../scene/GameScene.js";
 
 /** Replicated public record, as read from room.state.players (centimetres, quantized yaw). */
@@ -38,7 +39,7 @@ export interface LoopPlayer {
   /** Present only on the local player (owner-only view, decision 0007). */
   owner?: { ackInputTick: number; epoch: number } | undefined;
 }
-export interface LoopState { serverTick: number; players: Iterable<[string, LoopPlayer]> }
+export interface LoopState { serverTick: number; players: Iterable<[string, LoopPlayer]>; projectiles?: Iterable<[string, LoopProjectile]> }
 
 export interface LoopDeps {
   scene: GameScene;
@@ -118,6 +119,7 @@ export class GameLoop {
     this.rafId = null;
     for (const id of this.known.keys()) this.d.scene.removeFighter(id);
     this.known.clear();
+    this.d.scene.projectiles.clear();
     this.prediction = null;
   }
 
@@ -155,6 +157,7 @@ export class GameLoop {
   // ---- replicated state -------------------------------------------------------------------------------
 
   private syncState(st: LoopState, est: number | null): void {
+    this.d.scene.projectiles.sync(st.projectiles ?? [], st.serverTick, est ?? st.serverTick);
     const seen = new Set<string>();
     const newTick = st.serverTick !== this.lastSeenServerTick;
     for (const [key, p] of st.players) {

@@ -120,4 +120,10 @@ Plan and file ownership are in [the web plan](web-plan.md); hosting steps are in
 | WEB2 | Update button | WEB1 | TODO | | |
 | WEB3 | Room list and one-tap join | BOT5 | IMPLEMENTED, DEVICE CHECK PENDING | 1122d6e | docs/test-results/WEB3.md |
 | WEB4 | Admin API and login | | DONE | ff63044 | docs/test-results/WEB4.md |
-| WEB5 | Admin app screens | WEB4 WEB3 | TODO | | |
+| WEB5 | Admin app screens | WEB4 WEB3 | IN PROGRESS | | docs/test-results/WEB5.md |
+
+## Scoped follow-up
+
+| Task | Title | Depends on | Status | Commit | Test report | Notes |
+|---|---|---|---|---|---|---|
+| ORB2 | Render Ember Orb from replicated server state (item 2) | T19 T20 T21 | IMPLEMENTED (DEVICE CHECK PENDING) | pending | docs/test-results/ORB2.md | Two Chromium contexts: flight, reflection, expiry. Physical iPad NOT RUN |
