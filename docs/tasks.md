@@ -16,8 +16,8 @@ Source: docs/spec.md section 27.
 | T09 | Combat states | T06 | DONE | commit "T09:" in git log | docs/test-results/T09.md |
 | T10 | M1 and guard | T07 T09 | IMPLEMENTED (DEVICE CHECK PENDING) | commit "T10:" in git log | docs/test-results/T10.md |
 | T11 | Ability framework | T09 | DONE | commit "T11:" in git log | docs/test-results/T11.md |
-| T12 | Vanguard base | T11 | TODO | | |
-| T13 | Duelist base | T11 | TODO | | |
+| T12 | Vanguard base | T11 | DONE (Ember Orb reflect acceptance pending T19) | commits "T12.1"-"T12.4" in git log | docs/test-results/T12.md |
+| T13 | Duelist base | T11 | DONE (projectile reflect A10/A19 pending T19) | commits "T13.1"-"T13.4" in git log | docs/test-results/T13.md |
 | T14 | Awakening system | T12 T13 | TODO | | |
 | T15 | Vanguard awakening | T14 | TODO | | |
 | T16 | Duelist awakening | T14 | TODO | | |

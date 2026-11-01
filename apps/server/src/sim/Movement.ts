@@ -4,6 +4,8 @@ import { MOVE_DT, applyCorrection, initialMoveState, integrateMovement, type Mov
 import type { MapVec3 } from "@eb/shared/config/arena";
 import type { World } from "./World.js";
 
+/** D: lift (m) applied to the capsule for straight sweeps so floor contact never blocks a horizontal move. */
+const SWEEP_LIFT = 0.06;
 const WALKABLE_COS = Math.cos((COMBAT.controller.maxSlopeDeg * Math.PI) / 180);
 
 /** Forced horizontal velocity in m/s for one tick. */
@@ -15,6 +17,8 @@ export interface Body {
   rb: RAPIER.RigidBody;
   collider: RAPIER.Collider;
   landedTick: number;
+  /** Last tick in which the body touched a wall (steep surface, never the floor). -1 if never. */
+  wallHitTick: number;
 }
 
 /**
@@ -26,6 +30,7 @@ export interface Body {
 export class MovementSystem {
   private readonly bodies = new Map<number, Body>();
   private readonly controller: RAPIER.KinematicCharacterController;
+  private readonly sweepShape = new RAPIER.Capsule(COMBAT.capsule.halfHeight, COMBAT.capsule.radius);
   private disposed = false;
 
   constructor(private readonly world: World) {
@@ -46,7 +51,7 @@ export class MovementSystem {
     const rb = this.world.rapier.createRigidBody(
       RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(centre[0], centre[1], centre[2]));
     const collider = this.world.rapier.createCollider(RAPIER.ColliderDesc.capsule(cap.halfHeight, cap.radius), rb);
-    const b: Body = { entityId, state: initialMoveState(facingYaw), rb, collider, landedTick: -1 };
+    const b: Body = { entityId, state: initialMoveState(facingYaw), rb, collider, landedTick: -1, wallHitTick: -1 };
     this.bodies.set(entityId, b);
     return b;
   }
@@ -99,10 +104,47 @@ export class MovementSystem {
       }
       const { landed } = applyCorrection(b.state, desired, corrected, this.controller.computedGrounded(), wallHit);
       if (landed) b.landedTick = tick;
+      if (wallHit) b.wallHitTick = tick;
       const p = b.rb.translation();
       b.rb.setNextKinematicTranslation({ x: p.x + corrected.x, y: p.y + corrected.y, z: p.z + corrected.z });
     }
     this.world.step();
+  }
+
+  /**
+   * Displaces every listed body by the same horizontal vector (T13 drag moves). The fraction of the move that is
+   * free for each body is found with a straight, non-sliding sweep against static geometry; every body is then
+   * displaced by the smallest fraction, so the group stops together at the first wall and nothing tunnels.
+   * Vertical position is left to the next locomotion step (gravity, snap). Callable between ticks only.
+   */
+  moveTogether(entityIds: readonly number[], dx: number, dz: number): { dx: number; dz: number } {
+    const len = Math.hypot(dx, dz);
+    const bodies = entityIds.map((id) => this.bodies.get(id)).filter((b): b is Body => !!b);
+    if (!(len > 1e-9) || !Number.isFinite(len) || bodies.length === 0) return { dx: 0, dz: 0 };
+    let frac = 1;
+    for (const b of bodies) {
+      // Cast the capsule, lifted off the floor so floor contact cannot stop a horizontal move, along the move.
+      const t = b.rb.translation();
+      const hit = this.world.rapier.castShape({ x: t.x, y: t.y + SWEEP_LIFT, z: t.z }, { x: 0, y: 0, z: 0, w: 1 },
+        { x: dx, y: 0, z: dz }, this.sweepShape, COMBAT.controller.offset, 1, true, RAPIER.QueryFilterFlags.EXCLUDE_KINEMATIC);
+      if (hit) frac = Math.min(frac, Math.max(0, Math.min(1, hit.time_of_impact)));
+    }
+    if (frac < 1e-6) return { dx: 0, dz: 0 };
+    for (const b of bodies) {
+      const t = b.rb.translation();
+      const p = { x: t.x + dx * frac, y: t.y, z: t.z + dz * frac };
+      b.rb.setTranslation(p, true);
+      b.rb.setNextKinematicTranslation(p);
+    }
+    return { dx: dx * frac, dz: dz * frac };
+  }
+
+  /** Sets a body's velocity (launch); leaves the ground when moving upward. */
+  setVelocity(entityId: number, vx: number, vy: number, vz: number): void {
+    const b = this.bodies.get(entityId);
+    if (!b || !Number.isFinite(vx + vy + vz)) return;
+    b.state.vx = vx; b.state.vz = vz; b.state.vy = vy;
+    if (vy > 0) b.state.grounded = false;
   }
 
   dispose(): void {
