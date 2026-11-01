@@ -27,7 +27,7 @@ Transitive resolutions (including @colyseus/core) are recorded in `pnpm-lock.yam
 - **@types/node 24.0.0**: chosen to match Node 24; not verified against peers.
 - **@colyseus/ws-transport 0.18.4** and **tsx 4.23.15** are additions not listed in section 17.
 - **Ignored build scripts** (esbuild, msgpackr-extract): not approved; the smoke test and build pass without them.
-- **Lint**: `pnpm lint` is an import-boundary script, not ESLint, until a full linter is justified.
+- **Lint**: `pnpm lint` is the import-boundary script plus a setTimeout/setInterval grep check. ESLint was not added because typescript-eslint does not support TypeScript 7.0.2 (docs/decisions/0002).
 
 ## Notes (T04)
 

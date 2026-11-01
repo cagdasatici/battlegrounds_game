@@ -49,7 +49,7 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 
 | Task | Title | Depends on | Status | Commit | Test report | Notes |
 |------|-------|-----------|--------|--------|-------------|-------|
-| R01 | Clean-checkout gate, real lint | none | TODO | | | Do first |
+| R01 | Clean-checkout gate, real lint | none | DONE | ae82e4b | docs/test-results/R01.md | ESLint skipped (TS7 unsupported): decisions/0002 |
 | R02 | Captured victims hit-eligible | R01 | TODO | | | Blocks T16 |
 | R03 | Single offensive buffer | R01 | TODO | | | |
 | R04 | Armor startup and onHit | R01 | TODO | | | Blocks T16 |
