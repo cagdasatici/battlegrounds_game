@@ -1,0 +1,464 @@
+{
+  "sv.b1": {
+    "victimHpTraceSeenByA": [
+      10000,
+      8000,
+      7000
+    ],
+    "victimHpTraceSeenByB": [
+      10000,
+      8000,
+      7000
+    ],
+    "actionsSeenByA": [
+      "Idle",
+      "Ragdolled",
+      "Recovery"
+    ],
+    "moves": [
+      "sv.b1"
+    ],
+    "finalVictimHp100": {
+      "A": 7000,
+      "B": 7000
+    },
+    "errorsA": [],
+    "errorsB": []
+  },
+  "sv.b2": {
+    "victimHpTraceSeenByA": [
+      10000,
+      9800,
+      9600,
+      9400,
+      9200,
+      9000,
+      8500
+    ],
+    "victimHpTraceSeenByB": [
+      10000,
+      9800,
+      9600,
+      9400,
+      9200,
+      9000,
+      8500
+    ],
+    "actionsSeenByA": [
+      "Idle",
+      "Stunned",
+      "Ragdolled",
+      "Recovery"
+    ],
+    "moves": [
+      "sv.b2"
+    ],
+    "finalVictimHp100": {
+      "A": 8500,
+      "B": 8500
+    },
+    "errorsA": [],
+    "errorsB": []
+  },
+  "sv.b3": {
+    "victimHpTraceSeenByA": [
+      10000,
+      9300
+    ],
+    "victimHpTraceSeenByB": [
+      10000,
+      9300
+    ],
+    "actionsSeenByA": [
+      "Idle",
+      "Stunned"
+    ],
+    "moves": [
+      "sv.b3"
+    ],
+    "finalVictimHp100": {
+      "A": 9300,
+      "B": 9300
+    },
+    "errorsA": [],
+    "errorsB": []
+  },
+  "sv.b4": {
+    "victimHpTraceSeenByA": [
+      10000,
+      8500
+    ],
+    "victimHpTraceSeenByB": [
+      10000,
+      8500
+    ],
+    "actionsSeenByA": [
+      "Idle",
+      "Ragdolled"
+    ],
+    "moves": [
+      "sv.b4"
+    ],
+    "finalVictimHp100": {
+      "A": 8500,
+      "B": 8500
+    },
+    "errorsA": [],
+    "errorsB": []
+  },
+  "sv.a1": {
+    "victimHpTraceSeenByA": [
+      10000,
+      0
+    ],
+    "victimHpTraceSeenByB": [
+      10000,
+      0
+    ],
+    "actionsSeenByA": [
+      "Idle",
+      "Windup",
+      "Captured",
+      "Dead"
+    ],
+    "moves": [
+      "sv.a1"
+    ],
+    "finalVictimHp100": {
+      "A": 0,
+      "B": 0
+    },
+    "errorsA": [],
+    "errorsB": []
+  },
+  "sv.a2": {
+    "victimHpTraceSeenByA": [
+      10000,
+      0
+    ],
+    "victimHpTraceSeenByB": [
+      10000,
+      0
+    ],
+    "actionsSeenByA": [
+      "Idle",
+      "Dead"
+    ],
+    "moves": [
+      "sv.a2"
+    ],
+    "finalVictimHp100": {
+      "A": 0,
+      "B": 0
+    },
+    "errorsA": [],
+    "errorsB": []
+  },
+  "sv.a3": {
+    "victimHpTraceSeenByA": [
+      10000,
+      0
+    ],
+    "victimHpTraceSeenByB": [
+      10000,
+      0
+    ],
+    "actionsSeenByA": [
+      "Idle",
+      "Dead"
+    ],
+    "moves": [
+      "sv.a3"
+    ],
+    "finalVictimHp100": {
+      "A": 0,
+      "B": 0
+    },
+    "errorsA": [],
+    "errorsB": []
+  },
+  "sv.a4": {
+    "victimHpTraceSeenByA": [
+      10000,
+      0
+    ],
+    "victimHpTraceSeenByB": [
+      10000,
+      0
+    ],
+    "actionsSeenByA": [
+      "Idle",
+      "Captured",
+      "Dead"
+    ],
+    "moves": [
+      "sv.a4"
+    ],
+    "finalVictimHp100": {
+      "A": 0,
+      "B": 0
+    },
+    "errorsA": [],
+    "errorsB": []
+  },
+  "sv.activate": {
+    "victimHpTraceSeenByA": [
+      10000
+    ],
+    "victimHpTraceSeenByB": [
+      10000
+    ],
+    "actionsSeenByA": [
+      "Idle"
+    ],
+    "moves": [
+      "sv.activate"
+    ],
+    "finalVictimHp100": {
+      "A": 10000,
+      "B": 10000
+    },
+    "errorsA": [],
+    "errorsB": []
+  },
+  "td.b1": {
+    "victimHpTraceSeenByA": [
+      10000,
+      9600,
+      9200,
+      8800,
+      8400,
+      7600
+    ],
+    "victimHpTraceSeenByB": [
+      10000,
+      9600,
+      9200,
+      8800,
+      8400,
+      7600
+    ],
+    "actionsSeenByA": [
+      "Idle",
+      "Captured",
+      "Ragdolled"
+    ],
+    "moves": [
+      "td.b1"
+    ],
+    "finalVictimHp100": {
+      "A": 7600,
+      "B": 7600
+    },
+    "errorsA": [],
+    "errorsB": []
+  },
+  "td.b2": {
+    "victimHpTraceSeenByA": [
+      10000,
+      9500,
+      8100
+    ],
+    "victimHpTraceSeenByB": [
+      10000,
+      9500,
+      8100
+    ],
+    "actionsSeenByA": [
+      "Idle",
+      "Captured",
+      "Ragdolled"
+    ],
+    "moves": [
+      "td.b2"
+    ],
+    "finalVictimHp100": {
+      "A": 8100,
+      "B": 8100
+    },
+    "errorsA": [],
+    "errorsB": []
+  },
+  "td.b3": {
+    "victimHpTraceSeenByA": [
+      10000,
+      9100
+    ],
+    "victimHpTraceSeenByB": [
+      10000,
+      9100
+    ],
+    "actionsSeenByA": [
+      "Idle",
+      "Captured",
+      "Ragdolled"
+    ],
+    "moves": [
+      "td.b3"
+    ],
+    "finalVictimHp100": {
+      "A": 9100,
+      "B": 9100
+    },
+    "errorsA": [],
+    "errorsB": []
+  },
+  "td.b4": {
+    "victimHpTraceSeenByA": [
+      10000,
+      9400,
+      7800
+    ],
+    "victimHpTraceSeenByB": [
+      10000,
+      9400,
+      7800
+    ],
+    "actionsSeenByA": [
+      "Idle",
+      "Windup",
+      "Captured",
+      "Ragdolled"
+    ],
+    "moves": [
+      "td.b4"
+    ],
+    "finalVictimHp100": {
+      "A": 7800,
+      "B": 7800
+    },
+    "errorsA": [],
+    "errorsB": []
+  },
+  "td.activate": {
+    "victimHpTraceSeenByA": [
+      10000,
+      8000
+    ],
+    "victimHpTraceSeenByB": [
+      10000,
+      8000
+    ],
+    "actionsSeenByA": [
+      "Idle",
+      "Ragdolled"
+    ],
+    "moves": [
+      "td.activate"
+    ],
+    "finalVictimHp100": {
+      "A": 8000,
+      "B": 8000
+    },
+    "errorsA": [],
+    "errorsB": []
+  },
+  "td.a1": {
+    "victimHpTraceSeenByA": [
+      10000,
+      9600,
+      9200,
+      8800,
+      8400,
+      7400
+    ],
+    "victimHpTraceSeenByB": [
+      10000,
+      9600,
+      9200,
+      8800,
+      8400,
+      7400
+    ],
+    "actionsSeenByA": [
+      "Idle",
+      "Captured",
+      "Ragdolled"
+    ],
+    "moves": [
+      "td.a1"
+    ],
+    "finalVictimHp100": {
+      "A": 7400,
+      "B": 7400
+    },
+    "errorsA": [],
+    "errorsB": []
+  },
+  "td.a2": {
+    "victimHpTraceSeenByA": [
+      10000,
+      3100
+    ],
+    "victimHpTraceSeenByB": [
+      10000,
+      3100
+    ],
+    "actionsSeenByA": [
+      "Idle",
+      "Captured",
+      "Ragdolled"
+    ],
+    "moves": [
+      "td.a2"
+    ],
+    "finalVictimHp100": {
+      "A": 3100,
+      "B": 3100
+    },
+    "errorsA": [],
+    "errorsB": []
+  },
+  "td.a3": {
+    "victimHpTraceSeenByA": [
+      10000,
+      8800,
+      6200
+    ],
+    "victimHpTraceSeenByB": [
+      10000,
+      8800,
+      6200
+    ],
+    "actionsSeenByA": [
+      "Idle",
+      "Stunned",
+      "Ragdolled"
+    ],
+    "moves": [
+      "td.a3"
+    ],
+    "finalVictimHp100": {
+      "A": 6200,
+      "B": 6200
+    },
+    "errorsA": [],
+    "errorsB": []
+  },
+  "td.a4": {
+    "victimHpTraceSeenByA": [
+      10000,
+      9200,
+      7000
+    ],
+    "victimHpTraceSeenByB": [
+      10000,
+      9200,
+      7000
+    ],
+    "actionsSeenByA": [
+      "Idle",
+      "Captured",
+      "Ragdolled"
+    ],
+    "moves": [
+      "td.a4"
+    ],
+    "finalVictimHp100": {
+      "A": 7000,
+      "B": 7000
+    },
+    "errorsA": [],
+    "errorsB": []
+  }
+}
