@@ -1359,4 +1359,56 @@ describe("td.b4 Mirror Current (counter)", () => {
   });
 });
 
+describe("R02 captured victims stay hit-eligible for third parties (real handlers)", () => {
+  test("td.b1 captures B; C casts sv.b2 on B: B takes the flurry, capture continues, release at +43", () => {
+    const r = makeRig(3);
+    r.runner.setKit(3, "sv");
+    r.step(T0, { press: [{ slot: 1 }] });
+    r.run(T0 + 1, T0 + 9);
+    const c = T0 + 10;
+    r.step(c);
+    expect(r.cs.get(2)!.action).toBe("Captured");
+    r.step(c + 1, { press: [{ who: 3, slot: 2 }] }); // sv.b2 startup 10: first flurry hit at c + 11
+    r.run(c + 2, c + 10);
+    expect(r.dealt(3, 2)).toEqual([]);
+    r.run(c + 11, c + 12);
+    expect(r.dealt(3, 2)[0]).toEqual([c + 11, 200]);
+    expect(r.cs.get(2)!.action).toBe("Captured");
+    r.run(c + 13, c + 42);
+    expect(r.cs.get(2)!.action).toBe("Captured");
+    expect(r.dealt(3, 2).length).toBeGreaterThan(1);
+    r.step(c + 43);
+    expect(r.cs.get(2)!.action).toBe("Ragdolled");
+    expect(r.cs.captures.size).toBe(0);
+  });
+
+  test("sv.a4 captures B (cinematic); C casts sv.b2: B takes 0 (shielded)", () => {
+    const r = makeRig(3);
+    r.runner.setKit(1, "sv");
+    r.runner.setKit(3, "sv");
+    const f = r.cs.get(1)!; f.form = "Awakened"; f.awakenedUsedMask = 0;
+    r.step(T0, { press: [{ slot: 4 }] });
+    r.run(T0 + 1, T0 + 24);
+    expect(r.cs.get(2)!.action).toBe("Captured");
+    const before = r.hp(2);
+    r.step(T0 + 25, { press: [{ who: 3, slot: 2 }] });
+    r.run(T0 + 26, T0 + 45);
+    expect(r.dealt(3, 2)).toEqual([]);
+    expect(r.results.some((x) => x.r.candidate.attackerId === 3 && x.r.candidate.targetId === 2 && x.r.outcome === "shielded")).toBe(true);
+    expect(r.hp(2)).toBe(before);
+  });
+
+  test("sv.b4 against a captured target: no hit, cooldown still spent", () => {
+    const r = makeRig(3);
+    r.runner.setKit(3, "sv");
+    r.step(T0, { press: [{ slot: 1 }] });
+    r.run(T0 + 1, T0 + 10);
+    expect(r.cs.get(2)!.action).toBe("Captured");
+    r.step(T0 + 11, { press: [{ who: 3, slot: 4 }] });
+    r.run(T0 + 12, T0 + 40);
+    expect(r.results.filter((x) => x.r.candidate.attackerId === 3)).toEqual([]);
+    expect(r.cs.get(3)!.cooldowns.get("sv.b4") ?? 0).toBeGreaterThan(T0 + 40);
+  });
+});
+
 export type { Rig, ReflectRequest };

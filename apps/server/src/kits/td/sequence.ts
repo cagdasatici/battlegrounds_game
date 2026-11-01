@@ -104,7 +104,7 @@ export function makeSequenceHandler(spec: SequenceSpec): AbilityHandler {
         // Probe: only inside the original active window. After it, nothing can attach (recovery is inert).
         if (c.tick < c.cast.activeStart || c.tick >= st.probeEnd) return [];
         const out: HitCandidate[] = [];
-        for (const id of queryTargets(c, spec.eligible ? { filter: (t: Fighter, p: AbilityPose) => spec.eligible!(t, p, c) } : {})) {
+        for (const id of queryTargets(c, spec.eligible ? { excludeCaptured: true, filter: (t: Fighter, p: AbilityPose) => spec.eligible!(t, p, c) } : { excludeCaptured: true })) {
           const cand = buildCandidate(c, id, 0, ap.x, ap.z);
           cand.reaction = { kind: "none" };
           cand.damage100 = spec.damageOf?.(c, st, 0) ?? d.damage100[0]!;

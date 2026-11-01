@@ -177,7 +177,8 @@ export interface QueryOptions {
   /** Extra eligibility test applied before ordering and the maxTargets cap. */
   filter?: (target: Fighter, pose: AbilityPose) => boolean;
   maxLength?: number;
-  allowCaptured?: boolean;
+  /** Skip fighters held by any capture (capture probes, sv.b4). Default: captured fighters stay eligible (spec 13). */
+  excludeCaptured?: boolean;
   shape?: Shape;
   range?: number;
   targetStates?: readonly TargetState[];
@@ -185,7 +186,7 @@ export interface QueryOptions {
 
 /**
  * Eligible targets of one query in stable order (distance, then entity id). Excludes self, the dead, captured
- * fighters, states the move does not support, static occlusion, targets already at the per target hit cap and
+ * fighters (only when excludeCaptured), states the move does not support, static occlusion, targets already at the per target hit cap and
  * new targets beyond maxTargets for the whole cast.
  */
 export function queryTargets(c: CastContext, opts: QueryOptions = {}): number[] {
@@ -200,7 +201,7 @@ export function queryTargets(c: CastContext, opts: QueryOptions = {}): number[] 
   const found: { id: number; dist: number }[] = [];
   for (const t of host.combat.all()) {
     if (t.entityId === fighter.entityId || !isAlive(t)) continue;
-    if (t.action === "Captured" && !opts.allowCaptured) continue;
+    if (opts.excludeCaptured && host.combat.captures.isCaptured(t.entityId)) continue;
     const tp = host.pose(t.entityId);
     if (!tp) continue;
     if (!states.includes(targetStateOf(t, tp))) continue;
