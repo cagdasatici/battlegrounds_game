@@ -2,7 +2,7 @@
 // Usage: pnpm assets:build   (writes assets/fighters/*.gltf, assets/manifest.json, assets/provenance.csv)
 // Every fighter file is generated from packages/shared/src/rig.ts and fighterDesign.ts; nothing is imported from outside the repo.
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { csvCell, KITS, PROVENANCE_COLUMNS, type ManifestEntry } from "../../packages/shared/src/art.js";
 import { FIGHTER_DESIGNS } from "../../packages/shared/src/fighterDesign.js";
 import { buildFighterGltf } from "./art-gltf.js";
@@ -27,6 +27,17 @@ for (const kit of KITS) {
     source: "repo:ops/scripts/art-gltf.ts from packages/shared/src/rig.ts and fighterDesign.ts",
     creationMethod: "procedural-code", rigVersion: g.rigVersion, bounds: g.bounds, kit, clips: g.clips,
     notes: `${FIGHTER_DESIGNS[kit].label}: skinned vertex-coloured model with ${g.clips.length} clips`,
+  });
+}
+// ART1: third party CC0 environment models, copied verbatim from the pack (textures downscaled to 512 px).
+const VENDOR_DIR = "assets/vendor/quaternius-stylized-nature";
+for (const name of readdirSync(new URL(`${VENDOR_DIR}/`, root)).sort()) {
+  const rel = `${VENDOR_DIR}/${name}`;
+  const buf = file(rel);
+  assets.push({
+    id: `env.quaternius.${name}`, kind: "environment", path: rel, sha256: sha(buf), byteSize: buf.length, license: "CC0-1.0", author: "Quaternius",
+    source: "https://quaternius.com/packs/stylizednaturemegakit.html", creationMethod: "third-party CC0 pack",
+    notes: name.endsWith(".png") ? "Stylized Nature MegaKit (Standard) texture, downscaled to 512 px" : "Stylized Nature MegaKit (Standard) file, unmodified",
   });
 }
 const mapBuf = file("assets/maps/islands.v1.json");

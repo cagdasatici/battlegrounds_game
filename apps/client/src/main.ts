@@ -139,6 +139,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       softwareGl = isSoftwareRenderer(renderer.getContext());
       gs = new GameScene(renderer, m.colliders, window);
       if (softwareGl) gs.setQuality("low");
+      await gs.loadEnvironment();
       gs.setCamera({ position: { x: 0, y: 20, z: 40 }, pivot: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0, distance: 40 });
       map = m;
       const idle = (): void => { if (matchCleanups.length === 0) gs?.render(); rafId = requestAnimationFrame(idle); };

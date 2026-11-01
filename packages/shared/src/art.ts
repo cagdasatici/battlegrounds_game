@@ -10,7 +10,7 @@ import type { KitId } from "./protocol.js";
 const nonEmpty = z.string().trim().min(1);
 const vec3 = z.tuple([z.number(), z.number(), z.number()]);
 
-export const AssetKindSchema = z.enum(["fighter", "map", "code"]);
+export const AssetKindSchema = z.enum(["fighter", "map", "code", "environment"]);
 export const ManifestEntrySchema = z.strictObject({
   id: nonEmpty,
   kind: AssetKindSchema,
@@ -21,7 +21,7 @@ export const ManifestEntrySchema = z.strictObject({
   author: nonEmpty,
   /** sourceURL or commission reference; for generated assets, the repo path of the generator. */
   source: nonEmpty,
-  creationMethod: z.enum(["procedural-code", "hand-authored-code", "commissioned"]),
+  creationMethod: z.enum(["procedural-code", "hand-authored-code", "commissioned", "third-party CC0 pack"]),
   /** Present for every skinned model; empty-string is not allowed. */
   rigVersion: nonEmpty.optional(),
   bounds: z.strictObject({ min: vec3, max: vec3 }).optional(),

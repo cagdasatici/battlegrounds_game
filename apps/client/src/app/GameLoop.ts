@@ -60,7 +60,8 @@ const MAX_CATCHUP_TICKS = 8;
 const RESYNC_TICKS = 30;
 const SEND_EVERY_TICKS = 2; // 30 Hz
 
-const toKit = (k: string): KitId => (k === "td" || k === "ea" ? k : "sv");
+/** Returns undefined for an unknown or not-yet-replicated kit so the caller never guesses a model. */
+const toKit = (k: string): KitId | undefined => (k === "sv" || k === "td" || k === "ea" ? k : undefined);
 
 export class GameLoop {
   prediction: Prediction | null = null;
@@ -87,7 +88,7 @@ export class GameLoop {
   private lastAction: Action = "Idle";
   private tokens: number = RATE_LIMITS.inputBurst;
   private tokenMs = 0;
-  private readonly known = new Set<string>();
+  private readonly known = new Map<string, KitId>();
 
   constructor(private readonly d: LoopDeps) {
     this.raf = d.raf ?? ((cb) => requestAnimationFrame(cb));
@@ -113,7 +114,7 @@ export class GameLoop {
     this.running = false;
     if (this.rafId !== null) this.caf(this.rafId);
     this.rafId = null;
-    for (const id of this.known) this.d.scene.removeFighter(id);
+    for (const id of this.known.keys()) this.d.scene.removeFighter(id);
     this.known.clear();
     this.prediction = null;
   }
@@ -155,9 +156,11 @@ export class GameLoop {
     const newTick = st.serverTick !== this.lastSeenServerTick;
     for (const [key, p] of st.players) {
       seen.add(key);
-      if (!this.known.has(key)) {
-        this.d.scene.addFighter(key, toKit(p.kitId));
-        this.known.add(key);
+      const kit = toKit(p.kitId);
+      if (!kit) continue; // kitId not replicated yet; build the view on a later tick
+      if (this.known.get(key) !== kit) {
+        this.d.scene.addFighter(key, kit); // addFighter disposes any previous view for this key
+        this.known.set(key, kit);
       }
       if (p.owner !== undefined) {
         this.syncLocal(key, p, st.serverTick, est);
@@ -169,7 +172,7 @@ export class GameLoop {
       }
       this.d.scene.viewFor(key)?.setAction(p.action, p.moveId ?? "", Math.max(0, (p.actionEndTick ?? 0) - (p.actionStartTick ?? 0)));
     }
-    for (const key of [...this.known]) {
+    for (const key of [...this.known.keys()]) {
       if (seen.has(key)) continue;
       this.d.scene.removeFighter(key);
       this.known.delete(key);

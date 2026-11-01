@@ -3,12 +3,13 @@
  * fighters are sampled from SnapshotBuffer at 100 ms delay. Presentation only: nothing here decides hits, HP or positions.
  */
 import {
-  Color, DirectionalLight, Fog, HemisphereLight, PCFSoftShadowMap, PerspectiveCamera, Scene,
+  Color, DirectionalLight, type InstancedMesh, Fog, HemisphereLight, PCFSoftShadowMap, PerspectiveCamera, Scene,
   type BufferGeometry, type DataTexture, type Material,
 } from "three";
 import type { Collider } from "@eb/shared/config/arena";
 import type { KitId } from "@eb/shared/protocol";
-import { buildArena, SKY } from "./ArenaView.js";
+import { buildArena, buildDressing, SKY } from "./ArenaView.js";
+import { loadEnvKit, type EnvKit } from "./EnvAssets.js";
 import { CAMERA, type CameraPose } from "./CameraRig.js";
 import { EffectsPool } from "./EffectsPool.js";
 import { makeToonRamp } from "./FighterModel.js";
@@ -70,8 +71,12 @@ export class GameScene {
   private readonly sun = new DirectionalLight(0xfff0d2, 2.6);
   private readonly ramp: DataTexture = makeToonRamp();
   private readonly arena: ReturnType<typeof buildArena>;
+  private env: { kit: EnvKit; meshes: InstancedMesh[] } | null = null;
+  private envState: "none" | "loading" | "ready" | "failed" = "none";
+  private readonly colliders: readonly Collider[];
 
   constructor(private readonly renderer: RendererLike, colliders: readonly Collider[], private readonly win: WindowLike) {
+    this.colliders = colliders;
     this.scene.background = new Color(SKY.horizon);
     this.scene.fog = new Fog(SKY.fog, 70, 175);
     this.scene.add(new HemisphereLight(0xe2f0ff, 0x9a8a70, 1.45));
@@ -93,6 +98,30 @@ export class GameScene {
     this.setQuality("medium");
     win.addEventListener("resize", this.onResize);
     this.resize();
+  }
+
+  get envStatus(): "none" | "loading" | "ready" | "failed" { return this.envState; }
+
+  /**
+   * Loads the CC0 glTF dressing (ART1). Resolves once the instanced props are in the scene; never rejects. On any
+   * failure it logs one line and the code-built arena stays as it is.
+   */
+  async loadEnvironment(): Promise<void> {
+    if (this.envState !== "none") return;
+    this.envState = "loading";
+    try {
+      const kit = await loadEnvKit(this.ramp);
+      if (this.disposed) { for (const g of kit.geometries) g.dispose(); for (const m of kit.materials) m.dispose(); for (const t of kit.textures) t.dispose(); return; }
+      const { group, meshes } = buildDressing(this.colliders, kit);
+      this.env = { kit, meshes };
+      this.scene.add(group);
+      const trees = this.arena.group.getObjectByName("deco.isletTrees");
+      if (trees) trees.visible = false;
+      this.envState = "ready";
+    } catch (e) {
+      this.envState = "failed";
+      console.warn(`[env] glTF environment failed to load, using the code-built arena: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 
   /** Live collider geometry plus material count (test hook for leak checks). */
@@ -136,6 +165,7 @@ export class GameScene {
   }
 
   bufferFor(id: string): SnapshotBuffer | undefined { return this.fighters.get(id)?.buffer; }
+  kitOf(id: string): KitId | undefined { return this.fighters.get(id)?.view.kitId; }
   viewFor(id: string): FighterView | undefined { return this.fighters.get(id)?.view; }
 
   /** Moves every buffered fighter to its interpolated pose for estimated server tick `nowTick`. */
@@ -180,6 +210,13 @@ export class GameScene {
     this.effects.dispose();
     for (const g of this.geometries) g.dispose();
     for (const m of this.materials) m.dispose();
+    if (this.env) {
+      for (const m of this.env.meshes) m.dispose();
+      for (const g of this.env.kit.geometries) g.dispose();
+      for (const m of this.env.kit.materials) m.dispose();
+      for (const t of this.env.kit.textures) t.dispose();
+      this.env = null;
+    }
     this.ramp.dispose();
     this.geometries.clear(); this.materials.clear();
     this.scene.clear();
