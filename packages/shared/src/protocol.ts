@@ -1,6 +1,180 @@
-/** Bootstrap protocol constants. Full contracts arrive in T02. */
+import { z } from "zod";
+
 export const PROTOCOL_VERSION = 1 as const;
 export const TICK_RATE = 60 as const;
 export const PATCH_RATE_MS = 50 as const;
 export const MAX_CLIENTS = 4 as const;
 export const ARENA_ROOM_NAME = "arena" as const;
+export const PRACTICE_ROOM_NAME = "practice" as const;
+export const RECONNECT_SECONDS = 20 as const;
+export const MAX_PACKET_BYTES = 1024 as const;
+export const MAX_EDGES_PER_PACKET = 6 as const;
+
+export interface Vec3 {
+  x: number;
+  y: number;
+  z: number;
+}
+
+const finite = z.number().finite();
+const uint32 = z.number().int().min(0).max(0xffffffff);
+
+export const EdgeSchema = z.union([
+  z.strictObject({ id: uint32, kind: z.enum(["jump", "dash", "awaken"]) }),
+  z.strictObject({
+    id: uint32,
+    kind: z.enum(["skillDown", "skillUp"]),
+    slot: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
+  }),
+]);
+export type Edge = z.infer<typeof EdgeSchema>;
+
+export const InputPacketSchema = z.strictObject({
+  v: z.literal(1),
+  epoch: uint32,
+  seq: uint32,
+  sampleTick: uint32,
+  moveX: finite,
+  moveZ: finite,
+  yaw: finite,
+  pitch: finite,
+  attackHeld: z.boolean(),
+  blockHeld: z.boolean(),
+  jumpHeld: z.boolean(),
+  runHeld: z.boolean(),
+  chargeHeldSlot: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
+  edges: z.array(EdgeSchema).max(MAX_EDGES_PER_PACKET),
+});
+export type InputPacket = z.infer<typeof InputPacketSchema>;
+
+export const KitIdSchema = z.enum(["sv", "td", "ea"]);
+export type KitId = z.infer<typeof KitIdSchema>;
+/** Kits playable in P0; ea is hidden until P1 (spec section 6). */
+export const P0_KITS: readonly KitId[] = ["sv", "td"];
+
+const hashStr = z.string().regex(/^[0-9a-f]{16}$/);
+export const ReadyMessageSchema = z.strictObject({ kitId: KitIdSchema, contentHash: hashStr });
+export const ChangeKitMessageSchema = z.strictObject({ kitId: KitIdSchema });
+export const PingMessageSchema = z.strictObject({ nonce: uint32, clientMs: finite });
+export const LeaveMessageSchema = z.strictObject({});
+
+export type ReadyMessage = z.infer<typeof ReadyMessageSchema>;
+export type ChangeKitMessage = z.infer<typeof ChangeKitMessageSchema>;
+export type PingMessage = z.infer<typeof PingMessageSchema>;
+
+export type RejectReason = "STATE" | "COOLDOWN" | "METER" | "FORM" | "INVALID";
+export interface ActionResult {
+  epoch: number;
+  seq: number;
+  edgeId: number;
+  accepted: boolean;
+  tick: number;
+  castId?: string;
+  reason?: RejectReason;
+}
+export type CombatEventKind =
+  | "cast" | "hit" | "block" | "counter" | "capture" | "release" | "ko" | "respawn";
+export interface CombatEvent {
+  eventId: string;
+  tick: number;
+  kind: CombatEventKind;
+  actorId: string;
+  targetId?: string;
+  lifeId: number;
+  moveId?: string;
+  damage100?: number;
+  position?: Vec3;
+}
+
+export interface WelcomeMessage {
+  epoch: number;
+  serverTick: number;
+  tickRate: number;
+  contentHash: string;
+}
+export interface PongMessage { nonce: number; serverMs: number; serverTick: number }
+export interface ShutdownMessage { deadlineMs: number; reason: string }
+
+/** Client to server message names. No arbitrary client events are accepted. */
+export const ClientMessage = {
+  input: "input",
+  ready: "ready",
+  changeKit: "changeKit",
+  ping: "ping",
+  leave: "leave",
+} as const;
+export const ServerMessage = {
+  welcome: "welcome",
+  actionResult: "actionResult",
+  combatEvent: "combatEvent",
+  pong: "pong",
+  shutdown: "shutdown",
+} as const;
+
+/** Per-message rate limits (spec section 19). */
+export const RATE_LIMITS = {
+  inputPerSecond: 45,
+  inputBurst: 15,
+  edgesPerSecond: 20,
+  edgeBurst: 8,
+  readyPerSecond: 2,
+  pingPerSecond: 1,
+} as const;
+
+// ---- HTTP contracts (spec section 20) ----
+export const DisplayNameSchema = z
+  .string()
+  .refine((s) => !/[\u0000-\u001f\u007f-\u009f]/.test(s), "control characters")
+  .refine((s) => {
+    const n = graphemeCount(s);
+    return n >= 1 && n <= 16;
+  }, "1 to 16 graphemes");
+
+export function graphemeCount(s: string): number {
+  const Seg = (Intl as unknown as { Segmenter?: new (l?: string, o?: object) => { segment(s: string): Iterable<unknown> } }).Segmenter;
+  if (Seg) return [...new Seg(undefined, { granularity: "grapheme" }).segment(s)].length;
+  return [...s].length;
+}
+
+export const SessionRequestSchema = z.strictObject({
+  invite: z.string().min(8).max(128),
+  displayName: DisplayNameSchema,
+});
+export const JoinTicketRequestSchema = z.strictObject({
+  roomCode: z.string().min(1).max(64),
+});
+export interface VersionResponse { protocolVersion: number; contentHash: string; buildId: string }
+export interface SessionResponse { expiresAt: number }
+export interface JoinTicketResponse { ticket: string; expiresAt: number; roomName: string }
+export const JoinOptionsSchema = z.strictObject({
+  ticket: z.string().regex(/^[0-9a-f]{64}$/),
+  protocolVersion: z.literal(PROTOCOL_VERSION),
+  contentHash: hashStr,
+});
+export type JoinOptions = z.infer<typeof JoinOptionsSchema>;
+
+/** Errors surfaced by the client (spec section 6). */
+export type ClientErrorCode =
+  | "ROOM_FULL" | "INVITE_INVALID" | "VERSION_MISMATCH" | "SERVER_OFFLINE" | "ASSET_FAILED";
+
+/** Application-level compatibility check performed by both sides. */
+export function checkCompatibility(
+  remote: { protocolVersion: number; contentHash: string },
+  local: { protocolVersion: number; contentHash: string },
+): "ok" | "VERSION_MISMATCH" {
+  return remote.protocolVersion === local.protocolVersion && remote.contentHash === local.contentHash
+    ? "ok"
+    : "VERSION_MISMATCH";
+}
+
+/** Strict parse helper: returns null instead of throwing; enforces byte bound for JSON-ish input. */
+export function parseInputPacket(raw: unknown): InputPacket | null {
+  if (raw === null || typeof raw !== "object") return null;
+  try {
+    if (JSON.stringify(raw).length > MAX_PACKET_BYTES) return null;
+  } catch {
+    return null;
+  }
+  const r = InputPacketSchema.safeParse(raw);
+  return r.success ? r.data : null;
+}

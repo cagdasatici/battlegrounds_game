@@ -6,7 +6,7 @@ Source: docs/spec.md section 27.
 | Task | Title | Depends on | Status | Commit | Test report |
 |------|-------|-----------|--------|--------|-------------|
 | T01 | Bootstrap | none | DONE | see git log | docs/test-results/T01.md |
-| T02 | Shared contracts | T01 | TODO | | |
+| T02 | Shared contracts | T01 | DONE | commit "T02:" in git log | docs/test-results/T02.md |
 | T03 | Authentication | T02 | TODO | | |
 | T04 | Room lifecycle | T03 | TODO | | |
 | T05 | Arena colliders | T02 | TODO | | |
