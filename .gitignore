@@ -6,3 +6,5 @@ data/
 *.tsbuildinfo
 dist-types/
 /test-results/
+/vendor-src/
+/.worktrees/
