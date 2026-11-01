@@ -43,7 +43,7 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | T27 | Settings and layout editor | T07 T18e | IMPLEMENTED (DEVICE CHECK PENDING) | 2281bc6 | docs/test-results/T27.md | decisions/0013. Playwright 34/34. D05 D06 NOT RUN. Several settings stored, not yet consumed |
 | T28 | Production hosting | T04 T18e | IMPLEMENTED (DEVICE CHECK PENDING) | 3778216 | docs/test-results/T28.md | decisions/0011. Local build/serve/health/two-client verified; TLS, host, iPad remote checks NOT RUN (no host chosen) |
 | T29 | Security hardening | T22 T28 | IMPLEMENTED (DEVICE CHECK PENDING) | 1b980e1 | docs/test-results/T29.md | decisions/0030. CSP, 5/30 per min, WS origin, invalid-message drop. Safari/iPad, TLS NOT RUN |
-| T30 | Performance pass | T24 T26 T27 | IN PROGRESS | pending | docs/test-results/T30.md | decisions/0031. Adaptive quality controller done and unit tested. Measured and within budget: draw calls 65-67 / 116k tris (medium, SwiftShader), server tick p95 0.67 ms / p99 0.99 ms and 4.7 up / 2.9 down KB/s per player with 4 clients. Still NOT RUN: iPad FPS, heap over 10 joins, four player stress on low (needs devices or BOT5) |
+| T30 | Performance pass | T24 T26 T27 | IN PROGRESS | pending | docs/test-results/T30.md | decisions/0031. Adaptive quality controller done and unit tested. Section 24 budget measurements (tick, network, memory, draw calls with final art, iPad) NOT RUN |
 | T31 | Fidelity calibration | T18e T27 | IMPLEMENTED (DEVICE CHECK PENDING) | 779475b | docs/test-results/T31.md | decisions/0017. Layout JSON + ledger done; all O01-O08 NOT RUN. test:browser: 1 intermittent T27 flow test failure |
 | T33a | Owner ops kit: one-command start | T28 | IMPLEMENTED (DEVICE CHECK PENDING) | d3c3333 | docs/test-results/T33a.md | `pnpm play`; QR encoder + origin logic unit-tested; Tailscale path and iPad scan NOT RUN |
 | T32 | Release candidate | T29 T30 T31 | TODO | | | |
@@ -91,13 +91,13 @@ Execution details, ownership and acceptance gates are in [the sparring plan](spa
 
 | Task | Title | Depends on | Status | Commit | Test report |
 |---|---|---|---|---|---|
-| BOT0 | Freeze sparring contracts | T18d T33a | DONE | e035ecc | docs/test-results/BOT0.md |
-| BOT1 | Deterministic opponents | BOT0 | DONE | 461ce49 | docs/test-results/BOT1.md |
+| BOT0 | Freeze sparring contracts | T18d T33a | DONE | f8a66a5 | docs/test-results/BOT0.md |
+| BOT1 | Deterministic opponents | BOT0 | DONE | fd80a2c | docs/test-results/BOT1.md |
 | BOT2 | Private match membership | BOT0 | DONE | e761c3a | docs/test-results/BOT2.md |
 | BOT3 | Host setup controls | BOT0 | IMPLEMENTED (DEVICE CHECK PENDING) | 99e5722 | docs/test-results/BOT3.md |
-| BOT4 | Authoritative room integration | BOT1 BOT2 | DONE | 5fe845a | docs/test-results/BOT4.md |
-| BOT4C | Client journey integration | BOT3 | TODO | | |
-| BOT5 | End-to-end sparring journeys | BOT4 BOT4C | TODO | | |
+| BOT4 | Authoritative room integration | BOT1 BOT2 | IMPLEMENTED (DEVICE CHECK PENDING) | 57ac46d | docs/test-results/BOT4.md |
+| BOT4C | Client journey integration | BOT3 | IMPLEMENTED (DEVICE CHECK PENDING) | b0c2383 | docs/test-results/BOT4C.md |
+| BOT5 | End-to-end sparring journeys | BOT4 BOT4C | IMPLEMENTED (DEVICE CHECK PENDING) | 8e863b8 | docs/test-results/BOT5.md |
 
 ## Player onboarding and instructions
 
@@ -105,5 +105,5 @@ The [dispatch board](agent-dispatch.md) contains the file ownership, acceptance 
 
 | Task | Title | Depends on | Status | Commit | Test report |
 |---|---|---|---|---|---|
-| HELP1 | Standalone How to play guide for touch and keyboard | T18c T18d | IMPLEMENTED (DEVICE CHECK PENDING) | 7cfc40d | docs/test-results/HELP1.md | Browser 3/3; units 1058/1058. Full verify stalled; iPads NOT RUN |
-| HELP2 | Welcome entry and guided practice handoff | HELP1 | IMPLEMENTED (DEVICE CHECK PENDING) | 5cedad5 | docs/test-results/HELP2.md |
+| HELP1 | Standalone How to play guide for touch and keyboard | T18c T18d | TODO | | |
+| HELP2 | Welcome entry and guided practice handoff | HELP1 | TODO | | |

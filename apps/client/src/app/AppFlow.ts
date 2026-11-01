@@ -4,13 +4,14 @@
  * injected `sleep` used for the bounded Retry delay (never for gameplay). A retry is always a person's click.
  */
 import { ClientError } from "../net/RoomClient.js";
+import type { SparringConfig } from "@eb/shared/sparring";
 import type { KitId } from "@eb/shared/protocol";
 
 export type Screen = "boot" | "welcome" | "lobby" | "match" | "error";
 export type FlowError = "ROOM_FULL" | "INVITE_INVALID" | "VERSION_MISMATCH" | "SERVER_OFFLINE" | "ASSET_FAILED" | "UNSUPPORTED";
 type Step = "assets" | "login" | "join";
 
-export type FlowMode = "play" | "practice";
+export type FlowMode = "play" | "practice" | "sparring";
 export interface FlowState { screen: Screen; error: FlowError | null; canRetry: boolean }
 
 export interface FlowDeps {
@@ -25,6 +26,12 @@ export interface FlowDeps {
   sleep(ms: number): Promise<void>;
   /** Whether an adult supplied invitation was present in the URL fragment. */
   hasInvite: boolean;
+  sparring?: {
+    guest: boolean;
+    recover(): Promise<boolean>;
+    create(config: SparringConfig): Promise<void>;
+    end(): Promise<void>;
+  };
 }
 
 /** 0.5 s, 1 s, 2 s, 4 s, then capped at 8 s. */
@@ -39,6 +46,8 @@ export class AppFlow {
   private retries = 0;
   private failed: Step | null = null;
   private busy = false;
+  private revision = 0;
+  private retryPending = false;
 
   constructor(private readonly deps: FlowDeps) {}
 
@@ -74,19 +83,24 @@ export class AppFlow {
   private async run(step: Step): Promise<void> {
     if (this.busy) return;
     this.busy = true;
+    const revision = this.revision;
     try {
       if (step === "assets") {
         await this.deps.loadAssets();
         this.failed = null; this.retries = 0;
+        if (this.deps.sparring && await this.deps.sparring.recover()) this.mode = "sparring";
+        if (revision !== this.revision) return;
         this.set("welcome");
         return;
       }
-      if (step === "login" && !this.loggedIn) { await this.deps.login(); this.loggedIn = true; }
+      if (step === "login" && (!this.loggedIn || this.mode === "sparring")) { await this.deps.login(); this.loggedIn = true; }
+      if (revision !== this.revision) return;
       await this.deps.join(this.mode);
+      if (revision !== this.revision) { await this.deps.leave(); return; }
       this.failed = null; this.retries = 0;
       this.set("lobby");
     } catch (e) {
-      this.fail(step, e);
+      if (revision === this.revision) this.fail(step, e);
     } finally {
       this.busy = false;
     }
@@ -94,18 +108,43 @@ export class AppFlow {
 
   /** Play: exchange the invitation, join the private room, show the lobby. */
   async play(): Promise<void> {
-    if (this.state.screen !== "welcome") return;
-    this.mode = "play";
-    if (!this.deps.hasInvite && !this.loggedIn) { this.failed = null; this.set("error", "INVITE_INVALID", false); return; }
+    if (this.busy || this.state.screen !== "welcome") return;
+    this.mode = this.deps.sparring?.guest || this.mode === "sparring" ? "sparring" : "play";
+    if (!this.deps.hasInvite && !this.loggedIn && this.mode !== "sparring") { this.failed = null; this.set("error", "INVITE_INVALID", false); return; }
     await this.run("login");
   }
 
   /** Practice: the same session exchange, then a private room with one dummy (spec section 6). Never an FFA room. */
   async practice(): Promise<void> {
-    if (this.state.screen !== "welcome") return;
+    if (this.busy || this.state.screen !== "welcome") return;
     this.mode = "practice";
     if (!this.deps.hasInvite && !this.loggedIn) { this.failed = null; this.set("error", "INVITE_INVALID", false); return; }
     await this.run("login");
+  }
+
+  async hostSparring(config: SparringConfig, kit: "sv" | "td"): Promise<void> {
+    if (this.busy || this.state.screen !== "welcome" || !this.deps.sparring) return;
+    this.busy = true;
+    const revision = this.revision;
+    try {
+      await this.deps.login();
+      this.loggedIn = true;
+      if (revision !== this.revision) return;
+      this.mode = "sparring";
+      await this.deps.sparring.create(config);
+      if (revision !== this.revision) { await this.deps.sparring.end(); return; }
+      await this.deps.join("sparring");
+      if (revision !== this.revision) { await this.deps.sparring.end(); await this.deps.leave(); return; }
+      this.set("lobby");
+      this.ready(kit);
+    } catch (e) {
+      // Release a created match before allowing setup to retry.
+      if (this.mode === "sparring") {
+        try { await this.deps.sparring.end(); } catch { /* retain ownership so a retry can recover */ }
+        try { await this.deps.leave(); } catch { /* transport may already be closed */ }
+      }
+      throw e;
+    } finally { this.busy = false; }
   }
 
   /** Ready submits the chosen kit; gameplay is enabled by the caller once the server state is ready. */
@@ -116,15 +155,24 @@ export class AppFlow {
   }
 
   async retry(): Promise<void> {
-    if (this.state.screen !== "error" || !this.state.canRetry) return;
-    const step = this.failed;
-    await this.deps.sleep(retryDelayMs(this.retries++));
-    if (step === null) { await this.start(); return; }
-    await this.run(step);
+    if (this.busy || this.retryPending || this.state.screen !== "error" || !this.state.canRetry) return;
+    this.retryPending = true;
+    const revision = this.revision;
+    try {
+      const step = this.failed;
+      await this.deps.sleep(retryDelayMs(this.retries++));
+      if (revision !== this.revision) return;
+      if (step === null) { await this.start(); return; }
+      await this.run(step);
+    } finally { this.retryPending = false; }
   }
+
+  dispose(): void { this.revision++; this.subs.clear(); }
 
   /** Back (or Leave): closes the room connection and returns to Welcome. */
   async back(): Promise<void> {
+    this.revision++;
+    if (this.mode === "sparring") await this.deps.sparring?.end();
     try { await this.deps.leave(); } catch { /* the room may already be gone */ }
     this.failed = null; this.retries = 0;
     this.mode = "play";

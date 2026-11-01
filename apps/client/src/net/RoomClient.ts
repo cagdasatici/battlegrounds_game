@@ -1,3 +1,8 @@
+import {
+  SparringConfigSchema, SparringCreateResponseSchema, SparringGuestResponseSchema,
+  SparringLinkResponseSchema, SparringRedeemRequestSchema, SparringRoomCodeSchema,
+  type SparringConfig,
+} from "@eb/shared/sparring";
 import { Client, type Room } from "@colyseus/sdk";
 import {
   ClientMessage, PROTOCOL_VERSION, ServerMessage, checkCompatibility,
@@ -55,6 +60,63 @@ export class RoomClient {
   private readonly f: typeof fetch;
   private readonly sleep: (ms: number) => Promise<void>;
   private csrf: string | null = null;
+  private guest: { roomCode: string; csrfToken: string } | null = null;
+
+  private routeError(r: Response): never {
+    if (r.status === 409) throw new ClientError("ROOM_FULL", true);
+    if (r.status === 429 || r.status >= 500) throw new ClientError("SERVER_OFFLINE", true);
+    throw new ClientError("INVITE_INVALID", false);
+  }
+
+  async createSparring(config: SparringConfig): Promise<string> {
+    const csrf = await this.ensureCsrf();
+    const r = await this.http("/api/sparring", {
+      method: "POST", headers: { "content-type": "application/json", "x-csrf-token": csrf },
+      body: JSON.stringify(SparringConfigSchema.parse(config)),
+    });
+    if (r.status !== 201) this.routeError(r);
+    return SparringCreateResponseSchema.parse(await r.json()).roomCode;
+  }
+
+  async redeemSparring(token: string, displayName: string): Promise<string> {
+    const request = SparringRedeemRequestSchema.safeParse({ token, displayName });
+    if (!request.success) throw new ClientError("INVITE_INVALID", false);
+    const r = await this.http("/api/sparring/redeem", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify(request.data),
+    });
+    if (r.status !== 201) this.routeError(r);
+    this.guest = SparringGuestResponseSchema.parse(await r.json());
+    return this.guest.roomCode;
+  }
+
+  async recoverSparringGuest(): Promise<string | null> {
+    const r = await this.http("/api/sparring/guest");
+    if (r.status === 401 || r.status === 404) { this.guest = null; return null; }
+    if (!r.ok) this.routeError(r);
+    this.guest = SparringGuestResponseSchema.parse(await r.json());
+    return this.guest.roomCode;
+  }
+
+  async copySparringLink(roomCode: string, origin: string): Promise<string> {
+    const csrf = await this.ensureCsrf();
+    const r = await this.http("/api/sparring/link", {
+      method: "POST", headers: { "content-type": "application/json", "x-csrf-token": csrf },
+      body: JSON.stringify({ roomCode: SparringRoomCodeSchema.parse(roomCode) }),
+    });
+    if (r.status !== 201) this.routeError(r);
+    const link = SparringLinkResponseSchema.parse(await r.json());
+    return new URL("/#spar=" + link.token, origin).href;
+  }
+
+  async endSparring(roomCode: string): Promise<void> {
+    const csrf = await this.ensureCsrf();
+    const r = await this.http("/api/sparring/end", {
+      method: "POST", headers: { "content-type": "application/json", "x-csrf-token": csrf },
+      body: JSON.stringify({ roomCode: SparringRoomCodeSchema.parse(roomCode) }),
+    });
+    if (r.status !== 204) this.routeError(r);
+  }
 
   constructor(private readonly deps: RoomClientDeps) {
     this.f = deps.fetchFn ?? ((...a) => fetch(...a));
@@ -97,11 +159,12 @@ export class RoomClient {
   }
 
   async requestTicket(roomCode: string): Promise<JoinTicketResponse> {
-    const csrf = await this.ensureCsrf();
+    const csrf = this.guest?.roomCode === roomCode ? this.guest.csrfToken : await this.ensureCsrf();
     const r = await this.http("/api/join-ticket", {
       method: "POST", headers: { "content-type": "application/json", "x-csrf-token": csrf }, body: JSON.stringify({ roomCode }),
     });
     if (r.status === 200) return (await r.json()) as JoinTicketResponse;
+    if (r.status === 409) throw new ClientError("ROOM_FULL", true);
     if (r.status === 429 || r.status >= 500) throw new ClientError("SERVER_OFFLINE", true);
     throw new ClientError("INVITE_INVALID", false);
   }

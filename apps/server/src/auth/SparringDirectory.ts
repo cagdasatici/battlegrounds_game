@@ -149,15 +149,15 @@ export class SparringDirectory {
     return closed;
   }
 
-  /** True while the match exists and its host session and grace period are valid. */
-  isOpen(roomCode: string): boolean {
-    const match = this.matches.get(roomCode);
-    return !!match && this.live(match);
-  }
-
   /** Immutable roster snapshot for authoritative room creation. */
   config(host: SparringPrincipal, roomCode: string): SparringConfig {
     return { bots: [...this.owned(host, roomCode).bots] };
+  }
+
+  /** Internal server lookup; returns no bearer credentials. */
+  describe(code: string): { hostId: string; bots: Difficulty[] } | null {
+    const match = this.matches.get(code);
+    return match && this.live(match) ? { hostId: match.hostId, bots: [...match.bots] } : null;
   }
 
   private live(match: Match): boolean {

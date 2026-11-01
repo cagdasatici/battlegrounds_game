@@ -42,7 +42,6 @@ let authServices: AuthServices | null = null;
 export const roomTuning = { reconnectSeconds: RECONNECT_SECONDS as number };
 
 export function setArenaAuth(a: AuthServices | null): void { authServices = a; }
-export function getArenaAuth(): AuthServices | null { return authServices; }
 
 export interface Seat {
   sessionAuthId: string; // internal; never replicated or logged
@@ -88,7 +87,7 @@ export class ArenaRoom extends Room {
   wallNow: () => number = () => performance.now();
   protected readonly pipeline: TickPipeline = new TickPipeline({
     state: this.state, combat: this.combat, m1: this.m1, abilities: this.abilities, awakening: this.awakening,
-    projectiles: this.projectiles, urns: this.urns, movement: () => this.movement, world: () => this.world, seats: () => this.pipelineSeats(), extraBodies: () => this.extraBodyIds(),
+    projectiles: this.projectiles, urns: this.urns, movement: () => this.movement, world: () => this.world, seats: () => this.pipelineSeats(), beforeDrain: (tick) => this.beforeDrain(tick), extraBodies: () => this.extraBodyIds(),
     poseOf: (id) => this.poseOf(id), respawn: this.respawns, nextLifeId: () => ++this.lifeSeq,
     sendActionResult: (sid, seat, edgeId, seq, tick, ok, reason, castId) => this.sendActionResult(sid, seat, edgeId, seq, tick, ok, reason, castId),
     broadcastEvent: (tick, kind, actor, target, lifeId, moveId, dmg, extra) => this.broadcastEvent(tick, kind, actor, target, lifeId, moveId, dmg, extra),
@@ -142,20 +141,11 @@ export class ArenaRoom extends Room {
     });
     if (!hit || o.contentHash !== this.contentHash) throw new Error("AUTH_FAILED");
     if (this.roomCode !== "" && o.roomCode !== this.roomCode) throw new Error("AUTH_FAILED");
-    const identity = this.resolveIdentity(hit.sessionId, auth);
-    if (this.seatByAuth.has(identity.authId)) throw new Error("SEAT_TAKEN");
-    return identity;
-  }
-
-  /** Maps a consumed ticket's principal to an identity. Hosted sparring overrides this for scoped guests. */
-  protected resolveIdentity(sessionId: string, auth: AuthServices): { authId: string; displayName: string } {
-    const session = auth.sessions.getById(sessionId);
+    const session = auth.sessions.getById(hit.sessionId);
     if (!session) throw new Error("AUTH_FAILED");
+    if (this.seatByAuth.has(session.id)) throw new Error("SEAT_TAKEN");
     return { authId: session.id, displayName: session.displayName };
   }
-
-  /** Every simulated seat the tick pipeline drives. Rooms with server-driven fighters extend this; humans stay in `seats`. */
-  protected pipelineSeats(): ReadonlyMap<string, PipelineSeat> { return this.seats; }
 
   override onJoin(client: Client, _options: unknown, auth: { authId: string; displayName: string }): void {
     const entityId = this.nextEntityId++;
@@ -237,6 +227,10 @@ export class ArenaRoom extends Room {
     this.world = null;
   }
 
+  protected authServices(): AuthServices | null { return authServices; }
+  protected pipelineSeats(): ReadonlyMap<string, PipelineSeat> { return this.seats; }
+  protected beforeDrain(_tick: number): void {}
+
   // ---- internals ----
   protected playerOf(seat: Seat): PlayerSchema | undefined {
     return this.state.players.get(String(seat.entityId));
@@ -295,7 +289,7 @@ export class ArenaRoom extends Room {
     };
   }
 
-  protected poseOf(id: number): M1Pose | undefined {
+  private poseOf(id: number): M1Pose | undefined {
     const b = this.movement?.get(id);
     const p = this.movement?.position(id);
     return b && p ? { x: p[0], y: p[1], z: p[2], facingYaw: b.state.facingYaw, grounded: b.state.grounded } : undefined;

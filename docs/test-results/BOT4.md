@@ -1,48 +1,27 @@
 # BOT4 — Authoritative room integration
 
-Date: 1 November 2026. Node v26.10.0 locally (repo pin is 24.22.2; pnpm warned, nothing failed).
-Prerequisites: BOT1 and BOT2 merged to main (831a8e8).
+Date: 1 November 2026. Implementation commit: 57ac46d. Prerequisites: BOT1 fd80a2c, BOT2 e761c3a.
 
-## Delivered
+## Implemented behavior
 
-- `apps/server/src/rooms/SparringRoom.ts`: `sparring` room extending ArenaRoom. Bots are PipelineSeats
-  (via the new `pipelineSeats()` hook) fed with `decideBot` before the input drain at the fixed tick;
-  they are never Colyseus clients. Humans stay in the normal seat map with ticket auth, reconnect
-  and owner messages. Each bot is scored once per life by the ordinary pipeline.
-- Movement safety: each tick the proposed 0.6 m step rechecks real ground (raycast), step/drop
-  height and a blocked segment; unsupported or blocked steps are neutralised.
-- `apps/server/src/http/sparringRoutes.ts`: POST /api/sparring, /link, /redeem, /end and GET
-  /api/sparring/guest, per the frozen contract. Hosted join tickets go through the existing
-  `/api/join-ticket` (ordinary session only if it owns the match, else the matching guest cookie;
-  CSRF checked against that principal; a guest cookie never authorizes any other room or route).
-- Rooms are created by the create route only (one-use creation grant), so SDK `create` /
-  `joinOrCreate` cannot open one; `autoDispose` is off so a failed foreign join cannot close a match.
-- Match lifetime: the room sweeps the directory once a second from the sim tick (works with zero
-  clients). Host Leave, revoked session, exhausted 20 s grace, 60 s unjoined reservation and the end
-  route all close the room and disconnect guests.
-- Small shared edits: `AuthServices.sparring`, `SparringDirectory.isOpen`, ArenaRoom hooks
-  (`resolveIdentity`, `pipelineSeats`, protected `poseOf`), exported helpers in `sessionRoutes.ts`.
+- Registered private `sparring` rooms with the frozen create/link/redeem/end/guest HTTP contracts. Reused strict schemas, origin, CSRF, 1 KiB body limit and limiter policies. Ordinary credentials authorize hosting; guest cookies authorize only their issuing match. Single-use tickets bind room, protocol and content hash.
+- Socket admission synchronously claims directory membership; simultaneous tickets cannot create two fighters. The existing room directory prevents duplicate room creation. Ordinary Ready validation remains mandatory for humans.
+- Human transport seats remain separate from bot PipelineSeats. Stone Vanguard bots, named in roster order, submit held intent and increasing skill edges before the existing pipeline drains at 60 Hz. They use ordinary movement, combat, cooldowns, interruption, KO scoring and respawn. Public poses/actions and each bot's own cooldowns feed BOT1.
+- Voluntary movement predicts the ordinary walk step and queries the loaded static collider world for capsule obstruction and ground support. No pathfinding or second physics scheduler. Combat displacement retains its existing rules.
+- A wall-time membership sweep runs independently of connected clients; it closes expired/revoked/unjoined/dropped hosts and disposes rooms. Its timer is cleared on shutdown. Host end/leave closes guests, invalidates links and allows rehosting; reconnect retains the existing entity/life and renews its input epoch.
+- Added an internal immutable directory lookup for integration; frozen network schemas and BOT1 exports are unchanged.
 
-## Checks executed
+## Verification
 
-| Check | Result |
-|---|---|
-| pnpm typecheck | pass |
-| pnpm lint | pass (boundaries, timers) |
-| pnpm test | 1274 passed, 1 skipped, 2 todo (91 files; 1 skipped file pre-existing) |
-| pnpm build | pass |
-| pnpm content:validate | pass |
-| tests/integration/sparring.test.ts | 8/8 real HTTP + Colyseus clients |
+Pinned runtime: Node 24.22.2, pnpm 10.28.0. Local sockets enabled for real-client tests.
 
-Covered: host plus bot (bot damages host, no synthetic client, bot has no owner record); fresh guest
-with scoped cookie, reload recovery, authority isolation, duplicate admission 409; four-seat limit
-and single-use link under simultaneous redeem; direct SDK create/join refusal, wrong/foreign tickets,
-duplicate hosting, schema/CSRF errors; host Leave, end route, revoked session; unjoined and
-dropped-host expiry with an injected clock; ring-out KO then respawn with deaths counted once and a
-fresh scoreboard in a second match. The existing FFA and practice suites pass unchanged.
+- Initial targeted suite: PASS, 7 real-client tests.
+- Expanded targeted suite: PASS, 9 real-client tests, including all tiers, interruption, KO/180-tick respawn, score isolation, fresh guest scope, reservations, concurrent admission, Ready validation, host reconnect, explicit end/rehost, revocation with no connected clients, collider edge/obstacle checks, bot respawn reaction delay, link/reservation/host grace expiry.
+- Typecheck and lint: PASS before full verification.
+- Full `pnpm verify`: PASS. Typecheck, lint, 92 files / 1,290 tests passed (2 existing TODOs), build, asset audit and content validation. Existing large-chunk build warning remains.
+- `git diff --check`: PASS before full verification.
 
-## Limits (not claimed)
+## Limitations
 
-- Interruption of a bot mid-attack and bot-vs-bot fights are not asserted by a dedicated test.
-- Bots do no pathfinding; they only move on continuous reachable ground.
-- Four-fighter performance is BOT5. Physical iPad checks: NOT RUN.
+Physical iPad touch, clipboard, reconnect and ten-minute matches: NOT RUN.
+BOT5 owns browser journey acceptance. Bots use direct approach on reachable continuous ground and intentionally stop at unsupported edges or solid obstacles; map-wide pathfinding is outside this slice.

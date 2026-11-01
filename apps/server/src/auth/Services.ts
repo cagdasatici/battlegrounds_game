@@ -1,8 +1,8 @@
 import { join } from "node:path";
 import { InviteStore } from "./InviteStore.js";
 import { SessionStore } from "./SessionStore.js";
-import { JoinTicketStore } from "./JoinTicketStore.js";
 import { SparringDirectory } from "./SparringDirectory.js";
+import { JoinTicketStore } from "./JoinTicketStore.js";
 
 export interface AuthConfig {
   dataDir: string;
@@ -21,10 +21,12 @@ export interface AuthConfig {
 
 export interface AuthServices {
   config: AuthConfig;
+  sparring: SparringDirectory;
+  now: () => number;
+  closeRoom: (code: string) => Promise<void>;
   invites: InviteStore;
   sessions: SessionStore;
   tickets: JoinTicketStore;
-  sparring: SparringDirectory;
   /** Set by createGameServer: finds or creates the live room for a code and returns its roomId. */
   ensureRoom: ((roomName: string, roomCode: string) => Promise<string>) | null;
 }
@@ -33,7 +35,5 @@ export function createAuthServices(config: AuthConfig, now: () => number = Date.
   const sessions = new SessionStore(join(config.dataDir, "sessions.json"), now);
   const tickets = new JoinTicketStore(now);
   sessions.onRevoke((id) => tickets.revokeSession(id));
-  // isHostLive reads without touching idle expiry (getById never refreshes).
-  const sparring = new SparringDirectory((id) => sessions.getById(id) !== null, now);
-  return { config, invites: new InviteStore(join(config.dataDir, "invites.json"), now), sessions, tickets, sparring, ensureRoom: null };
+  return { config, now, sparring: new SparringDirectory((id) => sessions.getById(id) !== null, now), closeRoom: async () => undefined, invites: new InviteStore(join(config.dataDir, "invites.json"), now), sessions, tickets, ensureRoom: null };
 }

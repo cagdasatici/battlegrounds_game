@@ -8,6 +8,7 @@ import {
   type ActionResult, type CombatEvent, type KitId, type PongMessage, type WelcomeMessage,
 } from "@eb/shared/protocol";
 import islandsUrl from "../../../assets/maps/islands.v1.json?url";
+import { mountSparringSetup } from "./ui/SparringSetup.js";
 import { AppFlow } from "./app/AppFlow.js";
 import { CombatBus } from "./app/CombatBus.js";
 import { registerPresentation } from "./fx/index.js";
@@ -40,6 +41,7 @@ const SPARRING_GUIDE_AVAILABLE = false;
 export interface BootOptions {
   /** Invitation consumed from the URL fragment; without it Play shows INVITE_INVALID. */
   invite: string | null;
+  sparToken?: string | null;
   roomCode: string;
   displayName: string;
   kitId: "sv" | "td";
@@ -78,6 +80,11 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   let clock = new ClockSync();
   let rafId = 0;
   const rc = createRoomClient();
+  let sparToken = opts.sparToken ?? null;
+  opts.sparToken = null;
+  let sparRoom: string | null = null;
+  let hostRoom: string | null = null;
+  let authenticated = false;
   const canvasHost = document.createElement("div");
   app.append(canvasHost);
   cleanups.push(() => canvasHost.remove());
@@ -151,6 +158,15 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   const openSettings = (): void => { activeSettings(); settingsRef?.panel.open(); };
   cleanups.push(() => { settingsRef?.unsub(); settingsRef?.panel.dispose(); settingsRef = null; });
 
+  const guestLabel = document.createElement("label");
+  guestLabel.textContent = "Guest display name ";
+  guestLabel.style.cssText = "position:fixed;bottom:16px;left:16px;z-index:10;color:white;font:16px system-ui";
+  const guestName = document.createElement("input");
+  guestName.value = opts.displayName; guestName.maxLength = 16;
+  guestName.style.cssText = "min-height:48px;font:inherit;max-width:180px";
+  guestLabel.append(guestName); app.append(guestLabel);
+  cleanups.push(() => guestLabel.remove());
+
   const flow = new AppFlow({
     hasInvite: opts.invite !== null,
     supported: () => hasWebGL2() && typeof WebAssembly === "object",
@@ -171,11 +187,49 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       const idle = (): void => { if (matchCleanups.length === 0) gs?.render(); rafId = requestAnimationFrame(idle); };
       rafId = requestAnimationFrame(idle);
     },
-    login: async () => { await rc.login(opts.invite as string, lobby.displayName); },
+    login: async () => {
+      if (sparToken !== null) {
+        sparRoom = await rc.redeemSparring(sparToken, guestName.value || lobby.displayName);
+        sparToken = null;
+      } else if (!sparRoom && !authenticated) {
+        if (opts.invite) await rc.login(opts.invite, lobby.displayName);
+        // Cookie-only adult reload is authenticated by the CSRF endpoint when creating/joining.
+        authenticated = true;
+      }
+    },
+    sparring: {
+      get guest() { return sparToken !== null || (sparRoom !== null && hostRoom === null); },
+      recover: async () => {
+        if (sparToken !== null || opts.invite) return false;
+        const navigation = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+        if (navigation?.type !== "reload") return false;
+        sparRoom = await rc.recoverSparringGuest();
+        return sparRoom !== null;
+      },
+      create: async (config) => {
+        if (sparRoom && !hostRoom) throw new Error("Guest cannot host");
+        hostRoom ??= await rc.createSparring(config);
+        sparRoom = hostRoom;
+      },
+      end: async () => {
+        if (hostRoom) await rc.endSparring(hostRoom);
+        hostRoom = null; sparRoom = null;
+      },
+    },
     join: async (mode) => {
-      room = await rc.joinWithRetry(mode === "practice" ? PRACTICE_ROOM_CODE : opts.roomCode, opts.auto ? 4 : 1);
+      room = await rc.joinWithRetry(mode === "sparring" ? sparRoom! : mode === "practice" ? PRACTICE_ROOM_CODE : opts.roomCode, opts.auto ? 4 : 1);
       await waitFor(() => rc.welcome, 5000, "welcome");
       clock = new ClockSync();
+      if (mode === "sparring") {
+        const joined = room;
+        const onLeave = (): void => {
+          if (room !== joined || disposed) return;
+          hostRoom = null; sparRoom = null;
+          void flow.back();
+        };
+        joined.onLeave(onLeave);
+        matchCleanups.push(() => joined.onLeave.remove(onLeave));
+      }
     },
     sendReady: (kit) => { if (map && gs && room) enterMatch(kit); },
     leave: leaveRoom,
@@ -184,7 +238,40 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   flowRef.current = flow;
 
   const lobbyView = (): LobbyView =>
-    ({ seated: players().size, capacity: MAX_CLIENTS, connection: room ? "online" : "offline", mode: flow.mode });
+    ({ seated: players().size, capacity: MAX_CLIENTS, connection: room ? "online" : "offline", mode: flow.mode === "practice" ? "practice" : "play" });
+  let setupPending = false;
+  const sparControls = document.createElement("div");
+  sparControls.style.cssText = "position:fixed;inset:0;z-index:20;overflow:auto;background:#0b1118;display:none;padding:16px;box-sizing:border-box";
+  const closeSetup = document.createElement("button");
+  closeSetup.textContent = "Back to game";
+  closeSetup.style.cssText = "min-height:48px;font:inherit";
+  closeSetup.onclick = () => { sparControls.style.display = "none"; };
+  sparControls.append(closeSetup);
+  const sparButton = document.createElement("button");
+  sparButton.textContent = "Host sparring";
+  sparButton.style.cssText = "position:fixed;right:16px;top:16px;z-index:21;min-height:48px;font:600 17px system-ui";
+  sparButton.onclick = () => {
+    if (setupPending) return;
+    if (!hostRoom) { disposeSetup(); disposeSetup = mountSparringSetup(sparControls, setupActions); }
+    sparControls.style.display = "block";
+  };
+  app.append(sparControls, sparButton);
+  const setupActions: import("@eb/shared/sparring").SparringSetupActions = {
+    start: async (config, kit) => {
+      setupPending = true;
+      try {
+        await flow.hostSparring(config, kit);
+        sparControls.style.display = "none";
+      } finally { setupPending = false; }
+    },
+    copyLink: async () => {
+      if (!hostRoom) throw new Error("No hosted match");
+      return rc.copySparringLink(hostRoom, location.origin);
+    },
+    end: async () => { await flow.back(); sparControls.style.display = "none"; },
+  };
+  let disposeSetup = mountSparringSetup(sparControls, setupActions);
+  cleanups.push(() => { disposeSetup(); sparControls.remove(); sparButton.remove(); sparToken = null; });
   let lobbyKey = "";
   const paintLobby = (force = false): void => {
     const v = lobbyView();
@@ -192,6 +279,9 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     if (!force && key === lobbyKey) return;
     lobbyKey = key;
     lobby.render(flow.state, v);
+    guestLabel.hidden = flow.state.screen !== "welcome" || sparToken === null;
+    sparButton.hidden = !(hostRoom || (flow.state.screen === "welcome" && sparToken === null && !sparRoom));
+    sparButton.textContent = hostRoom ? "Sparring controls" : "Host sparring";
   };
   cleanups.push(flow.subscribe(() => { paintLobby(true); }));
   const lobbyTimer = window.setInterval(() => { paintLobby(); }, 250);
@@ -200,6 +290,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   const dispose = (): void => {
     if (disposed) return;
     disposed = true;
+    flow.dispose();
     cancelAnimationFrame(rafId);
     runAll(matchCleanups);
     void rc.leave().catch(() => undefined);
@@ -399,11 +490,12 @@ async function waitFor<T>(get: () => T | null, ms: number, what: string): Promis
 /** Reads boot options from the URL. The invitation comes from the fragment only and is removed from the address bar. */
 export function readBootOptions(loc: Location = location, hist: History = history): BootOptions {
   const q = new URLSearchParams(loc.search);
+  const sparToken = consumeSparringFragment(loc, hist);
   const invite = consumeInviteFragment(loc, hist);
   const kit = q.get("kit");
   const name = (q.get("name") ?? "Arel").slice(0, 16);
   return {
-    invite, roomCode: q.get("room") ?? "play", displayName: name,
+    invite, sparToken, roomCode: q.get("room") ?? "play", displayName: name,
     kitId: kit === "td" ? "td" : "sv", debug: q.get("debug") === "1", auto: q.get("auto") === "1",
   };
 }
@@ -426,4 +518,13 @@ export function createRoomClient(): RoomClient {
     wsEndpoint: `${proto}://${location.host}`,
     storage: sessionStorage,
   });
+}
+
+/** Scoped bearer stays in memory; remove even malformed spar fragments before requests. */
+export function consumeSparringFragment(loc: Location = location, hist: History = history): string | null {
+  const params = new URLSearchParams(loc.hash.slice(1));
+  if (!params.has("spar")) return null;
+  const token = params.get("spar");
+  hist.replaceState(null, "", loc.pathname + loc.search);
+  return token ?? "";
 }

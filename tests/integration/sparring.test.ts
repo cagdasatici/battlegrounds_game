@@ -1,282 +1,218 @@
-// BOT4: hosted sparring over real Colyseus connections and real HTTP (no mocked transport).
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { createServer as createNetServer } from "node:net";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, expect, test } from "vitest";
 import { Client, type Room } from "@colyseus/sdk";
-import { matchMaker, type Server } from "colyseus";
-import { createGameServer } from "../../apps/server/src/createServer.js";
-import { createAuthServices, type AuthServices } from "../../apps/server/src/auth/Services.js";
-import { PROTOCOL_VERSION } from "../../packages/shared/src/protocol.js";
+import { matchMaker } from "colyseus";
+import { startHarness, waitFor, players, loginClient, type Harness } from "../fixtures/harness.js";
+import { ARENA } from "../../packages/shared/src/config/arena.js";
 import { computeContentHash } from "../../packages/shared/src/config/content.js";
+import { PROTOCOL_VERSION, type CombatEvent } from "../../packages/shared/src/protocol.js";
+import { applyReaction } from "../../apps/server/src/sim/ActionMachine.js";
 import type { SparringRoom } from "../../apps/server/src/rooms/SparringRoom.js";
-import { roomDirectory } from "../../apps/server/src/rooms/RoomDirectory.js";
-import { waitFor, players } from "../fixtures/harness.js";
+import type { Difficulty } from "../../packages/shared/src/sparring.js";
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+let h: Harness;
+beforeAll(async () => { h = await startHarness(); });
+afterAll(async () => { await h.stop(); });
 const hash = computeContentHash();
-let svc: AuthServices, server: Server, origin = "", port = 0, offset = 0;
-const now = (): number => Date.now() + offset;
-
-function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const s = createNetServer();
-    s.once("error", reject);
-    s.listen(0, "127.0.0.1", () => { const p = (s.address() as { port: number }).port; s.close(() => resolve(p)); });
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+function http(cookie = "", csrf = "") {
+  return async (path: string, data?: unknown, extra: Record<string, string> = {}) => fetch(`${h.origin}${path}`, {
+    method: data === undefined ? "GET" : "POST", headers: { origin: h.origin, cookie, "x-csrf-token": csrf, "content-type": "application/json", ...extra },
+    ...(data === undefined ? {} : { body: JSON.stringify(data) }),
   });
 }
-
-beforeAll(async () => {
-  port = await freePort();
-  origin = `http://localhost:${port}`;
-  svc = createAuthServices({
-    dataDir: mkdtempSync(join(tmpdir(), "eb-spar-")), allowedOrigins: [origin], secureCookies: true,
-    roomCodes: { play: "arena", practice: "practice" }, buildId: "test", sessionsPerMinute: 10_000, globalSessionsPerMinute: 10_000,
-  }, now);
-  server = createGameServer(svc);
-  await server.listen(port, undefined, undefined);
-});
-afterAll(async () => { await server.gracefullyShutdown(false); });
-
-/** A browser stand-in: its own cookie jar, optional CSRF, JSON helpers. */
-class Http {
-  jar = new Map<string, string>();
-  csrf = "";
-  async call(method: string, path: string, body?: unknown, csrf: string | null = this.csrf): Promise<{ status: number; json: any }> {
-    const headers: Record<string, string> = { origin, "content-type": "application/json" };
-    if (this.jar.size) headers["cookie"] = [...this.jar].map(([k, v]) => `${k}=${v}`).join("; ");
-    if (csrf) headers["x-csrf-token"] = csrf;
-    const r = await fetch(origin + path, { method, headers, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
-    for (const c of r.headers.getSetCookie()) {
-      const [kv] = c.split(";");
-      const i = kv!.indexOf("=");
-      this.jar.set(kv!.slice(0, i), kv!.slice(i + 1));
-    }
-    const text = await r.text();
-    return { status: r.status, json: text ? JSON.parse(text) : null };
-  }
+async function host(bots: Difficulty[]) {
+  const adult = h.svc.sessions.create("Host");
+  const api = http(`eb_session=${adult.cookieToken}`, adult.session.csrf);
+  const response = await api("/api/sparring", { bots });
+  expect(response.status).toBe(201);
+  const { roomCode: code } = await response.json() as { roomCode: string };
+  return { api, code, adult, join: () => join(api, code) };
 }
-
-async function host(name = "Host"): Promise<Http> {
-  const http = new Http();
-  const { token } = svc.invites.create({ ttlMs: 60_000, maxUses: 1 });
-  expect((await http.call("POST", "/api/session", { invite: token, displayName: name }, null)).status).toBe(201);
-  http.csrf = (await http.call("GET", "/api/csrf", undefined, null)).json.csrfToken;
-  return http;
+async function join(api: ReturnType<typeof http>, code: string): Promise<Room> {
+  const response = await api("/api/join-ticket", { roomCode: code });
+  expect(response.status).toBe(200);
+  const t = await response.json() as { ticket: string; roomId: string };
+  const room = await new Client(`ws://localhost:${h.port}`).joinById(t.roomId, { ticket: t.ticket, roomCode: code, protocolVersion: PROTOCOL_VERSION, contentHash: hash });
+  room.onMessage("welcome", () => undefined); room.onMessage("actionResult", () => undefined); room.onMessage("combatEvent", () => undefined);
+  await waitFor(() => players(room).size > 0);
+  return room;
 }
-
-interface Member { http: Http; room: Room; epoch: () => number; me: () => any }
-
-async function enter(http: Http, roomCode: string, name: string): Promise<Member> {
-  const t = await http.call("POST", "/api/join-ticket", { roomCode });
-  expect(t.status).toBe(200);
-  const room = await new Client(`ws://localhost:${port}`).joinById(t.json.roomId, {
-    roomCode, ticket: t.json.ticket, protocolVersion: PROTOCOL_VERSION, contentHash: hash,
-  });
-  let epoch = 0;
-  room.onMessage("welcome", (w: { epoch: number }) => { epoch = w.epoch; });
-  await waitFor(() => epoch > 0, 3000, "welcome");
-  return { http, room, epoch: () => epoch, me: () => [...players(room).values()].find((p) => p.displayName === name) };
-}
-
-async function guestOf(roomCode: string, hostHttp: Http, name = "Guest"): Promise<{ http: Http; status: number }> {
-  const link = await hostHttp.call("POST", "/api/sparring/link", { roomCode });
-  const g = new Http();
-  const r = await g.call("POST", "/api/sparring/redeem", { token: link.json?.token ?? "x".repeat(43), displayName: name }, null);
-  if (r.status === 201) g.csrf = r.json.csrfToken;
-  return { http: g, status: r.status };
-}
-
-const created = async (http: Http, bots: string[]): Promise<string> => {
-  const r = await http.call("POST", "/api/sparring", { bots });
+async function guest(owner: Awaited<ReturnType<typeof host>>) {
+  const l = await owner.api("/api/sparring/link", { roomCode: owner.code });
+  expect(l.status).toBe(201);
+  const { token } = await l.json() as { token: string };
+  const r = await http()("/api/sparring/redeem", { token, displayName: "Guest" });
   expect(r.status).toBe(201);
-  expect(r.json.roomCode).toMatch(/^sp-[0-9a-f]{32}$/);
-  return r.json.roomCode;
-};
+  const body = await r.json() as { csrfToken: string };
+  return { api: http(r.headers.get("set-cookie")!.split(";")[0], body.csrfToken), token };
+}
+const live = (r: Room): SparringRoom => matchMaker.getLocalRoomById(r.roomId) as unknown as SparringRoom;
+function place(room: SparringRoom, id: number, x: number, z: number) {
+  const b = room.movement!.get(id)!;
+  const pos = { x, y: (room.world!.groundHeight(x, z) ?? 0) + ARENA.capsule.centreAboveSurface, z };
+  b.rb.setTranslation(pos, true); b.rb.setNextKinematicTranslation(pos);
+  b.state.vx = b.state.vz = b.state.vy = 0;
+}
 
-describe("BOT4 hosted sparring (real clients)", () => {
-  test("host plus one bot: the bot is a server fighter, hits the host through the ordinary pipeline, and never a Colyseus client", async () => {
-    const hh = await host("Arel");
-    const code = await created(hh, ["medium"]);
-    const m = await enter(hh, code, "Arel");
-    await waitFor(() => players(m.room).size === 2, 3000, "bot and host replicated");
-    const bot = [...players(m.room).values()].find((p) => p.displayName === "Bot 1");
-    expect(bot.kitId).toBe("sv");
-    expect(bot.ready).toBe(true);
-    const sparRoom = matchMaker.getLocalRoomById(m.room.roomId) as unknown as SparringRoom;
-    expect(sparRoom.clients.length).toBe(1); // the bot has no synthetic client
-    m.room.send("ready", { kitId: "td", contentHash: hash });
-    await waitFor(() => m.me()?.ready && m.me().action === "Idle", 3000, "host ready");
-    await waitFor(() => sparRoom.movement!.get(m.me().entityId)!.state.grounded, 4000, "grounded");
-    // Fixture: stand the host 1.5 m from the bot. Damage must still come from the bot's own server input.
-    const bp = sparRoom.movement!.position(bot.entityId)!;
-    const hb = sparRoom.movement!.get(m.me().entityId)!;
-    const p = { x: bp[0], y: bp[1], z: bp[2] + 1.5 };
-    hb.rb.setTranslation(p, true); hb.rb.setNextKinematicTranslation(p);
-    await waitFor(() => m.me().hp100 < 10000, 15000, "bot damaged the host");
-    // The host owner record is visible to the host only; the bot's is never sent to anyone.
-    expect(bot.owner).toBeUndefined();
-    await m.room.leave(true);
-  }, 30000);
-
-  test("a fresh guest joins through a scoped link; its authority is limited to that match", async () => {
-    const hh = await host("Ana");
-    const code = await created(hh, []);
-    // No link until the host has joined.
-    expect((await hh.call("POST", "/api/sparring/link", { roomCode: code })).status).toBe(409);
-    const hm = await enter(hh, code, "Ana");
-    const g = await guestOf(code, hh, "Gus");
-    expect(g.status).toBe(201);
-    expect(g.http.jar.get("eb_spar_guest")).toBeTruthy();
-    // Recover credentials after a reload from the cookie alone.
-    const rec = await g.http.call("GET", "/api/sparring/guest", undefined, null);
-    expect(rec.json).toEqual({ roomCode: code, csrfToken: g.http.csrf });
-    // Guest cookie never authorizes the general endpoints or host operations.
-    expect((await g.http.call("POST", "/api/join-ticket", { roomCode: "play" })).status).toBe(401);
-    expect((await g.http.call("POST", "/api/sparring", { bots: [] })).status).toBe(401);
-    expect((await g.http.call("POST", "/api/sparring/link", { roomCode: code })).status).toBe(401);
-    expect((await g.http.call("POST", "/api/sparring/end", { roomCode: code })).status).toBe(401);
-    expect((await g.http.call("GET", "/api/csrf", undefined, null)).status).toBe(401);
-    // Wrong CSRF is refused; the host session cannot be borrowed by a guest cookie for another match.
-    expect((await g.http.call("POST", "/api/join-ticket", { roomCode: code }, "wrong")).status).toBe(403);
-    const other = await host("Other");
-    const otherCode = await created(other, []);
-    expect((await g.http.call("POST", "/api/join-ticket", { roomCode: otherCode })).status).toBe(401);
-    const gm = await enter(g.http, code, "Gus");
-    await waitFor(() => players(hm.room).size === 2 && players(gm.room).size === 2, 3000, "both replicated");
-    // Ready, then each human only sees their own owner record.
-    gm.room.send("ready", { kitId: "sv", contentHash: hash });
-    await waitFor(() => gm.me()?.ready, 3000, "guest ready");
-    await waitFor(() => gm.me().owner.epoch > 0, 3000, "guest owner record");
-    const guestSeenByHost = [...players(hm.room).values()].find((p) => p.displayName === "Gus");
-    expect(guestSeenByHost.owner).toBeUndefined(); // owner-only fields never reach another human
-    expect(hm.me().owner).toBeDefined();
-    // The same principal cannot be admitted twice while connected.
-    expect((await g.http.call("POST", "/api/join-ticket", { roomCode: code })).status).toBe(409);
-    await gm.room.leave(true);
-    await hm.room.leave(true);
-    await other.call("POST", "/api/sparring/end", { roomCode: otherCode });
-  }, 30000);
-
-  test("seat limits: bots, host and reservations never exceed four, and a link redeems once", async () => {
-    const hh = await host("Cap");
-    const code = await created(hh, ["easy", "easy"]);
-    const hm = await enter(hh, code, "Cap");
-    const link = await hh.call("POST", "/api/sparring/link", { roomCode: code });
-    expect(link.status).toBe(201);
-    const redeem = (name: string) => new Http().call("POST", "/api/sparring/redeem", { token: link.json.token, displayName: name }, null);
-    const results = await Promise.all([redeem("A"), redeem("B")]);
-    expect(results.map((r) => r.status).sort()).toEqual([201, 401]); // single use, exactly one wins the last seat
-    expect((await hh.call("POST", "/api/sparring/link", { roomCode: code })).status).toBe(409); // full
-    await hm.room.leave(true);
-  }, 20000);
-
-  test("direct SDK creation and joins are refused; a code alone grants nothing", async () => {
-    const fake = `sp-${"a".repeat(32)}`;
-    const c = new Client(`ws://localhost:${port}`);
-    await expect(c.create("sparring", { roomCode: fake })).rejects.toBeTruthy();
-    await expect(c.joinOrCreate("sparring", { roomCode: fake })).rejects.toBeTruthy();
-    const hh = await host("Real");
-    const code = await created(hh, []);
-    const t = await hh.call("POST", "/api/join-ticket", { roomCode: code });
-    await expect(c.joinById(t.json.roomId, { roomCode: code, ticket: "0".repeat(64), protocolVersion: PROTOCOL_VERSION, contentHash: hash })).rejects.toBeTruthy();
-    // A ticket for another room name cannot enter this one.
-    const play = await hh.call("POST", "/api/join-ticket", { roomCode: "play" });
-    await expect(c.joinById(t.json.roomId, { roomCode: code, ticket: play.json.ticket, protocolVersion: PROTOCOL_VERSION, contentHash: hash })).rejects.toBeTruthy();
-    // Creating a second hosted match for the same host is refused.
-    expect((await hh.call("POST", "/api/sparring", { bots: [] })).status).toBe(409);
-    // Invalid rosters are schema errors.
-    const h2 = await host("Two");
-    expect((await h2.call("POST", "/api/sparring", { bots: ["easy", "easy", "easy", "easy"] })).status).toBe(400);
-    expect((await h2.call("POST", "/api/sparring", { bots: ["insane"] })).status).toBe(400);
-    expect((await h2.call("POST", "/api/sparring", { bots: [], extra: 1 })).status).toBe(400);
-    expect((await h2.call("POST", "/api/sparring", { bots: [] }, "wrong")).status).toBe(403);
-    await hh.call("POST", "/api/sparring/end", { roomCode: code });
-  }, 20000);
-
-  test("host Leave closes the match: guests are dropped, links and tickets die", async () => {
-    const hh = await host("Lea");
-    const code = await created(hh, ["easy"]);
-    const hm = await enter(hh, code, "Lea");
-    const g = await guestOf(code, hh);
-    const gm = await enter(g.http, code, "Guest");
-    let guestLeft = false;
-    gm.room.onLeave(() => { guestLeft = true; });
-    const link = await hh.call("POST", "/api/sparring/link", { roomCode: code }).catch(() => null);
-    await hm.room.leave(true);
-    await waitFor(() => guestLeft, 4000, "guest returned");
-    expect(svc.sparring.isOpen(code)).toBe(false);
-    expect((await g.http.call("POST", "/api/join-ticket", { roomCode: code })).status).toBeGreaterThanOrEqual(400);
-    if (link?.json?.token) expect((await new Http().call("POST", "/api/sparring/redeem", { token: link.json.token, displayName: "Late" }, null)).status).toBe(401);
-    await waitFor(() => roomsFor(code) === 0, 4000, "room disposed");
-  }, 20000);
-
-  test("end route and a revoked host session both close the room, even with no client connected", async () => {
-    const a = await host("Endr");
-    const codeA = await created(a, []);
-    expect((await a.call("POST", "/api/sparring/end", { roomCode: codeA })).status).toBe(204);
-    await waitFor(() => roomsFor(codeA) === 0, 4000, "ended room disposed");
-    expect((await a.call("POST", "/api/join-ticket", { roomCode: codeA })).status).toBe(409);
-
-    const b = await host("Revk");
-    const codeB = await created(b, ["hard"]);
-    const bm = await enter(b, codeB, "Revk");
-    let left = false;
-    bm.room.onLeave(() => { left = true; });
-    const id = [...svc.sessions["store"].read().sessions].find((s: { displayName: string }) => s.displayName === "Revk")!.id;
-    expect(svc.sessions.revokeById(id)).toBe(true);
-    await waitFor(() => left, 4000, "revoked host disconnected");
-    await waitFor(() => roomsFor(codeB) === 0, 4000, "revoked room disposed");
-  }, 20000);
-
-  test("an unjoined match closes after its 60 s reservation; a dropped host keeps 20 s", async () => {
-    const hh = await host("Idle");
-    const code = await created(hh, ["easy"]);
-    offset += 61_000;
-    await waitFor(() => roomsFor(code) === 0, 4000, "unjoined room closed");
-    expect(svc.sparring.isOpen(code)).toBe(false);
-    offset += 0;
-    const h2 = await host("Drop");
-    const code2 = await created(h2, []);
-    const m = await enter(h2, code2, "Drop");
-    m.room.reconnection.enabled = false;
-    m.room.connection.close(4010, "network lost");
-    await sleep(300);
-    offset += 10_000;
-    await sleep(1300);
-    expect(svc.sparring.isOpen(code2)).toBe(true); // inside the 20 s grace
-    offset += 11_000;
-    await waitFor(() => roomsFor(code2) === 0, 4000, "grace exhausted closes the match");
-  }, 30000);
-
-  test("per-life KO and respawn score each bot once with no score bleed between matches", async () => {
-    const hh = await host("Kor");
-    const code = await created(hh, ["easy"]);
-    const m = await enter(hh, code, "Kor");
-    const sparRoom = matchMaker.getLocalRoomById(m.room.roomId) as unknown as SparringRoom;
-    const bot = () => [...players(m.room).values()].find((p) => p.displayName === "Bot 1");
-    const botId = bot().entityId as number;
-    await waitFor(() => sparRoom.movement!.get(botId)!.state.grounded && sparRoom.sim.tick > sparRoom.combat.get(botId)!.protectedUntilTick + 2, 4000, "bot settled");
-    const life0 = sparRoom.combat.get(botId)!.lifeId;
-    const b = sparRoom.movement!.get(botId)!;
-    const off = { x: 0, y: -200, z: 0 };
-    b.rb.setTranslation(off, true); b.rb.setNextKinematicTranslation(off); // ring-out below the void plane
-    await waitFor(() => bot().deaths === 1, 4000, "ring-out KO scored once");
-    await waitFor(() => sparRoom.combat.get(botId)!.lifeId !== life0 && bot().action !== "Dead", 8000, "respawned in a new life");
-    expect(bot().deaths).toBe(1);
-    expect(bot().kills).toBe(0);
-    expect(bot().hp100).toBe(10000);
-    // A second match has its own fresh scoreboard.
-    const h2 = await host("Fresh");
-    const code2 = await created(h2, ["easy"]);
-    const m2 = await enter(h2, code2, "Fresh");
-    const bot2 = [...players(m2.room).values()].find((p) => p.displayName === "Bot 1");
-    expect(bot2.deaths).toBe(0);
-    await m.room.leave(true);
-    await m2.room.leave(true);
-  }, 30000);
+test("HTTP schema/origin/CSRF, direct joins, duplicate tickets and ready bypass", async () => {
+  const owner = await host(["easy"]);
+  expect((await http()("/api/sparring", { bots: [] })).status).toBe(401);
+  expect((await owner.api("/api/sparring", { bots: [], extra: 1 })).status).toBe(400);
+  expect((await owner.api("/api/sparring", { bots: [] }, { origin: "https://foreign.invalid" })).status).toBe(403);
+  expect((await owner.api("/api/sparring", { bots: [] }, { "x-csrf-token": "bad" })).status).toBe(403);
+  const t1 = await (await owner.api("/api/join-ticket", { roomCode: owner.code })).json() as { roomId: string; ticket: string };
+  const t2 = await (await owner.api("/api/join-ticket", { roomCode: owner.code })).json() as { roomId: string; ticket: string };
+  expect(t1.roomId).toBe(t2.roomId);
+  const sdk = new Client(`ws://localhost:${h.port}`);
+  await expect(sdk.joinById(t1.roomId, { roomCode: owner.code })).rejects.toBeTruthy();
+  const options = (ticket: string) => ({ ticket, roomCode: owner.code, protocolVersion: PROTOCOL_VERSION, contentHash: hash });
+  const results = await Promise.allSettled([sdk.joinById(t1.roomId, options(t1.ticket)), sdk.joinById(t2.roomId, options(t2.ticket))]);
+  expect(results.filter(r => r.status === "fulfilled")).toHaveLength(1);
+  const r = (results.find(r => r.status === "fulfilled") as PromiseFulfilledResult<Room>).value;
+  r.onMessage("welcome", () => undefined); r.onMessage("combatEvent", () => undefined);
+  await waitFor(() => players(r).size === 2);
+  expect([...players(r).values()].find(p => p.displayName === "Host").ready).toBe(false);
+  r.send("ready", { kitId: "sv", contentHash: "0".repeat(16) });
+  await sleep(100);
+  expect([...players(r).values()].find(p => p.displayName === "Host").ready).toBe(false);
+  await owner.api("/api/sparring/end", { roomCode: owner.code });
 });
 
-/** 1 while the hosted room is registered (it unregisters on dispose), else 0. */
-function roomsFor(code: string): number { return roomDirectory.get(code) ? 1 : 0; }
+test("fresh guest scope, reservation capacity, single-use link and shared replication", async () => {
+  const owner = await host(["medium", "hard"]);
+  const a = await owner.join();
+  const g = await guest(owner);
+  expect((await g.api("/api/csrf")).status).toBe(401);
+  expect((await g.api("/api/sparring", { bots: [] })).status).toBe(401);
+  expect((await g.api("/api/join-ticket", { roomCode: "play" })).status).toBe(401);
+  expect((await g.api("/api/sparring/end", { roomCode: owner.code })).status).toBe(401);
+  expect((await http()("/api/sparring/redeem", { token: g.token, displayName: "Replay" })).status).toBe(401);
+  expect((await owner.api("/api/sparring/link", { roomCode: owner.code })).status).toBe(409);
+  expect((await g.api("/api/sparring/guest")).status).toBe(200);
+  const b = await join(g.api, owner.code);
+  a.send("ready", { kitId: "sv", contentHash: hash }); b.send("ready", { kitId: "td", contentHash: hash });
+  await waitFor(() => players(a).size === 4 && players(b).size === 4 && [...players(a).values()].every(p => p.ready));
+  expect([...players(a).values()].map(p => p.displayName)).toEqual(["Bot 1", "Bot 2", "Host", "Guest"]);
+  expect(JSON.stringify([...players(b).values()].map(p => p.toJSON()))).not.toMatch(/token|ticket|authId|cookie/i);
+  await b.leave();
+  await waitFor(() => players(a).size === 3);
+  expect((await g.api("/api/sparring/guest")).status).toBe(401);
+  await owner.api("/api/sparring/end", { roomCode: owner.code });
+});
+
+test.each(["easy", "medium", "hard"] as const)("%s ordinary combat, interruption, one KO and respawn without score bleed", async tier => {
+  const owner = await host([tier]); const a = await owner.join();
+  const events: CombatEvent[] = []; a.onMessage("combatEvent", (e: CombatEvent) => events.push(e));
+  a.send("ready", { kitId: "td", contentHash: hash });
+  await waitFor(() => [...players(a).values()].every(p => p.ready));
+  const room = live(a), bot = [...players(a).values()].find(p => p.displayName === "Bot 1")!.entityId as number;
+  const human = [...players(a).values()].find(p => p.displayName === "Host")!.entityId as number;
+  await waitFor(() => room.sim.tick > room.combat.get(human)!.protectedUntilTick + 2, 4000);
+  place(room, bot, 0, 0); place(room, human, 0, -1.5);
+  room.combat.get(human)!.hp100 = 100;
+  applyReaction(room.combat.get(bot)!, room.sim.tick, { kind: "stun", ticks: 40 }, false);
+  const start = room.sim.tick;
+  await sleep(250);
+  expect(events.some(e => e.kind === "cast" && e.actorId === String(bot) && e.tick >= start)).toBe(false);
+  await waitFor(() => events.some(e => e.kind === "ko" && e.targetId === String(human)), 4000, "bot KO");
+  await waitFor(() => players(a).get(String(bot)).kills === 1 && players(a).get(String(human)).deaths === 1);
+  expect(events.filter(e => e.kind === "ko" && e.targetId === String(human))).toHaveLength(1);
+  const ko = events.find(e => e.kind === "ko" && e.targetId === String(human))!;
+  await waitFor(() => events.some(e => e.kind === "respawn" && e.targetId === String(human)), 5000);
+  const rs = events.find(e => e.kind === "respawn" && e.targetId === String(human))!;
+  expect(rs.tick - ko.tick).toBe(180);
+  expect(rs.lifeId).not.toBe(ko.lifeId);
+  const ordinary = await loginClient(h, "Ordinary"); const ffa = await ordinary.join("other");
+  await waitFor(() => players(ffa).size === 1);
+  expect([...players(ffa).values()][0].kills).toBe(0);
+  await ordinary.leave();
+  expect(room.combat.invariantViolations()).toEqual([]);
+  await owner.api("/api/sparring/end", { roomCode: owner.code });
+}, 15000);
+
+test("host reconnect retains membership, explicit end closes guests and permits rehost", async () => {
+  const owner = await host([]), a = await owner.join(), g = await guest(owner), b = await join(g.api, owner.code);
+  let closed = false; b.onLeave(() => { closed = true; });
+  const token = a.reconnectionToken;
+  a.reconnection.enabled = false; a.connection.close(4010, "test drop");
+  await waitFor(() => [...players(b).values()].some(p => p.displayName === "Host" && !p.connected));
+  const again = await new Client(`ws://localhost:${h.port}`).reconnect(token);
+  again.onMessage("welcome", () => undefined); again.onMessage("combatEvent", () => undefined);
+  await waitFor(() => [...players(b).values()].every(p => p.connected));
+  expect((await owner.api("/api/sparring/end", { roomCode: owner.code })).status).toBe(204);
+  await waitFor(() => closed);
+  expect((await g.api("/api/sparring/guest")).status).toBe(401);
+  expect((await owner.api("/api/sparring", { bots: ["easy"] })).status).toBe(201);
+});
+
+test("revocation closes a match without connected clients", async () => {
+  const owner = await host(["easy"]), a = await owner.join();
+  a.reconnection.enabled = false; a.connection.close(4010, "test drop");
+  await sleep(100);
+  h.svc.sessions.revoke(owner.adult.cookieToken);
+  await waitFor(() => matchMaker.getLocalRoomById(a.roomId) === undefined, 3000, "independent sweep disposed room");
+  expect(h.svc.sparring.describe(owner.code)).toBeNull();
+});
+
+test("real colliders stop voluntary approach at an edge and obstacle; bot life resets on respawn", async () => {
+  const owner = await host(["easy"]), a = await owner.join();
+  a.send("ready", { kitId: "td", contentHash: hash });
+  await waitFor(() => [...players(a).values()].every(p => p.ready));
+  const room = live(a), bot = [...players(a).values()].find(p => p.displayName === "Bot 1")!.entityId as number;
+  const human = [...players(a).values()].find(p => p.displayName === "Host")!.entityId as number;
+  room.setSimulationInterval(() => undefined, 1000);
+  let tick = room.sim.tick;
+  // At the unguarded north lip; target is on disconnected ground, so no path is attempted.
+  place(room, bot, 10, -19.5); place(room, human, 10, -35);
+  for (let i = 0; i < 180; i++) room.stepTick(++tick);
+  expect(room.movement!.position(bot)![2]).toBeGreaterThan(-19.7);
+  expect(room.combat.get(bot)!.action).not.toBe("Dead");
+  // Pillar blocks the direct route. Neither teleport nor map-wide routing is allowed.
+  place(room, bot, 12, -7.5); place(room, human, 12, -13);
+  for (let i = 0; i < 120; i++) room.stepTick(++tick);
+  expect(room.movement!.position(bot)![2]).toBeGreaterThan(-8.6);
+  const oldLife = room.combat.get(bot)!.lifeId;
+  const b = room.movement!.get(bot)!;
+  b.rb.setTranslation({ x: 0, y: -30, z: 0 }, true); b.rb.setNextKinematicTranslation({ x: 0, y: -30, z: 0 });
+  room.stepTick(++tick);
+  const death = tick;
+  expect(room.combat.get(bot)!.action).toBe("Dead");
+  for (let i = 0; i < 180; i++) room.stepTick(++tick);
+  expect(room.combat.get(bot)!.lifeId).not.toBe(oldLife);
+  expect(tick - death).toBe(180);
+  place(room, bot, 0, 0); place(room, human, 0, -1.5);
+  for (let i = 0; i < 29; i++) room.stepTick(++tick);
+  expect(room.combat.get(bot)!.action).toBe("Idle");
+  room.stepTick(++tick);
+  expect(room.combat.get(bot)!.action).toBe("Windup");
+  await waitFor(() => players(a).get(String(bot)).lifeId === room.combat.get(bot)!.lifeId);
+  expect(players(a).get(String(bot)).deaths).toBe(1);
+  await owner.api("/api/sparring/end", { roomCode: owner.code });
+});
+
+test("wall-time expiry closes unjoined and dropped hosts; expired links and guest reservations fail", async () => {
+  const { SparringDirectory } = await import("../../apps/server/src/auth/SparringDirectory.js");
+  const original = h.svc.sparring;
+  let now = Date.now();
+  h.svc.sparring = new SparringDirectory(id => h.svc.sessions.getById(id) !== null, () => now);
+  try {
+    const neverJoined = await host([]);
+    now += 60_000;
+    expect((await neverJoined.api("/api/join-ticket", { roomCode: neverJoined.code })).status).toBe(401);
+    const owner = await host(["easy", "medium"]), a = await owner.join();
+    const link = await owner.api("/api/sparring/link", { roomCode: owner.code });
+    const { token } = await link.json() as { token: string };
+    now += 600_000;
+    expect((await http()("/api/sparring/redeem", { token, displayName: "Expired" })).status).toBe(401);
+    const g = await guest(owner);
+    now += 60_000;
+    expect((await g.api("/api/sparring/guest")).status).toBe(401);
+    const fresh = await guest(owner);
+    expect((await fresh.api("/api/sparring/guest")).status).toBe(200);
+    a.reconnection.enabled = false; a.connection.close(4010, "test drop");
+    await waitFor(() => ![...live(a).state.players.values()].find(p => p.displayName === "Host")!.connected);
+    now += 20_000;
+    await waitFor(() => matchMaker.getLocalRoomById(a.roomId) === undefined, 3000, "grace sweep");
+    expect((await fresh.api("/api/sparring/guest")).status).toBe(401);
+  } finally { h.svc.sparring = original; }
+});

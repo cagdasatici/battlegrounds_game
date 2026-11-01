@@ -1,10 +1,11 @@
-import { Server } from "colyseus";
+import { Server, matchMaker } from "colyseus";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import { ARENA_ROOM_NAME, PRACTICE_ROOM_NAME } from "@eb/shared/protocol";
-import { SPARRING_ROOM_NAME } from "@eb/shared/sparring";
 import { ArenaRoom, setArenaAuth } from "./rooms/ArenaRoom.js";
-import { PracticeRoom } from "./rooms/PracticeRoom.js";
 import { SparringRoom } from "./rooms/SparringRoom.js";
+import { SPARRING_ROOM_NAME } from "@eb/shared/sparring";
+import { registerSparringRoutes } from "./http/sparringRoutes.js";
+import { PracticeRoom } from "./rooms/PracticeRoom.js";
 import { roomDirectory } from "./rooms/RoomDirectory.js";
 import type { AuthServices } from "./auth/Services.js";
 import { registerStaticRoutes } from "./http/staticFiles.js";
@@ -12,11 +13,25 @@ import { registerSessionRoutes, type HttpApp } from "./http/sessionRoutes.js";
 
 export function createGameServer(auth: AuthServices, opts: { staticDir?: string | null } = {}): Server {
   setArenaAuth(auth);
-  auth.ensureRoom = (name, code) => roomDirectory.ensure(name, code);
+  auth.ensureRoom = (name, code) => {
+    if (name === SPARRING_ROOM_NAME && !auth.sparring.describe(code)) throw new Error("MATCH_CLOSED");
+    return roomDirectory.ensure(name, code);
+  };
+  const closing = new Set<string>();
+  auth.closeRoom = async (code) => {
+    if (closing.has(code)) return;
+    const id = roomDirectory.get(code);
+    const room = id ? matchMaker.getLocalRoomById(id) : undefined;
+    if (room) {
+      closing.add(code);
+      try { await room.disconnect(); } finally { closing.delete(code); }
+    }
+  };
   const server = new Server({
     transport: new WebSocketTransport(),
     express: (app: unknown) => {
-      registerSessionRoutes(app as HttpApp, auth);
+      registerSessionRoutes(app as HttpApp, auth, auth.now);
+      registerSparringRoutes(app as HttpApp, auth);
       if (opts.staticDir) registerStaticRoutes(app as HttpApp, opts.staticDir, auth.config.allowedOrigins[0]);
     },
   });
@@ -24,7 +39,12 @@ export function createGameServer(auth: AuthServices, opts: { staticDir?: string 
   server.define(ARENA_ROOM_NAME, ArenaRoom).filterBy(["roomCode"]);
   // Practice: one player and a dummy per room; the matchmaker derives a private code per session (sessionRoutes).
   server.define(PRACTICE_ROOM_NAME, PracticeRoom).filterBy(["roomCode"]);
-  // Hosted sparring: created only by the authenticated create route (creation grant) and joined only with a scoped ticket.
   server.define(SPARRING_ROOM_NAME, SparringRoom).filterBy(["roomCode"]);
+  // Wall-time lifecycle only: no simulation or damage scheduling. Runs without connected clients.
+  const sweep = setInterval(() => {
+    for (const code of auth.sparring.sweep()) void auth.closeRoom(code);
+  }, 250);
+  sweep.unref();
+  server.onBeforeShutdown(() => { clearInterval(sweep); });
   return server;
 }

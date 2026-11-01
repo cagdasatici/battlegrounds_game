@@ -45,6 +45,7 @@ export interface TickPipelineDeps {
   movement: () => MovementSystem | null;
   world: () => World | null;
   seats: () => ReadonlyMap<string, PipelineSeat>;
+  beforeDrain?: (tick: number) => void;
   /** Seatless simulated entities (practice dummy): body and action are published, no owner record. */
   extraBodies?: () => readonly number[];
   poseOf: (id: number) => M1Pose | undefined;
@@ -83,6 +84,7 @@ export class TickPipeline {
   step(tick: number): void {
     const mv = this.d.movement();
     this.expire(tick);
+    this.d.beforeDrain?.(tick);
     this.drainIntents();
     this.leaseClear(tick);
     this.actionTransitions(tick);
