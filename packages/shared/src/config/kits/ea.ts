@@ -3,8 +3,8 @@ import { defineAbility, type AbilityDef } from "../../abilities.js";
 /**
  * Ember Artificer base definitions (spec section 15, T20). Every number is D (local design value) taken from the
  * spec 15 table; damage is hundredths of HP. Handler names are implemented in apps/server/src/kits/ea.
- * The awakened four arrive with T21; the kit stays hidden from lobby selection (P0_KITS) until a later task.
- * Decision record: docs/decisions/0014-t20-artificer-base-rules.md.
+ * T21 adds the awakened four (ea.a1 to ea.a4); the activation ea.activate is configured in the Awakening system.
+ * Decision records: docs/decisions/0014-t20-artificer-base-rules.md, docs/decisions/0022-t21-artificer-awakening-rules.md.
  */
 export const EA_DEFS: AbilityDef[] = [
   // Cinder Array: six hits at activeStart+[0,8,16,24,32,39]. Standing damage [2,2,2,2,3,10]; the ragdoll table
@@ -44,5 +44,43 @@ export const EA_DEFS: AbilityDef[] = [
     id: "ea.b4", label: "Furnace Drop", handler: "furnaceDrop", startup: 18, active: 48, recovery: 30, cooldown: 1020,
     damage100: [2000], range: 0, shape: { kind: "sphere", r: 4 }, block: "B", targetStates: ["standing", "air", "ragdoll"],
     stunTicks: 0, ragdollTicks: 84, launch: { forward: 4, up: 10 }, maxTargets: 4,
+  }),
+
+  // Arc Descent (T21): startup armor, advances 0.4 m per active tick (24 m/s, 7.2 m swept reach 8 m), probe sweeps the path.
+  // Capture is cinematic: 15 HP at capture, 25 at +36, release +42 R84 F5 U8 (handler data). A missed probe enters a 30 tick
+  // vulnerable blast windup, then explodes (radius 5, 20 HP, U, noncounterable, R60 F5 U5); an interrupted windup emits one
+  // radius 2 blast for 13 HP; a death emits none. The initial capture hit is counterable.
+  defineAbility({
+    id: "ea.a1", label: "Arc Descent", handler: "arcDescent", startup: 30, active: 18, recovery: 30, cooldown: 900,
+    hitOffsets: [0, 36], damage100: [1500, 2500], range: 8, block: "U", armor: "startup",
+    targetStates: ["standing", "air", "ragdoll"], stunTicks: 0, ragdollTicks: 84, launch: { forward: 5, up: 8 }, maxTargets: 4,
+  }),
+  // Comet Lock (T21): startup vulnerable, dash 40 m/s for up to 24 active ticks (16 m), caster invulnerable through dash and
+  // capture. Capture of any state (branch fixed at capture), 0 at capture, branch damage at +54 (50 standing, 30 ragdoll), splash
+  // 20 (chip 5, R72 F5 U6, victim excluded, 4 m) at +54, release +60 R90 F3 U8. Noncounterable.
+  defineAbility({
+    id: "ea.a2", label: "Comet Lock", handler: "cometLock", startup: 20, active: 24, recovery: 36, cooldown: 1200,
+    hitOffsets: [0, 54], damage100: [0, 5000], range: 16, block: "U", counterable: false,
+    targetStates: ["standing", "air", "ragdoll"], stunTicks: 0, ragdollTicks: 90, launch: { forward: 3, up: 8 }, maxTargets: 4,
+  }),
+  // Furnace Ray (T21): seven pulses at activeStart+[0,15,30,45,60,75,89], 5 HP each (35 cap per target), beam 24 m radius 1,
+  // clipped at cover, B with chip 1, stun 18 and 1 m/s push, armor after the first confirmed damage through active end,
+  // turnRate 30, movement zero, vertical velocity zero, max 4 targets.
+  defineAbility({
+    id: "ea.a3", label: "Furnace Ray", handler: "furnaceRay", startup: 30, active: 90, recovery: 30, cooldown: 1500,
+    hitOffsets: [0, 15, 30, 45, 60, 75, 89], damage100: [500, 500, 500, 500, 500, 500, 500], range: 24,
+    shape: { kind: "beam", length: 24, radius: 1 }, block: "B", armor: "onHit",
+    targetStates: ["standing", "air", "ragdoll"], stunTicks: 18, ragdollTicks: 0, launch: { forward: 1, up: 0 },
+    moveScale: 0, turnRate: 30, maxTargets: 4,
+  }),
+  // Solar Vent (T21): ten pulses at activeStart+[0,20,...,160,179], 7 HP within 10 m else 3 (70 cap per target), beam 36 m
+  // radius 3 clipped at cover, U, counterable, no armor, stun 24 and 2 m/s push, turnRate 15, vertical velocity zero. Once per
+  // form: a miss or interruption spends the use (framework oncePerForm at commit).
+  defineAbility({
+    id: "ea.a4", label: "Solar Vent", handler: "solarVent", startup: 72, active: 180, recovery: 48, cooldown: 0,
+    hitOffsets: [0, 20, 40, 60, 80, 100, 120, 140, 160, 179], damage100: [700, 700, 700, 700, 700, 700, 700, 700, 700, 700],
+    range: 36, shape: { kind: "beam", length: 36, radius: 3 }, block: "U",
+    targetStates: ["standing", "air", "ragdoll"], stunTicks: 24, ragdollTicks: 0, launch: { forward: 2, up: 0 },
+    moveScale: 0, turnRate: 15, oncePerForm: true, maxTargets: 4,
   }),
 ];

@@ -24,16 +24,28 @@ export interface ActivationConfig {
   healAtCompletion100: number;
   /** Invulnerable ticks [from, to) relative to activation start; null for none. */
   invulnerable: { from: number; to: number } | null;
-  /** Burst at a relative tick (Ocean Surge). */
-  burst: { atTick: number; damage100: number; radius: number; maxTargets: number; reaction: { ragdollTicks: number; forward: number; up: number } } | null;
+  /**
+   * Burst pulses at relative ticks (Ocean Surge: one at 48; Stellar Furnace: 0 and 72). Each pulse picks its own
+   * nearest `maxTargets`, one hit per target per pulse (hit index = pulse index).
+   */
+  burst: {
+    atTicks: readonly number[]; damage100: number; radius: number; maxTargets: number; armorBreak: boolean;
+    reaction: { ragdollTicks: number; forward: number; up: number };
+  } | null;
 }
 
-/** D values from spec section 15 (sv.activate, td.activate). The Ember Artificer is P1 and not configured here. */
+/** D values from spec section 15 (sv.activate, td.activate, ea.activate; decision 0022 for ea). */
 export const ACTIVATIONS: Readonly<Record<string, ActivationConfig>> = {
   sv: { ticks: 30, formTicks: 0, healAtCompletion100: 0, invulnerable: null, burst: null },
   td: {
     ticks: 60, formTicks: 2940, healAtCompletion100: 4000, invulnerable: { from: 48, to: 60 },
-    burst: { atTick: 48, damage100: 2000, radius: 5, maxTargets: 4, reaction: { ragdollTicks: 72, forward: 6, up: 6 } },
+    burst: { atTicks: [48], damage100: 2000, radius: 5, maxTargets: 4, armorBreak: true, reaction: { ragdollTicks: 72, forward: 6, up: 6 } },
+  },
+  // Stellar Furnace (T21, spec 15): 90 tick grounded activation, armor throughout, no invulnerability, pulses at 0 and 72
+  // (16 HP, radius 5, max 4, U, noncounterable, R60 F4 U3), heal 40 at completion, 2820 tick form.
+  ea: {
+    ticks: 90, formTicks: 2820, healAtCompletion100: 4000, invulnerable: null,
+    burst: { atTicks: [0, 72], damage100: 1600, radius: 5, maxTargets: 4, armorBreak: false, reaction: { ragdollTicks: 60, forward: 4, up: 3 } },
   },
 };
 
@@ -136,7 +148,8 @@ export class AwakeningSystem {
     for (const id of [...this.active.keys()].sort((a, b) => a - b)) {
       const act = this.active.get(id)!;
       const burst = ACTIVATIONS[act.kit]!.burst;
-      if (!burst || tick !== act.startTick + burst.atTick) continue;
+      const pulse = burst ? burst.atTicks.indexOf(tick - act.startTick) : -1;
+      if (!burst || pulse < 0) continue;
       const f = this.host.combat.get(id);
       const ap = this.host.pose(id);
       if (!f || !ap) continue;
@@ -153,10 +166,10 @@ export class AwakeningSystem {
       near.sort((a, b) => a.d - b.d || a.id - b.id);
       near.slice(0, burst.maxTargets).forEach((n, i) => {
         out.push({
-          attackerId: id, attackerGeneration: act.generation, castCounter: act.castCounter, hitIndex: i, toi: 0, targetId: n.id,
-          moveId: `${act.kit}.activate`, originX: ap.x, originZ: ap.z, block: "U", counterable: false, armorBreak: true,
+          attackerId: id, attackerGeneration: act.generation, castCounter: act.castCounter, hitIndex: pulse * 10 + i, toi: 0, targetId: n.id,
+          moveId: `${act.kit}.activate`, originX: ap.x, originZ: ap.z, block: "U", counterable: false, armorBreak: burst.armorBreak,
           damage100: burst.damage100, reaction: { kind: "ragdoll", ticks: burst.reaction.ragdollTicks },
-          maxHitsPerTarget: 1, launch: { forward: burst.reaction.forward, up: burst.reaction.up },
+          maxHitsPerTarget: burst.atTicks.length, launch: { forward: burst.reaction.forward, up: burst.reaction.up },
         });
       });
     }

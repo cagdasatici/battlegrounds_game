@@ -53,7 +53,7 @@ describe("T19 definition: projectile block and holdRelease", () => {
     expect(shipped.label).toBe("Ember Orb");
     expect(orbDef()).toBe(shipped);
     // T23's shared ea.wall, ea.pickup and ea.throw are generated for every kit; the Artificer kit proper is b1-b4.
-    expect(ALL_ABILITY_DEFS.filter((d) => d.id.startsWith("ea.") && !/^ea\.(wall|pickup|throw)$/.test(d.id)).map((d) => d.id)).toEqual(["ea.b1", "ea.b2", "ea.b3", "ea.b4"]);
+    expect(ALL_ABILITY_DEFS.filter((d) => d.id.startsWith("ea.") && !/^ea\.(wall|pickup|throw)$/.test(d.id)).map((d) => d.id)).toEqual(["ea.b1", "ea.b2", "ea.b3", "ea.b4", "ea.a1", "ea.a2", "ea.a3", "ea.a4"]);
   });
 });
 

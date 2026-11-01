@@ -186,9 +186,12 @@ test("happy path to Ready, then HUD: meter, cooldown, rejection, scoreboard, kit
     await page.click("[data-act=name][data-name=Arel]");
     await page.click("[data-act=play]");
 
-    // Lobby: room status, only the two P0 kits, four base moves, Ready.
+    // Lobby: room status, the three kits (the Artificer joined with T21), four base moves, Ready.
     await expect(page.locator("[data-ui=room-status]")).toContainText("1 of 4");
-    await expect(page.locator("[data-act=kit]")).toHaveCount(2);
+    await expect(page.locator("[data-act=kit]")).toHaveCount(3);
+    await page.click("[data-act=kit][data-kit=ea]");
+    await expect(page.locator("[data-act=kit][data-kit=ea]")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("[data-ui=moves]")).toContainText("Cinder Array, Vent Rush, Ember Orb, Furnace Drop");
     await page.click("[data-act=kit][data-kit=td]");
     await expect(page.locator("[data-ui=moves]")).toContainText("Current Bind");
     await page.click("[data-act=kit][data-kit=sv]");
@@ -234,7 +237,7 @@ test("happy path to Ready, then HUD: meter, cooldown, rejection, scoreboard, kit
     await expect(page.locator("[data-hud=scoreboard]")).toBeHidden();
     const fc = await centre(page, "fighter");
     await page.touchscreen.tap(fc.x, fc.y);
-    await expect(page.locator("[data-hud=kit] button[data-kit]")).toHaveCount(2);
+    await expect(page.locator("[data-hud=kit] button[data-kit]")).toHaveCount(3);
     await page.click("[data-hud=kit] button[data-kit=td]");
     await expect(page.locator("[data-hud=kit]")).toBeHidden();
     evidence["pendingKitAfterChange"] = (await page.evaluate(() => document.body.innerText)).includes("Next life") ? "shown" : "not shown";

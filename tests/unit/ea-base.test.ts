@@ -17,14 +17,14 @@ const make = async (o?: Parameters<typeof makeEaRig>[0]) => { rig = await makeEa
 
 describe("ea definitions match the spec 15 table", () => {
   test("four slotted base moves carry the exact numbers", () => {
-    expect(EA_DEFS.map((d) => d.id)).toEqual(["ea.b1", "ea.b2", "ea.b3", "ea.b4"]);
+    expect(EA_DEFS.filter((d) => d.form === "Base").map((d) => d.id)).toEqual(["ea.b1", "ea.b2", "ea.b3", "ea.b4"]);
     const table: Record<string, [number, number, number, number, number, number, string, string]> = {
       "ea.b1": [10, 40, 24, 900, 2100, 2.5, "B", "cinderArray"],
       "ea.b2": [10, 24, 24, 1020, 2500, 1.5, "B", "ventRush"],
       "ea.b3": [6, 1, 24, 1500, 1500, 40, "B", "chargeProjectile"],
       "ea.b4": [18, 48, 30, 1020, 2000, 0, "B", "furnaceDrop"],
     };
-    for (const d of EA_DEFS) {
+    for (const d of EA_DEFS.filter((x) => x.form === "Base")) {
       expect([d.startup, d.active, d.recovery, d.cooldown, d.damage100.reduce((a, b) => a + b, 0), d.range, d.block, d.handler])
         .toEqual(table[d.id]);
       expect([d.form, d.slot]).toEqual(["Base", Number(d.id.slice(-1))]);

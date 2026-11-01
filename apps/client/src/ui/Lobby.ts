@@ -3,19 +3,18 @@
  * traces. One delegated click listener on the root, removed in dispose(). Display and intent only.
  */
 import { P0_KITS, type KitId } from "@eb/shared/protocol";
-import { SV_DEFS, TD_DEFS } from "@eb/shared/config/kits/index";
+import { EA_DEFS, SV_DEFS, TD_DEFS } from "@eb/shared/config/kits/index";
 import type { FlowError, FlowState } from "../app/AppFlow.js";
 
-export const KIT_LABEL: Readonly<Record<KitId, string>> = { sv: "Stone Vanguard", td: "Tide Duelist", ea: "Ember Adept" };
-const KIT_DEFS = { sv: SV_DEFS, td: TD_DEFS } as const;
+export const KIT_LABEL: Readonly<Record<KitId, string>> = { sv: "Stone Vanguard", td: "Tide Duelist", ea: "Ember Artificer" };
+const KIT_DEFS = { sv: SV_DEFS, td: TD_DEFS, ea: EA_DEFS } as const;
 
-/** Four base move labels for a shipped kit; empty for kits that are not in P0. */
+/** Four base move labels for a shipped kit. */
 export function baseMoveLabels(kit: KitId): string[] {
-  const defs = kit === "sv" || kit === "td" ? KIT_DEFS[kit] : [];
-  return defs.filter((d) => d.form === "Base" && d.slot !== null).sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0)).map((d) => d.label);
+  return KIT_DEFS[kit].filter((d) => d.form === "Base" && d.slot !== null).sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0)).map((d) => d.label);
 }
 
-/** Only kits shipped in P0 are listed; P1 kits are hidden, never disabled placeholders. */
+/** Only shipped, selectable kits are listed; hidden kits are never disabled placeholders. */
 export const lobbyKits = (): KitId[] => [...P0_KITS];
 
 export const ERROR_TEXT: Readonly<Record<FlowError, string>> = {

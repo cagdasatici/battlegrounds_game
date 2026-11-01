@@ -180,7 +180,7 @@ describe("Stone Vanguard activation (sv.activate)", () => {
     expect(r.runner.bufferedCount).toBe(0);
     for (let t = T0 + 1; t < T0 + 20; t++) r.step(t);
     expect(r.aw.activeCount).toBe(0);
-    f.kitId = "ea";
+    f.kitId = "zz" as never;
     expect(r.aw.request(f, T0 + 20)).toEqual({ kind: "rejected", reason: "INVALID" });
     f.kitId = "sv";
     f.form = "Awakened";
