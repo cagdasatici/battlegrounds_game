@@ -87,7 +87,7 @@ export class ArenaRoom extends Room {
     projectiles: this.projectiles, urns: this.urns, movement: () => this.movement, world: () => this.world, seats: () => this.seats, extraBodies: () => this.extraBodyIds(),
     poseOf: (id) => this.poseOf(id), respawn: this.respawns, nextLifeId: () => ++this.lifeSeq,
     sendActionResult: (sid, seat, edgeId, seq, tick, ok, reason, castId) => this.sendActionResult(sid, seat, edgeId, seq, tick, ok, reason, castId),
-    broadcastEvent: (tick, kind, actor, target, lifeId, moveId, dmg) => this.broadcastEvent(tick, kind, actor, target, lifeId, moveId, dmg),
+    broadcastEvent: (tick, kind, actor, target, lifeId, moveId, dmg, extra) => this.broadcastEvent(tick, kind, actor, target, lifeId, moveId, dmg, extra),
   });
 
   override async onCreate(options: { roomCode?: string }): Promise<void> {
@@ -283,11 +283,13 @@ export class ArenaRoom extends Room {
   }
 
   private broadcastEvent(tick: number, kind: CombatEvent["kind"], actor: number, target: number | undefined,
-    lifeId: number, moveId?: string, damage100?: number): void {
+    lifeId: number, moveId?: string, damage100?: number, extra?: { hitClass?: "light" | "heavy"; targetHp100?: number }): void {
     const e: CombatEvent = { eventId: `${this.roomEpoch}:${tick}:${++this.eventSeq}`, tick, kind, actorId: String(actor), lifeId };
     if (target !== undefined) e.targetId = String(target);
     if (moveId) e.moveId = moveId;
     if (damage100 !== undefined) e.damage100 = damage100;
+    if (extra?.hitClass) e.hitClass = extra.hitClass;
+    if (extra?.targetHp100 !== undefined) e.targetHp100 = extra.targetHp100;
     this.broadcast(ServerMessage.combatEvent, e);
   }
 

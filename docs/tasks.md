@@ -37,7 +37,7 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | T23 | Props and wall context | T18e T19 | IMPLEMENTED (DEVICE CHECK PENDING) | 3a476b2 f59234b ce40158 591be2d 53997fe | docs/test-results/T23.md | decisions/0016. Wire: tests/integration/t23-urns, t23-wall, t23-gale tests. flow.spec T27 mirror check fails in browser run (client, untouched); iPad NOT RUN |
 | T24 | Duelist P1 variants | T16 | IMPLEMENTED (DEVICE CHECK PENDING) | 65c11d6 c37d624 | docs/test-results/T24.md | decisions/0012-t24-duelist-p1-variants. Wire: tests/integration/t24-variants.test.ts (3 clients chain, elevated slam) |
 | T25 | Original art pipeline | T18e | IMPLEMENTED (DEVICE CHECK PENDING) | d71a447 b17bed8 | docs/test-results/T25.md | decisions/0015. assets:audit passes (3 fighters, 84 clips). Fighters and arena rebuilt as original rigged toon art; glTF files verified but runtime builds the same rig in code. Before/after: T25-before*.png, T25-after*.png. iPad perf NOT RUN |
-| T26 | Effects audio and camera | T21 T23 T25 | TODO | | | |
+| T26 | Effects audio and camera | T21 T23 T25 | RETIRED (decision 0021) | | | Split into FX0-FX5 |
 | T27 | Settings and layout editor | T07 T18e | IMPLEMENTED (DEVICE CHECK PENDING) | 2281bc6 | docs/test-results/T27.md | decisions/0013. Playwright 34/34. D05 D06 NOT RUN. Several settings stored, not yet consumed |
 | T28 | Production hosting | T04 T18e | IMPLEMENTED (DEVICE CHECK PENDING) | 3778216 | docs/test-results/T28.md | decisions/0011. Local build/serve/health/two-client verified; TLS, host, iPad remote checks NOT RUN (no host chosen) |
 | T29 | Security hardening | T22 T28 | TODO | | | |
@@ -67,3 +67,9 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | R15 | Node 24 run and decision records | R01 | DONE | 9e8246a | docs/test-results/R15.md | Decisions numbered 0003-0006 (0002 taken by R01) |
 | R17 | Tick pipeline extraction | R01 | DONE | 85fa1a7 | docs/test-results/R17.md | Wave 1 |
 | R18 | Latency matrix on loopback | R12 | DONE | 87dd454 | docs/test-results/R18.md | In-process TCP delay proxy. 1%/3% loss NOT RUN; A12/A15 not under latency |
+
+## Backlog v2 slices
+
+| Task | Title | Depends on | Status | Commit | Test report | Notes |
+|------|-------|-----------|--------|--------|-------------|-------|
+| FX0 | Combat event contract and presentation bus | none | DONE | 4332b9f | docs/test-results/FX0.md | decisions/0021 |

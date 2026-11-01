@@ -82,7 +82,7 @@ export interface ActionResult {
   reason?: RejectReason;
 }
 export type CombatEventKind =
-  | "cast" | "hit" | "block" | "counter" | "capture" | "release" | "ko" | "respawn";
+  | "cast" | "hit" | "block" | "counter" | "capture" | "release" | "ko" | "respawn" | "heal";
 export interface CombatEvent {
   eventId: string;
   tick: number;
@@ -93,6 +93,10 @@ export interface CombatEvent {
   moveId?: string;
   damage100?: number;
   position?: Vec3;
+  /** On "hit": heavy when damage100 >= 1000, an m1 finisher, or the attacker is Awakened. */
+  hitClass?: "light" | "heavy";
+  /** On "hit" and "heal": victim HP (hundredths) after the event. */
+  targetHp100?: number;
 }
 
 export interface WelcomeMessage {

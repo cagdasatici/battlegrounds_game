@@ -8,6 +8,8 @@ import {
 } from "@eb/shared/protocol";
 import islandsUrl from "../../../assets/maps/islands.v1.json?url";
 import { AppFlow } from "./app/AppFlow.js";
+import { CombatBus } from "./app/CombatBus.js";
+import { registerPresentation } from "./fx/index.js";
 import { GameLoop, type LoopPlayer, type LoopState } from "./app/GameLoop.js";
 import { SettingsStore } from "./app/SettingsStore.js";
 import { computeLayout, type Layout } from "./input/ControlLayout.js";
@@ -202,14 +204,17 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       r.onMessage(ServerMessage.pong, (x: PongMessage) => { clock.onPong(x, performance.now()); }),
       r.onMessage(ServerMessage.welcome, (w: WelcomeMessage) => { sampler.setEpoch(w.epoch); }),
       r.onMessage(ServerMessage.actionResult, (a: ActionResult) => { if (!a.accepted) rejections.push(a.reason, performance.now()); }),
-      r.onMessage(ServerMessage.combatEvent, (e: CombatEvent) => {
-        const me = localOf();
-        if (!me || e.targetId !== String(me.entityId)) return;
-        if (e.kind === "ko") ko = { tick: e.tick, by: e.actorId === e.targetId ? "the arena" : players().get(e.actorId)?.displayName ?? "a rival" };
-        else if (e.kind === "respawn") ko = null;
-      }),
     ];
     matchCleanups.push(() => { for (const u of unsubs) u(); });
+    const bus = new CombatBus((h) => r.onMessage(ServerMessage.combatEvent, h),
+      (id) => (players().get(id) as { lifeId?: number } | undefined)?.lifeId);
+    matchCleanups.push(() => bus.dispose());
+    bus.on((e: CombatEvent) => {
+      const me = localOf();
+      if (!me || e.targetId !== String(me.entityId)) return;
+      if (e.kind === "ko") ko = { tick: e.tick, by: e.actorId === e.targetId ? "the arena" : players().get(e.actorId)?.displayName ?? "a rival" };
+      else if (e.kind === "respawn") ko = null;
+    });
 
     const probe = document.createElement("div");
     probe.style.cssText = "position:fixed;inset:0;visibility:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)";
@@ -248,6 +253,9 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
 
     const cam = new CameraRig(m.colliders);
     cam.setDistance(settings.get().cameraDistance);
+    matchCleanups.push(registerPresentation(bus, {
+      scene: g.scene, camera: g.camera, players, settings, localId: () => { const me = localOf(); return me ? String(me.entityId) : undefined; },
+    }));
     const loop = new GameLoop({
       scene: g, camera: cam, collide: kitHandle.collide, router, sampler, clock,
       readState: (): LoopState => ({ serverTick: (r.state as { serverTick?: number }).serverTick ?? 0, players: players().entries() }),
