@@ -120,7 +120,7 @@ Plan and file ownership are in [the web plan](web-plan.md); hosting steps are in
 | WEB2 | Update button | WEB1 | IMPLEMENTED, DEVICE CHECK PENDING | PENDING | docs/test-results/WEB2.md |
 | WEB3 | Room list and one-tap join | BOT5 | IMPLEMENTED, DEVICE CHECK PENDING | 1122d6e | docs/test-results/WEB3.md |
 | WEB4 | Admin API and login | | DONE | ff63044 | docs/test-results/WEB4.md |
-| WEB5 | Admin app screens | WEB4 WEB3 | IMPLEMENTED, DEVICE CHECK PENDING | pending | docs/test-results/WEB5.md |
+| WEB5 | Admin app screens | WEB4 WEB3 | IMPLEMENTED, DEVICE CHECK PENDING | 8ce5d9c | docs/test-results/WEB5.md |
 
 ## Scoped follow-up
 
