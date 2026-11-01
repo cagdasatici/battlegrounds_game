@@ -19,7 +19,7 @@ Nine feature slices remain, followed by DEV1 physical acceptance and T32 release
 
 | ID | One-agent assignment | Required before start |
 |---|---|---|
-| BOT0 | Freeze the shared room, difficulty and setup contracts. | Ready now. |
+| BOT0 | Freeze the shared room, difficulty and setup contracts. | DONE: f8a66a5; full verification passed. See docs/test-results/BOT0.md. |
 | HELP1 | Build and fixture-test standalone touch and keyboard instructions. | Ready now. Independent of T30 and BOT0. |
 | BOT1 | Implement Easy, Medium and Hard bot decisions. | BOT0 |
 | BOT2 | Implement guest links, membership, seat limits and reservations. | BOT0 |
