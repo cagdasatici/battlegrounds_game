@@ -14,6 +14,7 @@
     "dev:client": "pnpm --filter @eb/client run dev",
     "content:validate": "pnpm --filter @eb/server exec tsx ../../ops/scripts/content-validate.ts",
     "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm content:validate",
+    "test:browser": "playwright test",
     "smoke": "vitest run tests/integration/colyseus-smoke.test.ts"
   },
   "devDependencies": {
