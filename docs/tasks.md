@@ -67,3 +67,9 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | R15 | Node 24 run and decision records | R01 | DONE | 9e8246a | docs/test-results/R15.md | Decisions numbered 0003-0006 (0002 taken by R01) |
 | R17 | Tick pipeline extraction | R01 | DONE | 85fa1a7 | docs/test-results/R17.md | Wave 1 |
 | R18 | Latency matrix on loopback | R12 | DONE | 87dd454 | docs/test-results/R18.md | In-process TCP delay proxy. 1%/3% loss NOT RUN; A12/A15 not under latency |
+
+## Backlog v2 slices
+
+| ID | Title | Prerequisites | Status | Commit | Test report | Notes |
+|---|---|---|---|---|---|---|
+| SPD1 | Faster movement | M0 | IMPLEMENTED (DEVICE CHECK PENDING) | see git log | docs/test-results/SPD1.md | walk 7, run 11, guard 3, accel 70; iPad NOT RUN; browser match.spec fails on old values too |

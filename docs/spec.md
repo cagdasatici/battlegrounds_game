@@ -2249,7 +2249,7 @@ The game uses metres and finite damage, a small floating island arena, a four pl
 names and assets, no passive regeneration, simplified wall attacks, capped collateral damage, protected
 cinematic captures, deterministic hit arbitration, a limited prop system and no corpse farming. It omits
 reference map destruction, ranked modes, cosmetics economy, character specific cross kit cinematics and
-out of scope fighters. These choices are intentional and testable; none should be described as exact
+out of scope fighters. Movement speeds raised by owner request, decision 0020. These choices are intentional and testable; none should be described as exact
 original mechanics.
 
 What counts as verified later
