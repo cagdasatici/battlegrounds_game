@@ -14,6 +14,5 @@ Status: accepted. Slice T30 (partial). Spec section 24.
 - The frame interval is the rAF delta, a proxy for frame time; it cannot see GPU time beyond what vsync pacing exposes.
 
 ## Limits
-- Server tick p95/p99, network KB/s, client heap trend, load size and four player stress were not measured in this slice.
-- Draw call and triangle budgets with final ART2 and FX art were not re-measured: the browser specs hardcode a
-  Chromium path that does not exist on this machine.
+- Client heap trend, load size, iPad FPS and four player stress are not measured (see docs/test-results/T30.md).
+- Draw calls, server tick and network were later measured; numbers are in docs/test-results/T30.md.

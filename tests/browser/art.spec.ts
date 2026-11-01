@@ -10,7 +10,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "../..");
 const outDir = path.join(root, "docs/test-results");
 const req = createRequire(path.join(root, "apps/client/package.json"));
-const CHROMIUM = process.env["EB_CHROMIUM"] ?? "/opt/pw-browsers/chromium";
+import { resolveChromium } from "./harness/chromium-path.js";
+const CHROMIUM = resolveChromium();
 const GL_ARGS = ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"];
 
 interface Dev { close(): Promise<void>; listen(): Promise<unknown>; resolvedUrls: { local: string[] } | null }
