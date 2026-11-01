@@ -5,7 +5,7 @@ Source: docs/spec.md section 27.
 
 | Task | Title | Depends on | Status | Commit | Test report |
 |------|-------|-----------|--------|--------|-------------|
-| T01 | Bootstrap | none | IN PROGRESS | | |
+| T01 | Bootstrap | none | DONE | see git log | docs/test-results/T01.md |
 | T02 | Shared contracts | T01 | TODO | | |
 | T03 | Authentication | T02 | TODO | | |
 | T04 | Room lifecycle | T03 | TODO | | |

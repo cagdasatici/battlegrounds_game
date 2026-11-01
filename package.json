@@ -17,7 +17,9 @@
   "devDependencies": {
     "@types/node": "24.0.0",
     "@types/three": "0.187.0",
+    "@colyseus/sdk": "0.18.9",
     "@playwright/test": "1.64.1",
+    "colyseus": "0.18.10",
     "typescript": "7.0.2",
     "vitest": "5.0.5"
   }
