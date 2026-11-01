@@ -19,8 +19,8 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | T09 | Combat states | T06 | DONE | 0f446aa | docs/test-results/T09.md | |
 | T10 | M1 and guard | T07 T09 | IMPLEMENTED (DEVICE CHECK PENDING) | 54ad14c | docs/test-results/T10.md | Forward-dash hit missing: R06 |
 | T11 | Ability framework | T09 | DONE | 5962f5a | docs/test-results/T11.md | R02 R03 R04 R05 R07 |
-| T12 | Vanguard base | T11 | DONE | 46a193c 812929c ebdf0a0 2c6ff88 653894e | docs/test-results/T12.md | Ember Orb reflect acceptance waits for T19. Wire tests: R12 |
-| T13 | Duelist base | T11 | DONE | ea963db 1f315a3 557018b 2cdffcd aa9916b feef664 | docs/test-results/T13.md | Projectile reflect A10 A19 wait for T19. Wire tests: R12 |
+| T12 | Vanguard base | T11 | DONE | 46a193c 812929c ebdf0a0 2c6ff88 653894e | docs/test-results/T12.md | Ember Orb reflect acceptance covered by T19 (projectile.test.ts, Rift Palm vs test orb). Wire tests: R12 |
+| T13 | Duelist base | T11 | DONE | ea963db 1f315a3 557018b 2cdffcd aa9916b feef664 | docs/test-results/T13.md | Projectile reflect A10 A19 covered by T19 (td.b4 vs test orb, thin cover). Wire tests: R12 |
 | T14 | Awakening system | T12 T13 | DONE | a403214 | docs/test-results/T14.md | Ocean Surge line of sight: R05. HUD: T18c |
 | T15 | Vanguard awakening | T14 | DONE | afee336 b4a53b5 9595eff 7fc484b d0fd5ca f0c1ac9 | docs/test-results/T15.md | Skybreak and beam anchors: R05. Owner status: R08 |
 | T16 | Duelist awakening | T14 R02 R04 R05 | DONE | 3bfd775 3dc1869 e2ba01d ac688b3 | docs/test-results/T16.md | td.a2 area and td.a4 wall stop unit-only. Spec gaps as D values in T16.md |
@@ -30,7 +30,7 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | T18c | App flow, lobby and HUD | T18b T14 | IMPLEMENTED (DEVICE CHECK PENDING) | 8246b5e f17098f 84f5cf8 | docs/test-results/T18c.md | Playwright 9/9. Form timer and Stillpoint not browser-tested |
 | T18d | Practice room and onboarding | T18c T17 | IMPLEMENTED (DEVICE CHECK PENDING) | 14ebb33 7563d46 3953a63 28239f4 | docs/test-results/T18d.md | decisions/0009. Playwright 10/10. Dummy can be KO'd by >60 HP hit |
 | T18e | P0 playable gate | T15 T16 T17 T18d R12 R13 | IMPLEMENTED (DEVICE CHECK PENDING) | 61b79ba 3f8d897 00e3469 | docs/test-results/T18e.md | 16 PASS 0 FAIL 13 NOT RUN. D01-D09 need both iPads (plan section 7) |
-| T19 | Charge and projectile system | T18e | TODO | | | |
+| T19 | Charge and projectile system | T18e | IMPLEMENTED (DEVICE CHECK PENDING) | 107e90d 83feef4 | docs/test-results/T19.md | A10 A11 A19 pass on test-only ea.b3 (T20 ships it). D03 NOT RUN. Rules: decision 0010 |
 | T20 | Artificer base | T19 | TODO | | | |
 | T21 | Artificer awakening | T20 | TODO | | | |
 | T22 | Passives | T21 | TODO | | | |
