@@ -540,7 +540,7 @@ describe("sv.a2 Skybreak (groundWave)", () => {
     expect(r.outcomes[r.outcomes.length - 1]!.o).toMatchObject({ kind: "started", moveId: "sv.b2" });
   });
 
-  test("volume bounds: 24 m deep, 10 m to each side, 4 m up and down, nothing behind the caster", () => {
+  test("volume bounds: 24 m deep, 10 m to each side, 2 m below to 6 m above (box centred 2 m up), nothing behind the caster", () => {
     const hit = (fwd: number, side: number, y = 1): boolean => {
       const r = makeRig(2);
       r.awaken();
@@ -555,7 +555,9 @@ describe("sv.a2 Skybreak (groundWave)", () => {
     expect(hit(5, -10)).toBe(true);
     expect(hit(5, 10.5)).toBe(false);
     expect(hit(5, 0, 1 + 4.2)).toBe(true); // capsule overlaps the 8 m high box
-    expect(hit(5, 0, 1 + 5.5)).toBe(false);
+    expect(hit(5, 0, 1 + 5.5)).toBe(true); // R05: box centred 2 m above the caster, so it spans -2 to +6 m
+    expect(hit(5, 0, 1 + 7)).toBe(false);
+    expect(hit(5, 0, 1 - 3)).toBe(false);
     expect(hit(-3, 0)).toBe(false);
   });
 
@@ -672,8 +674,8 @@ describe("sv.a3 Horizon Break (longBeam)", () => {
     const r = makeRig(3);
     r.awaken();
     r.cs.get(1)!.hp100 = 2000;
-    put(r, 2, 8); // exactly 8 m: near
-    put(r, 3, 8.01); // just beyond: far
+    put(r, 2, 8.6); // exactly 8 m from the beam origin (0.6 m ahead of the caster): near
+    put(r, 3, 8.61); // just beyond: far
     r.step(T0, { press: [{ slot: 3 }] });
     expect(r.cs.get(1)!.form).toBe("Base");
     r.run(T0 + 1, T0 + 71);
@@ -742,7 +744,7 @@ describe("sv.a3 Horizon Break (longBeam)", () => {
     expect(only.hp(1)).toBe(5000); // a lethal far hit still heals 30
   });
 
-  test("beam range: 32 m hits, 32.2 m does not; radius 3 plus the capsule; nothing behind the caster", () => {
+  test("beam range from the beam origin: 32.6 m hits, 32.8 m does not; radius 3 plus the capsule; nothing behind the caster", () => {
     const hit = (fwd: number, side: number): boolean => {
       const r = makeRig(2);
       r.awaken();
@@ -750,8 +752,8 @@ describe("sv.a3 Horizon Break (longBeam)", () => {
       cast3(r);
       return r.dealt(1, 2).length === 1;
     };
-    expect(hit(32, 0)).toBe(true);
-    expect(hit(32.2, 0)).toBe(false);
+    expect(hit(32.6, 0)).toBe(true);
+    expect(hit(32.8, 0)).toBe(false);
     expect(hit(10, 3.3)).toBe(true);
     expect(hit(10, 3.5)).toBe(false);
     expect(hit(-1, 0)).toBe(false);
@@ -1182,3 +1184,29 @@ describe("sv.a4 Orbit Collapse (cinematicGrab)", () => {
 });
 
 // @@END
+
+describe("R05 shape anchors follow spec 16", () => {
+  test("Skybreak hits a target 5.5 m above the caster and misses one 3 m below", () => {
+    const hit = (y: number): boolean => {
+      const r = makeRig(2);
+      r.awaken();
+      put(r, 2, 5, 0, y);
+      r.step(T0, { press: [{ slot: 2 }] });
+      r.run(T0 + 1, T0 + 90);
+      return r.dealt(1, 2).length === 1;
+    };
+    expect(hit(1 + 5.5)).toBe(true);
+    expect(hit(1 - 3)).toBe(false);
+  });
+
+  test("Horizon Break splits near and far at 8 m from the beam origin, not from the caster centre", () => {
+    const r = makeRig(3);
+    r.awaken();
+    put(r, 2, 8.4); // 7.8 m from the origin: near, although more than 8 m is not reached from the centre
+    put(r, 3, 8.8); // 8.2 m from the origin: far
+    r.step(T0, { press: [{ slot: 3 }] });
+    r.run(T0 + 1, T0 + 72);
+    expect(r.dealt(1, 2)).toEqual([[T0 + 72, HP]]);
+    expect(r.dealt(1, 3)).toEqual([[T0 + 72, 6000]]);
+  });
+});

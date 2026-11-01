@@ -49,6 +49,8 @@ export type AwakenOutcome =
 export interface AwakeningHost {
   readonly combat: CombatSystem;
   pose(entityId: number): { x: number; y: number; z: number; facingYaw: number; grounded: boolean } | undefined;
+  /** Static line of sight between two centres (spec 16: no area hit across an island slab). */
+  blocked(a: readonly [number, number, number], b: readonly [number, number, number]): boolean;
 }
 
 export class AwakeningSystem {
@@ -142,6 +144,7 @@ export class AwakeningSystem {
         if (t.entityId === id || !isAlive(t)) continue;
         const tp = this.host.pose(t.entityId);
         if (!tp) continue;
+        if (this.host.blocked([ap.x, ap.y, ap.z], [tp.x, tp.y, tp.z])) continue;
         const dy = Math.max(0, Math.abs(tp.y - ap.y) - 0.55);
         const d = Math.hypot(Math.hypot(tp.x - ap.x, tp.z - ap.z), dy);
         if (d <= burst.radius + 0.35) near.push({ id: t.entityId, d });

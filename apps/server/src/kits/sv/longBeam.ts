@@ -1,5 +1,5 @@
 import { COMBAT } from "@eb/shared/config/combat";
-import { buildCandidate, forwardOf, queryTargets, type AbilityHandler, type CastContext } from "../../sim/AbilityRunner.js";
+import { DEFAULT_BEAM_ORIGIN, buildCandidate, forwardOf, queryTargets, type AbilityHandler, type CastContext } from "../../sim/AbilityRunner.js";
 import type { HitCandidate, HitResult } from "../../sim/HitResolver.js";
 import { grantCastInvulnerability, healOnce, tookDamage } from "./groundWave.js";
 
@@ -12,7 +12,7 @@ import { grantCastInvulnerability, healOnce, tookDamage } from "./groundWave.js"
  *   host.blocked along the forward ray (monotone: a longer segment stays blocked once it crosses a wall), so no new
  *   host raycast is needed. Targets must satisfy 0 <= forward distance <= truncated length (no damage behind the
  *   caster, beyond 32 m or beyond the obstruction) and must not be occluded themselves (queryTargets).
- * - Targets with horizontal distance <= 8 m take 100 HP, farther ones 60 HP; at most 4, nearest first, ties by id;
+ * - Targets with horizontal distance <= 8 m from the beam origin (0.6 m forward, 0.4 m up of the capsule centre, spec 16) take 100 HP, farther ones 60 HP; at most 4, nearest first, ties by id;
  *   one hit per target; R90 F22 U5 (definition), U, armorBreak, noncounterable.
  * - Heal: to full if any NEAR target takes damage, otherwise 30 HP once if any far target takes damage.
  */
@@ -28,8 +28,10 @@ export function beamLengthOf(c: CastContext): number {
   const max = c.cast.def.shape.kind === "beam" ? c.cast.def.shape.length : c.cast.def.range;
   if (!ap) return 0;
   const [fx, fz] = forwardOf(c.cast.aimYaw);
-  const o: [number, number, number] = [ap.x, ap.y, ap.z];
-  const at = (d: number): [number, number, number] => [ap.x + fx * d, ap.y, ap.z + fz * d];
+  const { forward, up } = DEFAULT_BEAM_ORIGIN;
+  const ox = ap.x + fx * forward, oz = ap.z + fz * forward, oy = ap.y + up;
+  const o: [number, number, number] = [ox, oy, oz];
+  const at = (d: number): [number, number, number] => [ox + fx * d, oy, oz + fz * d];
   if (!c.host.blocked(o, at(max))) return max;
   let lo = 0, hi = max;
   for (let i = 0; i < BISECT_STEPS; i++) {
@@ -44,14 +46,19 @@ function candidates(c: CastContext): HitCandidate[] {
   if (!ap || c.tick !== c.cast.activeStart) return [];
   const len = beamLengthOf(c);
   const [fx, fz] = forwardOf(c.cast.aimYaw);
+  const ox = ap.x + fx * DEFAULT_BEAM_ORIGIN.forward, oz = ap.z + fz * DEFAULT_BEAM_ORIGIN.forward;
   const ids = queryTargets(c, {
     maxLength: len,
-    filter: (_t, tp) => { const fwd = (tp.x - ap.x) * fx + (tp.z - ap.z) * fz; return fwd >= 0 && fwd <= len; },
+    filter: (_t, tp) => {
+      const behind = (tp.x - ap.x) * fx + (tp.z - ap.z) * fz; // nothing behind the caster
+      const fwd = (tp.x - ox) * fx + (tp.z - oz) * fz; // reach is measured from the beam origin
+      return behind >= 0 && fwd <= len;
+    },
   });
   const near: number[] = [];
   const out = ids.map((id) => {
     const tp = c.host.pose(id)!;
-    const isNear = Math.hypot(tp.x - ap.x, tp.z - ap.z) <= NEAR_RANGE_M;
+    const isNear = Math.hypot(tp.x - ox, tp.z - oz) <= NEAR_RANGE_M;
     if (isNear) near.push(id);
     return { ...buildCandidate(c, id, 0, ap.x, ap.z), damage100: isNear ? NEAR_DAMAGE100 : FAR_DAMAGE100 };
   });

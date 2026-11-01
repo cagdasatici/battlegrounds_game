@@ -33,10 +33,13 @@ export function healOnce(c: CastContext, flag: string, amount100: number): boole
 
 export const tookDamage = (r: HitResult): boolean => r.outcome === "hit" && r.damage100 > 0;
 
+/** Spec 16: Skybreak's box is centred 2 m above the caster centre. */
+export const SKYBREAK_BOX_CENTRE_Y = 2;
+
 function candidates(c: CastContext): HitCandidate[] {
   const ap = c.host.pose(c.fighter.entityId);
   if (!ap || c.tick !== c.cast.activeStart) return [];
-  return queryTargets(c).map((id) => buildCandidate(c, id, 0, ap.x, ap.z));
+  return queryTargets(c, { boxCentreY: SKYBREAK_BOX_CENTRE_Y }).map((id) => buildCandidate(c, id, 0, ap.x, ap.z));
 }
 
 function onResults(c: CastContext, results: readonly HitResult[]): void {

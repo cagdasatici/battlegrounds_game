@@ -20,7 +20,8 @@ function rig(kit = "sv", targets = 1, specs: AbilitySpec[] = [base("sv.b1"), bas
   for (let i = 1; i <= 1 + targets; i++) cs.add(i, i, 0, i === 1 ? (kit as KitId) : "sv").protectedUntilTick = 0;
   poses.set(1, { x: 0, y: 1, z: 0, facingYaw: 0, grounded: true });
   for (let i = 2; i <= 1 + targets; i++) poses.set(i, { x: 0, y: 1, z: -1.5 - (i - 2) * 0.1, facingYaw: Math.PI, grounded: true });
-  const host: AbilityHost = { combat: cs, pose: (id) => poses.get(id), blocked: () => false };
+  let occluded = false;
+  const host: AbilityHost = { combat: cs, pose: (id) => poses.get(id), blocked: () => occluded };
   const registry = buildAbilityRegistry(specs.map(defineAbility), new Set(["melee"]));
   const runner = new AbilityRunner(registry, [MELEE_HANDLER], host);
   const aw = new AwakeningSystem(host);
@@ -36,7 +37,7 @@ function rig(kit = "sv", targets = 1, specs: AbilitySpec[] = [base("sv.b1"), bas
     return res;
   };
   const cast = (tick: number, slot: 1 | 2 | 3 | 4 = 1) => runner.skillDown(cs.get(1)!, tick, slot, 1);
-  return { cs, poses, runner, aw, results, step, cast };
+  return { cs, poses, runner, aw, results, step, cast, setOccluded: (v: boolean) => { occluded = v; } };
 }
 
 const strike = (attackerId: number, targetId: number, damage100: number, o: Partial<HitCandidate> = {}, gen = 0): HitCandidate => ({
@@ -298,6 +299,15 @@ describe("Tide Duelist activation (td.activate, Ocean Surge)", () => {
     expect(hits.length).toBe(4);
     r.step(T0 + 49); // exclusive single tick: no second burst
     expect(r.cs.get(2)!.hp100).toBe(8000);
+  });
+
+  test("R05: a wall between Ocean Surge and a target inside 5 m: no damage", () => {
+    const r = tdRig(1);
+    r.setOccluded(true);
+    r.aw.request(r.cs.get(1)!, T0, "td");
+    for (let rel = 0; rel <= 48; rel++) r.step(T0 + rel);
+    expect(r.cs.get(2)!.hp100).toBe(10000);
+    expect(r.results.filter((x) => x.r.candidate.moveId === "td.activate").length).toBe(0);
   });
 
   test("burst reaches targets only inside 5 m and ignores the dead", () => {

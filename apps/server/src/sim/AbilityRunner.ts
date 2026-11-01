@@ -133,7 +133,15 @@ export const forwardOf = (yaw: number): [number, number] => [-Math.sin(yaw), -Ma
  * vertical centre 0.2 m above the attacker centre. Spheres are centred `range` ahead (range 0 = around the
  * caster). Beams run horizontally from the attacker centre for `length`, truncated at `maxLength` if given.
  */
-export function shapeOverlaps(shape: Shape, range: number, a: AbilityPose, aimYaw: number, t: AbilityPose, maxLength?: number): boolean {
+export interface BeamOrigin { forward: number; up: number }
+/** Spec 16: beams begin 0.6 m forward of capsule centre and 0.4 m up. */
+export const DEFAULT_BEAM_ORIGIN: BeamOrigin = { forward: 0.6, up: 0.4 };
+export const DEFAULT_BOX_CENTRE_Y = 0.2;
+
+export function shapeOverlaps(
+  shape: Shape, range: number, a: AbilityPose, aimYaw: number, t: AbilityPose, maxLength?: number,
+  boxCentreY: number = DEFAULT_BOX_CENTRE_Y, beamOrigin: BeamOrigin = DEFAULT_BEAM_ORIGIN,
+): boolean {
   const [fx, fz] = forwardOf(aimYaw);
   const rx = -fz, rz = fx; // right-hand vector
   const dx = t.x - a.x, dz = t.z - a.z;
@@ -141,19 +149,22 @@ export function shapeOverlaps(shape: Shape, range: number, a: AbilityPose, aimYa
   const segLo = t.y - CAP_HALF, segHi = t.y + CAP_HALF;
   const gap = (lo: number, hi: number): number => Math.max(0, lo - segHi, segLo - hi);
   if (shape.kind === "box") {
-    const cy = a.y + 0.2;
+    const cy = a.y + boxCentreY;
     const dv = gap(cy - shape.h / 2, cy + shape.h / 2);
     const cr = Math.max(-shape.w / 2, Math.min(shape.w / 2, right));
     const cf = Math.max(0, Math.min(shape.d, fwd));
     return Math.hypot(Math.hypot(right - cr, fwd - cf), dv) <= CAP_R;
   }
-  const dyc = Math.max(0, Math.abs(t.y - a.y) - CAP_HALF); // vertical gap to a feature at attacker height
   if (shape.kind === "sphere") {
+    const dyc = Math.max(0, Math.abs(t.y - a.y) - CAP_HALF); // vertical gap to a feature at attacker height
     return Math.hypot(Math.hypot(right, fwd - range), dyc) <= shape.r + CAP_R;
   }
+  // Beam: measured from its origin (beamOrigin.forward ahead of the capsule centre, beamOrigin.up above it).
+  const fwdO = fwd - beamOrigin.forward;
+  const dyb = Math.max(0, Math.abs(t.y - (a.y + beamOrigin.up)) - CAP_HALF);
   const len = Math.min(shape.length, maxLength ?? shape.length);
-  const cf = Math.max(0, Math.min(len, fwd));
-  return Math.hypot(Math.hypot(right, fwd - cf), dyc) <= shape.radius + CAP_R;
+  const cf = Math.max(0, Math.min(len, fwdO));
+  return Math.hypot(Math.hypot(right, fwdO - cf), dyb) <= shape.radius + CAP_R;
 }
 
 function targetStateOf(t: Fighter, p: AbilityPose): "standing" | "air" | "ragdoll" {
@@ -181,6 +192,10 @@ export interface QueryOptions {
   excludeCaptured?: boolean;
   shape?: Shape;
   range?: number;
+  /** Box vertical centre above the caster centre (R05, spec 16). Default 0.2. */
+  boxCentreY?: number;
+  /** Beam origin relative to the caster centre (R05, spec 16). Default 0.6 forward, 0.4 up. */
+  beamOrigin?: BeamOrigin;
   targetStates?: readonly TargetState[];
 }
 
@@ -207,7 +222,7 @@ export function queryTargets(c: CastContext, opts: QueryOptions = {}): number[] 
     if (!states.includes(targetStateOf(t, tp))) continue;
     if (opts.filter && !opts.filter(t, tp)) continue;
     if (ledger.count(fighter.entityId, cast.castCounter, t.entityId, t.lifeId) >= d.maxHitsPerTarget) continue;
-    if (!shapeOverlaps(shape, range, ap, cast.aimYaw, tp, opts.maxLength)) continue;
+    if (!shapeOverlaps(shape, range, ap, cast.aimYaw, tp, opts.maxLength, opts.boxCentreY, opts.beamOrigin)) continue;
     if (host.blocked([ap.x, ap.y, ap.z], [tp.x, tp.y, tp.z])) continue;
     found.push({ id: t.entityId, dist: Math.hypot(tp.x - ap.x, tp.z - ap.z) });
   }
