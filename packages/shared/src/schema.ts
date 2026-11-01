@@ -20,6 +20,12 @@ export const PLAYER_OWNER_FIELDS = [
   "ackSeq", "ackInputTick", "epoch", "pendingKit", "evasiveEndTick", "chargeStartTick",
 ] as const;
 
+/** Public projectile record fields (spec section 20). */
+export const PROJECTILE_FIELDS = [
+  "entityId", "castId", "ownerId", "ownerLifeId", "spawnTick", "x", "y", "z", "vx", "vy", "vz",
+  "chargeClass", "remainingTicks", "reflectionCount",
+] as const;
+
 /** Fields that must never be replicated. */
 export const FORBIDDEN_STATE_FIELDS = ["invite", "token", "ticket", "sessionId", "authId", "cookie"] as const;
 

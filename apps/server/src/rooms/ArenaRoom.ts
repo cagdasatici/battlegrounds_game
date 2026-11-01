@@ -15,7 +15,8 @@ import { MovementSystem, type HorizontalOverride } from "../sim/Movement.js";
 import { CombatSystem } from "../sim/Combat.js";
 import { OffensiveBuffer } from "../sim/OffensiveBuffer.js";
 import { M1System, type M1Pose } from "../sim/M1.js";
-import { AbilityRunner, type AbilityHost, type SkillOutcome } from "../sim/AbilityRunner.js";
+import { ProjectileSystem } from "../sim/Projectiles.js";
+import { AbilityRunner, type ReflectRequest, type AbilityHost, type SkillOutcome } from "../sim/AbilityRunner.js";
 import { AwakeningSystem } from "../sim/Awakening.js";
 import { RespawnSystem, pickSpawn, type Pt } from "../sim/RespawnSystem.js";
 import { TickPipeline, type PipelineSeat } from "../sim/TickPipeline.js";
@@ -68,6 +69,8 @@ export class ArenaRoom extends Room {
   private readonly offensiveBuffer = new OffensiveBuffer();
   readonly m1 = new M1System(this.offensiveBuffer);
   readonly awakening: AwakeningSystem = new AwakeningSystem(this.abilityHost());
+  /** T19: detached projectiles (spec 13, 15); advanced only by the tick pipeline, cleared on dispose. */
+  readonly projectiles: ProjectileSystem = new ProjectileSystem(this.abilityHost());
   readonly abilities: AbilityRunner = new AbilityRunner(buildKitRegistry(), ALL_HANDLERS, this.abilityHost(), this.offensiveBuffer);
   private eventSeq = 0;
   /** Random uint32 chosen per room (spec 21 event ids). */
@@ -76,7 +79,7 @@ export class ArenaRoom extends Room {
   wallNow: () => number = () => performance.now();
   protected readonly pipeline: TickPipeline = new TickPipeline({
     state: this.state, combat: this.combat, m1: this.m1, abilities: this.abilities, awakening: this.awakening,
-    movement: () => this.movement, world: () => this.world, seats: () => this.seats, extraBodies: () => this.extraBodyIds(),
+    projectiles: this.projectiles, movement: () => this.movement, world: () => this.world, seats: () => this.seats, extraBodies: () => this.extraBodyIds(),
     poseOf: (id) => this.poseOf(id), respawn: this.respawns, nextLifeId: () => ++this.lifeSeq,
     sendActionResult: (sid, seat, edgeId, seq, tick, ok, reason, castId) => this.sendActionResult(sid, seat, edgeId, seq, tick, ok, reason, castId),
     broadcastEvent: (tick, kind, actor, target, lifeId, moveId, dmg) => this.broadcastEvent(tick, kind, actor, target, lifeId, moveId, dmg),
@@ -196,6 +199,7 @@ export class ArenaRoom extends Room {
     this.combat.dispose();
     this.m1.dispose();
     this.abilities.dispose();
+    this.projectiles.clear();
     this.awakening.dispose();
     this.respawns.clear();
     this.movement?.dispose();
@@ -240,7 +244,14 @@ export class ArenaRoom extends Room {
   protected extraBodyIds(): readonly number[] { return []; }
 
   private abilityHost(): AbilityHost {
+    // Lazy: the projectile system is built from this very host, so its members are resolved on first use.
+    const self = this;
     return {
+      get projectiles() { return self.projectiles; },
+      get projectileSpawner() { return self.projectiles; },
+      get projectileReflector() { return { reflect: (req: ReflectRequest) => self.projectiles.reflectWith(req) }; },
+      sweepSphere: (a, b, r) => this.world?.sweepSphere([a[0], a[1], a[2]], [b[0], b[1], b[2]], r) ?? null,
+      hold: (id, slot, tick) => this.pipeline.holdOf(id, slot, tick),
       combat: this.combat,
       pose: (id) => this.poseOf(id),
       blocked: (a, b) => !!this.world && this.world.segmentBlocked([a[0], a[1], a[2]], [b[0], b[1], b[2]]),

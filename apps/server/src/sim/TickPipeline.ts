@@ -12,6 +12,8 @@ import type { AbilityRunner, SkillOutcome } from "./AbilityRunner.js";
 import type { AwakeningSystem, AwakenOutcome } from "./Awakening.js";
 import type { MovementSystem, HorizontalOverride } from "./Movement.js";
 import type { World } from "./World.js";
+import type { ProjectileSystem } from "./Projectiles.js";
+import { ProjectileSchema } from "../state/ProjectileSchema.js";
 import type { HitCandidate, HitResult } from "./HitResolver.js";
 import { dashCandidates } from "./DashAttack.js";
 import { locomotionLocked, intentsSuppressed, isAlive } from "./ActionMachine.js";
@@ -33,6 +35,8 @@ export interface TickPipelineDeps {
   m1: M1System;
   abilities: AbilityRunner;
   awakening: AwakeningSystem;
+  /** T19: detached projectile simulation; optional so rooms without it keep working. */
+  projectiles?: ProjectileSystem;
   movement: () => MovementSystem | null;
   world: () => World | null;
   seats: () => ReadonlyMap<string, PipelineSeat>;
@@ -151,8 +155,9 @@ export class TickPipeline {
           // Never buffered. Rejections are METER, FORM or STATE and are answered immediately.
           const o: AwakenOutcome = f ? awakening.request(f, tick) : { kind: "rejected", reason: "STATE" };
           if (f) this.reportSkill(sessionId, seat, f, q.edge.id, q.seq, tick, o);
+        } else if (q.edge.kind === "skillUp") {
+          if (f) abilities.skillUp(f, tick, q.edge.slot); // only a running holdRelease cast of that slot reacts
         } else if (q.edge.kind === "jump") jumpPressed = true;
-        // skillUp: press moves ignore the release; holdRelease moves arrive with T19. awaken: T14.
       }
       if (f) {
         // M1 has no edge: the server derives presses and legal repeats from the held attack state.
@@ -189,7 +194,21 @@ export class TickPipeline {
         : { moveX: h.moveX * mScale, moveZ: h.moveZ * mScale, run: scaled ? false : h.runHeld, guard: f?.action === "Guard" || h.blockHeld, jumpPressed: sc.jumpPressed });
     }
     this.d.movement()?.step(tick, (id) => this.intents.get(id) ?? NEUTRAL_MOVE, (id) => this.dashOverride(id),
-      (id) => this.d.abilities.facingOverrideOf(id));
+      (id) => this.d.abilities.facingOverrideOf(id), (id) => this.d.abilities.freezesVertical(id, tick));
+  }
+
+  /**
+   * Hold state of a charge slot for an entity's input channel (T19). The lease is stricter than the generic hold clear:
+   * a charge whose input has been missing for inputLeaseTicks ticks is stale (A11); otherwise the slot is held while the
+   * latest accepted packet names it in chargeHeldSlot.
+   */
+  holdOf(entityId: number, slot: 1 | 2 | 3 | 4, tick: number): "held" | "released" | "stale" {
+    for (const seat of this.d.seats().values()) {
+      if (seat.entityId !== entityId) continue;
+      if (tick - seat.input.lastInputTick >= COMBAT.inputLeaseTicks) return "stale";
+      return seat.input.held.chargeHeldSlot === slot ? "held" : "released";
+    }
+    return "released";
   }
 
   /** Collision queries for M1 swings, abilities and awakening at the current server poses (spec 12/13). */
@@ -201,6 +220,7 @@ export class TickPipeline {
         (a, t) => !!w && w.segmentBlocked([a.x, a.y, a.z], [t.x, t.y, t.z])),
       ...dashCandidates(tick, this.d.combat.all(), pose, (a, t) => !!w && w.segmentBlocked([a.x, a.y, a.z], [t.x, t.y, t.z])),
       ...this.d.abilities.collect(tick),
+      ...(this.d.projectiles?.collect(tick) ?? []),
       ...this.d.awakening.collect(tick),
     ];
   }
@@ -217,6 +237,7 @@ export class TickPipeline {
     const { combat, m1, abilities, awakening } = this.d;
     const results = this.results;
     abilities.afterResolve(tick, results);
+    this.d.projectiles?.settle(tick, results); // after counter stances had their chance to reflect
     awakening.gain(results);
     const launches = [...m1.launches(tick, results, (id) => combat.get(id), (id) => this.d.poseOf(id)), ...abilities.launches(tick, results)];
     for (const l of launches) {
@@ -245,6 +266,31 @@ export class TickPipeline {
   private publish(tick: number): void {
     for (const seat of this.d.seats().values()) { this.publishBody(seat.entityId); this.publishAction(seat.entityId); this.publishOwner(seat, tick); }
     for (const id of this.d.extraBodies?.() ?? []) { this.publishBody(id); this.publishAction(id); }
+    this.publishProjectiles();
+  }
+
+  /** Mirrors the live projectile list into replicated state (spec 20): add, update, remove. Centimetres and cm/s. */
+  private publishProjectiles(): void {
+    const sys = this.d.projectiles;
+    if (!sys) return;
+    const map = this.d.state.projectiles;
+    const live = new Set<string>();
+    const i16 = (v: number): number => Math.max(-32768, Math.min(32767, Math.round(v * 100)));
+    for (const p of sys.list()) {
+      const key = String(p.id);
+      live.add(key);
+      let r = map.get(key);
+      if (!r) {
+        r = new ProjectileSchema();
+        r.entityId = p.id; r.spawnTick = p.spawnTick;
+        map.set(key, r);
+      }
+      r.castId = p.castId; r.ownerId = p.ownerId; r.ownerLifeId = p.ownerLifeId;
+      r.x = quantizeCm(p.x); r.y = quantizeCm(p.y); r.z = quantizeCm(p.z);
+      r.vx = i16(p.vx); r.vy = i16(p.vy); r.vz = i16(p.vz);
+      r.chargeClass = p.chargeClass; r.remainingTicks = Math.max(0, p.remainingTicks); r.reflectionCount = p.reflectionCount;
+    }
+    for (const key of [...map.keys()]) if (!live.has(key)) map.delete(key);
   }
 
   private reportHit(tick: number, r: HitResult): void {
@@ -255,11 +301,12 @@ export class TickPipeline {
       : r.outcome === "countered" ? "counter" : null;
     if (kind && victim) this.d.broadcastEvent(tick, kind, c.attackerId, c.targetId, victim.lifeId, c.moveId, r.damage100);
     else if (r.outcome === "captured" && victim) this.d.broadcastEvent(tick, "capture", c.attackerId, c.targetId, victim.lifeId, c.moveId, r.damage100);
-    if (r.killed && victim) this.knockOut(tick, victim, c.attackerId, c.moveId);
+    if (r.killed && victim) this.knockOut(tick, victim, c.attackerId, c.moveId, c.projectile?.ownerLifeId);
   }
 
   /** One KO per life: cleanup, scoring, the finisher passive and the respawn countdown. killer is undefined for a ring-out. */
-  private knockOut(tick: number, victim: { entityId: number; lifeId: number }, killer: number | undefined, moveId?: string): void {
+  private knockOut(tick: number, victim: { entityId: number; lifeId: number }, killer: number | undefined, moveId?: string,
+    killerLifeId?: number): void {
     const { m1, abilities, awakening, combat, respawn } = this.d;
     const id = victim.entityId;
     m1.reset(id);
@@ -275,7 +322,8 @@ export class TickPipeline {
     for (const a of assists) { const pa = this.d.state.players.get(String(a)); if (pa) pa.assists += 1; }
     if (killer !== undefined && scorer === killer && respawn.claimReward(victim.lifeId)) {
       const k = combat.get(killer);
-      if (k && isAlive(k)) k.hp100 = Math.min(COMBAT.hp100Max, k.hp100 + finisherHeal100(k.kitId, moveId));
+      // A detached projectile of a previous life heals nobody (spec 15).
+      if (k && isAlive(k) && (killerLifeId === undefined || k.lifeId === killerLifeId)) k.hp100 = Math.min(COMBAT.hp100Max, k.hp100 + finisherHeal100(k.kitId, moveId));
     }
     respawn.schedule(id, tick);
     this.d.broadcastEvent(tick, "ko", scorer ?? id, id, victim.lifeId, moveId);
@@ -410,6 +458,7 @@ export class TickPipeline {
     o.ackSeq = seat.input.lastReceivedSeq;
     o.ackInputTick = seat.input.lastSampleTick;
     o.epoch = seat.input.epoch;
+    o.chargeStartTick = this.d.abilities.chargeStartOf(seat.entityId);
     o.evasiveEndTick = Math.min(f?.cooldowns.get("evasive") ?? 0, 0xffffffff);
     o.lethalCounterRemaining = f ? Math.max(0, Math.min(0xffff, f.lethalCounterUntil - tick)) : 0;
   }
