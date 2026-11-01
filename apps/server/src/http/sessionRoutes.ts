@@ -8,7 +8,9 @@ import type { AuthServices } from "../auth/Services.js";
 import { RateLimiter } from "../auth/RateLimiter.js";
 import { safeEqual } from "../auth/tokens.js";
 import { log } from "../ops/StructuredLog.js";
+import { SPARRING_GUEST_COOKIE } from "@eb/shared/sparring";
 import { securityHeaders } from "./securityHeaders.js";
+import { registerSparringRoutes } from "./sparringRoutes.js";
 
 type Handler = (req: IncomingMessage, res: ServerResponse) => void | Promise<void>;
 export interface HttpApp {
@@ -22,7 +24,7 @@ const MAX_BODY = 1024;
 
 let baseHeaders: Record<string, string> = { "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" };
 
-function send(res: ServerResponse, status: number, body?: unknown, headers: Record<string, string> = {}): void {
+export function send(res: ServerResponse, status: number, body?: unknown, headers: Record<string, string> = {}): void {
   res.statusCode = status;
   res.setHeader("Cache-Control", "no-store");
   for (const [k, v] of Object.entries(baseHeaders)) res.setHeader(k, v);
@@ -32,9 +34,9 @@ function send(res: ServerResponse, status: number, body?: unknown, headers: Reco
   res.end(JSON.stringify(body));
 }
 
-const TOO_LARGE = Symbol("TOO_LARGE");
+export const TOO_LARGE = Symbol("TOO_LARGE");
 
-function readBody(req: IncomingMessage): Promise<unknown | undefined | typeof TOO_LARGE> {
+export function readBody(req: IncomingMessage): Promise<unknown | undefined | typeof TOO_LARGE> {
   return new Promise((resolve) => {
     let size = 0;
     const chunks: Buffer[] = [];
@@ -63,7 +65,7 @@ export function parseCookies(header: string | undefined): Record<string, string>
   return out;
 }
 
-const hdr = (req: IncomingMessage, name: string): string | undefined => {
+export const hdr = (req: IncomingMessage, name: string): string | undefined => {
   const v = req.headers[name];
   return Array.isArray(v) ? v[0] : v;
 };
@@ -85,6 +87,7 @@ export function registerSessionRoutes(app: HttpApp, svc: AuthServices, now: () =
   const sessionLimiter = new RateLimiter(config.sessionsPerMinute ?? 5, 60_000, now);
   const globalSessionLimiter = new RateLimiter(config.globalSessionsPerMinute ?? 30, 60_000, now);
   const ticketLimiter = new RateLimiter(20, 60_000, now);
+  const sparring = registerSparringRoutes(app, svc, { ticketLimiter, sessionLimiter, globalSessionLimiter });
 
   app.get("/healthz", (_req, res) => send(res, 200, { ok: true }));
 
@@ -124,13 +127,20 @@ export function registerSessionRoutes(app: HttpApp, svc: AuthServices, now: () =
   app.post("/api/join-ticket", async (req, res) => {
     if (!originAllowed(req, config.allowedOrigins)) return send(res, 403, { error: "ORIGIN" });
     const s = authed(req);
-    if (!s) return send(res, 401, { error: "UNAUTHENTICATED" });
-    if (!safeEqual(hdr(req, "x-csrf-token") ?? "", s.csrf)) return send(res, 403, { error: "CSRF" });
-    if (!ticketLimiter.allow(s.id)) return send(res, 429, { error: "RATE_LIMITED" });
+    // A scoped sparring guest has no ordinary session. Only a request carrying that cookie may continue without one.
+    const guestCookie = parseCookies(hdr(req, "cookie"))[SPARRING_GUEST_COOKIE];
+    if (!s && !guestCookie) return send(res, 401, { error: "UNAUTHENTICATED" });
+    // With a guest cookie present CSRF is checked against the principal chosen for the requested match.
+    if (!guestCookie && s && !safeEqual(hdr(req, "x-csrf-token") ?? "", s.csrf)) return send(res, 403, { error: "CSRF" });
+    if (!ticketLimiter.allow(s ? s.id : sparring.guestKey(guestCookie!))) return send(res, 429, { error: "RATE_LIMITED" });
     const raw = await readBody(req);
     if (raw === TOO_LARGE) return send(res, 413, { error: "TOO_LARGE" }, { Connection: "close" });
     const parsed = JoinTicketRequestSchema.safeParse(raw);
     if (!parsed.success) return send(res, 403, { error: "BAD_REQUEST" });
+    if (sparring.isSparringCode(parsed.data.roomCode)) return sparring.issueTicket(req, res, parsed.data.roomCode);
+    // Every other room is ordinary-session only; a guest cookie never authorizes it.
+    if (!s) return send(res, 401, { error: "UNAUTHENTICATED" });
+    if (guestCookie && !safeEqual(hdr(req, "x-csrf-token") ?? "", s.csrf)) return send(res, 403, { error: "CSRF" });
     const roomName = Object.hasOwn(config.roomCodes, parsed.data.roomCode) ? config.roomCodes[parsed.data.roomCode] : undefined;
     if (!roomName) return send(res, 409, { error: "UNKNOWN_ROOM" });
     if (!svc.ensureRoom) return send(res, 503, { error: "NOT_READY" });
