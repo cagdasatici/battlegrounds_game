@@ -75,3 +75,4 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 |---|---|---|---|---|---|---|
 | SPD1 | Faster movement | M0 | IMPLEMENTED (DEVICE CHECK PENDING) | 185454c | docs/test-results/SPD1.md | decisions/0020. walk 7, run 11, guard 3, accel 70; iPad NOT RUN |
 | FX0 | Combat event contract and presentation bus | M0 | DONE | 20028c9 | docs/test-results/FX0.md | decisions/0021 |
+| FX3 | Audio bus and original synthesized sounds | FX0 | IMPLEMENTED (DEVICE CHECK PENDING) | 914b6f7 | docs/test-results/FX3.md | decisions/0026. audibility and iPad unlock NOT RUN |
