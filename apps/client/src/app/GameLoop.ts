@@ -29,6 +29,9 @@ export interface LoopPlayer {
   vx: number; vy: number; vz: number;
   facingYaw: number;
   hp100: number;
+  meter100?: number;
+  moveId?: string;
+  ready?: boolean;
   action: Action;
   /** Present only on the local player (owner-only view, decision 0007). */
   owner?: { ackInputTick: number; epoch: number } | undefined;
