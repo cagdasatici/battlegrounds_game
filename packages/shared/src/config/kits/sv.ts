@@ -69,4 +69,13 @@ export const SV_DEFS: AbilityDef[] = [
     hitOffsets: [0, 48], damage100: [0, 4000], range: 2, block: "U", input: "context", stunTicks: 0, ragdollTicks: 90,
     launch: { forward: 18, up: 3 },
   }),
+  // Meteor Cast: Attack while holding an urn, 15 HP, radius 0.4, speed 28, life 120, U, R60 F10 U3, counterable.
+  defineAbility({
+    id: "sv.x3", label: "Meteor Cast", handler: "urnThrow", startup: 10, active: 1, recovery: 24, cooldown: 0,
+    damage100: [1500], range: 0, block: "U", input: "context", stunTicks: 0, ragdollTicks: 60, launch: { forward: 10, up: 3 },
+    projectile: {
+      speed: 28, lifeTicks: 120, maxRange: 56, radius: 0.4, splashRadius: 0, splashMax: 1, reflectable: true,
+      arcAmplitude: 0, arcSpan: 0, chargeMaxTicks: 0, fullDamage100: 0, chip100: 0,
+    },
+  }),
 ];

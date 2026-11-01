@@ -54,7 +54,7 @@ export class ContextSystem {
       return o.kind === "started" ? { accept: { ok: true, castCounter: o.castCounter }, advance } : null;
     };
     // 1. Held urn: the next Attack throws it (a fresh press only; a held button never chains pickup into a throw).
-    if (this.urns.heldBy(f.entityId)) return req.pressed ? start(`${f.kitId}.throw`, false) : null;
+    if (this.urns.heldBy(f.entityId)) return req.pressed ? start(this.vanguardOpen(f) ? "sv.x3" : `${f.kitId}.throw`, false) : null;
     // 2. Pickup: standing still beside a free urn at the start of a chain.
     const mag = Math.hypot(req.held.moveX ?? 0, req.held.moveZ ?? 0);
     if (req.pressed && req.index === 0 && mag < COMBAT.props.pickupStickMax
