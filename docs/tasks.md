@@ -9,7 +9,7 @@ Source: docs/spec.md section 27.
 | T02 | Shared contracts | T01 | DONE | commit "T02:" in git log | docs/test-results/T02.md |
 | T03 | Authentication | T02 | DONE | commit "T03:" in git log | docs/test-results/T03.md |
 | T04 | Room lifecycle | T03 | DONE | commit "T04:" in git log | docs/test-results/T04.md |
-| T05 | Arena colliders | T02 | TODO | | |
+| T05 | Arena colliders | T02 | DONE | commit "T05:" in git log | docs/test-results/T05.md |
 | T06 | Movement | T04 T05 | TODO | | |
 | T07 | Touch shell | T02 | TODO | | |
 | T08 | Camera and prediction | T06 T07 | TODO | | |

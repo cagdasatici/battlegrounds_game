@@ -8,6 +8,7 @@
     "@eb/shared": "workspace:*",
     "@colyseus/schema": "5.0.43",
     "@colyseus/ws-transport": "0.18.4",
+    "@dimforge/rapier3d-compat": "0.21.0",
     "colyseus": "0.18.10"
   },
   "devDependencies": { "tsx": "4.23.15" }

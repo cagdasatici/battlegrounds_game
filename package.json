@@ -12,6 +12,7 @@
     "build": "pnpm -r --filter ./apps/client run build",
     "dev:server": "pnpm --filter @eb/server run dev",
     "dev:client": "pnpm --filter @eb/client run dev",
+    "content:validate": "pnpm --filter @eb/server exec tsx ../../ops/scripts/content-validate.ts",
     "smoke": "vitest run tests/integration/colyseus-smoke.test.ts"
   },
   "devDependencies": {
