@@ -105,5 +105,5 @@ The [dispatch board](agent-dispatch.md) contains the file ownership, acceptance 
 
 | Task | Title | Depends on | Status | Commit | Test report |
 |---|---|---|---|---|---|
-| HELP1 | Standalone How to play guide for touch and keyboard | T18c T18d | TODO | | |
+| HELP1 | Standalone How to play guide for touch and keyboard | T18c T18d | IMPLEMENTED (DEVICE CHECK PENDING) | 7cfc40d | docs/test-results/HELP1.md | Browser 3/3; units 1058/1058. Full verify stalled; iPads NOT RUN |
 | HELP2 | Welcome entry and guided practice handoff | HELP1 | TODO | | |
