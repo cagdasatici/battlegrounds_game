@@ -69,6 +69,10 @@ export class ArenaRoom extends Room {
     this.patchRate = PATCH_RATE_MS;
     this.state.protocolVersion = PROTOCOL_VERSION;
     this.state.contentHash = this.contentHash;
+    this.combat.onRelease = (rel, tick) => {
+      const victim = this.combat.get(rel.capture.victimId);
+      this.broadcastEvent(tick, "release", rel.capture.captorId, rel.capture.victimId, victim?.lifeId ?? 0, rel.capture.moveId);
+    };
     this.world = await World.create();
     this.movement = new MovementSystem(this.world);
     this.lastTickMs = performance.now();
@@ -250,6 +254,10 @@ export class ArenaRoom extends Room {
       combat: this.combat,
       pose: (id) => this.poseOf(id),
       blocked: (a, b) => !!this.world && this.world.segmentBlocked([a[0], a[1], a[2]], [b[0], b[1], b[2]]),
+      launch: (id, vx, vy, vz) => this.movement?.setVelocity(id, vx, vy, vz),
+      moveTogether: (ids, dx, dz) => this.movement?.moveTogether(ids, dx, dz) ?? { dx: 0, dz: 0 },
+      wallContact: (id, tick) => this.movement?.get(id)?.wallHitTick === tick,
+      surfaceHeight: (x, z) => this.world?.groundHeight(x, z) ?? null,
     };
   }
 
@@ -307,6 +315,7 @@ export class ArenaRoom extends Room {
     const kind: CombatEvent["kind"] | null = r.outcome === "hit" ? "hit" : r.outcome === "blocked" ? "block"
       : r.outcome === "countered" ? "counter" : null;
     if (kind && victim) this.broadcastEvent(tick, kind, c.attackerId, c.targetId, victim.lifeId, c.moveId, r.damage100);
+    else if (r.outcome === "captured" && victim) this.broadcastEvent(tick, "capture", c.attackerId, c.targetId, victim.lifeId, c.moveId, r.damage100);
     if (r.killed && victim) {
       this.m1.reset(c.targetId);
       this.abilities.reset(c.targetId);

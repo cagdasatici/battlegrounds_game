@@ -2,7 +2,7 @@ import {
   CAPTOR_RELEASE_RECOVERY, createFighter, enterRecovery, expire, isAlive, kill, leaveCaptured, requestDash,
   respawn, updateGuard, type Accept, type Fighter,
 } from "./ActionMachine.js";
-import { CaptureRegistry, type Release } from "./CaptureRegistry.js";
+import { CaptureRegistry, type Release, type ReleaseCause } from "./CaptureRegistry.js";
 import { HitLedger, resolveHits, type HitCandidate, type HitResult, type Pose } from "./HitResolver.js";
 
 /**
@@ -14,6 +14,8 @@ export class CombatSystem {
   private readonly fighters = new Map<number, Fighter>();
   readonly captures = new CaptureRegistry();
   readonly ledger = new HitLedger();
+  /** Optional observer of every capture release (the room publishes CombatEvent "release"). */
+  onRelease: ((rel: Release, tick: number) => void) | null = null;
 
   add(entityId: number, lifeId: number, tick: number): Fighter {
     this.remove(entityId, tick);
@@ -83,7 +85,12 @@ export class CombatSystem {
 
   /** Releases a capture on the handler's final hit (default capture lifetime). */
   releaseFinal(victimId: number, tick: number): Release | null {
-    const r = this.captures.release(victimId, "final");
+    return this.release(victimId, tick, "final");
+  }
+
+  /** Releases a capture for any cause and runs the shared release side effects. */
+  release(victimId: number, tick: number, cause: ReleaseCause): Release | null {
+    const r = this.captures.release(victimId, cause);
     if (r) this.applyReleases([r], tick);
     return r;
   }
@@ -132,6 +139,7 @@ export class CombatSystem {
       const victim = this.fighters.get(c.victimId);
       if (victim) leaveCaptured(victim, tick);
       const captor = this.fighters.get(c.captorId);
+      this.onRelease?.({ capture: c, cause }, tick);
       // A victim death or departure releases its captor immediately into 18 ticks recovery (spec 12).
       if (cause === "victimGone" && captor && isAlive(captor) && captor.generation === c.captorGeneration) {
         enterRecovery(captor, tick, CAPTOR_RELEASE_RECOVERY);

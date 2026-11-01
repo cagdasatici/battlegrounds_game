@@ -15,6 +15,8 @@ export interface Body {
   rb: RAPIER.RigidBody;
   collider: RAPIER.Collider;
   landedTick: number;
+  /** Last tick in which the body touched a wall (steep surface, never the floor). -1 if never. */
+  wallHitTick: number;
 }
 
 /**
@@ -26,6 +28,8 @@ export interface Body {
 export class MovementSystem {
   private readonly bodies = new Map<number, Body>();
   private readonly controller: RAPIER.KinematicCharacterController;
+  /** Straight-line sweep controller: no slide, no autostep, no snap, so it stops at the first contact. */
+  private readonly sweeper: RAPIER.KinematicCharacterController;
   private disposed = false;
 
   constructor(private readonly world: World) {
@@ -38,6 +42,13 @@ export class MovementSystem {
     this.controller.enableSnapToGround(c.snapDown);
     this.controller.setSlideEnabled(true);
     this.controller.setApplyImpulsesToDynamicBodies(false);
+    this.sweeper = world.rapier.createCharacterController(c.offset);
+    this.sweeper.setUp({ x: 0, y: 1, z: 0 });
+    this.sweeper.setSlideEnabled(false);
+    this.sweeper.disableAutostep();
+    this.sweeper.disableSnapToGround();
+    this.sweeper.setMaxSlopeClimbAngle((c.maxSlopeDeg * Math.PI) / 180);
+    this.sweeper.setApplyImpulsesToDynamicBodies(false);
   }
 
   add(entityId: number, centre: MapVec3, facingYaw = 0): Body {
@@ -46,7 +57,7 @@ export class MovementSystem {
     const rb = this.world.rapier.createRigidBody(
       RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(centre[0], centre[1], centre[2]));
     const collider = this.world.rapier.createCollider(RAPIER.ColliderDesc.capsule(cap.halfHeight, cap.radius), rb);
-    const b: Body = { entityId, state: initialMoveState(facingYaw), rb, collider, landedTick: -1 };
+    const b: Body = { entityId, state: initialMoveState(facingYaw), rb, collider, landedTick: -1, wallHitTick: -1 };
     this.bodies.set(entityId, b);
     return b;
   }
@@ -99,10 +110,45 @@ export class MovementSystem {
       }
       const { landed } = applyCorrection(b.state, desired, corrected, this.controller.computedGrounded(), wallHit);
       if (landed) b.landedTick = tick;
+      if (wallHit) b.wallHitTick = tick;
       const p = b.rb.translation();
       b.rb.setNextKinematicTranslation({ x: p.x + corrected.x, y: p.y + corrected.y, z: p.z + corrected.z });
     }
     this.world.step();
+  }
+
+  /**
+   * Displaces every listed body by the same horizontal vector (T13 drag moves). The fraction of the move that is
+   * free for each body is found with a straight, non-sliding sweep against static geometry; every body is then
+   * displaced by the smallest fraction, so the group stops together at the first wall and nothing tunnels.
+   * Vertical position is left to the next locomotion step (gravity, snap). Callable between ticks only.
+   */
+  moveTogether(entityIds: readonly number[], dx: number, dz: number): { dx: number; dz: number } {
+    const len = Math.hypot(dx, dz);
+    const bodies = entityIds.map((id) => this.bodies.get(id)).filter((b): b is Body => !!b);
+    if (!(len > 1e-9) || !Number.isFinite(len) || bodies.length === 0) return { dx: 0, dz: 0 };
+    let frac = 1;
+    for (const b of bodies) {
+      this.sweeper.computeColliderMovement(b.collider, { x: dx, y: 0, z: dz }, RAPIER.QueryFilterFlags.EXCLUDE_KINEMATIC);
+      const m = this.sweeper.computedMovement();
+      frac = Math.min(frac, Math.max(0, Math.min(1, (m.x * dx + m.z * dz) / (len * len))));
+    }
+    if (frac < 1e-6) return { dx: 0, dz: 0 };
+    for (const b of bodies) {
+      const t = b.rb.translation();
+      const p = { x: t.x + dx * frac, y: t.y, z: t.z + dz * frac };
+      b.rb.setTranslation(p, true);
+      b.rb.setNextKinematicTranslation(p);
+    }
+    return { dx: dx * frac, dz: dz * frac };
+  }
+
+  /** Sets a body's velocity (launch); leaves the ground when moving upward. */
+  setVelocity(entityId: number, vx: number, vy: number, vz: number): void {
+    const b = this.bodies.get(entityId);
+    if (!b || !Number.isFinite(vx + vy + vz)) return;
+    b.state.vx = vx; b.state.vz = vz; b.state.vy = vy;
+    if (vy > 0) b.state.grounded = false;
   }
 
   dispose(): void {
@@ -110,5 +156,6 @@ export class MovementSystem {
     for (const id of [...this.bodies.keys()]) this.remove(id);
     this.disposed = true;
     this.world.rapier.removeCharacterController(this.controller);
+    this.world.rapier.removeCharacterController(this.sweeper);
   }
 }

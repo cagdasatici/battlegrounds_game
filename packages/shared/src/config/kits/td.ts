@@ -1,4 +1,19 @@
-import type { AbilityDef } from "../../abilities.js";
+import { defineAbility, type AbilityDef } from "../../abilities.js";
 
-/** Tide Duelist definitions (spec section 15). Filled by T13 (base) and T16 (awakened). */
-export const TD_DEFS: AbilityDef[] = [];
+/**
+ * Tide Duelist definitions (spec section 15). T13 fills the four base moves; T16 adds the awakened four.
+ * Every number is D (local design value) taken from the spec 15 table; damage is hundredths of HP.
+ * Handler names are internal interfaces implemented in apps/server/src/kits/td.
+ * `hitOffsets` of the capture moves are relative to the capture tick (counter stance: to the trigger tick),
+ * not to activeStart; the handlers own that schedule (spec 15 handler cards).
+ */
+export const TD_DEFS: AbilityDef[] = [
+  // Current Bind: capture on the initial hit, damage [4,4,4,4,8] at +[0,10,20,30,42], release +43 R60 F7 U3.
+  defineAbility({
+    id: "td.b1", label: "Current Bind", handler: "captureBarrage",
+    startup: 10, active: 5, recovery: 18, cooldown: 1020, range: 2.4, block: "U",
+    hitOffsets: [0, 10, 20, 30, 42], damage100: [400, 400, 400, 400, 800],
+    targetStates: ["standing", "air", "ragdoll"], // grounded ragdoll is filtered by the handler
+    stunTicks: 0, ragdollTicks: 60, launch: { forward: 7, up: 3 },
+  }),
+];

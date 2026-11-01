@@ -30,6 +30,11 @@ export interface HitCandidate {
   damage100: number;
   reaction: Reaction;
   maxHitsPerTarget: number;
+  /**
+   * Present only for projectile hits (T19). A counter stance intercepts projectiles only when reflectable
+   * (spec 13/15); melee candidates leave this unset.
+   */
+  projectile?: { id: number; reflectable: boolean };
   /** Present for capture commits. A losing capture deals nothing. */
   capture?: { cinematic: boolean; maxTicks: number };
 }
@@ -116,7 +121,7 @@ export function resolveHits(tick: number, candidates: readonly HitCandidate[], c
     if (isProtected(atk, tick) || isProtected(tgt, tick)) { res(c, "protected"); continue; }
     if (isInvulnerable(tgt, tick)) { res(c, "invulnerable"); continue; }
     if (ctx.captures.shieldsFrom(c.targetId, c.attackerId)) { res(c, "shielded"); continue; }
-    if (c.counterable && tick < tgt.counterOpenUntil) {
+    if (c.counterable && tick < tgt.counterOpenUntil && (!c.projectile || c.projectile.reflectable)) {
       ctx.ledger.record(c.attackerId, c.castCounter, c.targetId, tgt.lifeId);
       tgt.counterOpenUntil = 0; // the counter consumes the incoming hit; response is T13 handler work
       res(c, "countered");

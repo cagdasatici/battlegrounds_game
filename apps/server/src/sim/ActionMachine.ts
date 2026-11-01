@@ -81,6 +81,7 @@ export function cancelCurrent(f: Fighter): void {
   f.generation += 1;
   f.cast = null;
   f.dash = null;
+  f.counterOpenUntil = 0; // a counter stance never outlives the action that opened it
 }
 
 export const isAlive = (f: Fighter): boolean => f.action !== "Dead";
