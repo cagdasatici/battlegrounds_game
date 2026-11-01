@@ -1,0 +1,14 @@
+{
+  "name": "@eb/server",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": { "dev": "tsx watch src/main.ts", "start": "tsx src/main.ts" },
+  "dependencies": {
+    "@eb/shared": "workspace:*",
+    "@colyseus/schema": "5.0.43",
+    "@colyseus/ws-transport": "0.18.4",
+    "colyseus": "0.18.10"
+  },
+  "devDependencies": { "tsx": "4.23.15" }
+}

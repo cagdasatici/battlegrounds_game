@@ -1,0 +1,8 @@
+{
+  "name": "@eb/shared",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": { ".": "./src/index.ts", "./*": "./src/*.ts" },
+  "dependencies": { "zod": "4.6.7" }
+}

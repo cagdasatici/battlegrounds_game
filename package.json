@@ -1,0 +1,24 @@
+{
+  "name": "elemental-battlegrounds",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": { "node": ">=22.12" },
+  "scripts": {
+    "typecheck": "tsc -b",
+    "lint": "node ops/scripts/lint-boundaries.mjs",
+    "test": "vitest run",
+    "build": "pnpm -r --filter ./apps/client run build",
+    "dev:server": "pnpm --filter @eb/server run dev",
+    "dev:client": "pnpm --filter @eb/client run dev",
+    "smoke": "vitest run tests/integration/colyseus-smoke.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "24.0.0",
+    "@types/three": "0.187.0",
+    "@playwright/test": "1.64.1",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
+}
