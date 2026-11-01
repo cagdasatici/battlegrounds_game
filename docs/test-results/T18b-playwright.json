@@ -3,8 +3,7 @@
     10000,
     9700,
     9400,
-    9000,
-    8600
+    9000
   ],
   "moveIdsSeenOnA": [
     "m1.1",
@@ -21,13 +20,13 @@
     "seenByB": 5600
   },
   "correctionsA": {
-    "none": 178,
-    "small": 176,
-    "medium": 56,
-    "snap": 1,
+    "none": 187,
+    "small": 66,
+    "medium": 66,
+    "snap": 0,
     "suspended": 0
   },
-  "reconcilesA": 411,
+  "reconcilesA": 319,
   "consoleErrorsA": [],
   "consoleErrorsB": []
 }

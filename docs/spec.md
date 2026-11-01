@@ -2362,3 +2362,4 @@ https://tailscale.com/docs/reference/tailscale-cli/serve
 
                                                                                                Version 1.0 | 45
 
+Hosted sparring extension (planned): see [docs/sparring-plan.md](sparring-plan.md) for host-configured opponents, scoped guest invitations and acceptance criteria. Section 6 continues to govern the stationary tutorial.

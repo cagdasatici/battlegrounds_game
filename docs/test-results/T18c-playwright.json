@@ -4,12 +4,16 @@
   "cooldownEndTicks": [
     0,
     0,
-    1039,
+    998,
     0
   ],
   "pendingKitAfterChange": "not shown",
   "respawnSecondsSeen": [
     "3",
     "2"
-  ]
+  ],
+  "t27InMatchSettings": {
+    "ticksAdvancedWhileOpen": true,
+    "leftHandMirrorsHud": true
+  }
 }

@@ -1,6 +1,8 @@
 # Backlog v2: playtest feedback and remaining work (2026-11-01)
 
-Status: PLAN ONLY. Nothing here is implemented. Written for execution by Sonnet 5.5 Low and Sol 6.1 Low.
+For current assignments, completed branches, hosted sparring and player onboarding, use the [agent dispatch board](agent-dispatch.md).
+
+Original planning snapshot. Status: PLAN ONLY. Nothing here is implemented. Written for execution by Sonnet 5.5 Low and Sol 6.1 Low.
 Base for every slice: `origin/main` at or after `aaafc3f`. Read AGENTS.md, then this file's "Rules for every slice",
 then only your own slice.
 

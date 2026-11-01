@@ -8,3 +8,4 @@ dist-types/
 /test-results/
 /vendor-src/
 /.worktrees/
+.DS_Store

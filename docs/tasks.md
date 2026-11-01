@@ -69,6 +69,7 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | R17 | Tick pipeline extraction | R01 | DONE | 85fa1a7 | docs/test-results/R17.md | Wave 1 |
 | R18 | Latency matrix on loopback | R12 | DONE | 87dd454 | docs/test-results/R18.md | In-process TCP delay proxy. 1%/3% loss NOT RUN; A12/A15 not under latency |
 
+
 ## Backlog v2 slices
 
 | ID | Title | Prerequisites | Status | Commit | Test report | Notes |
@@ -77,3 +78,27 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | FX0 | Combat event contract and presentation bus | M0 | DONE | 20028c9 | docs/test-results/FX0.md | decisions/0021 |
 | FX3 | Audio bus and original synthesized sounds | FX0 | IMPLEMENTED (DEVICE CHECK PENDING) | 914b6f7 | docs/test-results/FX3.md | decisions/0026. audibility and iPad unlock NOT RUN |
 | FX2 | Combat text: damage numbers, power callouts, KO feed | FX0 | IMPLEMENTED (DEVICE CHECK PENDING) | 89e125a | docs/test-results/FX2.md | decisions/0025. settings schema v2; iPad NOT RUN |
+| FX1 | Hit impact effects: sparks, flash, hitstop, shake | FX0 | IMPLEMENTED (DEVICE CHECK PENDING) | 53e03bc | docs/test-results/FX1.md | decisions/0024. shake scale constant 0.25; iPad NOT RUN |
+
+## Hosted sparring (documentation only)
+
+Execution details, ownership and acceptance gates are in [the sparring plan](sparring-plan.md). Reports and commit hashes are filled after execution.
+
+| Task | Title | Depends on | Status | Commit | Test report |
+|---|---|---|---|---|---|
+| BOT0 | Freeze sparring contracts | T18d T33a | TODO | | |
+| BOT1 | Deterministic opponents | BOT0 | TODO | | |
+| BOT2 | Private match membership | BOT0 | TODO | | |
+| BOT3 | Host setup controls | BOT0 | TODO | | |
+| BOT4 | Authoritative room integration | BOT1 BOT2 | TODO | | |
+| BOT4C | Client journey integration | BOT3 | TODO | | |
+| BOT5 | End-to-end sparring journeys | BOT4 BOT4C | TODO | | |
+
+## Player onboarding and instructions
+
+The [dispatch board](agent-dispatch.md) contains the file ownership, acceptance tests and merge order. T18d remains the owner of server-confirmed practice progression.
+
+| Task | Title | Depends on | Status | Commit | Test report |
+|---|---|---|---|---|---|
+| HELP1 | Standalone How to play guide for touch and keyboard | T18c T18d | TODO | | |
+| HELP2 | Welcome entry and guided practice handoff | HELP1 | TODO | | |
