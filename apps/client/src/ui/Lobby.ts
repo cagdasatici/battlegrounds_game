@@ -37,6 +37,8 @@ export interface LobbyView {
 export interface LobbyActions {
   play(): void;
   practice(): void;
+  /** Opens the standalone How to play guide (HELP2). Optional so older callers keep working. */
+  guide?(): void;
   retry(): void;
   back(): void;
   ready(kit: KitId): void;
@@ -64,6 +66,7 @@ export class Lobby {
       const a = b?.dataset["act"];
       if (a === "play") this.act.play();
       else if (a === "practice") this.act.practice();
+      else if (a === "guide") this.act.guide?.();
       else if (a === "retry") this.act.retry();
       else if (a === "back") this.act.back();
       else if (a === "settings") this.act.settings?.();
@@ -110,6 +113,7 @@ export class Lobby {
       this.root.append(names);
       this.add("p", "Your name is only a label. An invitation from a grown-up lets you in.", { "data-ui": "presets" });
       this.add("button", "Play", { "data-act": "play" });
+      this.add("button", "How to play", { "data-act": "guide" });
       this.add("button", "Practice", { "data-act": "practice" });
       this.add("button", "Settings", { "data-act": "settings" });
       return;
@@ -140,6 +144,11 @@ export class Lobby {
     this.add("p", practice ? "Awakening: finish the first steps and the practice room fills your meter." : "Awakening: land and take hits to fill the meter, then press Awaken.", { "data-ui": "awakening" });
     this.add("button", "Ready", { "data-act": "ready" });
     this.add("button", "Back", { "data-act": "back" });
+  }
+
+  /** Moves focus to a rendered action button, e.g. the launcher that opened an overlay. */
+  focusAct(act: string): void {
+    (this.root.querySelector(`button[data-act="${act}"]`) as HTMLElement | null)?.focus();
   }
 
   dispose(): void {

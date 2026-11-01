@@ -29,9 +29,13 @@ import { Hud, readSafeRect } from "./ui/Hud.js";
 import {
   RejectionNotice, cooldownLabel, formTimerText, meterLabel, respawnSecondsLeft, scoreboardRows, stillpointText,
 } from "./ui/HudFormat.js";
+import { mountHowToPlay } from "./ui/HowToPlay.js";
 import { KIT_LABEL, Lobby, type LobbyView } from "./ui/Lobby.js";
 import { PracticePanel } from "./ui/PracticePanel.js";
 import { SettingsPanel } from "./ui/Settings.js";
+
+/** TODO(BOT4C): set from the real Host sparring action's availability once it is wired on this build. */
+const SPARRING_GUIDE_AVAILABLE = false;
 
 export interface BootOptions {
   /** Invitation consumed from the URL fragment; without it Play shows INVITE_INVALID. */
@@ -92,12 +96,31 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   const lobby = new Lobby(app, {
     play: () => { void flowRef.current?.play(); },
     practice: () => { void flowRef.current?.practice(); },
+    guide: () => { openGuide(); },
     retry: () => { void flowRef.current?.retry(); },
     back: () => { void flowRef.current?.back(); },
     ready: (k) => { flowRef.current?.ready(k); },
     settings: () => { openSettings(); },
   }, { kit: opts.kitId, name: opts.displayName });
   cleanups.push(() => lobby.dispose());
+
+  // HELP2: the guide is a local overlay with no network or stored state; Try practice reuses the normal Practice flow.
+  let closeGuideView: (() => void) | null = null;
+  const closeGuide = (restoreFocus: boolean): void => {
+    const c = closeGuideView;
+    closeGuideView = null;
+    c?.();
+    if (c && restoreFocus) lobby.focusAct("guide");
+  };
+  const openGuide = (): void => {
+    if (closeGuideView || flowRef.current?.state.screen !== "welcome") return;
+    closeGuideView = mountHowToPlay(app, {
+      sparringAvailable: SPARRING_GUIDE_AVAILABLE,
+      onClose: () => { closeGuide(true); },
+      onPractice: () => { closeGuide(false); void flowRef.current?.practice(); },
+    });
+  };
+  cleanups.push(() => { closeGuide(false); });
 
   // T27 settings: one store and panel per local profile name (Arel/Nora); rebuilt if the label changes.
   const safeProbe = document.createElement("div");

@@ -1,0 +1,13 @@
+{
+  "unauthenticated": {
+    "requestsWhileOpen": 0
+  },
+  "invited": {
+    "joinRequestsPerCycle": [
+      1,
+      1,
+      1
+    ],
+    "pageErrors": []
+  }
+}
