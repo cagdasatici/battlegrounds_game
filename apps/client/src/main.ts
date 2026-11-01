@@ -221,7 +221,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     router.setLayout(lastLayout);
     router.facingLock = settings.get().facingLock;
     router.sensitivity = settings.get().sensitivity;
-    const relayout = (): void => { lastLayout = currentLayout(); router.setLayout(lastLayout); hudKey = ""; };
+    // Repaint now rather than on the next HUD interval tick, so the visible HUD never lags the hit-test layout.
+    const relayout = (): void => { lastLayout = currentLayout(); router.setLayout(lastLayout); hudKey = ""; drawHud(); };
     // Opening Settings releases every held input; the arena keeps running (spec section 6).
     const onSettingsOpen = (): void => { router.releaseAll(); };
     const onSettingsChange = (): void => {
