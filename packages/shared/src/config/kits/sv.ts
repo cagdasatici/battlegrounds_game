@@ -49,4 +49,11 @@ export const SV_DEFS: AbilityDef[] = [
     damage100: [10000], range: 32, shape: { kind: "beam", length: 32, radius: 3 }, block: "U", counterable: false, armorBreak: true,
     stunTicks: 0, ragdollTicks: 90, launch: { forward: 22, up: 5 }, maxTargets: 4, oncePerForm: true, consumesForm: true,
   }),
+  // Orbit Collapse (T15): cinematic grab, 3 m default box, capture at an active tick, 100 HP at capture + 90, release at +96 with R90 F6 U10.
+  // The capture hit (index 0) deals no damage; the handler overrides the release offset to 96 (last hit offset + 1 would be 91).
+  defineAbility({
+    id: "sv.a4", label: "Orbit Collapse", handler: "cinematicGrab", startup: 24, active: 6, recovery: 36, cooldown: 0,
+    hitOffsets: [0, 90], damage100: [0, 10000], range: 3, block: "U", counterable: false, armorBreak: true,
+    stunTicks: 0, ragdollTicks: 90, launch: { forward: 6, up: 10 }, oncePerForm: true, consumesForm: true,
+  }),
 ];

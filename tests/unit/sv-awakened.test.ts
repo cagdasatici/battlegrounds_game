@@ -3,7 +3,7 @@ import { SV_DEFS } from "../../packages/shared/src/config/kits/sv.js";
 import { ALL_HANDLERS, buildKitRegistry } from "../../apps/server/src/kits/index.js";
 import { lethalCounterRemaining } from "../../apps/server/src/kits/sv/lethalCounter.js";
 import { COMBAT } from "../../packages/shared/src/config/combat.js";
-import { CAPTOR_RELEASE_RECOVERY } from "../../apps/server/src/sim/ActionMachine.js";
+import { CAPTOR_RELEASE_RECOVERY, applyReaction } from "../../apps/server/src/sim/ActionMachine.js";
 import { CombatSystem } from "../../apps/server/src/sim/Combat.js";
 import { AbilityRunner, type AbilityHost, type AbilityPose, type SkillOutcome } from "../../apps/server/src/sim/AbilityRunner.js";
 import { AwakeningSystem } from "../../apps/server/src/sim/Awakening.js";
@@ -93,7 +93,7 @@ function makeRig(n = 3) {
 describe("sv awakened definitions match the spec 15 table", () => {
   test("slotted awakened moves carry the exact table numbers", () => {
     const ids = SV_DEFS.filter((d) => d.form === "Awakened").map((d) => d.id);
-    expect(ids).toEqual(["sv.a1", "sv.a2", "sv.a3"]);
+    expect(ids).toEqual(["sv.a1", "sv.a2", "sv.a3", "sv.a4"]);
     const a1 = def("sv.a1");
     expect([a1.slot, a1.form, a1.startup, a1.active, a1.recovery, a1.block, a1.counterable, a1.oncePerForm, a1.consumesForm])
       .toEqual([1, "Awakened", 0, 600, 18, "U", false, true, true]);
@@ -891,6 +891,296 @@ describe("sv.a3 Horizon Break (longBeam)", () => {
     d.run(T0 + 32, T0 + 100);
     expect(d.hp(2)).toBe(HP);
     expect(d.runner.castOf(1)).toBeUndefined();
+  });
+});
+
+describe("sv.a4 Orbit Collapse (cinematicGrab)", () => {
+  const AS = T0 + 24; // activeStart
+
+  test("definition: 24/6/36, capture range 3 m, schedule [0, 90], release R90 F6 U10, U, armorBreak, noncounterable, one use", () => {
+    const d = def("sv.a4");
+    expect([d.slot, d.form, d.startup, d.active, d.recovery, d.range, d.block, d.counterable, d.armorBreak])
+      .toEqual([4, "Awakened", 24, 6, 36, 3, "U", false, true]);
+    expect(d.hitOffsets).toEqual([0, 90]);
+    expect(d.damage100).toEqual([0, 10000]);
+    expect([d.ragdollTicks, d.launch, d.oncePerForm, d.consumesForm]).toEqual([90, { forward: 6, up: 10 }, true, true]);
+  });
+
+  test("capture at the first active tick: cinematic, both shielded from third parties, no capsule moved, no damage yet", () => {
+    const r = makeRig(3);
+    r.awaken();
+    put(r, 3, 6);
+    r.step(T0, { press: [{ slot: 4 }] });
+    expect(r.cs.get(1)!.form).toBe("Base");
+    r.run(T0 + 1, AS - 1);
+    expect(r.cs.get(2)!.action).not.toBe("Captured");
+    const before = JSON.stringify([...r.poses.entries()]);
+    const res = r.step(AS);
+    expect(res.map((x) => [x.outcome, x.damage100])).toEqual([["captured", 0]]);
+    expect(r.cs.get(2)!.action).toBe("Captured");
+    expect(r.cs.captures.captureOn(2)).toMatchObject({ captorId: 1, cinematic: true, moveId: "sv.a4" });
+    r.step(AS + 1, { extra: [r.strike(3, 1, { counterable: false }), r.strike(3, 2, { counterable: false })] });
+    expect(r.of("shielded").length).toBe(2); // captor and victim are both protected from the third party
+    expect(JSON.stringify([...r.poses.entries()])).toBe(before); // no capsule moved
+    expect(r.hp(1)).toBe(HP);
+    expect(r.hp(2)).toBe(HP);
+  });
+
+  test("100 HP lands exactly 90 ticks after the capture, the caster heals to full, a lethal victim gives the captor 18 ticks", () => {
+    const r = makeRig(2);
+    r.awaken();
+    r.cs.get(1)!.hp100 = 3000;
+    r.step(T0, { press: [{ slot: 4 }] });
+    r.run(T0 + 1, AS + 89);
+    expect(r.hp(2)).toBe(HP);
+    expect(r.hp(1)).toBe(3000);
+    const res = r.step(AS + 90);
+    expect(r.dealt(1, 2)).toEqual([[AS + 90, HP]]);
+    expect(res[0]!.candidate).toMatchObject({ counterable: false, block: "U", armorBreak: true, hitIndex: 1 });
+    expect(res[0]!.killed).toBe(true);
+    expect(r.hp(1)).toBe(HP);
+    expect(r.cs.captures.size).toBe(0);
+    expect(r.cs.get(1)!.action).toBe("Recovery");
+    expect(r.cs.get(1)!.actionEndTick).toBe(AS + 90 + CAPTOR_RELEASE_RECOVERY);
+    expect(r.cs.invariantViolations()).toEqual([]);
+  });
+
+  test("when the damage cannot land the victim is released at +96 with R90 F6 U10, then exactly 36 ticks of recovery", () => {
+    const r = makeRig(2);
+    r.awaken();
+    r.cs.get(1)!.hp100 = 3000;
+    r.step(T0, { press: [{ slot: 4 }] });
+    r.run(T0 + 1, AS + 89);
+    r.cs.get(2)!.invulnerableUntil = AS + 1000; // fixture: damage is refused
+    r.run(AS + 90, AS + 95);
+    expect(r.hp(2)).toBe(HP);
+    expect(r.hp(1)).toBe(3000); // no damage, no heal
+    expect(r.cs.get(2)!.action).toBe("Captured");
+    expect(r.cs.get(1)!.action).toBe("Active");
+    r.step(AS + 96);
+    expect(r.cs.get(2)!.action).toBe("Ragdolled");
+    expect(r.cs.get(2)!.actionEndTick).toBe(AS + 96 + 90);
+    expect(r.launches).toEqual([{ id: 2, vx: expect.closeTo(0, 9), vy: 10, vz: expect.closeTo(-6, 9), tick: AS + 96 }]);
+    expect(r.releases.map((x) => [x.rel.cause, x.tick])).toEqual([["final", AS + 96]]);
+    expect(r.cs.get(1)!.action).toBe("Recovery");
+    r.run(AS + 97, AS + 96 + 35);
+    expect(r.cs.get(1)!.action).toBe("Recovery");
+    r.step(AS + 96 + 36);
+    expect(r.cs.get(1)!.action).toBe("Idle");
+    expect(r.cs.captures.size).toBe(0);
+  });
+
+  test("miss: straight to the listed 36 tick recovery, no extension, a victim stepping in during recovery is not captured, form spent", () => {
+    const r = makeRig(2);
+    r.awaken();
+    put(r, 2, 8);
+    r.step(T0, { press: [{ slot: 4 }] });
+    r.run(T0 + 1, T0 + 29);
+    expect(r.cs.get(1)!.action).toBe("Active");
+    r.step(T0 + 30);
+    expect(r.cs.get(1)!.action).toBe("Recovery");
+    expect(r.cs.get(1)!.actionEndTick).toBe(T0 + 66);
+    put(r, 2, 1.5);
+    r.run(T0 + 31, T0 + 65);
+    expect(r.cs.captures.size).toBe(0);
+    expect(r.cs.get(2)!.action).toBe("Idle");
+    r.step(T0 + 66);
+    expect(r.cs.get(1)!.action).toBe("Idle");
+    expect(r.cs.get(1)!.form).toBe("Base");
+    expect(r.hp(1)).toBe(HP);
+    r.step(T0 + 70, { press: [{ slot: 4 }] });
+    expect(r.outcomes[r.outcomes.length - 1]!.o).toMatchObject({ kind: "started", moveId: "sv.b4" }); // one use only
+  });
+
+  test("probe window: a victim entering at the last active tick is captured, one entering a tick later is not", () => {
+    const last = makeRig(2);
+    last.awaken();
+    put(last, 2, 9);
+    last.step(T0, { press: [{ slot: 4 }] });
+    last.run(T0 + 1, T0 + 28);
+    put(last, 2, 1.5);
+    last.step(T0 + 29);
+    expect(last.cs.get(2)!.action).toBe("Captured");
+    const late = makeRig(2);
+    late.awaken();
+    put(late, 2, 9);
+    late.step(T0, { press: [{ slot: 4 }] });
+    late.run(T0 + 1, T0 + 29);
+    put(late, 2, 1.5);
+    late.step(T0 + 30);
+    expect(late.cs.get(2)!.action).toBe("Idle");
+  });
+
+  test("grab range: 3.3 m is inside (3 m plus the capsule), 3.4 m is not; behind the caster is not", () => {
+    const grab = (fwd: number): boolean => {
+      const r = makeRig(2);
+      r.awaken();
+      put(r, 2, fwd);
+      r.step(T0, { press: [{ slot: 4 }] });
+      r.run(T0 + 1, AS);
+      return r.cs.get(2)!.action === "Captured";
+    };
+    expect(grab(3.3)).toBe(true);
+    expect(grab(3.4)).toBe(false);
+    expect(grab(-1.5)).toBe(false);
+  });
+
+  test("nearest eligible victim wins, ties go to the lowest entity id, exactly one is captured", () => {
+    const near = makeRig(3);
+    near.awaken();
+    put(near, 2, 2.5); put(near, 3, 1.2);
+    near.step(T0, { press: [{ slot: 4 }] });
+    near.run(T0 + 1, AS);
+    expect(near.cs.get(3)!.action).toBe("Captured");
+    expect(near.cs.get(2)!.action).toBe("Idle");
+    expect(near.cs.captures.size).toBe(1);
+
+    const tie = makeRig(3);
+    tie.awaken();
+    tie.poses.set(2, { x: 0.5, y: 1, z: -1.5, facingYaw: Math.PI, grounded: true });
+    tie.poses.set(3, { x: -0.5, y: 1, z: -1.5, facingYaw: Math.PI, grounded: true });
+    tie.step(T0, { press: [{ slot: 4 }] });
+    tie.run(T0 + 1, AS);
+    expect(tie.cs.get(2)!.action).toBe("Captured");
+    expect(tie.cs.get(3)!.action).toBe("Idle");
+  });
+
+  test("an ineligible nearest victim (invulnerable, protected) never blocks a farther valid one", () => {
+    const r = makeRig(4);
+    r.awaken();
+    put(r, 2, 1.0); put(r, 3, 1.5); put(r, 4, 2.2);
+    r.cs.get(2)!.invulnerableUntil = T0 + 1000;
+    r.cs.get(3)!.protectedUntilTick = T0 + 1000;
+    r.step(T0, { press: [{ slot: 4 }] });
+    r.run(T0 + 1, AS);
+    expect(r.cs.get(4)!.action).toBe("Captured");
+    expect(r.cs.captures.captureOn(4)!.captorId).toBe(1);
+  });
+
+  test("a victim behind a solid wall is not captured", () => {
+    const r = makeRig(2);
+    r.awaken();
+    r.setOccluded(true);
+    r.step(T0, { press: [{ slot: 4 }] });
+    r.run(T0 + 1, T0 + 40);
+    expect(r.cs.captures.size).toBe(0);
+    expect(r.cs.get(2)!.action).toBe("Idle");
+  });
+
+  test("block and counter are irrelevant: a guarding victim and an open counter stance are captured", () => {
+    const g = makeRig(2);
+    g.awaken();
+    g.step(T0, { press: [{ slot: 4 }], guard: [2] });
+    g.run(T0 + 1, AS, () => ({ guard: [2] }));
+    expect(g.of("blocked").length).toBe(0);
+    expect(g.cs.get(2)!.action).toBe("Captured");
+    const c = makeRig(2);
+    c.awaken();
+    c.cs.get(2)!.counterOpenUntil = T0 + 500;
+    c.step(T0, { press: [{ slot: 4 }] });
+    c.run(T0 + 1, AS);
+    expect(c.of("countered").length).toBe(0);
+    expect(c.cs.get(2)!.action).toBe("Captured");
+  });
+
+  test("duplicate hit: a second copy of the capture in the same tick is refused", () => {
+    const r = makeRig(2);
+    r.awaken();
+    r.step(T0, { press: [{ slot: 4 }] });
+    r.run(T0 + 1, AS - 1);
+    const cands = r.runner.collect(AS);
+    expect(cands.length).toBe(1);
+    const res = r.cs.resolve(AS, [...cands, { ...cands[0]! }], (id) => { const q = r.poses.get(id); return q && { x: q.x, z: q.z, facingYaw: q.facingYaw, grounded: q.grounded }; });
+    r.runner.afterResolve(AS, res);
+    expect(res.map((x) => x.outcome)).toEqual(["captured", "duplicate"]);
+    expect(r.cs.captures.size).toBe(1);
+  });
+
+  test("interruption: a victim that leaves mid-capture gives the captor exactly 18 ticks of recovery and no damage follows", () => {
+    const r = makeRig(2);
+    r.awaken();
+    r.cs.get(1)!.hp100 = 4000;
+    r.step(T0, { press: [{ slot: 4 }] });
+    r.run(T0 + 1, AS + 10);
+    r.cs.remove(2, AS + 11);
+    expect(r.cs.captures.size).toBe(0);
+    expect(r.cs.get(1)!.action).toBe("Recovery");
+    expect(r.cs.get(1)!.actionEndTick).toBe(AS + 11 + CAPTOR_RELEASE_RECOVERY);
+    r.run(AS + 12, AS + 200);
+    expect(r.cs.get(1)!.action).toBe("Idle");
+    expect(r.hp(1)).toBe(4000);
+    expect(r.releases.map((x) => x.rel.cause)).toEqual(["victimGone"]);
+  });
+
+  test("death of the victim mid-capture (void kill): no orphan capture, captor recovery 18, no damage", () => {
+    const r = makeRig(2);
+    r.awaken();
+    r.step(T0, { press: [{ slot: 4 }] });
+    r.run(T0 + 1, AS + 20);
+    r.cs.kill(2, AS + 21);
+    expect(r.cs.captures.size).toBe(0);
+    expect(r.cs.get(1)!.actionEndTick).toBe(AS + 21 + CAPTOR_RELEASE_RECOVERY);
+    r.run(AS + 22, AS + 150);
+    expect(r.dealt(1, 2)).toEqual([]);
+    expect(r.runner.castOf(1)).toBeUndefined();
+  });
+
+  test("death of the caster mid-capture: the victim is released, nothing is left behind, no damage", () => {
+    const r = makeRig(2);
+    r.awaken();
+    r.step(T0, { press: [{ slot: 4 }] });
+    r.run(T0 + 1, AS + 20);
+    r.cs.kill(1, AS + 21);
+    expect(r.cs.captures.size).toBe(0);
+    expect(r.cs.get(2)!.action).toBe("Idle");
+    r.run(AS + 22, AS + 150);
+    expect(r.hp(2)).toBe(HP);
+    expect(r.runner.castOf(1)).toBeUndefined();
+    expect(r.releases.map((x) => x.rel.cause)).toEqual(["captorGone"]);
+  });
+
+  test("interruption of the caster mid-capture (action replaced) releases the victim at once", () => {
+    const r = makeRig(2);
+    r.awaken();
+    r.step(T0, { press: [{ slot: 4 }] });
+    r.run(T0 + 1, AS + 10);
+    applyReaction(r.cs.get(1)!, AS + 11, { kind: "stun", ticks: 20 }, false); // fixture: an effect the shield cannot stop (void rule)
+    r.run(AS + 11, AS + 12);
+    expect(r.cs.captures.size).toBe(0);
+    expect(r.cs.get(2)!.action).toBe("Idle");
+    r.run(AS + 13, AS + 150);
+    expect(r.hp(2)).toBe(HP);
+  });
+
+  test("A14 form state changes while the awakened capture is active: the cast finishes, nothing new starts, protections released", () => {
+    const r = makeRig(2);
+    const aw = new AwakeningSystem(r.host);
+    aw.setKit(1, "sv");
+    r.awaken();
+    r.step(T0, { press: [{ slot: 4 }] });
+    r.run(T0 + 1, AS + 5);
+    const f = r.cs.get(1)!;
+    expect(f.form).toBe("Base"); // changed at commit; the committed cast keeps running
+    expect(r.cs.captures.size).toBe(1);
+    f.form = "Awakened"; f.formEndTick = AS + 20; // fixture: a timed form that expires mid capture
+    aw.update(AS + 10);
+    expect(f.form).toBe("Awakened");
+    aw.update(AS + 20);
+    expect(f.form).toBe("Base");
+    expect(r.runner.castOf(1)?.def.id).toBe("sv.a4");
+    expect(r.cs.captures.size).toBe(1);
+    f.awakenedUsedMask = 0b1000;
+    f.form = "Awakened"; // a second awakened press mid capture must not start a new awakened cast
+    r.step(AS + 30, { press: [{ slot: 4 }] });
+    expect(r.outcomes[r.outcomes.length - 1]!.o).toEqual({ kind: "buffered" });
+    r.cs.get(2)!.invulnerableUntil = AS + 1000; // victim survives to the release
+    f.form = "Base";
+    r.run(AS + 31, AS + 96 + 36 + 10);
+    expect(r.runner.castOf(1)?.def.id).not.toBe("sv.a4");
+    expect(r.cs.captures.size).toBe(0);
+    expect(f.armored).toBe(false);
+    expect(r.cs.get(2)!.action).not.toBe("Captured");
+    expect(r.cs.invariantViolations()).toEqual([]);
   });
 });
 
