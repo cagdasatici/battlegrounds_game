@@ -28,11 +28,12 @@ const SLIDERS: readonly { k: "sensitivity" | "cameraDistance" | "effectsVolume" 
   { k: "musicVolume", label: "Music volume", step: 0.05 },
   { k: "flashLevel", label: "Flash level", step: 0.05 },
 ];
-const TOGGLES: readonly { k: "facingLock" | "quickUse" | "autoRun" | "reducedMotion"; label: string }[] = [
+const TOGGLES: readonly { k: "facingLock" | "quickUse" | "autoRun" | "reducedMotion" | "damageNumbers"; label: string }[] = [
   { k: "facingLock", label: "Camera facing lock" },
   { k: "quickUse", label: "Quick Use" },
   { k: "autoRun", label: "Auto run" },
   { k: "reducedMotion", label: "Reduced motion" },
+  { k: "damageNumbers", label: "Damage numbers" },
 ];
 
 const BTN = "min-width:120px;min-height:44px;font:600 15px system-ui;border-radius:10px;border:2px solid #9fd3ff;background:#1d2b3a;color:#fff";
@@ -163,6 +164,8 @@ export class SettingsPanel {
     hand.style.display = "block"; hand.style.margin = "6px 0"; hand.style.width = "100%";
     const q = this.el("div", "Graphics quality ");
     for (const v of ["low", "medium", "high"]) { const b = this.el("button", v, { "data-quality": v, "aria-pressed": "false" }, q); b.style.minWidth = "80px"; b.style.margin = "0 4px"; }
+    const ct = this.el("div", "Combat text ");
+    for (const v of ["all", "mine", "off"]) { const b = this.el("button", v, { "data-combattext": v, "aria-pressed": "false" }, ct); b.style.minWidth = "80px"; b.style.margin = "0 4px"; }
     const act = this.el("div");
     act.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;margin:12px 0";
     this.el("button", "Edit touch layout", { "data-act": "edit" }, act);
@@ -186,6 +189,7 @@ export class SettingsPanel {
       b.setAttribute("aria-pressed", String(k === "hand" ? s.handedness === "left" : s[k as (typeof TOGGLES)[number]["k"]]));
     }
     for (const b of this.root.querySelectorAll<HTMLElement>("button[data-quality]")) b.setAttribute("aria-pressed", String(b.dataset["quality"] === s.quality));
+    for (const b of this.root.querySelectorAll<HTMLElement>("button[data-combattext]")) b.setAttribute("aria-pressed", String(b.dataset["combattext"] === s.combatText));
   }
 
   private say(text: string): void { this.msg.textContent = text; }
@@ -217,6 +221,7 @@ export class SettingsPanel {
     const tg = b.dataset["toggle"];
     if (tg === "hand") { this.store.update({ handedness: s.handedness === "left" ? "right" : "left" }); return; }
     if (tg) { this.store.update({ [tg]: !s[tg as (typeof TOGGLES)[number]["k"]] } as Partial<Settings>); return; }
+    if (b.dataset["combattext"]) { this.store.update({ combatText: b.dataset["combattext"] as Settings["combatText"] }); return; }
     if (b.dataset["quality"]) { this.store.update({ quality: b.dataset["quality"] as Settings["quality"] }); return; }
     switch (b.dataset["act"]) {
       case "close": this.close(); break;

@@ -183,7 +183,7 @@ test("left hand mirror, toggles, import and export validation", async () => {
   // Export, then bad imports.
   await page.click('button[data-act="export"]');
   const text = await page.locator('[data-ui="settings-json"]').inputValue();
-  expect(JSON.parse(text).v).toBe(1);
+  expect(JSON.parse(text).v).toBe(2);
   const io = page.locator('[data-ui="settings-json"]');
   await io.fill(JSON.stringify({ ...JSON.parse(text), invite: "abcdefgh" }));
   await page.click('button[data-act="import"]');
