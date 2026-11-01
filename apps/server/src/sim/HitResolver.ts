@@ -30,6 +30,8 @@ export interface HitCandidate {
   damage100: number;
   reaction: Reaction;
   maxHitsPerTarget: number;
+  /** Optional per-hit launch (forward m/s along the cast aim, up m/s); overrides the definition launch (T12). */
+  launch?: { forward: number; up: number };
   /** Present for capture commits. A losing capture deals nothing. */
   capture?: { cinematic: boolean; maxTicks: number };
 }

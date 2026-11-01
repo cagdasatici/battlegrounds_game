@@ -1,9 +1,11 @@
 import { COMBAT } from "@eb/shared/config/combat";
-import type { AbilityDef, AbilityRegistry, Shape } from "@eb/shared/abilities";
+import type { AbilityDef, AbilityRegistry, Shape, TargetState } from "@eb/shared/abilities";
 import type { RejectReason } from "@eb/shared/protocol";
 import { beginCast, isAlive, type Fighter, type Reaction } from "./ActionMachine.js";
 import type { CombatSystem } from "./Combat.js";
 import type { HitCandidate, HitResult } from "./HitResolver.js";
+import { LandingBonusBook } from "./LandingBonus.js";
+import type { ReflectableProjectiles } from "./Reflect.js";
 
 /**
  * Ability framework (spec sections 12, 13, 14). Pure server module: no Rapier, no timers, no DOM.
@@ -24,6 +26,8 @@ export interface AbilityHost {
   pose(entityId: number): AbilityPose | undefined;
   /** True when static geometry blocks the straight segment a -> b. */
   blocked(a: readonly [number, number, number], b: readonly [number, number, number]): boolean;
+  /** Optional projectile provider for reflect handlers (sv.b3). The projectile system arrives in T19. */
+  readonly projectiles?: ReflectableProjectiles;
 }
 
 export interface ActiveCast {
@@ -135,14 +139,26 @@ export function buildCandidate(c: CastContext, targetId: number, hitIndex: numbe
   };
 }
 
+/** Optional per-query overrides (T12): a second shape for secondary hit groups such as the Fault Strike wave. */
+export interface QueryOptions {
+  maxLength?: number;
+  allowCaptured?: boolean;
+  shape?: Shape;
+  range?: number;
+  targetStates?: readonly TargetState[];
+}
+
 /**
  * Eligible targets of one query in stable order (distance, then entity id). Excludes self, the dead, captured
  * fighters, states the move does not support, static occlusion, targets already at the per target hit cap and
  * new targets beyond maxTargets for the whole cast.
  */
-export function queryTargets(c: CastContext, opts: { maxLength?: number; allowCaptured?: boolean } = {}): number[] {
+export function queryTargets(c: CastContext, opts: QueryOptions = {}): number[] {
   const { cast, host, fighter } = c;
   const d = cast.def;
+  const shape = opts.shape ?? d.shape;
+  const range = opts.range ?? d.range;
+  const states = opts.targetStates ?? d.targetStates;
   const ap = host.pose(fighter.entityId);
   if (!ap) return [];
   const ledger = host.combat.ledger;
@@ -152,9 +168,9 @@ export function queryTargets(c: CastContext, opts: { maxLength?: number; allowCa
     if (t.action === "Captured" && !opts.allowCaptured) continue;
     const tp = host.pose(t.entityId);
     if (!tp) continue;
-    if (!d.targetStates.includes(targetStateOf(t, tp))) continue;
+    if (!states.includes(targetStateOf(t, tp))) continue;
     if (ledger.count(fighter.entityId, cast.castCounter, t.entityId, t.lifeId) >= d.maxHitsPerTarget) continue;
-    if (!shapeOverlaps(d.shape, d.range, ap, cast.aimYaw, tp, opts.maxLength)) continue;
+    if (!shapeOverlaps(shape, range, ap, cast.aimYaw, tp, opts.maxLength)) continue;
     if (host.blocked([ap.x, ap.y, ap.z], [tp.x, tp.y, tp.z])) continue;
     found.push({ id: t.entityId, dist: Math.hypot(tp.x - ap.x, tp.z - ap.z) });
   }
@@ -201,6 +217,8 @@ export class AbilityRunner {
   private readonly kits = new Map<number, string>();
   private readonly buffers = new Map<number, Buffered>();
   private readonly handlers = new Map<string, AbilityHandler>();
+  /** Delayed landing damage that outlives the casting action (Fault Strike). Cleaned on reset/remove/dispose. */
+  readonly landing = new LandingBonusBook();
 
   constructor(readonly registry: AbilityRegistry, handlers: Iterable<AbilityHandler>, private readonly host: AbilityHost) {
     for (const h of handlers) {
@@ -327,6 +345,7 @@ export class AbilityRunner {
       const handler = this.handlers.get(cast.def.handler)!;
       for (const c of (handler.candidates ?? meleeCandidates)(ctx)) out.push(c);
     }
+    for (const c of this.landing.collect(tick, this.host)) out.push(c);
     return out;
   }
 
@@ -349,21 +368,26 @@ export class AbilityRunner {
     }
   }
 
-  /** Launch velocities for ragdolled victims of ability hits that landed this tick. */
+  /**
+   * Launch velocities for victims of ability hits that landed this tick. The launch comes from the candidate
+   * (per-hit override) or the definition. Ragdoll hits need a victim that ragdolled this tick; stun hits need a
+   * victim stunned this tick (armor therefore suppresses the launch with the reaction).
+   */
   launches(tick: number, results: readonly HitResult[]): Launch[] {
     const out: Launch[] = [];
     for (const r of results) {
       const c = r.candidate;
-      if (r.outcome !== "hit" || r.killed || c.reaction.kind !== "ragdoll") continue;
-      const def = this.registry.byId(c.moveId);
+      if (r.outcome !== "hit" || r.killed || c.reaction.kind === "none") continue;
+      const launch = c.launch ?? this.registry.byId(c.moveId)?.launch;
       const v = this.host.combat.get(c.targetId);
       const ap = this.host.pose(c.attackerId);
-      if (!def || !v || !ap || v.action !== "Ragdolled" || v.actionStartTick !== tick) continue; // armor: no launch
-      if (def.launch.forward === 0 && def.launch.up === 0) continue;
+      if (!launch || !v || !ap) continue;
+      if (v.action !== (c.reaction.kind === "ragdoll" ? "Ragdolled" : "Stunned") || v.actionStartTick !== tick) continue;
+      if (launch.forward === 0 && launch.up === 0) continue;
       const cast = this.casts.get(c.attackerId);
       const yaw = cast && cast.castCounter === c.castCounter ? cast.aimYaw : ap.facingYaw;
       const [fx, fz] = forwardOf(yaw);
-      out.push({ targetId: c.targetId, vx: fx * def.launch.forward, vy: def.launch.up, vz: fz * def.launch.forward });
+      out.push({ targetId: c.targetId, vx: fx * launch.forward, vy: launch.up, vz: fz * launch.forward });
     }
     return out;
   }
@@ -392,6 +416,7 @@ export class AbilityRunner {
   reset(entityId: number): void {
     this.endCast(entityId, "died");
     this.buffers.delete(entityId);
+    this.landing.dropEntity(entityId);
   }
 
   remove(entityId: number): void {
@@ -404,5 +429,6 @@ export class AbilityRunner {
     this.casts.clear();
     this.buffers.clear();
     this.kits.clear();
+    this.landing.clear();
   }
 }
