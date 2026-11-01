@@ -13,6 +13,8 @@ import type { AwakeningSystem, AwakenOutcome } from "./Awakening.js";
 import type { MovementSystem, HorizontalOverride } from "./Movement.js";
 import type { World } from "./World.js";
 import type { ProjectileSystem } from "./Projectiles.js";
+import type { UrnSystem } from "./Urns.js";
+import { UrnSchema } from "../state/UrnSchema.js";
 import { ProjectileSchema } from "../state/ProjectileSchema.js";
 import type { HitCandidate, HitResult } from "./HitResolver.js";
 import { dashCandidates } from "./DashAttack.js";
@@ -37,6 +39,8 @@ export interface TickPipelineDeps {
   awakening: AwakeningSystem;
   /** T19: detached projectile simulation; optional so rooms without it keep working. */
   projectiles?: ProjectileSystem;
+  /** T23: server owned urns; optional so rooms without props keep working. */
+  urns?: UrnSystem;
   movement: () => MovementSystem | null;
   world: () => World | null;
   seats: () => ReadonlyMap<string, PipelineSeat>;
@@ -115,6 +119,7 @@ export class TickPipeline {
   private expire(tick: number): void {
     this.d.combat.expire(tick, (id) => this.grounded(id));
     this.d.awakening.update(tick);
+    this.d.urns?.update(tick, (id) => this.d.combat.get(id));
   }
 
   private drainIntents(): void {
@@ -245,6 +250,10 @@ export class TickPipeline {
     abilities.afterResolve(tick, results);
     this.d.projectiles?.settle(tick, results); // after counter stances had their chance to reflect
     awakening.gain(results);
+    // T23: damage or capture drops a carried urn (spec 15). Blocked and countered hits do neither.
+    for (const r of results) {
+      if ((r.outcome === "hit" && r.damage100 > 0) || r.outcome === "captured") this.d.urns?.drop(r.candidate.targetId);
+    }
     const launches = [...m1.launches(tick, results, (id) => combat.get(id), (id) => this.d.poseOf(id)), ...abilities.launches(tick, results)];
     for (const l of launches) {
       const b = this.d.movement()?.get(l.targetId);
@@ -273,6 +282,28 @@ export class TickPipeline {
     for (const seat of this.d.seats().values()) { this.publishBody(seat.entityId); this.publishAction(seat.entityId); this.publishOwner(seat, tick); }
     for (const id of this.d.extraBodies?.() ?? []) { this.publishBody(id); this.publishAction(id); }
     this.publishProjectiles();
+    this.publishUrns();
+  }
+
+  /** Mirrors the eight urns into replicated state (spec 10). Created on first publish, updated in place. */
+  private publishUrns(): void {
+    const sys = this.d.urns;
+    if (!sys) return;
+    const map = this.d.state.urns;
+    for (const u of sys.list()) {
+      const key = String(u.id);
+      let r = map.get(key);
+      if (!r) { r = new UrnSchema(); r.id = u.id; map.set(key, r); }
+      if (r.state !== u.state) r.state = u.state;
+      if (r.holderId !== u.holderId) r.holderId = u.holderId;
+      if (r.returnTick !== u.returnTick) r.returnTick = u.returnTick;
+      // A carried urn rides with its holder; the replicated position is the anchor otherwise.
+      const hp = u.state === "held" || u.state === "reserved" ? this.d.poseOf(u.holderId) : undefined;
+      const x = quantizeCm(hp ? hp.x : u.anchor[0]), y = quantizeCm(hp ? hp.y : u.anchor[1]), z = quantizeCm(hp ? hp.z : u.anchor[2]);
+      if (r.x !== x) r.x = x;
+      if (r.y !== y) r.y = y;
+      if (r.z !== z) r.z = z;
+    }
   }
 
   /** Mirrors the live projectile list into replicated state (spec 20): add, update, remove. Centimetres and cm/s. */
@@ -318,6 +349,7 @@ export class TickPipeline {
     m1.reset(id);
     abilities.reset(id);
     awakening.reset(id);
+    this.d.urns?.drop(id);
     // Death resets held inputs (spec 11): neutralize the victim's input channel.
     for (const seat of this.d.seats().values()) if (seat.entityId === id) seat.input.neutralize();
     const { scorer, assists } = respawn.resolveKo(id, tick, killer);

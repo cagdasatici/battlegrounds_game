@@ -56,4 +56,26 @@ export const SV_DEFS: AbilityDef[] = [
     hitOffsets: [0, 90], damage100: [0, 10000], range: 3, block: "U", counterable: false, armorBreak: true,
     stunTicks: 0, ragdollTicks: 90, launch: { forward: 6, up: 10 }, oncePerForm: true, consumesForm: true,
   }),
+  // P1 contextual attacks (T23, spec 15). Awakened Vanguard only, one shared use bit (Fighter.contextSpent).
+  // Echo Tap: grounded fourth M1 with jumpHeld, 24 HP, box 2 x 2 x 2, U, R84 F14 U6, counterable.
+  defineAbility({
+    id: "sv.x1", label: "Echo Tap", handler: "melee", startup: 12, active: 4, recovery: 30, cooldown: 0,
+    damage100: [2400], range: 2, block: "U", input: "context", stunTicks: 0, ragdollTicks: 84, launch: { forward: 14, up: 6 },
+  }),
+  // Gale Rebuff: wall capture (window 3, capture cap 60), 40 HP at capture + 48, U, release R90 F18 U3. The capture hit
+  // deals nothing and is counterable; the scheduled hit is not. Cinematic: third parties cannot hit either participant.
+  defineAbility({
+    id: "sv.x2", label: "Gale Rebuff", handler: "galeRebuff", startup: 12, active: 3, recovery: 24, cooldown: 0,
+    hitOffsets: [0, 48], damage100: [0, 4000], range: 2, block: "U", input: "context", stunTicks: 0, ragdollTicks: 90,
+    launch: { forward: 18, up: 3 },
+  }),
+  // Meteor Cast: Attack while holding an urn, 15 HP, radius 0.4, speed 28, life 120, U, R60 F10 U3, counterable.
+  defineAbility({
+    id: "sv.x3", label: "Meteor Cast", handler: "urnThrow", startup: 10, active: 1, recovery: 24, cooldown: 0,
+    damage100: [1500], range: 0, block: "U", input: "context", stunTicks: 0, ragdollTicks: 60, launch: { forward: 10, up: 3 },
+    projectile: {
+      speed: 28, lifeTicks: 120, maxRange: 56, radius: 0.4, splashRadius: 0, splashMax: 1, reflectable: true,
+      arcAmplitude: 0, arcSpan: 0, chargeMaxTicks: 0, fullDamage100: 0, chip100: 0,
+    },
+  }),
 ];

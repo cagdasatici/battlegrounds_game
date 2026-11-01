@@ -10,6 +10,7 @@ import { launchVector } from "./Knockback.js";
 import { OffensiveBuffer } from "./OffensiveBuffer.js";
 import type { ReflectableProjectiles } from "./Reflect.js";
 import type { ProjectileSpawn } from "./Projectiles.js";
+import type { UrnSystem } from "./Urns.js";
 
 /**
  * Ability framework (spec sections 12, 13, 14). Pure server module: no Rapier, no timers, no DOM.
@@ -61,6 +62,10 @@ export interface AbilityHost {
    * Kept separate from `projectiles` until T19 unifies both into one provider.
    */
   projectileReflector?: ProjectileProvider;
+  /** Optional (T23): server owned urns for the pickup and throw handlers. */
+  readonly urns?: UrnSystem;
+  /** Optional (T23): true when a vertical static face lies within the wall opportunity gap of the capsule centre. */
+  nearWall?(x: number, y: number, z: number): boolean;
 }
 
 /** Minimal projectile interface needed by counter stances; the projectile system arrives with T19. */
@@ -386,6 +391,22 @@ export class AbilityRunner {
     return this.handlers.get(cast.def.handler)?.freezeVertical?.({ tick, fighter: f, cast, host: this.host, runner: this }) ?? false;
   }
 
+  /**
+   * T23: starts a context move (input "context") for an Idle fighter. The three Vanguard moves (sv.x1 to sv.x3) need the
+   * awakened Vanguard with contextSpent false and set contextSpent at commit, miss or not; they never touch the slotted
+   * awakening bits or the form. Shared moves (<kit>.wall, .pickup, .throw) have no form rule. No buffering: the caller retries next tick.
+   */
+  startContext(f: Fighter, tick: number, def: AbilityDef): SkillOutcome {
+    this.nowTick = Math.max(this.nowTick, tick);
+    if (def.input !== "context") return { kind: "rejected", reason: "INVALID" };
+    if (!isAlive(f) || f.action !== "Idle") return { kind: "rejected", reason: "STATE" };
+    const vanguard = def.id.startsWith("sv.x");
+    if (vanguard && (f.kitId !== "sv" || f.form !== "Awakened" || f.contextSpent)) return { kind: "rejected", reason: "FORM" };
+    const o = this.commit(f, tick, def);
+    if (vanguard && o.kind === "started") f.contextSpent = true;
+    return o;
+  }
+
   /** Recovery -> Idle boundary: consume one still valid buffered edge; drop expired ones. */
   consumeBuffer(f: Fighter, tick: number): BufferedOutcome | null {
     this.nowTick = Math.max(this.nowTick, tick);
@@ -415,7 +436,7 @@ export class AbilityRunner {
     const handler = this.handlers.get(def.handler)!;
     const pose = this.host.pose(f.entityId);
     if (!pose) return { kind: "rejected", reason: "STATE" };
-    if (def.form !== f.form) return { kind: "rejected", reason: "FORM" };
+    if (def.input !== "context" && def.form !== f.form) return { kind: "rejected", reason: "FORM" };
     const bit = def.slot ? 1 << (def.slot - 1) : 0;
     if (def.oncePerForm && (f.awakenedUsedMask & bit) !== 0) return { kind: "rejected", reason: "FORM" };
     if (handler.requiresGrounded && !pose.grounded) return { kind: "rejected", reason: "STATE" };

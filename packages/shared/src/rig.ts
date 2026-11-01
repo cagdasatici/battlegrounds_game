@@ -70,6 +70,7 @@ const SLOT_SUFFIXES = ["b1", "b2", "b3", "b4", "a1", "a2", "a3", "a4", "activate
 export function abilityClipIds(kit: KitId): string[] {
   const ids = SLOT_SUFFIXES.map((s) => `${kit}.${s}`);
   if (kit === "sv") ids.push("sv.x1", "sv.x2", "sv.x3");
+  ids.push(`${kit}.wall`, `${kit}.pickup`, `${kit}.throw`); // T23 shared context moves
   return ids;
 }
 /** Every animation id a kit's glTF must carry. */
@@ -189,6 +190,9 @@ export const MOVE_ARCHETYPE: Readonly<Record<string, Archetype>> = {
   "td.b1": "cast", "td.b2": "spin", "td.b3": "throw", "td.b4": "counter",
   "td.a1": "flurry", "td.a2": "slam", "td.a3": "beam", "td.a4": "dashStrike", "td.activate": "activate",
   "ea.b1": "throw", "ea.b2": "dashStrike", "ea.b3": "cast", "ea.b4": "slam",
+  "sv.wall": "kick", "td.wall": "kick", "ea.wall": "kick",
+  "sv.pickup": "grab", "td.pickup": "grab", "ea.pickup": "grab",
+  "sv.throw": "throw", "td.throw": "throw", "ea.throw": "throw",
   "ea.a1": "slam", "ea.a2": "grab", "ea.a3": "beam", "ea.a4": "cast", "ea.activate": "activate",
 };
 
