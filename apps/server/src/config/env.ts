@@ -1,6 +1,7 @@
 // Production environment schema (spec section 24 "Build and start contract").
 // Errors name the variable and the rule only; values are never echoed, so a mistyped secret cannot leak into logs.
 import { isAbsolute, join } from "node:path";
+import { HASH_FORMAT } from "../admin/AdminAuth.js";
 
 export interface ServerEnv {
   nodeEnv: "production" | "development" | "test";
@@ -16,6 +17,8 @@ export interface ServerEnv {
   staticDir: string | null;
   /** EB_LAN_HTTP=1: home-network HTTP mode. Only drops the Secure cookie attribute; requires a non-loopback HOST and an RFC1918 http origin. */
   lanHttp: boolean;
+  /** scrypt hash (ops/scripts/admin-hash.ts) or null when the admin is disabled. */
+  adminPasswordHash: string | null;
 }
 
 export class ConfigError extends Error {
@@ -95,6 +98,13 @@ export function parseServerEnv(env: Env, cwd: string, repoRoot: string): ServerE
     if (!ok) problems.push("EB_LAN_HTTP requires PUBLIC_ORIGIN to be http://<private IPv4> (10.x, 172.16-31.x or 192.168.x); public IPs and domain names are refused");
   }
 
+  const hashRaw = get("ADMIN_PASSWORD_HASH");
+  const adminFlag = get("ADMIN_ENABLED");
+  if (adminFlag !== undefined && adminFlag !== "0" && adminFlag !== "1") problems.push("ADMIN_ENABLED must be 0 or 1");
+  if (hashRaw !== undefined && !HASH_FORMAT.test(hashRaw)) problems.push("ADMIN_PASSWORD_HASH must be a hash printed by ops/scripts/admin-hash.ts");
+  if (adminFlag === "1" && hashRaw === undefined) problems.push("ADMIN_ENABLED=1 requires ADMIN_PASSWORD_HASH");
+  const adminPasswordHash = adminFlag === "0" ? null : hashRaw ?? null;
+
   if (problems.length > 0) throw new ConfigError(problems);
-  return { nodeEnv, host, port, publicOrigin, roomCapacity: 4, dataDir, logLevel: logLevel as ServerEnv["logLevel"], buildId, staticDir, lanHttp };
+  return { nodeEnv, host, port, publicOrigin, roomCapacity: 4, dataDir, logLevel: logLevel as ServerEnv["logLevel"], buildId, staticDir, lanHttp, adminPasswordHash };
 }

@@ -64,6 +64,13 @@ export class SessionStore {
     return s && this.expiry(s) > this.now() ? s : null;
   }
 
+  /** Live sessions for the admin list. Ids are cut to a 12 character prefix (enough for revokeById, not a credential). */
+  list(): { id: string; displayName: string; createdAt: number; lastActive: number }[] {
+    const t = this.now();
+    return this.store.read().sessions.filter((s) => this.expiry(s) > t)
+      .map((s) => ({ id: s.id.slice(0, 12), displayName: s.displayName, createdAt: s.createdAt, lastActive: s.lastActive }));
+  }
+
   /** Deletes expired records (spec 24: daily). Returns how many were removed. */
   purgeExpired(): number {
     const data = this.store.read();

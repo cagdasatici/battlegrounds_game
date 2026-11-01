@@ -3,6 +3,9 @@ import { InviteStore } from "./InviteStore.js";
 import { SessionStore } from "./SessionStore.js";
 import { SparringDirectory } from "./SparringDirectory.js";
 import { JoinTicketStore } from "./JoinTicketStore.js";
+import { AdminAuth } from "../admin/AdminAuth.js";
+import { AtomicJsonStore } from "./AtomicJsonStore.js";
+import type { Announcement } from "@eb/shared/admin";
 
 export interface AuthConfig {
   dataDir: string;
@@ -17,6 +20,8 @@ export interface AuthConfig {
   sessionsPerMinute?: number;
   /** Session attempts per minute across all sources. Default 30 (spec 24). */
   globalSessionsPerMinute?: number;
+  /** scrypt hash for the admin login. Admin routes answer 404 when absent. */
+  adminPasswordHash?: string | null;
 }
 
 export interface AuthServices {
@@ -27,6 +32,12 @@ export interface AuthServices {
   invites: InviteStore;
   sessions: SessionStore;
   tickets: JoinTicketStore;
+  /** Null when the admin is disabled. */
+  admin: AdminAuth | null;
+  startedAt: number;
+  /** Admin overrides for arena rooms (display name, listed). TODO: persist when rooms must survive a restart. */
+  roomMeta: Map<string, { name: string; listed: boolean }>;
+  announcement: { get(): Announcement | null; set(a: Announcement | null): void };
   /** Set by createGameServer: live seated humans and capacity of the room for a code (0 seated when no room is live). */
   occupancy: (roomName: string, roomCode: string) => { players: number; capacity: number };
   /** Set by createGameServer: finds or creates the live room for a code and returns its roomId. */
@@ -37,5 +48,14 @@ export function createAuthServices(config: AuthConfig, now: () => number = Date.
   const sessions = new SessionStore(join(config.dataDir, "sessions.json"), now);
   const tickets = new JoinTicketStore(now);
   sessions.onRevoke((id) => tickets.revokeSession(id));
-  return { config, now, sparring: new SparringDirectory((id) => sessions.getById(id) !== null, now), closeRoom: async () => undefined, invites: new InviteStore(join(config.dataDir, "invites.json"), now), sessions, tickets, ensureRoom: null, occupancy: () => ({ players: 0, capacity: 4 }) };
+  const annStore = new AtomicJsonStore<{ announcement: Announcement | null }>(join(config.dataDir, "announcement.json"), () => ({ announcement: null }));
+  const announcement = {
+    get: (): Announcement | null => {
+      const a = annStore.read().announcement;
+      return a && (a.expiresAt === null || a.expiresAt > now()) ? a : null;
+    },
+    set: (a: Announcement | null): void => annStore.write({ announcement: a }),
+  };
+  const admin = config.adminPasswordHash ? new AdminAuth(config.adminPasswordHash, now) : null;
+  return { admin, startedAt: now(), roomMeta: new Map(), announcement, config, now, sparring: new SparringDirectory((id) => sessions.getById(id) !== null, now), closeRoom: async () => undefined, invites: new InviteStore(join(config.dataDir, "invites.json"), now), sessions, tickets, ensureRoom: null, occupancy: () => ({ players: 0, capacity: 4 }) };
 }

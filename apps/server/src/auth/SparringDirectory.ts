@@ -90,6 +90,30 @@ export class SparringDirectory {
     return out;
   }
 
+  /** Admin view of every live match, listed or not. Counts only; no ids of members or credentials. */
+  all(): { roomCode: string; humans: number; bots: number; listed: boolean }[] {
+    const out: { roomCode: string; humans: number; bots: number; listed: boolean }[] = [];
+    for (const match of this.matches.values()) {
+      if (!this.live(match)) continue;
+      this.pruneGuests(match);
+      out.push({ roomCode: match.roomCode, humans: match.seats.size, bots: match.bots.length, listed: match.listed });
+    }
+    return out;
+  }
+
+  /** Admin: changes the listed flag. False when the match is unknown. */
+  setListed(roomCode: string, listed: boolean): boolean {
+    const match = this.matches.get(roomCode);
+    if (!match) return false;
+    match.listed = listed;
+    return true;
+  }
+
+  /** Admin: removes a match (the caller closes its room). False when unknown. */
+  adminClose(roomCode: string): boolean {
+    return this.matches.delete(roomCode);
+  }
+
   /** Admits a signed-in ordinary session as a guest of a listed match: one synchronous check-and-reserve. */
   joinListed(sessionId: string, roomCode: string, displayName: string): SparringMembership & { cookieToken: string } {
     if (!this.isHostLive(sessionId)) throw new SparringError(401, "Invalid session");

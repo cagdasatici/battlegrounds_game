@@ -5,7 +5,7 @@ import { createServer as createNetServer } from "node:net";
 import type { Server } from "colyseus";
 import type { Room } from "@colyseus/sdk";
 import { createGameServer } from "../../apps/server/src/createServer.js";
-import { createAuthServices, type AuthServices } from "../../apps/server/src/auth/Services.js";
+import { createAuthServices, type AuthConfig, type AuthServices } from "../../apps/server/src/auth/Services.js";
 import { RoomClient } from "../../apps/client/src/net/RoomClient.js";
 
 export interface Harness { server: Server; svc: AuthServices; port: number; origin: string; stop(): Promise<void> }
@@ -20,12 +20,12 @@ function freePort(): Promise<number> {
 }
 
 /** `_legacyPort` is ignored: kept so existing callers compile; the harness always picks a free port. */
-export async function startHarness(_legacyPort?: number): Promise<Harness> {
+export async function startHarness(_legacyPort?: number, extra: Partial<AuthConfig> = {}): Promise<Harness> {
   const port = await freePort();
   const origin = `http://localhost:${port}`;
   const svc = createAuthServices({
     dataDir: mkdtempSync(join(tmpdir(), "eb-h-")), allowedOrigins: [origin], secureCookies: true,
-    roomCodes: Object.fromEntries(["play", "other", ...Array.from({ length: 40 }, (_, i) => `r${i}`)].map((c) => [c, "arena"]).concat([["practice", "practice"]])), buildId: "test", sessionsPerMinute: 10_000, globalSessionsPerMinute: 10_000,
+    roomCodes: Object.fromEntries(["play", "other", ...Array.from({ length: 40 }, (_, i) => `r${i}`)].map((c) => [c, "arena"]).concat([["practice", "practice"]])), buildId: "test", sessionsPerMinute: 10_000, globalSessionsPerMinute: 10_000, ...extra,
   });
   const server = createGameServer(svc);
   await server.listen(port, undefined, undefined);

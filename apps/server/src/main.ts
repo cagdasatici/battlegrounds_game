@@ -18,6 +18,7 @@ const auth = createAuthServices({
   secureCookies: !env.lanHttp && env.publicOrigin.startsWith("https:"),
   roomCodes: { play: "arena", practice: "practice" },
   buildId: env.buildId,
+  adminPasswordHash: env.adminPasswordHash,
 });
 const server = createGameServer(auth, { staticDir: env.staticDir });
 await server.listen(env.port, env.host);

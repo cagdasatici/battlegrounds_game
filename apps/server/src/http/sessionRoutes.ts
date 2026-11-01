@@ -8,6 +8,7 @@ import type { AuthServices } from "../auth/Services.js";
 import { RateLimiter } from "../auth/RateLimiter.js";
 import { safeEqual } from "../auth/tokens.js";
 import { log } from "../ops/StructuredLog.js";
+import { registerAdminRoutes } from "./adminRoutes.js";
 import { registerRoomListRoutes } from "./roomListRoutes.js";
 import { sparringTicket } from "./sparringRoutes.js";
 import { securityHeaders } from "./securityHeaders.js";
@@ -17,6 +18,8 @@ export interface HttpApp {
   get(path: string, h: Handler): unknown;
   post(path: string, h: Handler): unknown;
   delete(path: string, h: Handler): unknown;
+  put(path: string, h: Handler): unknown;
+  patch(path: string, h: Handler): unknown;
 }
 
 export const COOKIE_NAME = "eb_session";
@@ -124,6 +127,7 @@ export function registerSessionRoutes(app: HttpApp, svc: AuthServices, now: () =
   });
 
   registerRoomListRoutes(app, svc, authed, ticketLimiter);
+  registerAdminRoutes(app, svc, contentHash);
 
   app.post("/api/join-ticket", async (req, res) => {
     if (!originAllowed(req, config.allowedOrigins)) return send(res, 403, { error: "ORIGIN" });

@@ -14,6 +14,14 @@ export type LogSink = (line: string) => void;
 let sink: LogSink = (l) => console.log(l);
 export function setLogSink(s: LogSink): void { sink = s; }
 
+const RECENT_MAX = 50;
+const recent: string[] = [];
+/** Last structured lines, already redacted (the same text the sink receives). For the admin status view. */
+export const recentLogLines = (): string[] => [...recent];
+
 export function log(level: "info" | "warn" | "error", msg: string, fields: Record<string, unknown> = {}): void {
-  sink(JSON.stringify({ level, msg, t: Date.now(), ...(redact(fields) as object) }));
+  const line = JSON.stringify({ level, msg, t: Date.now(), ...(redact(fields) as object) });
+  recent.push(line);
+  if (recent.length > RECENT_MAX) recent.shift();
+  sink(line);
 }

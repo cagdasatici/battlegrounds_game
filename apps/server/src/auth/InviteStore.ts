@@ -39,10 +39,18 @@ export class InviteStore {
     return true;
   }
 
+  /** Usable invitations only. Never exposes tokens or hashes. */
+  list(): { id: string; createdAt: number; expiresAt: number; usesLeft: number }[] {
+    const t = this.now();
+    return this.store.read().invites
+      .filter((i) => !i.revoked && i.expiresAt > t && i.uses < i.maxUses)
+      .map((i) => ({ id: i.id, createdAt: i.createdAt, expiresAt: i.expiresAt, usesLeft: i.maxUses - i.uses }));
+  }
+
   revoke(id: string): boolean {
     const data = this.store.read();
     const rec = data.invites.find((i) => i.id === id);
-    if (!rec) return false;
+    if (!rec || rec.revoked) return false;
     rec.revoked = true;
     this.store.write(data);
     return true;
