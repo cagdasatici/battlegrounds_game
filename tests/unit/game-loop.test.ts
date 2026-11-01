@@ -200,3 +200,19 @@ describe("T18b GameLoop", () => {
     expect(pending).toBe(1);
   });
 });
+
+describe("T30 frame time hook", () => {
+  test("onFrameTime reports each frame interval, not the first frame", () => {
+    const router = new PointerRouter(L, { awakeningReady: () => true });
+    const kit = createRapierCollide(map);
+    const scene = new GameScene(renderer, map.colliders, win);
+    const seen: number[] = [];
+    const loop = new GameLoop({
+      scene, camera: new CameraRig(map.colliders), collide: kit.collide, router, sampler: new IntentSampler(router, 1), clock: new ClockSync(),
+      readState: () => null, sendInput() {}, sendPing() {}, onFrameTime: (ms) => { seen.push(ms); },
+    });
+    loop.frame(1000); loop.frame(1016); loop.frame(1050);
+    loop.dispose(); scene.dispose(); kit.dispose();
+    expect(seen).toEqual([16, 34]);
+  });
+});

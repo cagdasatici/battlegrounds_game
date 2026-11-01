@@ -12,6 +12,7 @@ import { AppFlow } from "./app/AppFlow.js";
 import { CombatBus } from "./app/CombatBus.js";
 import { registerPresentation } from "./fx/index.js";
 import { CaptureCam } from "./fx/CaptureCam.js";
+import { AdaptiveQuality } from "./app/AdaptiveQuality.js";
 import { GameLoop, type LoopPlayer, type LoopState } from "./app/GameLoop.js";
 import { SettingsStore } from "./app/SettingsStore.js";
 import { computeLayout, type Layout } from "./input/ControlLayout.js";
@@ -195,7 +196,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     let ko: { tick: number; by: string } | null = null;
     const settings = activeSettings();
     const tier = (q: Quality): Quality => (softwareGl ? "low" : q);
-    g.setQuality(tier(settings.get().quality));
+    const adaptive = new AdaptiveQuality(tier(settings.get().quality));
+    g.setQuality(adaptive.level);
     const router = new PointerRouter(computeLayout({ x0: 0, y0: 0, W: window.innerWidth, H: window.innerHeight }), {
       awakeningReady: () => { const me = localOf(); return me !== undefined && meterFraction(me.kitId, me.meter100 ?? 0) >= 1; },
       onMenu: () => { menuOpen = !menuOpen; },
@@ -246,7 +248,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       router.sensitivity = settings.get().sensitivity;
       cam.setDistance(settings.get().cameraDistance);
       cam.reducedMotion = settings.get().reducedMotion;
-      g.setQuality(tier(settings.get().quality));
+      adaptive.setCeiling(tier(settings.get().quality));
+      g.setQuality(adaptive.level);
       relayout();
     };
     settingsOpenHooks.add(onSettingsOpen);
@@ -280,6 +283,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       readState: (): LoopState => ({ serverTick: (r.state as { serverTick?: number }).serverTick ?? 0, players: players().entries() }),
       sendInput: (p) => { rc.send("input", p); },
       sendPing: (p) => { rc.send("ping", p); },
+      onFrameTime: (ms) => { const q = adaptive.push(ms); if (q) g.setQuality(q); },
     });
     matchCleanups.push(() => loop.dispose());
 

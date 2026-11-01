@@ -53,6 +53,8 @@ export interface LoopDeps {
   raf?: (cb: (ms: number) => void) => number;
   caf?: (id: number) => void;
   now?: () => number;
+  /** Called with each rendered frame interval in ms (T30 adaptive quality). Never schedules gameplay. */
+  onFrameTime?(ms: number): void;
 }
 
 const PING_INTERVAL_MS = 1000;
@@ -130,6 +132,7 @@ export class GameLoop {
   frame(nowMs: number): void {
     if (this.disposed) return;
     const dtSec = this.lastFrameMs === null ? 0 : Math.max(0, (nowMs - this.lastFrameMs) / 1000);
+    if (this.lastFrameMs !== null) this.d.onFrameTime?.(nowMs - this.lastFrameMs);
     this.lastFrameMs = nowMs;
     const { clock, scene } = this.d;
     clock.frame();
