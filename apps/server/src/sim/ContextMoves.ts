@@ -23,6 +23,25 @@ export class ContextSystem {
     return d;
   }
 
+  /** An opponent within the attacker's reach that stands within the wall gap of a vertical face (spec 13). */
+  wallTargetOf(f: Fighter, tick: number): number | null {
+    const ap = this.host.pose(f.entityId);
+    if (!ap || !this.host.nearWall) return null;
+    let best: { id: number; d: number } | null = null;
+    for (const t of this.host.combat.all()) {
+      if (t.entityId === f.entityId || t.action === "Dead" || t.action === "Captured") continue;
+      if (this.host.combat.captures.shieldsFrom(t.entityId, f.entityId)) continue;
+      if (tick < t.protectedUntilTick || tick < t.invulnerableUntil) continue;
+      const tp = this.host.pose(t.entityId);
+      if (!tp) continue;
+      const d = Math.hypot(tp.x - ap.x, tp.z - ap.z);
+      if (d > COMBAT.wall.attackerReach || Math.abs(tp.y - ap.y) > 1.2) continue;
+      if (!this.host.nearWall(tp.x, tp.y, tp.z) || this.host.blocked([ap.x, ap.y, ap.z], [tp.x, tp.y, tp.z])) continue;
+      if (!best || d < best.d || (d === best.d && t.entityId < best.id)) best = { id: t.entityId, d };
+    }
+    return best ? best.id : null;
+  }
+
   decide(f: Fighter, tick: number, req: ContextRequest): ContextStart | null {
     if (!this.enabled) return null;
     const start = (id: string, advance: boolean): ContextStart | null => {
@@ -35,6 +54,12 @@ export class ContextSystem {
     const mag = Math.hypot(req.held.moveX ?? 0, req.held.moveZ ?? 0);
     if (req.pressed && req.index === 0 && mag < COMBAT.props.pickupStickMax
       && this.urns.nearest(req.pose.x, req.pose.y, req.pose.z)) return start(`${f.kitId}.pickup`, false);
+    if (req.index !== 3) return null;
+    // 3. Wall opportunity replaces the fourth M1 (reserved before the normal fourth hit).
+    if (this.wallTargetOf(f, tick) !== null) {
+      const r = start(`${f.kitId}.wall`, true);
+      if (r) return r;
+    }
     return null;
   }
 }

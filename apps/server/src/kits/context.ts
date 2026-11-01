@@ -1,10 +1,21 @@
-import type { AbilityHandler } from "../sim/AbilityRunner.js";
+import { isAlive, isInvulnerable, isProtected, type Fighter } from "../sim/ActionMachine.js";
+import type { AbilityHandler, AbilityPose, CastContext } from "../sim/AbilityRunner.js";
+import { makeSequenceHandler } from "./td/sequence.js";
 import { fire } from "./projectile.js";
 
 /**
- * T23 context handlers (spec 10, 15, 16). Urn pickup and throw drive the server owned UrnSystem. No timers: every phase boundary is
+ * T23 context handlers (spec 10, 15, 16). Wall Combo and Gale Rebuff share the capture sequence (td/sequence.ts) and
+ * the wall eligibility rule; urn pickup and throw drive the server owned UrnSystem. No timers: every phase boundary is
  * an integer tick of the room clock.
  */
+const wallEligible = (target: Fighter, pose: AbilityPose, c: CastContext): boolean =>
+  isAlive(target) && !isProtected(target, c.tick) && !isInvulnerable(target, c.tick)
+  && !c.host.combat.captures.shieldsFrom(target.entityId, c.fighter.entityId)
+  && (c.host.nearWall?.(pose.x, pose.y, pose.z) ?? false);
+
+/** Generic wall attack (spec 16): capture hit B and counterable, later hits noncounterable, caster armor during the capture. */
+export const WALL_COMBO: AbilityHandler = makeSequenceHandler({ name: "wallCombo", releaseOffset: 36, eligible: wallEligible });
+
 /** Pickup: reserve the nearest urn at commit, hold it when the 12 tick channel ends; any other ending frees it. */
 export const URN_PICKUP: AbilityHandler = {
   name: "urnPickup",
@@ -42,4 +53,4 @@ export const URN_THROW: AbilityHandler = {
   },
 };
 
-export const CONTEXT_HANDLERS: AbilityHandler[] = [URN_PICKUP, URN_THROW];
+export const CONTEXT_HANDLERS: AbilityHandler[] = [WALL_COMBO, URN_PICKUP, URN_THROW];
