@@ -9,6 +9,7 @@ import {
 } from "@eb/shared/protocol";
 import islandsUrl from "../../../assets/maps/islands.v1.json?url";
 import { mountSparringSetup } from "./ui/SparringSetup.js";
+import { registerServiceWorker } from "./app/registerSw.js";
 import { AppFlow } from "./app/AppFlow.js";
 import { CombatBus } from "./app/CombatBus.js";
 import { registerPresentation } from "./fx/index.js";
@@ -502,6 +503,7 @@ export function readBootOptions(loc: Location = location, hist: History = histor
 
 const app = document.getElementById("app");
 if (app) void boot(app);
+void registerServiceWorker();
 
 /** Reads the invitation from the URL fragment and removes it before any request (spec section 20). */
 export function consumeInviteFragment(loc: Location = location, hist: History = history): string | null {

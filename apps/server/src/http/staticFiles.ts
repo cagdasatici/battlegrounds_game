@@ -8,7 +8,7 @@ const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
   ".json": "application/json", ".map": "application/json", ".svg": "image/svg+xml", ".png": "image/png",
   ".jpg": "image/jpeg", ".webp": "image/webp", ".glb": "model/gltf-binary", ".wasm": "application/wasm",
-  ".woff2": "font/woff2", ".mp3": "audio/mpeg", ".ogg": "audio/ogg", ".txt": "text/plain; charset=utf-8",
+  ".woff2": "font/woff2", ".mp3": "audio/mpeg", ".ogg": "audio/ogg", ".txt": "text/plain; charset=utf-8", ".webmanifest": "application/manifest+json",
 };
 
 /** Maps a request path to a file inside root, or null when it escapes root or is malformed. */
@@ -41,6 +41,7 @@ export function registerStaticRoutes(app: HttpApp, rootDir: string, publicOrigin
     res.statusCode = 200;
     res.setHeader("Content-Type", TYPES[extname(file)] ?? "application/octet-stream");
     res.setHeader("Cache-Control", hashed ? "public, max-age=31536000, immutable" : "no-cache");
+    if (file === join(root, "sw.js")) res.setHeader("Service-Worker-Allowed", "/");
     for (const [k, v] of Object.entries(secure)) res.setHeader(k, v);
     const stream = createReadStream(file);
     stream.on("error", () => { if (!res.headersSent) res.statusCode = 500; res.end(); });
