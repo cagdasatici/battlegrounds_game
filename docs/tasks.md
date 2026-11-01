@@ -25,7 +25,7 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | T15 | Vanguard awakening | T14 | DONE | afee336 b4a53b5 9595eff 7fc484b d0fd5ca f0c1ac9 | docs/test-results/T15.md | Skybreak and beam anchors: R05. Owner status: R08 |
 | T16 | Duelist awakening | T14 R02 R04 R05 | TODO | | | |
 | T17 | Respawn and FFA | T10 T14 R10 | TODO | | | Add A13 A18 |
-| T18a | Scene and fighter views | R01 R17 T05 | TODO | | | decisions/0001 |
+| T18a | Scene and fighter views | R01 R17 T05 | IMPLEMENTED (DEVICE CHECK PENDING) | eff9c06 fd3c78a | docs/test-results/T18a.md | decisions/0001. Chromium SwiftShader run only |
 | T18b | Client input and prediction loop | T18a R08 R14 | TODO | | | decisions/0001 |
 | T18c | App flow, lobby and HUD | T18b T14 | TODO | | | decisions/0001 |
 | T18d | Practice room and onboarding | T18c T17 | TODO | | | decisions/0001 |
@@ -50,19 +50,19 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | Task | Title | Depends on | Status | Commit | Test report | Notes |
 |------|-------|-----------|--------|--------|-------------|-------|
 | R01 | Clean-checkout gate, real lint | none | DONE | ddc63ad | docs/test-results/R01.md | ESLint skipped (TS7 unsupported): decisions/0002 |
-| R02 | Captured victims hit-eligible | R01 | TODO | | | Blocks T16 |
-| R03 | Single offensive buffer | R01 | TODO | | | |
-| R04 | Armor startup and onHit | R01 | TODO | | | Blocks T16 |
-| R05 | Shape anchors and area line of sight | R01 | TODO | | | Blocks T16 |
-| R06 | Forward-dash hitbox | R01 | TODO | | | |
-| R07 | turnRate during casts | R01 | TODO | | | |
-| R08 | Replicated cooldowns and owner state | R01 | TODO | | | Blocks T18b |
-| R09 | Protocol details and overload gate | R01 | TODO | | | |
-| R10 | One owner for the fighter kit | R01 | TODO | | | Blocks T17 |
-| R11 | Shared knockback vector | R01 | TODO | | | |
+| R02 | Captured victims hit-eligible | R01 | DONE | 44d4ada 1e93e0c | docs/test-results/R02.md | Blocks T16 |
+| R03 | Single offensive buffer | R01 | DONE | ee2e601 07505a5 | docs/test-results/R03.md | consumeBuffer kept as thin wrapper |
+| R04 | Armor startup and onHit | R01 | DONE | e2e620e | docs/test-results/R04.md | Blocks T16 |
+| R05 | Shape anchors and area line of sight | R01 | DONE | 001386d | docs/test-results/R05.md | Blocks T16 |
+| R06 | Forward-dash hitbox | R01 | DONE | 756a123 | docs/test-results/R06.md | Pass-through misses targets <0.5 m at tick 15 |
+| R07 | turnRate during casts | R01 | DONE | 8d79d59 | docs/test-results/R07.md | One-tick body lag; aim follows move stick |
+| R08 | Replicated cooldowns and owner state | R01 | DONE | eebc8e8 | docs/test-results/R08.md | Colyseus view() decorator, decisions/0007 |
+| R09 | Protocol details and overload gate | R01 | DONE | 9d1d694 | docs/test-results/R09.md | |
+| R10 | One owner for the fighter kit | R01 | DONE | c858d75 | docs/test-results/R10.md | Blocks T17 |
+| R11 | Shared knockback vector | R01 | DONE | 6d605fe | docs/test-results/R11.md | |
 | R12 | Two-client matrix for every move, A15 | R02 R03 R04 R05 R06 | TODO | | | |
-| R13 | Browser layout evidence | R01 | TODO | | | |
+| R13 | Browser layout evidence | R01 | DONE | db8ce44 | docs/test-results/R13.md | Desktop Chromium only; iPad D01-D06 NOT RUN |
 | R14 | Prediction on the real collider | R08 | TODO | | | |
 | R15 | Node 24 run and decision records | R01 | DONE | 9e8246a | docs/test-results/R15.md | Decisions numbered 0003-0006 (0002 taken by R01) |
-| R17 | Tick pipeline extraction | R01 | DONE | 84cf316 | docs/test-results/R17.md | Wave 1 |
+| R17 | Tick pipeline extraction | R01 | DONE | 85fa1a7 | docs/test-results/R17.md | Wave 1 |
 | R18 | Latency matrix on loopback | R12 | TODO | | | Wave 3b |
