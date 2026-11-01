@@ -36,6 +36,11 @@ interface Entry {
 
 export interface OwnerSnapshot {
   serverTick: number;
+  /**
+   * Owner `ackInputTick` (R08): the client sampleTick of the last input the server accepted. When present it is the
+   * replay anchor; history is keyed by client sample ticks, not by server ticks.
+   */
+  ackInputTick?: number;
   x: number; y: number; z: number;
   vx: number; vy: number; vz: number;
   facingYaw: number;
@@ -99,12 +104,13 @@ export class Prediction {
    */
   reconcile(snap: OwnerSnapshot, forceSnap = false): Correction {
     const before = { ...this.pos };
-    const base = this.history.find((e) => e.tick === snap.serverTick);
+    const anchor = snap.ackInputTick ?? snap.serverTick;
+    const base = this.history.find((e) => e.tick === anchor);
     const s: MoveState = base ? cloneState(base.state) : cloneState(this.state);
     s.vx = snap.vx; s.vy = snap.vy; s.vz = snap.vz; s.facingYaw = snap.facingYaw;
     let pos: P3 = { x: snap.x, y: snap.y, z: snap.z };
     // Discard everything the server has already simulated.
-    this.history = this.history.filter((e) => e.tick > snap.serverTick);
+    this.history = this.history.filter((e) => e.tick > anchor);
 
     if (SUSPEND.has(snap.action) || forceSnap) {
       this.suspended = SUSPEND.has(snap.action);
