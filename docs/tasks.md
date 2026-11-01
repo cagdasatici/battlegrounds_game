@@ -29,7 +29,7 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | T18b | Client input and prediction loop | T18a R08 R14 | IMPLEMENTED (DEVICE CHECK PENDING) | 4c051b9 5975c02 55b0915 78eecfa 5053d53 | docs/test-results/T18b.md | Playwright two-context match passes. No double-W run or mouse-look; cast movement not predicted |
 | T18c | App flow, lobby and HUD | T18b T14 | IMPLEMENTED (DEVICE CHECK PENDING) | 8246b5e f17098f 84f5cf8 | docs/test-results/T18c.md | Playwright 9/9. Form timer and Stillpoint not browser-tested |
 | T18d | Practice room and onboarding | T18c T17 | IMPLEMENTED (DEVICE CHECK PENDING) | 14ebb33 7563d46 3953a63 28239f4 | docs/test-results/T18d.md | decisions/0009. Playwright 10/10. Dummy can be KO'd by >60 HP hit |
-| T18e | P0 playable gate | T15 T16 T17 T18d R12 R13 | TODO | | | D02 D04 D08 on both iPads |
+| T18e | P0 playable gate | T15 T16 T17 T18d R12 R13 | IMPLEMENTED (DEVICE CHECK PENDING) | 61b79ba 3f8d897 00e3469 | docs/test-results/T18e.md | 16 PASS 0 FAIL 13 NOT RUN. D01-D09 need both iPads (plan section 7) |
 | T19 | Charge and projectile system | T18e | TODO | | | |
 | T20 | Artificer base | T19 | TODO | | | |
 | T21 | Artificer awakening | T20 | TODO | | | |
