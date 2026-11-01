@@ -1,4 +1,4 @@
-// Playwright check for T18a. NOT RUN in the authoring environment (no browser binary installed).
+// Playwright check for T18a. Equivalent check executed by orchestrator on Chromium (SwiftShader WebGL): see docs/test-results/T18a.md.
 // Run: pnpm exec playwright install chromium; pnpm --filter @eb/client dev; then pnpm exec playwright test tests/e2e
 import { expect, test } from "@playwright/test";
 
