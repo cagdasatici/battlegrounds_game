@@ -1,7 +1,13 @@
 import { WebGLRenderer } from "three";
+import type { Room } from "@colyseus/sdk";
+import { meterFraction } from "@eb/shared/awakening";
 import { parseArenaMap, type ArenaMap } from "@eb/shared/config/arena";
-import { ServerMessage, type PongMessage, type WelcomeMessage } from "@eb/shared/protocol";
+import {
+  MAX_CLIENTS, P0_KITS, ServerMessage,
+  type ActionResult, type CombatEvent, type KitId, type PongMessage, type WelcomeMessage,
+} from "@eb/shared/protocol";
 import islandsUrl from "../../../assets/maps/islands.v1.json?url";
+import { AppFlow } from "./app/AppFlow.js";
 import { GameLoop, type LoopPlayer, type LoopState } from "./app/GameLoop.js";
 import { computeLayout } from "./input/ControlLayout.js";
 import { attachKeyboardRouter } from "./input/KeyboardRouter.js";
@@ -13,155 +19,236 @@ import { RoomClient } from "./net/RoomClient.js";
 import { CameraRig } from "./scene/CameraRig.js";
 import { GameScene, hasWebGL2 } from "./scene/GameScene.js";
 import { Hud, readSafeRect } from "./ui/Hud.js";
+import {
+  RejectionNotice, cooldownLabel, formTimerText, meterLabel, respawnSecondsLeft, scoreboardRows, stillpointText,
+} from "./ui/HudFormat.js";
+import { KIT_LABEL, Lobby } from "./ui/Lobby.js";
 
 export interface BootOptions {
-  /** Invitation consumed from the URL fragment; without it only the static arena is shown. */
+  /** Invitation consumed from the URL fragment; without it Play shows INVITE_INVALID. */
   invite: string | null;
   roomCode: string;
   displayName: string;
   kitId: "sv" | "td";
   /** Exposes a read-only state probe on window for browser tests (`?debug=1`). */
   debug: boolean;
+  /** `?auto=1`: Play and Ready are pressed for the person (browser tests, quick QA). */
+  auto: boolean;
 }
 
-export interface Session { scene: GameScene; dispose(): void }
+export interface Session { scene: GameScene | null; dispose(): void }
 
-/** Boots the scene, or shows a readable message with Retry when WebGL2 is missing (spec section 6). */
-export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions()): Promise<Session | null> {
-  app.textContent = "Preparing arena…";
-  if (!hasWebGL2()) {
-    app.textContent = "This device cannot show the 3D arena (WebGL2 is unavailable). ";
-    const retry = document.createElement("button");
-    retry.textContent = "Retry";
-    retry.addEventListener("click", () => { void boot(app, opts); }, { once: true });
-    app.append(retry);
-    return null;
-  }
-  const map = parseArenaMap(await (await fetch(islandsUrl)).json());
-  const renderer = new WebGLRenderer({ antialias: true });
+/** Player record as read from room.state (HUD fields on top of the loop's). */
+interface HudPlayer extends LoopPlayer {
+  form: string; formEndTick: number; kills: number; deaths: number; assists: number;
+  cooldownEndTicks: ArrayLike<number>;
+  owner?: { ackInputTick: number; epoch: number; pendingKit?: string; lethalCounterRemaining?: number } | undefined;
+}
+
+/** Boots the app flow (spec section 6): Welcome, lobby, Ready, then the match. Every resource has a cleanup. */
+export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions()): Promise<Session> {
   app.textContent = "";
-  app.append(renderer.domElement);
-  const gs = new GameScene(renderer, map.colliders, window);
-  gs.setCamera({ position: { x: 0, y: 20, z: 40 }, pivot: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0, distance: 40 });
-
   const cleanups: (() => void)[] = [];
-  let raf = 0;
+  const matchCleanups: (() => void)[] = [];
   let disposed = false;
+  const runAll = (list: (() => void)[]): void => {
+    for (const c of list.splice(0).reverse()) { try { c(); } catch { /* keep disposing */ } }
+  };
+
+  let map: ArenaMap | null = null;
+  let gs: GameScene | null = null;
+  let room: Room | null = null;
+  let clock = new ClockSync();
+  let rafId = 0;
+  const rc = createRoomClient();
+  const canvasHost = document.createElement("div");
+  app.append(canvasHost);
+  cleanups.push(() => canvasHost.remove());
+  const rejections = new RejectionNotice();
+  const flowRef: { current: AppFlow | null } = { current: null };
+
+  const players = (): Map<string, HudPlayer> => (room?.state as { players?: Map<string, HudPlayer> } | undefined)?.players ?? new Map();
+  const localOf = (): HudPlayer | undefined => { for (const p of players().values()) if (p.owner !== undefined) return p; return undefined; };
+  const leaveRoom = async (): Promise<void> => {
+    runAll(matchCleanups);
+    const r = room;
+    room = null;
+    if (r) await rc.leave().catch(() => undefined);
+  };
+
+  const lobby = new Lobby(app, {
+    play: () => { void flowRef.current?.play(); },
+    retry: () => { void flowRef.current?.retry(); },
+    back: () => { void flowRef.current?.back(); },
+    ready: (k) => { flowRef.current?.ready(k); },
+  }, { kit: opts.kitId, name: opts.displayName });
+  cleanups.push(() => lobby.dispose());
+
+  const flow = new AppFlow({
+    hasInvite: opts.invite !== null,
+    supported: () => hasWebGL2() && typeof WebAssembly === "object",
+    loadAssets: async () => {
+      if (map) return;
+      const res = await fetch(islandsUrl);
+      if (!res.ok) throw new Error("map");
+      const m = parseArenaMap(await res.json());
+      await initRapier();
+      const renderer = new WebGLRenderer({ antialias: true });
+      canvasHost.append(renderer.domElement);
+      gs = new GameScene(renderer, m.colliders, window);
+      gs.setCamera({ position: { x: 0, y: 20, z: 40 }, pivot: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0, distance: 40 });
+      map = m;
+      const idle = (): void => { if (matchCleanups.length === 0) gs?.render(); rafId = requestAnimationFrame(idle); };
+      rafId = requestAnimationFrame(idle);
+    },
+    login: async () => { await rc.login(opts.invite as string, lobby.displayName); },
+    join: async () => {
+      room = await rc.joinWithRetry(opts.roomCode, opts.auto ? 4 : 1);
+      await waitFor(() => rc.welcome, 5000, "welcome");
+      clock = new ClockSync();
+    },
+    sendReady: (kit) => { if (map && gs && room) enterMatch(kit); },
+    leave: leaveRoom,
+    sleep: (ms) => new Promise((r) => { const t = window.setTimeout(r, ms); cleanups.push(() => window.clearTimeout(t)); }),
+  });
+  flowRef.current = flow;
+
+  const lobbyView = (): { seated: number; capacity: number; connection: "online" | "offline" } =>
+    ({ seated: players().size, capacity: MAX_CLIENTS, connection: room ? "online" : "offline" });
+  let lobbyKey = "";
+  const paintLobby = (force = false): void => {
+    const v = lobbyView();
+    const key = `${flow.state.screen}|${flow.state.error}|${flow.state.canRetry}|${v.seated}|${v.connection}`;
+    if (!force && key === lobbyKey) return;
+    lobbyKey = key;
+    lobby.render(flow.state, v);
+  };
+  cleanups.push(flow.subscribe(() => { paintLobby(true); }));
+  const lobbyTimer = window.setInterval(() => { paintLobby(); }, 250);
+  cleanups.push(() => window.clearInterval(lobbyTimer));
+
   const dispose = (): void => {
     if (disposed) return;
     disposed = true;
-    cancelAnimationFrame(raf);
-    for (const c of cleanups.reverse()) { try { c(); } catch { /* keep disposing */ } }
-    cleanups.length = 0;
-    gs.dispose();
+    cancelAnimationFrame(rafId);
+    runAll(matchCleanups);
+    void rc.leave().catch(() => undefined);
+    runAll(cleanups);
+    gs?.dispose();
+    gs = null;
   };
   window.addEventListener("pagehide", dispose, { once: true });
+  cleanups.push(() => window.removeEventListener("pagehide", dispose));
 
-  if (opts.invite === null) {
-    const loop = (): void => { gs.render(); raf = requestAnimationFrame(loop); };
-    raf = requestAnimationFrame(loop);
-    return { scene: gs, dispose };
+  function enterMatch(kit: KitId): void {
+    const g = gs as GameScene, m = map as ArenaMap, r = room as Room;
+    const kitHandle = createRapierCollide(m);
+    matchCleanups.push(() => kitHandle.dispose());
+    const welcome = rc.welcome as WelcomeMessage;
+    let showBoard = false, menuOpen = false, kitMenu = false;
+    let ko: { tick: number; by: string } | null = null;
+    const router = new PointerRouter(computeLayout({ x0: 0, y0: 0, W: window.innerWidth, H: window.innerHeight }), {
+      awakeningReady: () => { const me = localOf(); return me !== undefined && meterFraction(me.kitId, me.meter100 ?? 0) >= 1; },
+      onMenu: () => { menuOpen = !menuOpen; },
+      onScoreboard: () => { showBoard = !showBoard; },
+      onFighter: () => { kitMenu = !kitMenu; },
+    });
+    const sampler = new IntentSampler(router, welcome.epoch);
+    const unsubs = [
+      r.onMessage(ServerMessage.pong, (x: PongMessage) => { clock.onPong(x, performance.now()); }),
+      r.onMessage(ServerMessage.welcome, (w: WelcomeMessage) => { sampler.setEpoch(w.epoch); }),
+      r.onMessage(ServerMessage.actionResult, (a: ActionResult) => { if (!a.accepted) rejections.push(a.reason, performance.now()); }),
+      r.onMessage(ServerMessage.combatEvent, (e: CombatEvent) => {
+        const me = localOf();
+        if (!me || e.targetId !== String(me.entityId)) return;
+        if (e.kind === "ko") ko = { tick: e.tick, by: e.actorId === e.targetId ? "the arena" : players().get(e.actorId)?.displayName ?? "a rival" };
+        else if (e.kind === "respawn") ko = null;
+      }),
+    ];
+    matchCleanups.push(() => { for (const u of unsubs) u(); });
+
+    const probe = document.createElement("div");
+    probe.style.cssText = "position:fixed;inset:0;visibility:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)";
+    document.body.append(probe);
+    const hud = new Hud(document.body, document, (k) => { r.send("changeKit", { kitId: k }); kitMenu = false; }, () => { void flow.back(); });
+    matchCleanups.push(() => { hud.dispose(); probe.remove(); });
+    let hudKey = "";
+    let lastLayout = computeLayout(readSafeRect(window, probe));
+    router.setLayout(lastLayout);
+    const relayout = (): void => { lastLayout = computeLayout(readSafeRect(window, probe)); router.setLayout(lastLayout); hudKey = ""; };
+    window.addEventListener("resize", relayout);
+    window.addEventListener("orientationchange", relayout);
+    matchCleanups.push(() => { window.removeEventListener("resize", relayout); window.removeEventListener("orientationchange", relayout); });
+    const canvas = canvasHost.querySelector("canvas") as HTMLCanvasElement;
+    matchCleanups.push(attachPointerRouter(router, canvas, window, document));
+    matchCleanups.push(attachKeyboardRouter(router, window, canvas));
+
+    const loop = new GameLoop({
+      scene: g, camera: new CameraRig(m.colliders), collide: kitHandle.collide, router, sampler, clock,
+      readState: (): LoopState => ({ serverTick: (r.state as { serverTick?: number }).serverTick ?? 0, players: players().entries() }),
+      sendInput: (p) => { rc.send("input", p); },
+      sendPing: (p) => { rc.send("ping", p); },
+    });
+    matchCleanups.push(() => loop.dispose());
+
+    const drawHud = (): void => {
+      const me = localOf();
+      const stateTick = (r.state as { serverTick?: number }).serverTick ?? 0;
+      const now = Math.floor(clock.serverTick(performance.now()) ?? stateTick);
+      const ml = meterLabel(me?.kitId ?? opts.kitId, me?.meter100 ?? 0);
+      const dead = me?.action === "Dead" && ko !== null;
+      const pending = me?.owner?.pendingKit ?? "";
+      const st = {
+        name: me?.displayName ?? lobby.displayName, hp: (me?.hp100 ?? 10000) / 100, maxHp: 100, meter: ml.fraction, meterText: ml.text,
+        facingLock: router.facingLock, portrait: window.innerHeight > window.innerWidth,
+        cooldowns: [0, 1, 2, 3].map((i) => cooldownLabel(me?.cooldownEndTicks?.[i] ?? 0, now)),
+        formText: me ? formTimerText(me.form, me.formEndTick, now) : "",
+        stillpointText: stillpointText(me?.owner?.lethalCounterRemaining ?? 0),
+        rejection: rejections.current(performance.now()),
+        respawn: dead && ko ? { by: (ko as { by: string }).by, seconds: respawnSecondsLeft((ko as { tick: number }).tick, now) } : null,
+        scoreboard: showBoard ? scoreboardRows([...players().values()].map((p) => ({ ...p, local: p.owner !== undefined }))) : null,
+        menuOpen,
+        kitMenu: kitMenu
+          ? { kits: P0_KITS.map((k) => ({ id: k, label: KIT_LABEL[k] })), current: me?.kitId ?? opts.kitId, pending: pending ? (KIT_LABEL[pending as KitId] ?? pending) : "" }
+          : null,
+      };
+      const key = JSON.stringify([st, lastLayout.s, window.innerWidth, window.innerHeight]);
+      if (key === hudKey) return;
+      hudKey = key;
+      hud.render(lastLayout, st);
+    };
+    const hudTimer = window.setInterval(drawHud, 100);
+    matchCleanups.push(() => window.clearInterval(hudTimer));
+    drawHud();
+
+    r.send("ready", { kitId: kit, contentHash: rc.localContentHash });
+    loop.start();
+
+    if (opts.debug) {
+      (window as unknown as { __eb: unknown }).__eb = {
+        snapshot: () => ({
+          localEntityId: loop.localEntityId,
+          serverTick: (r.state as { serverTick?: number }).serverTick ?? 0,
+          reconciles: loop.reconcileCount,
+          corrections: { ...loop.correctionCounts },
+          predicted: loop.prediction ? { ...loop.prediction.pos } : null,
+          players: [...players().values()].map((p) => ({
+            entityId: p.entityId, name: p.displayName, kitId: p.kitId, hp100: p.hp100, action: p.action, moveId: p.moveId ?? "", ready: p.ready ?? false,
+            x: p.x / 100, y: p.y / 100, z: p.z / 100, local: p.owner !== undefined,
+            kills: p.kills, deaths: p.deaths, assists: p.assists, meter100: p.meter100 ?? 0, cooldownEndTicks: Array.from(p.cooldownEndTicks ?? []),
+          })),
+        }),
+      };
+      matchCleanups.push(() => { delete (window as unknown as { __eb?: unknown }).__eb; });
+    }
   }
 
-  try {
-    await startMatch(gs, renderer.domElement, map, opts, cleanups);
-  } catch (e) {
-    app.append(Object.assign(document.createElement("p"), { textContent: `Could not join the room (${e instanceof Error ? e.message : "error"}).` }));
-    dispose();
-    return null;
+  await flow.start();
+  if (opts.auto && flow.state.screen === "welcome") {
+    await flow.play();
+    if ((flow.state.screen as string) === "lobby") flow.ready(lobby.kit);
   }
   return { scene: gs, dispose };
-}
-
-async function startMatch(
-  gs: GameScene, canvas: HTMLCanvasElement, map: ArenaMap, opts: BootOptions, cleanups: (() => void)[],
-): Promise<void> {
-  const colliders = map.colliders;
-  await initRapier();
-  const kit = createRapierCollide(map);
-  cleanups.push(() => kit.dispose());
-
-  const rc = createRoomClient();
-  await rc.login(opts.invite as string, opts.displayName);
-  if (opts.debug) console.info("[eb] logged in");
-  const room = await rc.joinWithRetry(opts.roomCode).catch((e: unknown) => { if (opts.debug) console.info("[eb] join failed", String(e)); throw e; });
-  if (opts.debug) console.info("[eb] joined");
-  cleanups.push(() => { void rc.leave().catch(() => undefined); });
-
-  const clock = new ClockSync();
-  const welcome = await waitFor(() => rc.welcome, 5000, "welcome");
-  const router = new PointerRouter(computeLayout({ x0: 0, y0: 0, W: window.innerWidth, H: window.innerHeight }), {
-    awakeningReady: () => hudMeter() >= 1,
-  });
-  const sampler = new IntentSampler(router, welcome.epoch);
-  const players = (): Map<string, LoopPlayer> => (room.state as { players?: Map<string, LoopPlayer> }).players ?? new Map();
-  const localOf = (): LoopPlayer | undefined => { for (const p of players().values()) if (p.owner !== undefined) return p; return undefined; };
-  const hudMeter = (): number => (localOf()?.meter100 ?? 0) / 10000;
-
-  room.onMessage(ServerMessage.pong, (m: PongMessage) => { clock.onPong(m, performance.now()); });
-  room.onMessage(ServerMessage.welcome, (w: WelcomeMessage) => { sampler.setEpoch(w.epoch); });
-
-  const probe = document.createElement("div");
-  probe.style.cssText = "position:fixed;inset:0;visibility:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)";
-  document.body.append(probe);
-  const hud = new Hud(document.body);
-  cleanups.push(() => { hud.dispose(); probe.remove(); });
-  let hudKey = "";
-  const relayout = (): void => {
-    const layout = computeLayout(readSafeRect(window, probe));
-    router.setLayout(layout);
-    hudKey = "";
-    lastLayout = layout;
-  };
-  let lastLayout = computeLayout(readSafeRect(window, probe));
-  router.setLayout(lastLayout);
-  window.addEventListener("resize", relayout);
-  window.addEventListener("orientationchange", relayout);
-  cleanups.push(() => { window.removeEventListener("resize", relayout); window.removeEventListener("orientationchange", relayout); });
-
-  cleanups.push(attachPointerRouter(router, canvas, window, document));
-  cleanups.push(attachKeyboardRouter(router, window, canvas));
-
-  const loop = new GameLoop({
-    scene: gs, camera: new CameraRig(colliders), collide: kit.collide, router, sampler, clock,
-    readState: (): LoopState => ({ serverTick: (room.state as { serverTick?: number }).serverTick ?? 0, players: players().entries() }),
-    sendInput: (p) => { rc.send("input", p); },
-    sendPing: (p) => { rc.send("ping", p); },
-  });
-  cleanups.push(() => loop.dispose());
-  const drawHud = (): void => {
-    const me = localOf();
-    const key = `${me?.hp100 ?? -1}|${me?.meter100 ?? 0}|${router.facingLock}|${lastLayout.s}|${window.innerWidth}x${window.innerHeight}`;
-    if (key === hudKey) return;
-    hudKey = key;
-    hud.render(lastLayout, {
-      name: me?.displayName ?? opts.displayName, hp: (me?.hp100 ?? 10000) / 100, maxHp: 100, meter: hudMeter(),
-      facingLock: router.facingLock, portrait: window.innerHeight > window.innerWidth,
-    });
-  };
-  const hudTimer = window.setInterval(drawHud, 100);
-  cleanups.push(() => window.clearInterval(hudTimer));
-  drawHud();
-
-  rc.send("ready", { kitId: opts.kitId, contentHash: rc.localContentHash });
-  loop.start();
-
-  if (opts.debug) {
-    (window as unknown as { __eb: unknown }).__eb = {
-      snapshot: () => ({
-        localEntityId: loop.localEntityId,
-        serverTick: (room.state as { serverTick?: number }).serverTick ?? 0,
-        reconciles: loop.reconcileCount,
-        corrections: { ...loop.correctionCounts },
-        predicted: loop.prediction ? { ...loop.prediction.pos } : null,
-        players: [...players().values()].map((p) => ({
-          entityId: p.entityId, name: p.displayName, kitId: p.kitId, hp100: p.hp100, action: p.action, moveId: p.moveId ?? "", ready: p.ready ?? false,
-          x: p.x / 100, y: p.y / 100, z: p.z / 100, local: p.owner !== undefined,
-        })),
-      }),
-    };
-    cleanups.push(() => { delete (window as unknown as { __eb?: unknown }).__eb; });
-  }
 }
 
 async function waitFor<T>(get: () => T | null, ms: number, what: string): Promise<T> {
@@ -179,9 +266,10 @@ export function readBootOptions(loc: Location = location, hist: History = histor
   const q = new URLSearchParams(loc.search);
   const invite = consumeInviteFragment(loc, hist);
   const kit = q.get("kit");
+  const name = (q.get("name") ?? "Arel").slice(0, 16);
   return {
-    invite, roomCode: q.get("room") ?? "play", displayName: (q.get("name") ?? "Player").slice(0, 24),
-    kitId: kit === "td" ? "td" : "sv", debug: q.get("debug") === "1",
+    invite, roomCode: q.get("room") ?? "play", displayName: name,
+    kitId: kit === "td" ? "td" : "sv", debug: q.get("debug") === "1", auto: q.get("auto") === "1",
   };
 }
 

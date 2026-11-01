@@ -85,7 +85,7 @@ async function open(name: string, kit: string): Promise<{ ctx: BrowserContext; p
   page.on("pageerror", (e) => errors.push(String(e)));
   if (process.env["EB_PW_DEBUG"]) { page.on("console", (m) => console.log(name, m.type(), m.text())); page.on("requestfailed", (r) => console.log(name, "FAILED", r.url())); page.on("response", (r) => { if (r.status() >= 400) console.log(name, r.status(), r.url()); }); }
   const { token } = svc.invites.create({ ttlMs: 120_000, maxUses: 1 });
-  await page.goto(`${base}/?room=match&name=${name}&kit=${kit}&debug=1#invite=${token}`);
+  await page.goto(`${base}/?room=match&name=${name}&kit=${kit}&debug=1&auto=1#invite=${token}`);
   await page.waitForFunction(() => (window as unknown as { __eb?: unknown }).__eb !== undefined, undefined, { timeout: 30_000 })
     .catch(async (e: unknown) => { throw new Error(`${String(e)}\npage: ${await page.evaluate(() => document.body.innerText)} url=${page.url()} tokenLen=${token.length}`); });
   return { ctx, page, errors };
