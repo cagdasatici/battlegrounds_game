@@ -19,7 +19,7 @@ Source: docs/spec.md section 27.
 | T12 | Vanguard base | T11 | DONE (Ember Orb reflect acceptance pending T19) | commits "T12.1"-"T12.4" in git log | docs/test-results/T12.md |
 | T13 | Duelist base | T11 | DONE (projectile reflect A10/A19 pending T19) | commits "T13.1"-"T13.4" in git log | docs/test-results/T13.md |
 | T14 | Awakening system | T12 T13 | DONE (owner HUD not wired to the app; iPad NOT RUN) | commit "T14:" in git log | docs/test-results/T14.md |
-| T15 | Vanguard awakening | T14 | TODO | | |
+| T15 | Vanguard awakening | T14 | DONE (a1/a3/a4 not over the wire; a1 status has no owner HUD) | commits "T15.1"-"T15.4" in git log | docs/test-results/T15.md |
 | T16 | Duelist awakening | T14 | TODO | | |
 | T17 | Respawn and FFA | T10 T14 | TODO | | |
 | T18 | P0 playable gate | T15 T16 T17 | TODO | | |
