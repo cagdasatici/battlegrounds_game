@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { COMBAT } from "../../packages/shared/src/config/combat.js";
 import { startHarness, loginClient, waitFor, players, freshCode, type Harness } from "../fixtures/harness.js";
 
 let h: Harness;
@@ -35,8 +36,8 @@ describe("T06 authoritative movement over a real Colyseus connection", () => {
     while (Date.now() - t0 < 1000) { a.send("input", pkt(epoch, ++seq, { moveX: dir })); await sleep(33); }
     await waitFor(() => Math.abs(meFromB()!.x - start.x) > 300, 2000, "B observes A moving");
     const moved = Math.abs(me()!.x - start.x) / 100;
-    expect(moved).toBeGreaterThan(3); // ~5 m/s walk for ~1 s minus acceleration and latency
-    expect(moved).toBeLessThan(6.5);
+    expect(moved).toBeGreaterThan(3); // walk speed for ~1 s minus acceleration and latency
+    expect(moved).toBeLessThan(COMBAT.movement.walk * 1.3);
     expect(Math.abs(me()!.z - start.z)).toBeLessThan(5);
     // Lease expiry: with no packets, movement stops within ~15 ticks.
     await sleep(500);

@@ -4,6 +4,7 @@
  * clip is retimed to the server phase).
  */
 import type { Action } from "@eb/shared/schema";
+import { COMBAT } from "@eb/shared/config/combat";
 
 export interface AnimInput {
   action: string;
@@ -20,7 +21,7 @@ export interface AnimInput {
 }
 export interface AnimChoice { clip: string; loop: boolean }
 
-export const RUN_SPEED = 6;
+export const RUN_SPEED = (COMBAT.movement.walk + COMBAT.movement.run) / 2;
 export const WALK_SPEED = 0.6;
 export const AIR_VY = 1.8;
 

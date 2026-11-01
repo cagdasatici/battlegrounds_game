@@ -8,15 +8,15 @@ import { FixedClock, STEP_MS } from "../../apps/server/src/sim/FixedClock.js";
 const mv = (o: Partial<MoveIntent> = {}): MoveIntent => ({ ...NEUTRAL_MOVE, ...o });
 
 describe("shared integrateMovement (pure)", () => {
-  test("accelerates at 45 m/s^2 to walk speed and caps there", () => {
+  test("accelerates at COMBAT.movement.acceleration to walk speed and caps there", () => {
     const s = initialMoveState(); s.grounded = true;
     integrateMovement(s, mv({ moveX: 1 }), 1);
-    expect(s.vx).toBeCloseTo(45 * MOVE_DT, 9);
+    expect(s.vx).toBeCloseTo(COMBAT.movement.acceleration * MOVE_DT, 9);
     for (let t = 2; t < 60; t++) integrateMovement(s, mv({ moveX: 1 }), t);
     expect(s.vx).toBeCloseTo(COMBAT.movement.walk, 9);
   });
   test("run and guard gaits; guard wins", () => {
-    for (const [i, v] of [[mv({ moveZ: -1, run: true }), 8], [mv({ moveZ: -1, run: true, guard: true }), 2]] as const) {
+    for (const [i, v] of [[mv({ moveZ: -1, run: true }), COMBAT.movement.run], [mv({ moveZ: -1, run: true, guard: true }), COMBAT.movement.guard]] as const) {
       const s = initialMoveState(); s.grounded = true;
       for (let t = 1; t < 60; t++) integrateMovement(s, i, t);
       expect(Math.hypot(s.vx, s.vz)).toBeCloseTo(v, 9);
@@ -25,7 +25,7 @@ describe("shared integrateMovement (pure)", () => {
   test("air control is 30 percent", () => {
     const s = initialMoveState(); s.grounded = false;
     integrateMovement(s, mv({ moveX: 1 }), 1);
-    expect(s.vx).toBeCloseTo(45 * 0.3 * MOVE_DT, 9);
+    expect(s.vx).toBeCloseTo(COMBAT.movement.acceleration * 0.3 * MOVE_DT, 9);
   });
   test("non-finite and oversize intents are sanitised", () => {
     expect(sanitizeIntent(mv({ moveX: Number.NaN, moveZ: Infinity }))).toMatchObject({ moveX: 0, moveZ: 0 });
@@ -96,16 +96,17 @@ describe("server MovementSystem against the islands collision world", () => {
     expect(sys.get(1)!.landedTick).toBeGreaterThan(0);
   });
 
-  test("walks 5 m/s on open ground", () => {
-    sys.add(1, [0, 0.92, 0]);
+  test("walks at COMBAT.movement.walk on open ground", () => {
+    sys.add(1, [-8, 0.92, 0]); // start far enough from the wall at x=10 to cover the whole walk
     let t = run(30, () => mv());
     const x0 = sys.position(1)![0];
     t = run(30, () => mv({ moveX: 1 }), t); // ~0.11 s accelerate, then constant
     run(60, () => mv({ moveX: 1 }), t);
     const dx = sys.position(1)![0] - x0;
-    // 90 ticks: accel phase ~ 5^2/(2*45)=0.278 m lost vs 7.5 m ideal
-    expect(dx).toBeGreaterThan(7.5 - 0.35);
-    expect(dx).toBeLessThan(7.5 + 0.01);
+    const ideal = COMBAT.movement.walk * 1.5;
+    // 90 ticks: the acceleration phase loses walk^2/(2*accel) of the ideal distance
+    expect(dx).toBeGreaterThan(ideal - COMBAT.movement.walk ** 2 / (2 * COMBAT.movement.acceleration) - 0.1);
+    expect(dx).toBeLessThan(ideal + 0.01);
   });
 
   test("wall blocks movement: wall.1 at x=10 spans z -0.3..0.3, height 1.2", () => {

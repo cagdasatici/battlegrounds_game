@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Mesh } from "three";
 import { checkManifest, checkProvenance, ManifestSchema, P0_ASSET_BYTES_MAX, PROVENANCE_COLUMNS, type AssetManifest } from "../../packages/shared/src/art.js";
 import { ALL_ABILITY_DEFS } from "../../packages/shared/src/config/kits/index.js";
+import { COMBAT } from "../../packages/shared/src/config/combat.js";
 import { buildIslandsMap } from "../../packages/shared/src/config/arena.js";
 import { FIGHTER_DESIGNS } from "../../packages/shared/src/fighterDesign.js";
 import { BASE_CLIP_IDS, BONES, BONE_NAMES, abilityClipIds, buildKitClips, clipMotionAmount, requiredClipIds, RIG_VERSION } from "../../packages/shared/src/rig.js";
@@ -177,7 +178,7 @@ describe("T25 animation selection", () => {
     expect(chooseClip({ ...base, action: "Dash", forward: -20 }).clip).toBe("dashBack");
     expect(chooseClip({ ...base, action: "Dash", right: 20, forward: 3 }).clip).toBe("dashSide");
     expect(chooseClip({ ...base, action: "Idle", speed: 3 }).clip).toBe("walk");
-    expect(chooseClip({ ...base, action: "Idle", speed: 8 }).clip).toBe("run");
+    expect(chooseClip({ ...base, action: "Idle", speed: COMBAT.movement.run }).clip).toBe("run");
     expect(chooseClip({ ...base, action: "Idle", vy: 5 }).clip).toBe("jump");
     expect(chooseClip({ ...base, action: "Idle", vy: -5 }).clip).toBe("fall");
     expect(chooseClip({ ...base, action: "Idle" }).clip).toBe("idle");
