@@ -1,38 +1,61 @@
 /**
- * Client scene (spec sections 9, 18, 22). Renders island colliders and fighter views; remote fighters are
- * sampled from SnapshotBuffer (100 ms delay). Presentation only: nothing here decides hits, HP or positions.
+ * Client scene (spec sections 9, 18, 22, 23). Renders the original island arena and rigged fighter views; remote
+ * fighters are sampled from SnapshotBuffer at 100 ms delay. Presentation only: nothing here decides hits, HP or positions.
  */
 import {
-  AmbientLight, BoxGeometry, CylinderGeometry, DirectionalLight, Mesh, MeshStandardMaterial,
-  PerspectiveCamera, Scene, type BufferGeometry, type Material,
+  Color, DirectionalLight, Fog, HemisphereLight, PCFSoftShadowMap, PerspectiveCamera, Scene,
+  type BufferGeometry, type DataTexture, type Material,
 } from "three";
 import type { Collider } from "@eb/shared/config/arena";
 import type { KitId } from "@eb/shared/protocol";
+import { buildArena, SKY } from "./ArenaView.js";
 import { CAMERA, type CameraPose } from "./CameraRig.js";
 import { EffectsPool } from "./EffectsPool.js";
+import { makeToonRamp } from "./FighterModel.js";
 import { FighterView } from "./FighterView.js";
 import { SnapshotBuffer } from "../net/SnapshotBuffer.js";
+
+export type Quality = "low" | "medium" | "high";
+/** Rendered pixel budget per quality (spec section 24) and the allowed scale relative to CSS pixels. */
+export const PIXEL_BUDGET: Readonly<Record<Quality, number>> = { low: 750_000, medium: 1_500_000, high: 2_500_000 };
+export const PIXEL_RATIO_RANGE = { min: 0.6, max: 1.5 } as const;
+export function pixelRatioFor(q: Quality, cssW: number, cssH: number, dpr: number): number {
+  const fit = Math.sqrt(PIXEL_BUDGET[q] / Math.max(1, cssW * cssH));
+  return Math.min(PIXEL_RATIO_RANGE.max, Math.max(PIXEL_RATIO_RANGE.min, Math.min(dpr, fit)));
+}
 
 /** Subset of WebGLRenderer used here, so tests can inject a fake without a GL context. */
 export interface RendererLike {
   setSize(w: number, h: number): void;
+  setPixelRatio?(r: number): void;
+  shadowMap?: { enabled: boolean; type: number };
   render(scene: Scene, camera: PerspectiveCamera): void;
   dispose(): void;
 }
 export interface WindowLike {
   innerWidth: number;
   innerHeight: number;
+  devicePixelRatio?: number;
   addEventListener(t: string, fn: () => void): void;
   removeEventListener(t: string, fn: () => void): void;
 }
 
-const ROLE_COLORS: Record<string, number> = { ground: 0x6f8f5a, bridge: 0x9a7b50, obstacle: 0x7a7a86, guardrail: 0x8a6a6a };
+/** True when the GL context is a CPU rasteriser (SwiftShader, llvmpipe): such contexts always get the low tier. */
+export function isSoftwareRenderer(gl: { getExtension(n: string): unknown; getParameter(p: number): unknown } | null): boolean {
+  try {
+    const ext = gl?.getExtension("WEBGL_debug_renderer_info") as { UNMASKED_RENDERER_WEBGL: number } | null | undefined;
+    return !!ext && /swiftshader|llvmpipe|software/i.test(String(gl?.getParameter(ext.UNMASKED_RENDERER_WEBGL) ?? ""));
+  } catch { return false; }
+}
 
 export function hasWebGL2(): boolean {
   try {
     return !!document.createElement("canvas").getContext("webgl2");
   } catch { return false; }
 }
+
+/** Half-width of the shadow frustum in metres: follows the camera pivot so 1024 texels stay sharp near the action. */
+const SHADOW_HALF = 24;
 
 export class GameScene {
   readonly scene = new Scene();
@@ -43,13 +66,31 @@ export class GameScene {
   private fighters = new Map<string, { view: FighterView; buffer: SnapshotBuffer }>();
   private onResize = (): void => this.resize();
   private disposed = false;
+  private quality: Quality = "medium";
+  private readonly sun = new DirectionalLight(0xfff0d2, 2.6);
+  private readonly ramp: DataTexture = makeToonRamp();
+  private readonly arena: ReturnType<typeof buildArena>;
 
   constructor(private readonly renderer: RendererLike, colliders: readonly Collider[], private readonly win: WindowLike) {
-    this.scene.add(new AmbientLight(0xffffff, 0.7));
-    const sun = new DirectionalLight(0xffffff, 1.2);
-    sun.position.set(20, 40, 10);
-    this.scene.add(sun);
-    for (const c of colliders) this.addCollider(c);
+    this.scene.background = new Color(SKY.horizon);
+    this.scene.fog = new Fog(SKY.fog, 70, 175);
+    this.scene.add(new HemisphereLight(0xe2f0ff, 0x9a8a70, 1.45));
+    this.sun.position.set(28, 50, 18);
+    this.sun.shadow.mapSize.set(1024, 1024);
+    const cam = this.sun.shadow.camera;
+    cam.left = -SHADOW_HALF; cam.right = SHADOW_HALF; cam.top = SHADOW_HALF; cam.bottom = -SHADOW_HALF; cam.near = 5; cam.far = 140;
+    this.sun.shadow.bias = -0.0004;
+    this.sun.shadow.normalBias = 0.04;
+    // Cool fill light from the opposite side gives fighters a bright rim edge; it casts no shadow.
+    const rim = new DirectionalLight(0xbfe0ff, 0.9);
+    rim.position.set(-25, 18, -30);
+    this.scene.add(this.sun, this.sun.target, rim);
+    this.arena = buildArena(colliders, this.ramp);
+    for (const g of this.arena.geometries) this.geometries.add(g);
+    for (const m of this.arena.materials) this.materials.add(m);
+    this.scene.add(this.arena.group);
+    if (renderer.shadowMap) renderer.shadowMap.type = PCFSoftShadowMap;
+    this.setQuality("medium");
     win.addEventListener("resize", this.onResize);
     this.resize();
   }
@@ -57,23 +98,31 @@ export class GameScene {
   /** Live collider geometry plus material count (test hook for leak checks). */
   get resourceCount(): number { return this.geometries.size + this.materials.size; }
   get fighterCount(): number { return this.fighters.size; }
+  get shadowsEnabled(): boolean { return this.sun.castShadow; }
 
-  private addCollider(c: Collider): void {
-    const color = ROLE_COLORS[c.role] ?? 0x888888;
-    const g = c.shape === "cuboid"
-      ? new BoxGeometry(c.halfExtents[0] * 2, c.halfExtents[1] * 2, c.halfExtents[2] * 2)
-      : new CylinderGeometry(c.radius, c.radius, c.halfHeight * 2, 24);
-    const m = new MeshStandardMaterial({ color });
-    this.geometries.add(g); this.materials.add(m);
-    const mesh = new Mesh(g, m);
-    mesh.position.set(c.centre[0], c.centre[1], c.centre[2]);
-    mesh.name = c.id;
-    this.scene.add(mesh);
+  /** Quality tiers (spec section 23): one shadow casting light at 1024 on medium and high, no shadows on low. */
+  setQuality(q: Quality): void {
+    this.quality = q;
+    const shadows = q !== "low";
+    this.sun.castShadow = shadows;
+    if (this.renderer.shadowMap && this.renderer.shadowMap.enabled !== shadows) {
+      this.renderer.shadowMap.enabled = shadows;
+      this.scene.traverse((o) => {
+        const m = (o as { material?: Material | Material[] }).material;
+        for (const x of Array.isArray(m) ? m : m ? [m] : []) x.needsUpdate = true;
+      });
+    }
+    for (const { view } of this.fighters.values()) view.setShadows(shadows);
+    // Low tier also drops the purely decorative ground cover; collision, telegraphs and fighters are unaffected.
+    const cover = this.arena.group.getObjectByName("deco.cover");
+    if (cover) cover.visible = q !== "low";
+    if (!this.disposed) this.resize();
   }
 
   addFighter(id: string, kit: KitId): FighterView {
     this.removeFighter(id);
-    const view = new FighterView(kit);
+    const view = new FighterView(kit, this.ramp);
+    view.setShadows(this.quality !== "low");
     this.scene.add(view.group);
     this.fighters.set(id, { view, buffer: new SnapshotBuffer() });
     return view;
@@ -100,15 +149,28 @@ export class GameScene {
   setCamera(p: CameraPose): void {
     this.camera.position.set(p.position.x, p.position.y, p.position.z);
     this.camera.lookAt(p.pivot.x, p.pivot.y, p.pivot.z);
+    // The sun's shadow box follows the pivot, snapped to whole texels so shadow edges do not shimmer.
+    const texel = (SHADOW_HALF * 2) / 1024;
+    const tx = Math.round(p.pivot.x / texel) * texel, tz = Math.round(p.pivot.z / texel) * texel;
+    this.sun.target.position.set(tx, 0, tz);
+    this.sun.position.set(tx + 28, 50, tz + 18);
+    this.sun.target.updateMatrixWorld();
   }
 
   resize(): void {
     this.renderer.setSize(this.win.innerWidth, this.win.innerHeight);
+    this.renderer.setPixelRatio?.(pixelRatioFor(this.quality, this.win.innerWidth, this.win.innerHeight, this.win.devicePixelRatio ?? 1));
     this.camera.aspect = this.win.innerWidth / Math.max(1, this.win.innerHeight);
     this.camera.updateProjectionMatrix();
   }
 
-  render(): void { this.renderer.render(this.scene, this.camera); }
+  /** Draws one frame. `dtSec` advances fighter animation and drifting clouds; it never schedules gameplay. */
+  render(dtSec = 0): void {
+    for (const { view } of this.fighters.values()) view.update(dtSec);
+    this.arena.sky.position.copy(this.camera.position);
+    this.arena.clouds.rotation.y += dtSec * 0.003;
+    this.renderer.render(this.scene, this.camera);
+  }
 
   dispose(): void {
     if (this.disposed) return;
@@ -118,6 +180,7 @@ export class GameScene {
     this.effects.dispose();
     for (const g of this.geometries) g.dispose();
     for (const m of this.materials) m.dispose();
+    this.ramp.dispose();
     this.geometries.clear(); this.materials.clear();
     this.scene.clear();
     this.renderer.dispose();

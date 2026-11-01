@@ -19,7 +19,7 @@ import { ClockSync } from "./net/ClockSync.js";
 import { createRapierCollide, initRapier } from "./net/RapierCollide.js";
 import { RoomClient } from "./net/RoomClient.js";
 import { CameraRig } from "./scene/CameraRig.js";
-import { GameScene, hasWebGL2 } from "./scene/GameScene.js";
+import { GameScene, hasWebGL2, isSoftwareRenderer, type Quality } from "./scene/GameScene.js";
 import { Hud, readSafeRect } from "./ui/Hud.js";
 import {
   RejectionNotice, cooldownLabel, formTimerText, meterLabel, respawnSecondsLeft, scoreboardRows, stillpointText,
@@ -64,6 +64,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
 
   let map: ArenaMap | null = null;
   let gs: GameScene | null = null;
+  let softwareGl = false; // CPU rasteriser (SwiftShader): always the low tier, whatever the setting
   let room: Room | null = null;
   let clock = new ClockSync();
   let rafId = 0;
@@ -133,7 +134,9 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       await initRapier();
       const renderer = new WebGLRenderer({ antialias: true });
       canvasHost.append(renderer.domElement);
+      softwareGl = isSoftwareRenderer(renderer.getContext());
       gs = new GameScene(renderer, m.colliders, window);
+      if (softwareGl) gs.setQuality("low");
       gs.setCamera({ position: { x: 0, y: 20, z: 40 }, pivot: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0, distance: 40 });
       map = m;
       const idle = (): void => { if (matchCleanups.length === 0) gs?.render(); rafId = requestAnimationFrame(idle); };
@@ -186,6 +189,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     let showBoard = false, menuOpen = false, kitMenu = false;
     let ko: { tick: number; by: string } | null = null;
     const settings = activeSettings();
+    const tier = (q: Quality): Quality => (softwareGl ? "low" : q);
+    g.setQuality(tier(settings.get().quality));
     const router = new PointerRouter(computeLayout({ x0: 0, y0: 0, W: window.innerWidth, H: window.innerHeight }), {
       awakeningReady: () => { const me = localOf(); return me !== undefined && meterFraction(me.kitId, me.meter100 ?? 0) >= 1; },
       onMenu: () => { menuOpen = !menuOpen; },
@@ -227,6 +232,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     const onSettingsChange = (): void => {
       router.sensitivity = settings.get().sensitivity;
       cam.setDistance(settings.get().cameraDistance);
+      g.setQuality(tier(settings.get().quality));
       relayout();
     };
     settingsOpenHooks.add(onSettingsOpen);

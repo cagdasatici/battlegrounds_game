@@ -9,14 +9,16 @@
     "typecheck": "tsc -b",
     "lint": "node ops/scripts/lint-boundaries.mjs && node ops/scripts/lint-timers.mjs",
     "test": "vitest run",
-    "build": "pnpm -r --filter ./apps/client run build",
+    "build": "pnpm assets:audit && pnpm -r --filter ./apps/client run build",
     "dev:server": "pnpm --filter @eb/server run dev",
     "dev:client": "pnpm --filter @eb/client run dev",
     "content:validate": "pnpm --filter @eb/server exec tsx ../../ops/scripts/content-validate.ts",
     "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm content:validate",
     "test:browser": "playwright test",
     "start:prod": "NODE_ENV=production pnpm --filter @eb/server run start",
-    "smoke": "vitest run tests/integration/colyseus-smoke.test.ts"
+    "smoke": "vitest run tests/integration/colyseus-smoke.test.ts",
+    "assets:build": "pnpm --filter @eb/server exec tsx ../../ops/scripts/build-art.ts",
+    "assets:audit": "pnpm --filter @eb/server exec tsx ../../ops/scripts/assets-audit.ts"
   },
   "devDependencies": {
     "@types/node": "24.0.0",
