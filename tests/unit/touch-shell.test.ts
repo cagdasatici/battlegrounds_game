@@ -70,14 +70,15 @@ describe("PointerRouter ownership (section 8)", () => {
     r.down({ pointerId: 5, x: 377, y: 704 });
     expect(r.activePointers).toBe(5);
     const p = s.sample(10)!;
-    expect(p.moveZ).toBeCloseTo(1);
+    expect(r.moveZ).toBeCloseTo(1); // router stays camera relative; packet is world space (T08)
+    expect(Math.hypot(p.moveX, p.moveZ)).toBeCloseTo(1);
     near(p.yaw, -100 * 0.003);
     expect(p).toMatchObject({ attackHeld: true, jumpHeld: true, chargeHeldSlot: 1 });
     expect(p.edges.map((e) => e.kind)).toEqual(["jump", "skillDown"]);
     // Releasing the camera does not stop movement or attack
     r.up(2);
     const q = s.sample(11)!;
-    expect(q.moveZ).toBeCloseTo(1);
+    expect(Math.hypot(q.moveX, q.moveZ)).toBeCloseTo(1);
     expect(q.attackHeld).toBe(true);
     expect(q.edges).toEqual([]);
   });

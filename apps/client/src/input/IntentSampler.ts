@@ -5,6 +5,7 @@
  */
 import { MAX_EDGES_PER_PACKET, parseInputPacket, type Edge, type InputPacket } from "@eb/shared";
 import type { LocalEdge, PointerRouter } from "./PointerRouter.js";
+import { cameraRelativeToWorld } from "../scene/CameraRig.js";
 
 export class IntentSampler {
   private seq = 0;
@@ -30,13 +31,15 @@ export class IntentSampler {
     for (const e of r.takeEdges()) this.pending.push(this.toEdge(e));
     const edges = this.pending.splice(0, MAX_EDGES_PER_PACKET);
     const blockHeld = r.held("block");
+    // Server treats moveX/moveZ as world space (T06): rotate the camera relative stick by camera yaw.
+    const world = cameraRelativeToWorld(r.moveX, r.moveZ, r.yaw);
     const raw = {
       v: 1 as const,
       epoch: this.epoch,
       seq: ++this.seq >>> 0,
       sampleTick: sampleTick >>> 0,
-      moveX: r.moveX,
-      moveZ: r.moveZ,
+      moveX: world.x,
+      moveZ: world.z,
       yaw: r.yaw,
       pitch: r.pitch,
       // Cannot attack and guard simultaneously: guard wins locally; server re-checks.
