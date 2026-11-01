@@ -260,6 +260,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     cam.setDistance(settings.get().cameraDistance);
     matchCleanups.push(registerPresentation(bus, {
       scene: g.scene, camera: g.camera, players, settings, localId: () => { const me = localOf(); return me ? String(me.entityId) : undefined; },
+      viewFor: (id) => g.viewFor(id), shake: (a, ms) => { cam.shake(a, ms); }, onFrame: (fn) => g.onFrame(fn),
     }));
     const loop = new GameLoop({
       scene: g, camera: cam, collide: kitHandle.collide, router, sampler, clock,
@@ -325,8 +326,9 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
             entityId: p.entityId, name: p.displayName, kitId: p.kitId, hp100: p.hp100, action: p.action, moveId: p.moveId ?? "", ready: p.ready ?? false,
             x: p.x / 100, y: p.y / 100, z: p.z / 100, local: p.owner !== undefined,
             kills: p.kills, deaths: p.deaths, assists: p.assists, meter100: p.meter100 ?? 0, cooldownEndTicks: Array.from(p.cooldownEndTicks ?? []),
-            form: p.form,
+            form: p.form, flashing: g.viewFor(String(p.entityId))?.flashing ?? false,
           })),
+          fx: { active: HitFx.current?.pool.activeCount ?? 0, effects: HitFx.current?.count ?? 0 },
           practice: flow.mode === "practice"
             ? { step: localOf()?.owner?.tutorialStep ?? 0, skillMask: localOf()?.owner?.tutorialSkillMask ?? 0, dummyGuard: localOf()?.owner?.dummyGuard ?? false, dummyRagdoll: localOf()?.owner?.dummyRagdoll ?? false }
             : null,
