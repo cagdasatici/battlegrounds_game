@@ -127,3 +127,36 @@ Plan and file ownership are in [the web plan](web-plan.md); hosting steps are in
 | Task | Title | Depends on | Status | Commit | Test report | Notes |
 |---|---|---|---|---|---|---|
 | ORB2 | Render Ember Orb from replicated server state (item 2) | T19 T20 T21 | IMPLEMENTED (DEVICE CHECK PENDING) | b19f246 | docs/test-results/ORB2.md | Two Chromium contexts: flight, reflection, expiry. Physical iPad NOT RUN |
+
+## Quality 90 release track
+
+Execute one row per session using [the Quality 90 instructions](quality-90-plan.md). This is dispatch order. A TODO row carries a planned evidence path until its executor supplies results.
+
+| Task | Title | Depends on | Status | Commit | Test report |
+|---|---|---|---|---|---|
+| Q00 | Baseline and evidence inventory | FX4-align ORB2 WEB1 WEB2 WEB3 WEB4 WEB5 | TODO | | docs/test-results/Q00.md |
+| Q01 | Reproducible fight and load capture | Q00 | TODO | | docs/test-results/Q01.md |
+| QA01 | Reliable sparring and replay | Q01 BOT5 | TODO | | docs/test-results/QA01.md |
+| QC01 | Close-combat visibility | Q01 | TODO | | docs/test-results/QC01.md |
+| QE01 | East bridge MegaKit art pass | Q01 ART1 | TODO | | docs/test-results/QE01.md |
+| QF01 | Stone Vanguard silhouette and animation | Q01 ART2 | TODO | | docs/test-results/QF01.md |
+| QV01 | Visible urn lifecycle | Q01 T23 ORB2 | TODO | | docs/test-results/QV01.md |
+| QV02 | Durable attack telegraphs | Q01 FX4-align | TODO | | docs/test-results/QV02.md |
+| QV03 | Fault Strike signature | QV02 QF01 | TODO | | docs/test-results/QV03.md |
+| QV04 | Undertow Spiral signature | QV02 | TODO | | docs/test-results/QV04.md |
+| QV05 | Furnace Ray signature | QV02 | TODO | | docs/test-results/QV05.md |
+| QI01 | Integrated bridge fight and owner approval | QE01 QF01 QC01 QV03 QV04 QV05 | TODO | | docs/test-results/QI01.md |
+| QE02 | Full arena art coverage | QI01 | TODO | | docs/test-results/QE02.md |
+| QF02 | Tide Duelist silhouette and animation | QI01 QF01 | TODO | | docs/test-results/QF02.md |
+| QF03 | Ember Artificer silhouette and animation | QF02 | TODO | | docs/test-results/QF03.md |
+| QV06 | Vanguard ability and awakening coverage | QI01 QV01 QV03 | TODO | | docs/test-results/QV06.md |
+| QV07 | Duelist ability and awakening coverage | QF02 QV04 | TODO | | docs/test-results/QV07.md |
+| QV08 | Artificer ability and awakening coverage | QF03 QV05 ORB2 | TODO | | docs/test-results/QV08.md |
+| QV09 | Universal attacks and contextual outcomes | QV01 QV06 QV07 QV08 | TODO | | docs/test-results/QV09.md |
+| QS01 | Original kit and defensive audio | QV09 | TODO | | docs/test-results/QS01.md |
+| QU01 | Touch HUD and first match | QC01 QA01 | TODO | | docs/test-results/QU01.md |
+| QP01 | Production load and join cycles | QE02 QF03 QV09 QS01 QU01 | TODO | | docs/test-results/QP01.md |
+| QP02 | Peak combat and adaptive quality | QP01 Q01 | TODO | | docs/test-results/QP02.md |
+| QW01 | Production web and rematch acceptance | QP01 QA01 WEB5 | TODO | | docs/test-results/QW01.md |
+| QD01 | Two-iPad acceptance and human playtest | QP02 QW01 | TODO | | docs/test-results/QD01.md |
+| QR01 | Measured score and release verdict | QD01 | TODO | | docs/test-results/QR01.md |
