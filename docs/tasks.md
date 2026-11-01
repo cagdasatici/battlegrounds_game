@@ -80,6 +80,8 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | FX3 | Audio bus and original synthesized sounds | FX0 | IMPLEMENTED (DEVICE CHECK PENDING) | 914b6f7 | docs/test-results/FX3.md | decisions/0026. audibility and iPad unlock NOT RUN |
 | FX2 | Combat text: damage numbers, power callouts, KO feed | FX0 | IMPLEMENTED (DEVICE CHECK PENDING) | 89e125a | docs/test-results/FX2.md | decisions/0025. settings schema v2; iPad NOT RUN |
 | FX4-td | Tide Duelist ability effects | FX1 | IMPLEMENTED (DEVICE CHECK PENDING) | d41b63b | docs/test-results/FX4-td.md | recipes for 8 td abilities; iPad NOT RUN |
+| FX4-sv | Stone Vanguard ability effects | FX1 | IMPLEMENTED (DEVICE CHECK PENDING) | 2cbc0d0 | docs/test-results/FX4-sv.md | recipes for 11 sv abilities; iPad NOT RUN |
+| FX4-ea | Ember Artificer ability effects | FX1 T21 | IMPLEMENTED (DEVICE CHECK PENDING) | b07be69 | docs/test-results/FX4-ea.md | recipes for 8 ea abilities; iPad NOT RUN |
 | FX5 | Capture camera and reduced motion | FX1 | IMPLEMENTED (DEVICE CHECK PENDING) | ab5030b | docs/test-results/FX5.md | decisions/0029. iPad NOT RUN |
 | FX1 | Hit impact effects: sparks, flash, hitstop, shake | FX0 | IMPLEMENTED (DEVICE CHECK PENDING) | 53e03bc | docs/test-results/FX1.md | decisions/0024. shake scale constant 0.25; iPad NOT RUN |
 
