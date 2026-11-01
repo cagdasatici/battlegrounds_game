@@ -1,0 +1,40 @@
+{
+  "buildSha": "3c6124350d81b80fc7fefd4bd87aa883759aab44",
+  "workload": "four-fighter-sparring-smoke (synthetic spawn/meter/HP/reflection fixture, real input, dev client)",
+  "device": "desktop Chromium (not a device)",
+  "os": "darwin",
+  "browser": "156.0.8078.4",
+  "renderer": "SwiftShader (software)",
+  "tier": "low",
+  "viewport": [
+    1024,
+    768
+  ],
+  "evidence": [
+    "tests/browser/quality-fight.spec.ts",
+    "docs/test-results/Q00/static-fixtures.json"
+  ],
+  "sampleCount": 155,
+  "durationSeconds": 10.549599999999998,
+  "medianFps": 14.992503748125774,
+  "frameP95Ms": 100.10000000000218,
+  "maxConsecutiveBelow30Seconds": 3.0998999999999977,
+  "maxDrawCalls": 41,
+  "maxVisibleTriangles": 91524,
+  "heapSteadyMB": null,
+  "heapGrowth10JoinsMB": null,
+  "events": {
+    "overlapAwakening": 1,
+    "hit": 29,
+    "block": 1,
+    "dash": 1,
+    "reflection": 1,
+    "ko": 1
+  },
+  "unavailable": [
+    "omittedSeconds {\"setup\":11.605600000095386,\"hidden\":0,\"teardown\":0.06670000000000073}",
+    "FPS is software-rendered diagnostic only",
+    "heapSteadyMB: not measured by Q01",
+    "heapGrowth10JoinsMB: not measured by Q01"
+  ]
+}

@@ -78,6 +78,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
 
   let map: ArenaMap | null = null;
   let gs: GameScene | null = null;
+  let glRenderer: WebGLRenderer | undefined; // read only by the opt-in ?debug=1 probe
   let softwareGl = false; // CPU rasteriser (SwiftShader): always the low tier, whatever the setting
   let room: Room | null = null;
   let clock = new ClockSync();
@@ -188,6 +189,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       await initRapier();
       const renderer = new WebGLRenderer({ antialias: true });
       canvasHost.append(renderer.domElement);
+      glRenderer = renderer;
       softwareGl = isSoftwareRenderer(renderer.getContext());
       gs = new GameScene(renderer, m.colliders, window);
       if (softwareGl) gs.setQuality("low");
@@ -376,7 +378,11 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
 
     // Debug only: server-confirmed hit move ids, so browser tests need not sample short actions from replicated state.
     const debugHitMoves: string[] = [];
-    if (opts.debug) matchCleanups.push(bus.on((e: CombatEvent) => { if (e.kind === "hit" && e.moveId) { debugHitMoves.push(e.moveId); if (debugHitMoves.length > 256) debugHitMoves.shift(); } }));
+    const debugEventCounts: Record<string, number> = {};
+    if (opts.debug) matchCleanups.push(bus.on((e: CombatEvent) => {
+      debugEventCounts[e.kind] = (debugEventCounts[e.kind] ?? 0) + 1;
+      if (e.kind === "hit" && e.moveId) { debugHitMoves.push(e.moveId); if (debugHitMoves.length > 256) debugHitMoves.shift(); }
+    }));
 
     const probe = document.createElement("div");
     probe.style.cssText = "position:fixed;inset:0;visibility:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)";
@@ -492,6 +498,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
           projectiles: g.projectiles.snapshot(),
           reconciles: loop.reconcileCount,
           hitMoveIds: [...debugHitMoves],
+          eventCounts: { ...debugEventCounts },
+          render: glRenderer ? { calls: glRenderer.info.render.calls, triangles: glRenderer.info.render.triangles, tier: adaptive.level } : null,
           fx: { active: g.effects.activeCount, capacity: g.effects.capacity, flashing: [...players().keys()].filter((id) => g.viewFor(id)?.flashing), shaking: cam.shaking },
           corrections: { ...loop.correctionCounts },
           predicted: loop.prediction ? { ...loop.prediction.pos } : null,
