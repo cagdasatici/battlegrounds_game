@@ -14,4 +14,5 @@ Executed on macOS, Node v26.10.0 (repo wants 24.22.2; engine warning only).
 Behaviour: the page compares its loaded `/assets/*` scripts with the latest `/asset-manifest.json` (client bundle, not buildId). buildId is fetched for display only. Checks run on launch, on visibilitychange and every 10 min, only off the match screen. The button is hidden while a room is joined and `apply()` refuses in a match. VERSION_MISMATCH error screen also offers Update. No automatic reload.
 
 Not run: physical iPad checks (home-screen app update flow): NOT RUN.
+Note: the code landed inside commit 8ce5d9c (shared index with a concurrent WEB5 session).
 Limitations: the button reloads onto the new files only after the new worker installs (waits up to 5 s, then reloads anyway). sw.js needed no change: it already waits and handles SKIP_WAITING.
