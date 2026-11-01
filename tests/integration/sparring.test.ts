@@ -216,3 +216,79 @@ test("wall-time expiry closes unjoined and dropped hosts; expired links and gues
     expect((await fresh.api("/api/sparring/guest")).status).toBe(401);
   } finally { h.svc.sparring = original; }
 });
+
+test("QA01: simultaneous hits, reconnect during a cast, KO agreement, guest leave/rejoin and a clean rematch", async () => {
+  const owner = await host([]), a = await owner.join(), g = await guest(owner), b = await join(g.api, owner.code);
+  a.send("ready", { kitId: "sv", contentHash: hash }); b.send("ready", { kitId: "td", contentHash: hash });
+  await waitFor(() => players(a).size === 2 && [...players(a).values()].every(p => p.ready) && [...players(b).values()].every(p => p.ready));
+  const room = live(a);
+  const idOf = (r: Room, name: string) => [...players(r).values()].find(p => p.displayName === name)!.entityId as number;
+  const hostId = idOf(a, "Host"), guestId = idOf(a, "Guest");
+  await waitFor(() => [...room.combat.all()].every(f => room.sim.tick > f.protectedUntilTick + 2), 6000, "spawn protection");
+  const seqs = new Map<Room, number>();
+  const press = async (r: Room, held: boolean, ms = 0) => {
+    const yaw = r === b ? Math.PI : 0; // guest faces the host (+Z), host faces -Z
+    const epoch = (live(r) as unknown as { seats: Map<string, { input: { epoch: number } }> }).seats.get(r.sessionId)!.input.epoch;
+    const t0 = Date.now();
+    do {
+      const seq = (seqs.get(r) ?? 0) + 1; seqs.set(r, seq);
+      r.send("input", { v: 1, epoch, seq, sampleTick: 0, moveX: 0, moveZ: 0, yaw, pitch: 0, attackHeld: held, blockHeld: false, jumpHeld: false, runHeld: false, chargeHeldSlot: 0, edges: [] });
+      if (ms) await sleep(33);
+    } while (Date.now() - t0 < ms);
+  };
+  const face = (id: number, yaw: number) => { room.movement!.get(id)!.state.facingYaw = yaw; };
+  // Simultaneous hits: both start the same M1 on the same tick, facing each other.
+  place(room, hostId, 0, 0); place(room, guestId, 0, -1.5); face(hostId, 0); face(guestId, Math.PI);
+  await Promise.all([press(a, false, 300), press(b, false, 300)]); // settle facing first
+  await press(a, true); await press(b, true); // back to back: both casts start within the same tick or the next
+  // Spec: a same-tick tie resolves by the damage resolver order and trades are not promised, so exactly one side lands.
+  await waitFor(() => players(a).get(String(hostId)).hp100 < 10000 || players(a).get(String(guestId)).hp100 < 10000, 4000, "one hit landed");
+  await sleep(300);
+  const hp = (r: Room) => [hostId, guestId].map(i => players(r).get(String(i)).hp100);
+  expect(hp(a).filter(v => v < 10000)).toHaveLength(1);
+  expect(hp(b)).toEqual(hp(a));
+  expect(room.combat.invariantViolations()).toEqual([]);
+  await press(a, false); await press(b, false);
+  await waitFor(() => room.combat.get(hostId)!.action === "Idle" && room.combat.get(guestId)!.action === "Idle", 4000, "recovered");
+  // Reconnect during a cast: the host's socket drops mid-cast; the cast still resolves on the server and the seat is retained.
+  const hpBefore = players(b).get(String(guestId)).hp100 as number;
+  place(room, hostId, 0, 0); place(room, guestId, 0, -1.5); face(hostId, 0); face(guestId, Math.PI);
+  await press(a, true);
+  await waitFor(() => room.combat.get(hostId)!.action !== "Idle", 2000, "cast begun");
+  const token = a.reconnectionToken;
+  a.reconnection.enabled = false; a.connection.close(4010, "drop mid-cast");
+  await waitFor(() => [...players(b).values()].some(p => p.displayName === "Host" && !p.connected));
+  const again = await new Client(`ws://localhost:${h.port}`).reconnect(token);
+  again.onMessage("welcome", () => undefined); again.onMessage("combatEvent", () => undefined);
+  await waitFor(() => [...players(b).values()].every(p => p.connected), 4000, "host connected again");
+  await waitFor(() => players(b).get(String(guestId)).hp100 < hpBefore, 4000, "mid-cast hit landed");
+  expect(idOf(again, "Host")).toBe(hostId); // same seat, no duplicate fighter
+  expect(players(b).size).toBe(2);
+  // KO agreement: both clients read the same score.
+  room.combat.get(guestId)!.hp100 = 100;
+  await waitFor(() => room.combat.get(hostId)!.action === "Idle", 4000, "host idle");
+  place(room, hostId, 0, 0); place(room, guestId, 0, -1.5); face(hostId, 0); face(guestId, Math.PI);
+  await press(again, true, 1500); await press(again, false);
+  await waitFor(() => players(b).get(String(guestId)).deaths === 1 && players(again).get(String(hostId)).kills === 1, 4000, "KO replicated");
+  const score = (r: Room) => [...players(r).values()].map(p => [p.displayName, p.kills, p.deaths]);
+  expect(score(again)).toEqual(score(b));
+  // Guest leaves and a fresh single-use link admits a fresh guest with no carried score.
+  await b.leave();
+  await waitFor(() => players(again).size === 1);
+  expect((await g.api("/api/sparring/guest")).status).toBe(401);
+  const g2 = await guest(owner), c = await join(g2.api, owner.code);
+  c.send("ready", { kitId: "td", contentHash: hash });
+  await waitFor(() => players(again).size === 2);
+  const fresh = [...players(again).values()].find(p => p.displayName === "Guest")!;
+  expect([fresh.kills, fresh.deaths, fresh.hp100]).toEqual([0, 0, 10000]);
+  // Host ends; the old guest scope is dead and the same two players start a new match with zero scores.
+  expect((await owner.api("/api/sparring/end", { roomCode: owner.code })).status).toBe(204);
+  expect((await g2.api("/api/sparring/guest")).status).toBe(401);
+  const next = await owner.api("/api/sparring", { bots: [] });
+  expect(next.status).toBe(201);
+  const { roomCode } = await next.json() as { roomCode: string };
+  expect(roomCode).not.toBe(owner.code);
+  const a2 = await join(owner.api, roomCode);
+  expect([...players(a2).values()].every(p => p.kills === 0 && p.deaths === 0)).toBe(true);
+  await owner.api("/api/sparring/end", { roomCode });
+}, 40000);
