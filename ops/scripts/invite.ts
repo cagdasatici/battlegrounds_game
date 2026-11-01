@@ -10,7 +10,7 @@ if (!origin) {
 }
 const ttlHours = Number(process.argv[3] ?? 24);
 const maxUses = Number(process.argv[4] ?? 1);
-const dataDir = process.env["EB_DATA_DIR"] ?? join(process.cwd(), "data");
+const dataDir = process.env["DATA_DIR"] ?? join(process.cwd(), "data");
 const store = new InviteStore(join(dataDir, "invites.json"));
 const { token, id, expiresAt } = store.create({ ttlMs: ttlHours * 3600_000, maxUses });
 console.log(`${origin.replace(/\/$/, "")}/#invite=${token}`);

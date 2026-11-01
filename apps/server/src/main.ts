@@ -1,16 +1,35 @@
-import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createGameServer } from "./createServer.js";
 import { createAuthServices } from "./auth/Services.js";
+import { ConfigError, parseServerEnv, type ServerEnv } from "./config/env.js";
 import { log } from "./ops/StructuredLog.js";
 
-const port = Number(process.env["PORT"] ?? 2567);
+const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
+let env: ServerEnv;
+try {
+  env = parseServerEnv(process.env, process.cwd(), repoRoot);
+} catch (e) {
+  if (e instanceof ConfigError) { console.error(e.message); process.exit(78); }
+  throw e;
+}
 const auth = createAuthServices({
-  dataDir: process.env["EB_DATA_DIR"] ?? join(process.cwd(), "data"),
-  allowedOrigins: (process.env["EB_ORIGINS"] ?? `https://localhost:${port}`).split(",").map((s) => s.trim()).filter(Boolean),
-  secureCookies: process.env["EB_INSECURE_COOKIES"] !== "1",
+  dataDir: env.dataDir,
+  allowedOrigins: [env.publicOrigin],
+  secureCookies: env.publicOrigin.startsWith("https:"),
   roomCodes: { play: "arena", practice: "practice" },
-  buildId: process.env["EB_BUILD_ID"] ?? "dev",
+  buildId: env.buildId,
 });
-const server = createGameServer(auth);
-await server.listen(port);
-log("info", "server listening", { port });
+const server = createGameServer(auth, { staticDir: env.staticDir });
+await server.listen(env.port, env.host);
+log("info", "server listening", { host: env.host, port: env.port, build: env.buildId, nodeEnv: env.nodeEnv });
+
+// Graceful stop for launchd / docker: stop accepting, drain rooms, exit.
+let stopping = false;
+for (const sig of ["SIGTERM", "SIGINT"] as const) {
+  process.on(sig, () => {
+    if (stopping) return;
+    stopping = true;
+    log("info", "shutdown requested", { signal: sig });
+    void server.gracefullyShutdown(true).finally(() => process.exit(0));
+  });
+}

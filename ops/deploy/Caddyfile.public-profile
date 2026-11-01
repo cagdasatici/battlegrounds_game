@@ -1,0 +1,8 @@
+# OPTIONAL public HTTPS profile (spec section 23: only if the family cannot use Tailscale). NOT part of the default setup.
+# Requires a domain you control, DNS pointing at this host, and router port forwarding for 80/443: all owner decisions.
+# Caddy obtains and renews a certificate itself. Proxy the WHOLE origin: Colyseus WebSocket paths are generated per room.
+game.CHANGE-ME.example {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:2567
+	# Remember: the server keys rate limits on the socket address, which is 127.0.0.1 behind any proxy (see runbook, T29).
+}
