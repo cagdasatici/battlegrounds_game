@@ -2,7 +2,7 @@ import { Room, type Client } from "colyseus";
 import {
   ChangeKitMessageSchema, ClientMessage, JoinOptionsSchema, MAX_CLIENTS, P0_KITS, PATCH_RATE_MS,
   PROTOCOL_VERSION, PingMessageSchema, RECONNECT_SECONDS, ReadyMessageSchema, ServerMessage, TICK_RATE,
-  type KitId, type WelcomeMessage,
+  type ActionResult, type KitId, type WelcomeMessage,
 } from "@eb/shared/protocol";
 import { COMBAT } from "@eb/shared/config/combat";
 import { computeContentHash } from "@eb/shared/config/content";
@@ -10,7 +10,9 @@ import { ArenaState } from "../state/ArenaSchema.js";
 import { PlayerSchema } from "../state/PlayerSchema.js";
 import { FixedClock } from "../sim/FixedClock.js";
 import { World } from "../sim/World.js";
-import { MovementSystem } from "../sim/Movement.js";
+import { MovementSystem, type HorizontalOverride } from "../sim/Movement.js";
+import { CombatSystem } from "../sim/Combat.js";
+import { locomotionLocked, intentsSuppressed } from "../sim/ActionMachine.js";
 import { NEUTRAL_MOVE, type MoveIntent } from "@eb/shared/movement";
 import { ARENA, type MapVec3 } from "@eb/shared/config/arena";
 import { quantizeCm, quantizeYaw } from "@eb/shared/schema";
@@ -51,6 +53,7 @@ export class ArenaRoom extends Room {
   private lastTickMs = 0;
   world: World | null = null;
   movement: MovementSystem | null = null;
+  readonly combat = new CombatSystem();
 
   override async onCreate(options: { roomCode?: string }): Promise<void> {
     this.roomCode = typeof options?.roomCode === "string" ? options.roomCode : "";
@@ -136,7 +139,8 @@ export class ArenaRoom extends Room {
   override onLeave(client: Client): void {
     const seat = this.seats.get(client.sessionId);
     if (!seat) return;
-    // Captures held by or on this player are released here once combat exists (T09).
+    // Releases every capture held by or on this player (captor gets 18 ticks recovery).
+    this.combat.remove(seat.entityId, this.sim.tick);
     this.movement?.remove(seat.entityId);
     this.state.players.delete(String(seat.entityId));
     this.seatByAuth.delete(seat.sessionAuthId);
@@ -148,6 +152,7 @@ export class ArenaRoom extends Room {
     roomDirectory.unregister(this.roomId);
     this.seats.clear();
     this.seatByAuth.clear();
+    this.combat.dispose();
     this.movement?.dispose();
     this.world?.dispose();
     this.movement = null;
@@ -175,22 +180,66 @@ export class ArenaRoom extends Room {
     this.sim.advance(elapsed, (tick) => this.stepTick(tick), now);
   }
 
-  /** One logical 60 Hz tick (spec section 21 order, subset implemented so far). */
+  /** One logical 60 Hz tick (spec sections 12 and 21 order, subset implemented so far). */
   stepTick(tick: number): void {
-    const intents = new Map<number, MoveIntent>();
-    for (const seat of this.seats.values()) {
-      seat.input.expireLease(tick, COMBAT.inputLeaseTicks);
-      // T06 consumes only jump edges; other edge kinds are dropped until the action machine (T09) exists.
-      const jumpPressed = seat.input.drain().some((q) => q.edge.kind === "jump");
-      const h = seat.input.held;
-      intents.set(seat.entityId, { moveX: h.moveX, moveZ: h.moveZ, run: h.runHeld, guard: h.blockHeld, jumpPressed });
-    }
     const mv = this.movement;
+    const grounded = (id: number): boolean => mv?.get(id)?.state.grounded ?? false;
+    // Expiries before input intents.
+    this.combat.expire(tick, grounded);
+    const intents = new Map<number, MoveIntent>();
+    for (const [sessionId, seat] of this.seats) {
+      seat.input.expireLease(tick, COMBAT.inputLeaseTicks);
+      const edges = seat.input.drain();
+      const h = seat.input.held;
+      const f = this.combat.get(seat.entityId);
+      const body = mv?.get(seat.entityId);
+      let jumpPressed = false;
+      // Input priority: evasive/dash before jump (spec 12). Skills and M1 arrive with T10/T11.
+      for (const q of edges) {
+        if (q.edge.kind === "dash") {
+          const r = f && body ? this.combat.requestDash(seat.entityId, tick, body.state.facingYaw, h.moveX, h.moveZ)
+            : { ok: false as const, reason: "STATE" as const };
+          this.sendActionResult(sessionId, seat, q.edge.id, tick, r.ok, r.ok ? undefined : r.reason);
+        } else if (q.edge.kind === "jump") jumpPressed = true;
+      }
+      if (f) {
+        this.combat.updateGuard(seat.entityId, tick, h.blockHeld, grounded(seat.entityId));
+        if (intentsSuppressed(f) || locomotionLocked(f) || f.action === "Dash") jumpPressed = false;
+      }
+      const locked = !!f && (locomotionLocked(f) || f.action === "Dash");
+      intents.set(seat.entityId, locked ? NEUTRAL_MOVE
+        : { moveX: h.moveX, moveZ: h.moveZ, run: h.runHeld, guard: f?.action === "Guard" || h.blockHeld, jumpPressed });
+    }
     if (mv) {
-      mv.step(tick, (id) => intents.get(id) ?? NEUTRAL_MOVE);
-      for (const seat of this.seats.values()) this.publishBody(seat.entityId);
+      mv.step(tick, (id) => intents.get(id) ?? NEUTRAL_MOVE, (id) => this.dashOverride(id));
+      for (const seat of this.seats.values()) { this.publishBody(seat.entityId); this.publishAction(seat.entityId); }
     }
     this.state.serverTick = tick;
+  }
+
+  private dashOverride(id: number): HorizontalOverride | null {
+    const d = this.combat.get(id)?.dash;
+    return d ? { vx: d.dirX * d.speed, vz: d.dirZ * d.speed } : null;
+  }
+
+  private publishAction(entityId: number): void {
+    const p = this.state.players.get(String(entityId));
+    const f = this.combat.get(entityId);
+    if (!p || !f) return;
+    p.action = f.action;
+    p.actionStartTick = f.actionStartTick;
+    p.actionEndTick = Math.min(f.actionEndTick, 0xffffffff);
+    p.moveId = f.moveId;
+    p.hp100 = f.hp100;
+    p.protectedUntilTick = f.protectedUntilTick;
+  }
+
+  private sendActionResult(sessionId: string, seat: Seat, edgeId: number, tick: number, accepted: boolean, reason?: ActionResult["reason"]): void {
+    const client = this.clients.find((c) => c.sessionId === sessionId);
+    if (!client) return;
+    const msg: ActionResult = { epoch: seat.input.epoch, seq: seat.input.lastReceivedSeq, edgeId, accepted, tick };
+    if (reason) msg.reason = reason;
+    client.send(ServerMessage.actionResult, msg);
   }
 
   private publishBody(entityId: number): void {
@@ -232,6 +281,7 @@ export class ArenaRoom extends Room {
     p.ready = true;
     p.lifeId = ++this.lifeSeq; // room-unique so events can identify a victim life
     p.hp100 = COMBAT.hp100Max;
+    this.combat.add(seat.entityId, p.lifeId, this.sim.tick);
     if (this.movement) {
       this.movement.add(seat.entityId, this.chooseSpawn());
       this.publishBody(seat.entityId);

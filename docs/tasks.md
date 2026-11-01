@@ -13,7 +13,7 @@ Source: docs/spec.md section 27.
 | T06 | Movement | T04 T05 | DONE | commit "T06:" in git log | docs/test-results/T06.md |
 | T07 | Touch shell | T02 | IMPLEMENTED (DEVICE CHECK PENDING) | commit "T07:" in git log | docs/test-results/T07.md |
 | T08 | Camera and prediction | T06 T07 | IMPLEMENTED (DEVICE CHECK PENDING); real-client reconciliation test pending | commit "T08:" in git log | docs/test-results/T08.md |
-| T09 | Combat states | T06 | TODO | | |
+| T09 | Combat states | T06 | DONE | commit "T09:" in git log | docs/test-results/T09.md |
 | T10 | M1 and guard | T07 T09 | TODO | | |
 | T11 | Ability framework | T09 | TODO | | |
 | T12 | Vanguard base | T11 | TODO | | |

@@ -1,10 +1,13 @@
 import RAPIER from "@dimforge/rapier3d-compat";
 import { COMBAT } from "@eb/shared/config/combat";
-import { applyCorrection, initialMoveState, integrateMovement, type MoveIntent, type MoveState } from "@eb/shared/movement";
+import { MOVE_DT, applyCorrection, initialMoveState, integrateMovement, type MoveIntent, type MoveState } from "@eb/shared/movement";
 import type { MapVec3 } from "@eb/shared/config/arena";
 import type { World } from "./World.js";
 
 const WALKABLE_COS = Math.cos((COMBAT.controller.maxSlopeDeg * Math.PI) / 180);
+
+/** Forced horizontal velocity in m/s for one tick. */
+export interface HorizontalOverride { vx: number; vz: number }
 
 export interface Body {
   entityId: number;
@@ -67,14 +70,20 @@ export class MovementSystem {
 
   /**
    * Stages one tick of movement for every body in stable entity order, then steps physics once.
-   * `intentOf` returns the validated intent for this tick.
+   * `intentOf` returns the validated intent for this tick. `overrideOf` (combat, T09) may force a horizontal
+   * velocity for this tick, e.g. a dash; gravity and collision still apply.
    */
-  step(tick: number, intentOf: (entityId: number) => MoveIntent): void {
+  step(tick: number, intentOf: (entityId: number) => MoveIntent, overrideOf?: (entityId: number) => HorizontalOverride | null): void {
     if (this.disposed) throw new Error("movement disposed");
     const ids = [...this.bodies.keys()].sort((a, b) => a - b);
     for (const id of ids) {
       const b = this.bodies.get(id)!;
       const desired = integrateMovement(b.state, intentOf(id), tick);
+      const o = overrideOf?.(id);
+      if (o && Number.isFinite(o.vx) && Number.isFinite(o.vz)) {
+        b.state.vx = o.vx; b.state.vz = o.vz;
+        desired.dx = o.vx * MOVE_DT; desired.dz = o.vz * MOVE_DT;
+      }
       // No snap while rising (spec section 11).
       if (b.state.vy > 0) this.controller.disableSnapToGround();
       else this.controller.enableSnapToGround(COMBAT.controller.snapDown);
