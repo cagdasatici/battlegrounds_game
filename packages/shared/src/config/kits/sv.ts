@@ -62,4 +62,11 @@ export const SV_DEFS: AbilityDef[] = [
     id: "sv.x1", label: "Echo Tap", handler: "melee", startup: 12, active: 4, recovery: 30, cooldown: 0,
     damage100: [2400], range: 2, block: "U", input: "context", stunTicks: 0, ragdollTicks: 84, launch: { forward: 14, up: 6 },
   }),
+  // Gale Rebuff: wall capture (window 3, capture cap 60), 40 HP at capture + 48, U, release R90 F18 U3. The capture hit
+  // deals nothing and is counterable; the scheduled hit is not. Cinematic: third parties cannot hit either participant.
+  defineAbility({
+    id: "sv.x2", label: "Gale Rebuff", handler: "galeRebuff", startup: 12, active: 3, recovery: 24, cooldown: 0,
+    hitOffsets: [0, 48], damage100: [0, 4000], range: 2, block: "U", input: "context", stunTicks: 0, ragdollTicks: 90,
+    launch: { forward: 18, up: 3 },
+  }),
 ];

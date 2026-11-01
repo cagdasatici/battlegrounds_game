@@ -16,6 +16,9 @@ const wallEligible = (target: Fighter, pose: AbilityPose, c: CastContext): boole
 /** Generic wall attack (spec 16): capture hit B and counterable, later hits noncounterable, caster armor during the capture. */
 export const WALL_COMBO: AbilityHandler = makeSequenceHandler({ name: "wallCombo", releaseOffset: 36, eligible: wallEligible });
 
+/** sv.x2: the capture shields both participants from third parties; damage 40 HP at capture + 48, release at +49. */
+export const GALE_REBUFF: AbilityHandler = makeSequenceHandler({ name: "galeRebuff", releaseOffset: 49, cinematic: true, eligible: wallEligible });
+
 /** Pickup: reserve the nearest urn at commit, hold it when the 12 tick channel ends; any other ending frees it. */
 export const URN_PICKUP: AbilityHandler = {
   name: "urnPickup",
@@ -53,4 +56,4 @@ export const URN_THROW: AbilityHandler = {
   },
 };
 
-export const CONTEXT_HANDLERS: AbilityHandler[] = [WALL_COMBO, URN_PICKUP, URN_THROW];
+export const CONTEXT_HANDLERS: AbilityHandler[] = [WALL_COMBO, GALE_REBUFF, URN_PICKUP, URN_THROW];

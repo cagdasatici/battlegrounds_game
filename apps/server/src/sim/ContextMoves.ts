@@ -62,7 +62,7 @@ export class ContextSystem {
     if (req.index !== 3) return null;
     // 3. Wall opportunity replaces the fourth M1 (reserved before the normal fourth hit).
     if (this.wallTargetOf(f, tick) !== null) {
-      const r = start(`${f.kitId}.wall`, true);
+      const r = start(this.vanguardOpen(f) ? "sv.x2" : `${f.kitId}.wall`, true);
       if (r) return r;
     }
     // 4. Grounded mini uppercut with jump held.
