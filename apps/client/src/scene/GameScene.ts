@@ -15,6 +15,7 @@ import { EffectsPool } from "./EffectsPool.js";
 import { makeToonRamp } from "./FighterModel.js";
 import { FighterView } from "./FighterView.js";
 import { ProjectileViews } from "./ProjectileViews.js";
+import { UrnViews } from "./UrnViews.js";
 import { SnapshotBuffer } from "../net/SnapshotBuffer.js";
 
 export type Quality = "low" | "medium" | "high";
@@ -64,6 +65,7 @@ export class GameScene {
   readonly camera = new PerspectiveCamera(CAMERA.fovDeg, 1, CAMERA.near, CAMERA.far);
   readonly effects = new EffectsPool();
   readonly projectiles = new ProjectileViews(this.scene);
+  readonly urns = new UrnViews(this.scene);
   private geometries = new Set<BufferGeometry>();
   private materials = new Set<Material>();
   private fighters = new Map<string, { view: FighterView; buffer: SnapshotBuffer }>();
@@ -201,6 +203,7 @@ export class GameScene {
   render(dtSec = 0): void {
     for (const { view } of this.fighters.values()) view.update(dtSec);
     this.effects.update(dtSec);
+    this.urns.update(dtSec);
     this.arena.sky.position.copy(this.camera.position);
     this.arena.clouds.rotation.y += dtSec * 0.003;
     this.renderer.render(this.scene, this.camera);
@@ -213,6 +216,7 @@ export class GameScene {
     for (const id of [...this.fighters.keys()]) this.removeFighter(id);
     this.effects.dispose();
     this.projectiles.dispose();
+    this.urns.dispose();
     for (const g of this.geometries) g.dispose();
     for (const m of this.materials) m.dispose();
     if (this.env) {

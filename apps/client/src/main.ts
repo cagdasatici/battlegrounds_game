@@ -440,7 +440,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     matchCleanups.push(() => { cancelAnimationFrame(capRaf); captureCam.dispose(); });
     const loop = new GameLoop({
       scene: g, camera: cam, collide: kitHandle.collide, router, sampler, clock,
-      readState: (): LoopState => ({ serverTick: (r.state as { serverTick?: number }).serverTick ?? 0, players: players().entries(), projectiles: (r.state as LoopState).projectiles ?? [] }),
+      readState: (): LoopState => ({ serverTick: (r.state as { serverTick?: number }).serverTick ?? 0, players: players().entries(), projectiles: (r.state as LoopState).projectiles ?? [], urns: (r.state as LoopState).urns ?? [] }),
       sendInput: (p) => { rc.send("input", p); },
       sendPing: (p) => { rc.send("ping", p); },
       onFrameTime: (ms) => { const q = adaptive.push(ms); if (q) g.setQuality(q); },
@@ -498,6 +498,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
           localEntityId: loop.localEntityId,
           serverTick: (r.state as { serverTick?: number }).serverTick ?? 0,
           projectiles: g.projectiles.snapshot(),
+          urns: g.urns.snapshot(),
           reconciles: loop.reconcileCount,
           hitMoveIds: [...debugHitMoves],
           eventCounts: { ...debugEventCounts },

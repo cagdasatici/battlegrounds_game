@@ -18,6 +18,7 @@ import { Prediction, type Collide, type Correction, type OwnerSnapshot } from ".
 import type { ClockSync } from "../net/ClockSync.js";
 import type { CameraRig, Framed } from "../scene/CameraRig.js";
 import type { LoopProjectile } from "../scene/ProjectileViews.js";
+import type { LoopUrn } from "../scene/UrnViews.js";
 import type { GameScene } from "../scene/GameScene.js";
 
 /** Replicated public record, as read from room.state.players (centimetres, quantized yaw). */
@@ -40,7 +41,7 @@ export interface LoopPlayer {
   /** Present only on the local player (owner-only view, decision 0007). */
   owner?: { ackInputTick: number; epoch: number } | undefined;
 }
-export interface LoopState { serverTick: number; players: Iterable<[string, LoopPlayer]>; projectiles?: Iterable<[string, LoopProjectile]> }
+export interface LoopState { serverTick: number; players: Iterable<[string, LoopPlayer]>; projectiles?: Iterable<[string, LoopProjectile]>; urns?: Iterable<[string, LoopUrn]> }
 
 export interface LoopDeps {
   scene: GameScene;
@@ -126,6 +127,7 @@ export class GameLoop {
     this.remoteAction.clear();
     this.framing = null;
     this.d.scene.projectiles.clear();
+    this.d.scene.urns.clear();
     this.prediction = null;
   }
 
@@ -164,6 +166,12 @@ export class GameLoop {
 
   private syncState(st: LoopState, est: number | null): void {
     this.d.scene.projectiles.sync(st.projectiles ?? [], st.serverTick, est ?? st.serverTick);
+    // `st.players` may be a one-shot iterator: materialize it once and reuse below.
+    const players = [...st.players];
+    st = { ...st, players };
+    const keyOf = new Map<number, string>();
+    for (const [key, p] of players) if (p.action !== "Dead") keyOf.set(p.entityId, key);
+    this.d.scene.urns.sync(st.urns ?? [], (eid) => { const k = keyOf.get(eid); return k === undefined ? undefined : this.d.scene.viewFor(k)?.group; });
     const seen = new Set<string>();
     const newTick = st.serverTick !== this.lastSeenServerTick;
     for (const [key, p] of st.players) {
