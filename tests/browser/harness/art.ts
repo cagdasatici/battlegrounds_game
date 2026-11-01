@@ -12,8 +12,13 @@ kits.forEach((k, i) => {
   const v = gs.addFighter(k, k);
   v.setPose(-2.2 + i * 2.2, 0.9, 6, Math.PI + 0.3 * (1 - i)); // fronts towards the camera
 });
+const route = new URLSearchParams(location.search).get("view");
+if (route === "route" || route === "reverse") kits.forEach((k, i) => gs.viewFor(k)?.setPose(32 + i * 1.5, 0.9, -1, Math.PI / 2));
 const overview = new URLSearchParams(location.search).get("view") === "overview";
-gs.setCamera(overview
+gs.setCamera(route === "route"
+  ? { position: { x: 40, y: 4, z: -4 }, pivot: { x: 25, y: 1, z: 0 }, yaw: 0, pitch: 0, distance: 15 }
+  : route === "reverse" ? { position: { x: 24, y: 3, z: 2 }, pivot: { x: 34, y: 1, z: 0 }, yaw: 0, pitch: 0, distance: 10 }
+  : overview
   ? { position: { x: 0, y: 20, z: 40 }, pivot: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0, distance: 40 }
   : { position: { x: 0, y: 2.2, z: 10.8 }, pivot: { x: 0, y: 1.1, z: 6 }, yaw: 0, pitch: 0, distance: 6 });
 let frames = 0, prev = performance.now();

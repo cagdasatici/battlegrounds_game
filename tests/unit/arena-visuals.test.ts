@@ -42,10 +42,32 @@ describe("ART1 dressing placement", () => {
     expect(plan.length).toBeGreaterThan(30);
     for (const p of plan) expect(ENV_MODELS).toContain(p.model);
   });
+  it("keeps landmark crowns outside walkable ground and gives the opposite deck a pine skyline", () => {
+    const landmarks = plan.filter((p) => ["CommonTree_1", "Pine_1"].includes(p.model) && Math.abs(p.x) < 45 && Math.abs(p.z) < 20);
+    expect(landmarks.filter((p) => p.x > 0).map((p) => p.model)).toEqual(["CommonTree_1", "CommonTree_1"]);
+    expect(landmarks.filter((p) => p.x < 0).map((p) => p.model)).toEqual(["Pine_1", "Pine_1"]);
+    for (const p of landmarks) {
+      // Conservative radial bounds enclose the source glTF crowns at any yaw.
+      const r = (p.model === "Pine_1" ? 3.52 : 3.22) * p.scale;
+      for (const c of ground) {
+        const gap = c.shape === "cuboid"
+          ? Math.hypot(Math.max(0, Math.abs(p.x - c.centre[0]) - c.halfExtents[0]), Math.max(0, Math.abs(p.z - c.centre[2]) - c.halfExtents[2]))
+          : Math.hypot(p.x - c.centre[0], p.z - c.centre[2]) - c.radius;
+        expect(gap).toBeGreaterThan(r);
+      }
+    }
+  });
   it("never sits on walkable ground: outside every footprint or on top of a non-walkable obstacle", () => {
     const obstacles = colliders.filter((c) => c.role === "obstacle" && c.shape === "cuboid");
     for (const p of plan) {
       if (!inFootprint(p.x, p.z)) continue;
+      if (["Fern_1", "Bush_Common_Flowers", "RockPath_Round_Thin"].includes(p.model)) {
+        expect(p.x).toBeGreaterThanOrEqual(30.5);
+        expect(Math.abs(p.z)).toBeGreaterThanOrEqual(3.8);
+        expect(Math.abs(p.z)).toBeLessThan(5.6);
+        expect(p.y + p.scale * (p.model === "Fern_1" ? 2.442 : p.model === "Bush_Common_Flowers" ? 1.348 : 0.102)).toBeLessThan(0.15);
+        continue;
+      }
       const on = obstacles.some((o) => o.shape === "cuboid" && Math.abs(p.x - o.centre[0]) <= o.halfExtents[0] && Math.abs(p.z - o.centre[2]) <= o.halfExtents[2] && Math.abs(p.y - (o.centre[1] + o.halfExtents[1])) < 1e-6);
       expect(on, `${p.model} at ${p.x},${p.z}`).toBe(true);
     }

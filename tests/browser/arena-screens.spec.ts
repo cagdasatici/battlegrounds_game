@@ -48,8 +48,29 @@ for (const [w, h] of [[1024, 768], [1180, 820]] as const) {
       writeFileSync(path.join(outDir, `ART1-${TAG}-${w}x${h}.json`), JSON.stringify({ ...info, env }, null, 2) + "\n");
       expect(info.calls).toBeLessThanOrEqual(120);
       expect(info.triangles).toBeLessThanOrEqual(150_000);
-      if (TAG === "after") expect(env).toBe("ready");
+      if (TAG !== "before") expect(env).toBe("ready");
       expect(errors).toEqual([]);
     } finally { await ctx.close(); }
+  });
+}
+
+for (const view of ["route", "reverse"] as const) {
+  test(`east bridge ${view} gameplay framing`, async () => {
+    const page = await browser.newPage({ viewport: { width: 1180, height: 820 } });
+    try {
+      await page.goto(`${base}/art.html?view=${view}`);
+      await page.waitForFunction(() => (window as unknown as { __art: ArtApi }).__art.envState() === "ready");
+      await page.waitForFunction(() => (window as unknown as { __art: ArtApi }).__art.frames() > 30);
+      await page.screenshot({ path: path.join(outDir, `ART1-${TAG}-${view}.png`) });
+      const info = await page.evaluate(() => (window as unknown as { __art: ArtApi }).__art.info());
+      writeFileSync(path.join(outDir, `ART1-${TAG}-${view}.json`), JSON.stringify(info, null, 2) + "\n");
+      expect(info.calls).toBeLessThanOrEqual(120);
+      expect(info.triangles).toBeLessThanOrEqual(150_000);
+      if (view === "route") {
+        await page.evaluate(() => (window as unknown as { __art: { quality(q: string): void } }).__art.quality("low"));
+        await page.waitForTimeout(200);
+        await page.screenshot({ path: path.join(outDir, `ART1-${TAG}-route-low.png`) });
+      }
+    } finally { await page.close(); }
   });
 }

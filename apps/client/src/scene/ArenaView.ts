@@ -16,7 +16,7 @@ import { instancePlacements, type EnvKit, type EnvModelId, type EnvPlacement } f
 export const SKY = { horizon: 0xcfe3f0, zenith: 0x2f86e8, nadir: 0x9fbcd6, fog: 0xc4dae9 } as const;
 
 const PALETTE = {
-  grassTop: 0x6fd13a, grassSide: 0x3f9a2a, soil: 0x7a5636, rockHi: 0x8a7f78, rockMid: 0x645c66, rockLow: 0x403b4a,
+  grassTop: 0x879b65, grassSide: 0x465b3b, soil: 0x7a5636, rockHi: 0x8a7f78, rockMid: 0x645c66, rockLow: 0x403b4a,
   wood: 0xa87a48, woodDark: 0x6b4a2c, stone: 0x9a968f, stoneDark: 0x6c6a70, amber: 0xf0a030, cloud: 0xffffff, cloudShade: 0xb9cde4,
 } as const;
 
@@ -91,11 +91,17 @@ function groundGeometry(c: Collider): BufferGeometry {
     const t = (top - lip - y) / Math.max(1, top - lip - bottom);
     return t < 0.25 ? lerpHex(PALETTE.soil, PALETTE.rockHi, t / 0.25) : lerpHex(PALETTE.rockHi, PALETTE.rockLow, (t - 0.25) / 0.75);
   };
-  const grass: Shader = (_x, _y, _z, _nx, ny) => (ny > 0.5 ? PALETTE.grassTop : PALETTE.grassSide);
+  const grass: Shader = (x, _y, z, _nx, ny) => {
+    if (ny <= 0.5) return PALETTE.grassSide;
+    // Broad, quiet patches read at gameplay distance; warm wear leads the east spawn to the bridge.
+    const wear = Math.exp(-Math.pow((z + 1.5) / 3.2, 2)) * Math.max(0, Math.min(1, (x - 15) / 12));
+    const meadow = 0.5 + 0.5 * Math.sin(x * 0.27 + Math.cos(z * 0.31));
+    return lerpHex(lerpHex(0x71885b, 0x9ca874, meadow), 0xb5a486, wear * 0.85);
+  };
   if (c.shape === "cuboid") {
     const [hx, hy, hz] = c.halfExtents;
     b.add(box(hx * 2, hy * 2 - lip, hz * 2), xf(c.centre[0], bottom + (hy * 2 - lip) / 2, c.centre[2]), rock);
-    b.add(box(hx * 2 + 0.08, lip, hz * 2 + 0.08), xf(c.centre[0], top - lip / 2, c.centre[2]), grass);
+    b.add(new BoxGeometry(hx * 2 + 0.08, lip, hz * 2 + 0.08, 8, 1, 8), xf(c.centre[0], top - lip / 2, c.centre[2]), grass);
   } else {
     const h = c.halfHeight * 2;
     b.add(new CylinderGeometry(c.radius, c.radius * 0.96, h - lip, 28, 1), xf(c.centre[0], bottom + (h - lip) / 2, c.centre[2]), rock);
@@ -201,7 +207,7 @@ export const ISLETS: ReadonlyArray<readonly [number, number, number, number]> = 
 const RIM_OFFSET = 1.1;
 const TREE_MODELS: readonly EnvModelId[] = ["CommonTree_1", "Pine_1", "TwistedTree_2"];
 const ROCK_MODELS: readonly EnvModelId[] = ["Rock_Medium_1", "Rock_Medium_2", "Rock_Medium_3"];
-const MODEL_SCALE: Readonly<Record<EnvModelId, number>> = { CommonTree_1: 1.1, Pine_1: 1.1, TwistedTree_2: 0.55, Bush_Common: 1, Rock_Medium_1: 1, Rock_Medium_2: 1, Rock_Medium_3: 1 };
+const MODEL_SCALE: Readonly<Record<EnvModelId, number>> = { CommonTree_1: 1.1, Pine_1: 1.1, TwistedTree_2: 0.55, Bush_Common: 1, Fern_1: 0.1, Bush_Common_Flowers: 0.1, RockPath_Round_Thin: 0.3, Rock_Medium_1: 1, Rock_Medium_2: 1, Rock_Medium_3: 1 };
 
 const groundFootprintGap = (colliders: readonly Collider[], x: number, z: number): number => {
   let gap = Infinity;
@@ -216,7 +222,7 @@ const groundFootprintGap = (colliders: readonly Collider[], x: number, z: number
 /**
  * Deterministic placement plan for the glTF dressing (ART1). Every placement is either outside all walkable ground
  * footprints (rim boulders on the island flanks, trees and rocks on the distant islets) or on the top face of a
- * non-walkable obstacle collider (a boulder on each pillar). Nothing is ever placed on walkable ground.
+ * non-walkable obstacle collider (a boulder on each pillar). Low decorative cover is additionally allowed at the east route margins (under 0.15 m).
  */
 export function planDressing(colliders: readonly Collider[]): EnvPlacement[] {
   const rnd = mulberry32(0x0a771);
@@ -256,6 +262,22 @@ export function planDressing(colliders: readonly Collider[]): EnvPlacement[] {
       out.push({ model: ROCK_MODELS[Math.floor(rnd() * 3)]!, x: px, y: c.centre[1] + (c.shape === "cuboid" ? c.halfExtents[1] : c.halfHeight) - 2.6, z: pz, yaw: rnd() * 6.28, scale: 0.6 + rnd() * 0.7 });
     }
   }
+  // East spawn (-3 z) -> bridge: asymmetric broadleaf gate rooted beyond the island edge.
+  // West deck answers with a narrow pine skyline. No solid-looking prop enters a walkable footprint.
+  if (colliders.some((c) => c.id === "sat.east")) {
+    for (const [x, z, scale] of [[29, -9.5, 0.8], [29, 9.4, 1.05]] as const)
+      out.push({ model: "CommonTree_1", x, y: -0.6, z, yaw: 0.7, scale });
+    for (const [x, z, scale] of [[-34, -12.5, 1.3], [-39, -13.8, 1.7]] as const)
+      out.push({ model: "Pine_1", x, y: -0.8, z, yaw: 1.2, scale });
+    for (let i = 0; i < 2; i++) {
+      for (const side of [-1, 1]) {
+        const x = 32 + i * 6, z = side * (4.6 + (i % 2) * 0.35);
+        out.push({ model: "Fern_1", x, y: 0.005, z, yaw: i * 1.7, scale: 0.055 });
+        if (i === 0) out.push({ model: "Bush_Common_Flowers", x: x + 0.25, y: 0.005, z: z + side * 0.35, yaw: i, scale: 0.1 });
+        if (i === 1) out.push({ model: "RockPath_Round_Thin", x: x - 0.2, y: 0.003, z: side * 3.8, yaw: i * 0.6, scale: 0.28 });
+      }
+    }
+  }
   return out;
 }
 
@@ -264,7 +286,7 @@ export function buildDressing(colliders: readonly Collider[], kit: EnvKit): { gr
   const plan = planDressing(colliders);
   const group = new Group();
   group.name = "env.dressing";
-  const far = new Set<EnvModelId>(TREE_MODELS), meshes: InstancedMesh[] = [];
+  const far = new Set<EnvModelId>([...TREE_MODELS, "Fern_1", "Bush_Common_Flowers"]), meshes: InstancedMesh[] = [];
   // Distant islet props and rim boulders cast no shadows; only the pillar boulders sit in the shadow frustum.
   meshes.push(...instancePlacements(kit, plan.filter((p) => far.has(p.model) || p.model === "Bush_Common"), { cast: false, receive: false }));
   meshes.push(...instancePlacements(kit, plan.filter((p) => !far.has(p.model) && p.model !== "Bush_Common"), { cast: false, receive: true }));
@@ -309,9 +331,16 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
   }
   addMesh("deco.under", under.build(), flatToon, { cast: false, receive: false });
 
+  // Non-walkable rock shelves carry the landmark roots beyond the collision footprint.
+  const shelves = new Batch();
+  for (const p of planDressing(colliders).filter((p) => (p.model === "CommonTree_1" || p.model === "Pine_1") && Math.abs(p.x) < 45 && Math.abs(p.z) < 20)) {
+    shelves.add(new DodecahedronGeometry(1, 0), xf(p.x, -2.1, p.z, 2.6, 1.9, 2.6, 0, p.yaw, 0), PALETTE.rockMid);
+  }
+  if (!shelves.empty) addMesh("deco.rootShelves", shelves.build(), flatToon, { cast: false, receive: true });
+
   // Ground cover on the playable islands: grass tufts, flowers and small rocks, kept off obstacles and the glyph.
   const cover = new Batch();
-  const tufts = Math.round(520 * opts.detail);
+  const tufts = Math.round(140 * opts.detail);
   const flowerColors = [0xf7e27a, 0xfff6e6, 0xe98aa8, 0x8fb7ff];
   let placed = 0, tries = 0;
   while (placed < tufts && tries < tufts * 12) {
@@ -319,6 +348,7 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
     const x = (rnd() - 0.5) * 100, z = (rnd() - 0.5) * 80;
     if (!insideIsland(colliders, x, z, 0.5) || nearObstacle(colliders, x, z, 0.4)) continue;
     if (colliders.some((c) => c.role === "bridge" && c.shape === "cuboid" && Math.abs(x - c.centre[0]) < c.halfExtents[0] + 0.3 && Math.abs(z - c.centre[2]) < c.halfExtents[2] + 0.3)) continue;
+    if (x > 16 && Math.abs(z) < 6) continue;
     placed++;
     const h = 0.22 + rnd() * 0.28;
     const tone = lerpHex(0x5f9a3a, 0xa6d66a, rnd());

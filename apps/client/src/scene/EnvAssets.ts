@@ -7,9 +7,10 @@ import {
   InstancedMesh, LoadingManager, Matrix4, MeshToonMaterial, DoubleSide,
   type BufferGeometry, type DataTexture, type Material, type Mesh, type MeshStandardMaterial, type Texture,
 } from "three";
+import { SimplifyModifier } from "three/examples/jsm/modifiers/SimplifyModifier.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
-export const ENV_MODELS = ["CommonTree_1", "Pine_1", "TwistedTree_2", "Bush_Common", "Rock_Medium_1", "Rock_Medium_2", "Rock_Medium_3"] as const;
+export const ENV_MODELS = ["CommonTree_1", "Pine_1", "TwistedTree_2", "Bush_Common", "Fern_1", "Bush_Common_Flowers", "RockPath_Round_Thin", "Rock_Medium_1", "Rock_Medium_2", "Rock_Medium_3"] as const;
 export type EnvModelId = (typeof ENV_MODELS)[number];
 
 export interface EnvPart { readonly geometry: BufferGeometry; readonly material: Material }
@@ -47,7 +48,7 @@ export async function loadEnvKit(ramp: DataTexture, fileUrl: (name: string) => s
       const src = m.material as MeshStandardMaterial;
       let mat = toon.get(src);
       if (!mat) {
-        mat = new MeshToonMaterial({ map: src.map, vertexColors: !!m.geometry.getAttribute("color"), gradientMap: ramp, side: DoubleSide, alphaTest: src.alphaTest || (src.transparent ? 0.5 : 0) });
+        mat = new MeshToonMaterial({ color: src.color, map: src.map, vertexColors: !!m.geometry.getAttribute("color"), gradientMap: ramp, side: DoubleSide, alphaTest: src.alphaTest || (src.transparent ? 0.5 : 0) });
         toon.set(src, mat); materials.push(mat);
         if (src.map) textures.add(src.map);
       }
@@ -57,6 +58,18 @@ export async function loadEnvKit(ramp: DataTexture, fileUrl: (name: string) => s
       geometries.push(g);
       list.push({ geometry: g, material: mat });
     });
+    // Dense source foliage and path stones are oversized for distant landmarks and ankle-height cover.
+    // Simplify once at load, retaining UVs; all instances share the reduced geometry.
+    if (["CommonTree_1", "Pine_1", "RockPath_Round_Thin"].includes(id)) {
+      const modifier = new SimplifyModifier();
+      for (const [i, part] of list.entries()) {
+        const geometry = await modifier.modify(part.geometry, Math.floor(part.geometry.getAttribute("position").count * 0.65));
+        geometry.computeBoundingSphere();
+        geometries[geometries.indexOf(part.geometry)] = geometry;
+        part.geometry.dispose();
+        list[i] = { geometry, material: part.material };
+      }
+    }
     parts[id] = list;
     gltf.scene.traverse((o) => { (o as Mesh).geometry?.dispose(); });
   }

@@ -21,3 +21,16 @@ Status: accepted (ART1; owner chose option A in ART0, 2026-11-01).
 - **Loading.** `GameScene.loadEnvironment()` runs inside `loadAssets`, so Play is not enabled until it settles. On
   failure it logs one `[env]` warning and the code-built arena (including its code-built islet trees) stays.
 - **Not done.** Bloom and SSAO on high quality were not added (optional in the task); Low quality has no post-processing.
+
+## ART1 follow-up: east spawn-to-bridge art direction (2026-11-01)
+
+The owner explicitly requested one route and a contrasting opposite skyline. This extends the original dressing rule:
+only decorative cover below 0.15 m may sit on the east deck margins; the bridge, spawn anchors and centre remain clear.
+Two asymmetric broadleaf trees frame the east entrance on non-walkable rock shelves; west pines form the contrasting skyline.
+Conservative crown bounds stay beyond all walkable footprints. Sage vertex-coloured terrain and warm worn ground replace
+uniform bright green; sparse MegaKit Fern_1, Bush_Common_Flowers and RockPath_Round_Thin mark the margins.
+The three added Standard glTFs and dependencies come from the same local CC0 pack; added textures are downscaled to 512 px.
+Tree/path meshes are simplified once at load with the bundled Three.js modifier, share instanced geometry, and keep existing
+kit disposal ownership. Source files stay unmodified. Source material colour now survives the toon conversion.
+Random tall ground cover is reduced to stay inside the medium renderer budget. Landmarks remain at low quality.
+Evidence: docs/test-results/ART1-route.md. Physical iPad checks remain NOT RUN.
