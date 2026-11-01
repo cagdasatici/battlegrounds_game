@@ -1,6 +1,7 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createServer as createNetServer } from "node:net";
 import type { Server } from "colyseus";
 import type { Room } from "@colyseus/sdk";
 import { createGameServer } from "../../apps/server/src/createServer.js";
@@ -9,7 +10,18 @@ import { RoomClient } from "../../apps/client/src/net/RoomClient.js";
 
 export interface Harness { server: Server; svc: AuthServices; port: number; origin: string; stop(): Promise<void> }
 
-export async function startHarness(port: number): Promise<Harness> {
+/** Ask the OS for a free loopback port so parallel test files and agents never collide. */
+function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const s = createNetServer();
+    s.once("error", reject);
+    s.listen(0, "127.0.0.1", () => { const p = (s.address() as { port: number }).port; s.close(() => resolve(p)); });
+  });
+}
+
+/** `_legacyPort` is ignored: kept so existing callers compile; the harness always picks a free port. */
+export async function startHarness(_legacyPort?: number): Promise<Harness> {
+  const port = await freePort();
   const origin = `http://localhost:${port}`;
   const svc = createAuthServices({
     dataDir: mkdtempSync(join(tmpdir(), "eb-h-")), allowedOrigins: [origin], secureCookies: true,
