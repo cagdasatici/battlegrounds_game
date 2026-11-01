@@ -1,0 +1,307 @@
+{
+  "version": 1,
+  "note": "Section 7 positions are D (local design values). No original coordinate has been measured; observed stays null until docs/reference-observations.md has a completed row.",
+  "fidelityLabel": "not earned: no fidelity claim about controls until every observation row is complete",
+  "tags": {
+    "position": "D",
+    "touchMapping": "C",
+    "originalDefaultLayout": "U"
+  },
+  "evidence": {
+    "touchMapping": [
+      "R01",
+      "R02"
+    ],
+    "layoutVocabulary": [
+      "R01",
+      "R02",
+      "R10"
+    ]
+  },
+  "viewports": [
+    {
+      "W": 1024,
+      "H": 768,
+      "s": 1,
+      "controls": {
+        "joystick": {
+          "tag": "D",
+          "nx": 0.101563,
+          "ny": 0.854167,
+          "visualW": 136,
+          "visualH": 136,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "attack": {
+          "tag": "D",
+          "nx": 0.910156,
+          "ny": 0.752604,
+          "visualW": 76,
+          "visualH": 76,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "jump": {
+          "tag": "D",
+          "nx": 0.925781,
+          "ny": 0.895833,
+          "visualW": 68,
+          "visualH": 68,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "dash": {
+          "tag": "D",
+          "nx": 0.824219,
+          "ny": 0.856771,
+          "visualW": 64,
+          "visualH": 64,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "block": {
+          "tag": "D",
+          "nx": 0.822266,
+          "ny": 0.733073,
+          "visualW": 64,
+          "visualH": 64,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "facing": {
+          "tag": "D",
+          "nx": 0.923828,
+          "ny": 0.627604,
+          "visualW": 48,
+          "visualH": 48,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "skill1": {
+          "tag": "D",
+          "nx": 0.368164,
+          "ny": 0.916667,
+          "visualW": 82,
+          "visualH": 60,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "skill2": {
+          "tag": "D",
+          "nx": 0.456055,
+          "ny": 0.916667,
+          "visualW": 82,
+          "visualH": 60,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "skill3": {
+          "tag": "D",
+          "nx": 0.543945,
+          "ny": 0.916667,
+          "visualW": 82,
+          "visualH": 60,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "skill4": {
+          "tag": "D",
+          "nx": 0.631836,
+          "ny": 0.916667,
+          "visualW": 82,
+          "visualH": 60,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "awaken": {
+          "tag": "D",
+          "nx": 0.5,
+          "ny": 0.835938,
+          "visualW": 320,
+          "visualH": 44,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "menu": {
+          "tag": "D",
+          "nx": 0.03125,
+          "ny": 0.041667,
+          "visualW": 48,
+          "visualH": 48,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "fighter": {
+          "tag": "D",
+          "nx": 0.089844,
+          "ny": 0.041667,
+          "visualW": 48,
+          "visualH": 48,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "health": {
+          "tag": "D",
+          "nx": 0.5,
+          "ny": 0.041667,
+          "visualW": 240,
+          "visualH": 32,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "scoreboard": {
+          "tag": "D",
+          "nx": 0.964844,
+          "ny": 0.041667,
+          "visualW": 48,
+          "visualH": 48,
+          "observed": null,
+          "status": "NOT RUN"
+        }
+      }
+    },
+    {
+      "W": 1180,
+      "H": 820,
+      "s": 1.0677083333333333,
+      "controls": {
+        "joystick": {
+          "tag": "D",
+          "nx": 0.094103,
+          "ny": 0.854167,
+          "visualW": 145.208,
+          "visualH": 145.208,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "attack": {
+          "tag": "D",
+          "nx": 0.916755,
+          "ny": 0.752604,
+          "visualW": 81.146,
+          "visualH": 81.146,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "jump": {
+          "tag": "D",
+          "nx": 0.931232,
+          "ny": 0.895833,
+          "visualW": 72.604,
+          "visualH": 72.604,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "dash": {
+          "tag": "D",
+          "nx": 0.837129,
+          "ny": 0.856771,
+          "visualW": 68.333,
+          "visualH": 68.333,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "block": {
+          "tag": "D",
+          "nx": 0.83532,
+          "ny": 0.733073,
+          "visualW": 68.333,
+          "visualH": 68.333,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "facing": {
+          "tag": "D",
+          "nx": 0.929423,
+          "ny": 0.627604,
+          "visualW": 51.25,
+          "visualH": 51.25,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "skill1": {
+          "tag": "D",
+          "nx": 0.377847,
+          "ny": 0.916667,
+          "visualW": 87.552,
+          "visualH": 64.063,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "skill2": {
+          "tag": "D",
+          "nx": 0.459282,
+          "ny": 0.916667,
+          "visualW": 87.552,
+          "visualH": 64.063,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "skill3": {
+          "tag": "D",
+          "nx": 0.540718,
+          "ny": 0.916667,
+          "visualW": 87.552,
+          "visualH": 64.063,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "skill4": {
+          "tag": "D",
+          "nx": 0.622153,
+          "ny": 0.916667,
+          "visualW": 87.552,
+          "visualH": 64.063,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "awaken": {
+          "tag": "D",
+          "nx": 0.5,
+          "ny": 0.835938,
+          "visualW": 341.667,
+          "visualH": 46.979,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "menu": {
+          "tag": "D",
+          "nx": 0.028955,
+          "ny": 0.041667,
+          "visualW": 51.25,
+          "visualH": 51.25,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "fighter": {
+          "tag": "D",
+          "nx": 0.083245,
+          "ny": 0.041667,
+          "visualW": 51.25,
+          "visualH": 51.25,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "health": {
+          "tag": "D",
+          "nx": 0.5,
+          "ny": 0.041667,
+          "visualW": 256.25,
+          "visualH": 34.167,
+          "observed": null,
+          "status": "NOT RUN"
+        },
+        "scoreboard": {
+          "tag": "D",
+          "nx": 0.967426,
+          "ny": 0.041667,
+          "visualW": 51.25,
+          "visualH": 51.25,
+          "observed": null,
+          "status": "NOT RUN"
+        }
+      }
+    }
+  ]
+}
