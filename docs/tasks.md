@@ -34,7 +34,7 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | T20 | Artificer base | T19 | TODO | | | |
 | T21 | Artificer awakening | T20 | TODO | | | |
 | T22 | Passives | T21 | TODO | | | |
-| T23 | Props and wall context | T18e T19 | TODO | | | |
+| T23 | Props and wall context | T18e T19 | IMPLEMENTED (DEVICE CHECK PENDING) | 3a476b2 f59234b ce40158 591be2d 53997fe | docs/test-results/T23.md | decisions/0016. Wire: tests/integration/t23-urns, t23-wall, t23-gale tests. flow.spec T27 mirror check fails in browser run (client, untouched); iPad NOT RUN |
 | T24 | Duelist P1 variants | T16 | IMPLEMENTED (DEVICE CHECK PENDING) | 65c11d6 c37d624 | docs/test-results/T24.md | decisions/0012-t24-duelist-p1-variants. Wire: tests/integration/t24-variants.test.ts (3 clients chain, elevated slam) |
 | T25 | Original art pipeline | T18e | TODO | | | |
 | T26 | Effects audio and camera | T21 T23 T25 | TODO | | | |
