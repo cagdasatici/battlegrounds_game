@@ -42,7 +42,7 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | T28 | Production hosting | T04 T18e | IMPLEMENTED (DEVICE CHECK PENDING) | 3778216 | docs/test-results/T28.md | decisions/0011. Local build/serve/health/two-client verified; TLS, host, iPad remote checks NOT RUN (no host chosen) |
 | T29 | Security hardening | T22 T28 | TODO | | | |
 | T30 | Performance pass | T24 T26 T27 | TODO | | | |
-| T31 | Fidelity calibration | T18e T27 | IMPLEMENTED (DEVICE CHECK PENDING) | | docs/test-results/T31.md | decisions/0017. Layout JSON + ledger done; all O01-O08 NOT RUN. test:browser: 1 intermittent T27 flow test failure |
+| T31 | Fidelity calibration | T18e T27 | IMPLEMENTED (DEVICE CHECK PENDING) | 779475b | docs/test-results/T31.md | decisions/0017. Layout JSON + ledger done; all O01-O08 NOT RUN. test:browser: 1 intermittent T27 flow test failure |
 | T32 | Release candidate | T29 T30 T31 | TODO | | | |
 
 ## Review fix packets (docs/implementation-plan.md section 4)
