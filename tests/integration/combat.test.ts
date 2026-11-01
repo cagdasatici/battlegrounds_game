@@ -92,13 +92,15 @@ describe("R06 forward dash hits over a real Colyseus connection", () => {
     const mv = room.movement!;
     const bp = mv.position(bId)!;
     const body = mv.get(aId)!;
-    const p = { x: bp[0], y: bp[1], z: bp[2] + 6.5 };
+    // T17: spawns follow the farthest-anchor rule, so B may sit on a satellite island; approach from the arena centre side.
+    const north = bp[2] > 0; // B on the +Z side: A stands toward the centre (-Z) and faces +Z
+    const p = { x: bp[0], y: bp[1], z: bp[2] + (north ? -6.5 : 6.5) };
     body.rb.setTranslation(p, true);
     body.rb.setNextKinematicTranslation(p);
-    body.state.facingYaw = 0; body.state.vx = 0; body.state.vz = 0;
+    body.state.facingYaw = north ? Math.PI : 0; body.state.vx = 0; body.state.vz = 0;
     await sleep(60);
     const epoch = a.welcome!.epoch;
-    a.send("input", pkt(epoch, 1, { moveZ: -1, edges: [{ id: 1, kind: "dash" }] }));
+    a.send("input", pkt(epoch, 1, { moveZ: north ? 1 : -1, edges: [{ id: 1, kind: "dash" }] }));
     await waitFor(() => events.some((e) => e.kind === "hit" && e.actorId === String(aId)), 2000, "dash hit");
     await sleep(300);
     const hits = events.filter((e) => e.kind === "hit" && e.actorId === String(aId));

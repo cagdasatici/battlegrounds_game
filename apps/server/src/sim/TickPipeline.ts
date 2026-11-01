@@ -1,5 +1,7 @@
 import type { ActionResult, CombatEvent } from "@eb/shared/protocol";
 import { COMBAT } from "@eb/shared/config/combat";
+import { ARENA, type MapVec3 } from "@eb/shared/config/arena";
+import type { KitId } from "@eb/shared/protocol";
 import { NEUTRAL_MOVE, type MoveIntent } from "@eb/shared/movement";
 import { quantizeCm, quantizeYaw } from "@eb/shared/schema";
 import type { ArenaState } from "../state/ArenaSchema.js";
@@ -12,12 +14,17 @@ import type { MovementSystem, HorizontalOverride } from "./Movement.js";
 import type { World } from "./World.js";
 import type { HitCandidate, HitResult } from "./HitResolver.js";
 import { dashCandidates } from "./DashAttack.js";
-import { locomotionLocked, intentsSuppressed } from "./ActionMachine.js";
+import { locomotionLocked, intentsSuppressed, isAlive } from "./ActionMachine.js";
+import {
+  HOSTILE_REGION_RADIUS_M, finisherHeal100, pickSpawn, type RespawnSystem, type Pt, type Region,
+} from "./RespawnSystem.js";
 
 /** The part of a room seat the pipeline needs. */
 export interface PipelineSeat {
   entityId: number;
   input: InputChannel;
+  /** Owner-only requested kit, applied at respawn or once out of combat (T17). The pipeline clears it. */
+  pendingKit: KitId | null;
 }
 
 export interface TickPipelineDeps {
@@ -30,6 +37,10 @@ export interface TickPipelineDeps {
   world: () => World | null;
   seats: () => ReadonlyMap<string, PipelineSeat>;
   poseOf: (id: number) => M1Pose | undefined;
+  /** T17: death bookkeeping, scoring and respawn deadlines. */
+  respawn: RespawnSystem;
+  /** T17: a room-unique life id for every spawn. */
+  nextLifeId: () => number;
   sendActionResult: (sessionId: string, seat: PipelineSeat, edgeId: number, seq: number, tick: number, accepted: boolean,
     reason?: ActionResult["reason"], castId?: string) => void;
   broadcastEvent: (tick: number, kind: CombatEvent["kind"], actor: number, target: number | undefined,
@@ -66,8 +77,8 @@ export class TickPipeline {
       if (this.candidates.length > 0) {
         this.resolve(tick);
         this.afterHits(tick);
-        this.deathsAndRespawns(tick);
       }
+      this.deathsAndRespawns(tick);
       this.publish(tick);
     }
     this.d.state.serverTick = tick;
@@ -214,9 +225,19 @@ export class TickPipeline {
     }
   }
 
-  /** Hit and KO events in result order. Respawns are not implemented yet (T17). */
+  /**
+   * Hit and KO events in result order, then void and boundary KOs, then due respawns and kit changes (T17).
+   * Runs every tick: respawn deadlines and the void rule do not depend on this tick having hit candidates.
+   */
   private deathsAndRespawns(tick: number): void {
+    for (const r of this.results) {
+      const c = r.candidate;
+      if ((r.outcome === "hit" || r.outcome === "captured") && r.damage100 > 0) this.d.respawn.recordDamage(c.attackerId, c.targetId, tick, r.damage100);
+    }
     for (const r of this.results) this.reportHit(tick, r);
+    this.voidKos(tick);
+    this.respawnDue(tick);
+    this.applyKitChanges(tick);
   }
 
   private publish(tick: number): void {
@@ -224,20 +245,104 @@ export class TickPipeline {
   }
 
   private reportHit(tick: number, r: HitResult): void {
-    const { combat, m1, abilities, awakening } = this.d;
+    const { combat } = this.d;
     const c = r.candidate;
     const victim = combat.get(c.targetId);
     const kind: CombatEvent["kind"] | null = r.outcome === "hit" ? "hit" : r.outcome === "blocked" ? "block"
       : r.outcome === "countered" ? "counter" : null;
     if (kind && victim) this.d.broadcastEvent(tick, kind, c.attackerId, c.targetId, victim.lifeId, c.moveId, r.damage100);
     else if (r.outcome === "captured" && victim) this.d.broadcastEvent(tick, "capture", c.attackerId, c.targetId, victim.lifeId, c.moveId, r.damage100);
-    if (r.killed && victim) {
-      m1.reset(c.targetId);
-      abilities.reset(c.targetId);
-      awakening.reset(c.targetId);
-      // Death resets held inputs (spec 11): neutralize the victim's input channel.
-      for (const seat of this.d.seats().values()) if (seat.entityId === c.targetId) seat.input.neutralize();
-      this.d.broadcastEvent(tick, "ko", c.attackerId, c.targetId, victim.lifeId, c.moveId);
+    if (r.killed && victim) this.knockOut(tick, victim, c.attackerId, c.moveId);
+  }
+
+  /** One KO per life: cleanup, scoring, the finisher passive and the respawn countdown. killer is undefined for a ring-out. */
+  private knockOut(tick: number, victim: { entityId: number; lifeId: number }, killer: number | undefined, moveId?: string): void {
+    const { m1, abilities, awakening, combat, respawn } = this.d;
+    const id = victim.entityId;
+    m1.reset(id);
+    abilities.reset(id);
+    awakening.reset(id);
+    // Death resets held inputs (spec 11): neutralize the victim's input channel.
+    for (const seat of this.d.seats().values()) if (seat.entityId === id) seat.input.neutralize();
+    const { scorer, assists } = respawn.resolveKo(id, tick, killer);
+    const pv = this.d.state.players.get(String(id));
+    if (pv) pv.deaths += 1;
+    const ps = scorer !== undefined ? this.d.state.players.get(String(scorer)) : undefined;
+    if (ps) ps.kills += 1;
+    for (const a of assists) { const pa = this.d.state.players.get(String(a)); if (pa) pa.assists += 1; }
+    if (killer !== undefined && scorer === killer && respawn.claimReward(victim.lifeId)) {
+      const k = combat.get(killer);
+      if (k && isAlive(k)) k.hp100 = Math.min(COMBAT.hp100Max, k.hp100 + finisherHeal100(k.kitId, moveId));
+    }
+    respawn.schedule(id, tick);
+    this.d.broadcastEvent(tick, "ko", scorer ?? id, id, victim.lifeId, moveId);
+  }
+
+  /** Spec 10: y below the void plane or horizontal radius beyond the boundary is one KO per life. */
+  private voidKos(tick: number): void {
+    const mv = this.d.movement();
+    if (!mv) return;
+    for (const f of this.d.combat.all()) {
+      if (!isAlive(f)) continue;
+      const pos = mv.position(f.entityId);
+      if (!pos || (pos[1] >= ARENA.voidY && Math.hypot(pos[0], pos[2]) <= ARENA.boundaryRadius)) continue;
+      if (this.d.combat.kill(f.entityId, tick)) this.knockOut(tick, f, undefined);
+    }
+  }
+
+  /** Respawns every victim whose 180 tick countdown ended, choosing the spawn at that tick (spec 10). */
+  private respawnDue(tick: number): void {
+    const { combat, respawn } = this.d;
+    const mv = this.d.movement(), w = this.d.world();
+    if (!mv || !w) return;
+    for (const id of respawn.due(tick)) {
+      const f = combat.get(id);
+      if (!f || isAlive(f)) { respawn.complete(id, tick); continue; }
+      const pts: Pt[] = [];
+      for (const o of combat.all()) {
+        if (o.entityId === id || !isAlive(o)) continue;
+        const p = mv.position(o.entityId);
+        if (p) pts.push({ x: p[0], z: p[2] });
+      }
+      const regions: Region[] = this.candidates.filter((c) => c.attackerId !== id)
+        .map((c) => ({ x: c.originX, z: c.originZ, r: HOSTILE_REGION_RADIUS_M }));
+      const choice = pickSpawn(w.map.spawnAnchors, pts, regions, pts);
+      if (!choice.valid && !respawn.fallbackReached(id, tick)) continue; // retry next tick for up to 60 ticks
+      const [ax, ay, az] = choice.anchor.position;
+      const centre: MapVec3 = [ax, (w.groundHeight(ax, az) ?? ay) + ARENA.capsule.centreAboveSurface, az];
+      // A queued kit change applies here for a dead fighter (spec 6).
+      const seat = [...this.d.seats().values()].find((s) => s.entityId === id);
+      if (seat?.pendingKit) { f.kitId = seat.pendingKit; seat.pendingKit = null; }
+      const p = this.d.state.players.get(String(id));
+      if (p) p.owner.pendingKit = "";
+      const lifeId = this.d.nextLifeId();
+      combat.respawn(id, tick, lifeId); // full HP, cooldowns, meter and form reset, standard spawn protection
+      this.d.m1.reset(id);
+      this.d.abilities.reset(id);
+      this.d.awakening.reset(id);
+      mv.add(id, centre, Math.atan2(ax, az)); // face the arena centre
+      if (p) p.lifeId = lifeId;
+      respawn.complete(id, tick);
+      this.publishBody(id);
+      this.d.broadcastEvent(tick, "respawn", id, id, lifeId);
+    }
+  }
+
+  /** A living, idle, out of combat fighter switches kit after 480 quiet ticks: meter and cooldowns reset, HP untouched. */
+  private applyKitChanges(tick: number): void {
+    const { combat, respawn, abilities } = this.d;
+    for (const seat of this.d.seats().values()) {
+      const f = combat.get(seat.entityId);
+      if (!seat.pendingKit || !f || !isAlive(f)) continue;
+      const p = this.d.state.players.get(String(f.entityId));
+      if (seat.pendingKit === f.kitId) { seat.pendingKit = null; if (p) p.owner.pendingKit = ""; continue; }
+      if (respawn.inCombat(f.entityId, tick) || f.action !== "Idle" || f.form !== "Base") continue;
+      f.kitId = seat.pendingKit;
+      seat.pendingKit = null;
+      f.meter100 = 0;
+      f.cooldowns.clear();
+      abilities.reset(f.entityId);
+      if (p) p.owner.pendingKit = "";
     }
   }
 

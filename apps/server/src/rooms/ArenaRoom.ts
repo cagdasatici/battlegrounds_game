@@ -17,6 +17,7 @@ import { OffensiveBuffer } from "../sim/OffensiveBuffer.js";
 import { M1System, type M1Pose } from "../sim/M1.js";
 import { AbilityRunner, type AbilityHost, type SkillOutcome } from "../sim/AbilityRunner.js";
 import { AwakeningSystem } from "../sim/Awakening.js";
+import { RespawnSystem, pickSpawn, type Pt } from "../sim/RespawnSystem.js";
 import { TickPipeline, type PipelineSeat } from "../sim/TickPipeline.js";
 import { ALL_HANDLERS, buildKitRegistry } from "../kits/index.js";
 import type { HitResult } from "../sim/HitResolver.js";
@@ -62,6 +63,7 @@ export class ArenaRoom extends Room {
   world: World | null = null;
   movement: MovementSystem | null = null;
   readonly combat = new CombatSystem();
+  readonly respawns = new RespawnSystem();
   /** One offensive buffer per room, shared by M1 and skills (spec 12). */
   private readonly offensiveBuffer = new OffensiveBuffer();
   readonly m1 = new M1System(this.offensiveBuffer);
@@ -75,7 +77,7 @@ export class ArenaRoom extends Room {
   private readonly pipeline: TickPipeline = new TickPipeline({
     state: this.state, combat: this.combat, m1: this.m1, abilities: this.abilities, awakening: this.awakening,
     movement: () => this.movement, world: () => this.world, seats: () => this.seats,
-    poseOf: (id) => this.poseOf(id),
+    poseOf: (id) => this.poseOf(id), respawn: this.respawns, nextLifeId: () => ++this.lifeSeq,
     sendActionResult: (sid, seat, edgeId, seq, tick, ok, reason, castId) => this.sendActionResult(sid, seat, edgeId, seq, tick, ok, reason, castId),
     broadcastEvent: (tick, kind, actor, target, lifeId, moveId, dmg) => this.broadcastEvent(tick, kind, actor, target, lifeId, moveId, dmg),
   });
@@ -179,6 +181,7 @@ export class ArenaRoom extends Room {
     this.m1.remove(seat.entityId);
     this.abilities.remove(seat.entityId);
     this.awakening.remove(seat.entityId);
+    this.respawns.forget(seat.entityId);
     this.movement?.remove(seat.entityId);
     this.state.players.delete(String(seat.entityId));
     this.seatByAuth.delete(seat.sessionAuthId);
@@ -194,6 +197,7 @@ export class ArenaRoom extends Room {
     this.m1.dispose();
     this.abilities.dispose();
     this.awakening.dispose();
+    this.respawns.clear();
     this.movement?.dispose();
     this.world?.dispose();
     this.movement = null;
@@ -269,12 +273,15 @@ export class ArenaRoom extends Room {
     client.send(ServerMessage.actionResult, msg);
   }
 
-  /** First spawn anchor whose capsule is at least 2 m from every occupied capsule (spec section 10). */
+  /** First spawn: the spec section 10 rule (RespawnSystem.pickSpawn) with no retry window; later spawns run in the tick pipeline. */
   private chooseSpawn(): MapVec3 {
     const w = this.world!;
-    const occupied = [...this.seats.values()].map((s) => this.movement?.position(s.entityId)).filter((p): p is MapVec3 => !!p);
-    const anchors = w.map.spawnAnchors.map((a) => a.position);
-    const pick = anchors.find((a) => occupied.every((o) => Math.hypot(o[0] - a[0], o[2] - a[2]) >= 2)) ?? anchors[0]!;
+    const occupied: Pt[] = [];
+    for (const s of this.seats.values()) {
+      const f = this.combat.get(s.entityId), p = this.movement?.position(s.entityId);
+      if (p && f && f.action !== "Dead") occupied.push({ x: p[0], z: p[2] });
+    }
+    const pick = pickSpawn(w.map.spawnAnchors, occupied, [], occupied).anchor.position;
     const surface = w.groundHeight(pick[0], pick[2]) ?? pick[1];
     return [pick[0], surface + ARENA.capsule.centreAboveSurface, pick[2]];
   }
@@ -298,6 +305,7 @@ export class ArenaRoom extends Room {
     p.lifeId = ++this.lifeSeq; // room-unique so events can identify a victim life
     p.hp100 = COMBAT.hp100Max;
     this.combat.add(seat.entityId, p.lifeId, this.sim.tick, m.data.kitId);
+    this.respawns.startLife(seat.entityId, this.sim.tick);
     if (this.movement) {
       this.movement.add(seat.entityId, this.chooseSpawn());
       this.pipeline.publishBody(seat.entityId);
@@ -313,8 +321,10 @@ export class ArenaRoom extends Room {
     if (!m.success || !P0_KITS.includes(m.data.kitId)) return;
     if (!p.ready) p.kitId = m.data.kitId;
     else {
-      seat.pendingKit = m.data.kitId; // applied at next respawn (T17)
-      p.owner.pendingKit = m.data.kitId;
+      // Applied by the tick pipeline at the next respawn, or once 480 ticks pass without dealing or taking damage.
+      const same = this.combat.get(seat.entityId)?.kitId === m.data.kitId;
+      seat.pendingKit = same ? null : m.data.kitId;
+      p.owner.pendingKit = same ? "" : m.data.kitId;
     }
   }
 
