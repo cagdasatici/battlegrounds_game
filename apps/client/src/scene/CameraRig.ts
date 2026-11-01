@@ -103,6 +103,11 @@ export class CameraRig {
   private easeT = 1;
   pose: CameraPose = { position: { x: 0, y: 0, z: 0 }, pivot: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0, distance: CAMERA.defaultDistance };
 
+  private shakeAmp = 0;
+  private shakeLeft = 0;
+  private shakeTotal = 0;
+  private shakeT = 0;
+
   constructor(private colliders: readonly Collider[]) {}
 
   setColliders(colliders: readonly Collider[]): void { this.colliders = colliders; }
@@ -112,6 +117,14 @@ export class CameraRig {
     this.desired = Number.isFinite(m) ? Math.min(CAMERA.maxDistance, Math.max(CAMERA.minDistance, m)) : CAMERA.defaultDistance;
   }
   get distanceSetting(): number { return this.desired; }
+
+  /** FX1: camera shake of `amplitude` metres decaying over `ms` of render time. Presentation only. */
+  shake(amplitude: number, ms: number): void {
+    if (!(amplitude > 0) || !(ms > 0)) return;
+    this.shakeAmp = Math.max(this.shakeAmp * (this.shakeLeft / Math.max(1e-6, this.shakeTotal)), amplitude);
+    this.shakeTotal = this.shakeLeft = ms / 1000;
+  }
+  get shaking(): boolean { return this.shakeLeft > 0; }
 
   /** `centre` is the character capsule centre (corrected or smoothed mesh pose; presentation only). */
   update(centre: V3, yaw: number, pitch: number, dtSeconds: number): CameraPose {
@@ -132,8 +145,16 @@ export class CameraRig {
       this.current = Math.min(allowed, this.easeFrom + (allowed - this.easeFrom) * this.easeT);
     }
     const d = this.current;
+    let sx = 0, sy = 0, sz = 0;
+    if (this.shakeLeft > 0) {
+      this.shakeLeft = Math.max(0, this.shakeLeft - dt);
+      this.shakeT += dt * 60;
+      const k = this.shakeAmp * (this.shakeLeft / this.shakeTotal);
+      sx = Math.sin(this.shakeT * 2.1) * k; sy = Math.sin(this.shakeT * 2.9 + 1) * k; sz = Math.sin(this.shakeT * 1.7 + 2) * k;
+      if (this.shakeLeft === 0) this.shakeAmp = 0;
+    }
     this.pose = {
-      position: { x: pivot.x + dir.x * d, y: pivot.y + dir.y * d, z: pivot.z + dir.z * d },
+      position: { x: pivot.x + dir.x * d + sx, y: pivot.y + dir.y * d + sy, z: pivot.z + dir.z * d + sz },
       pivot, yaw, pitch, distance: d,
     };
     return this.pose;

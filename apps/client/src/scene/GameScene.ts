@@ -62,6 +62,7 @@ export class GameScene {
   readonly scene = new Scene();
   readonly camera = new PerspectiveCamera(CAMERA.fovDeg, 1, CAMERA.near, CAMERA.far);
   readonly effects = new EffectsPool();
+  private readonly frameHooks = new Set<(dtSec: number) => void>();
   private geometries = new Set<BufferGeometry>();
   private materials = new Set<Material>();
   private fighters = new Map<string, { view: FighterView; buffer: SnapshotBuffer }>();
@@ -194,9 +195,13 @@ export class GameScene {
     this.camera.updateProjectionMatrix();
   }
 
+  /** FX1: registers a per frame callback (render dt in seconds, run before drawing). Returns the unsubscribe. */
+  onFrame(fn: (dtSec: number) => void): () => void { this.frameHooks.add(fn); return () => { this.frameHooks.delete(fn); }; }
+
   /** Draws one frame. `dtSec` advances fighter animation and drifting clouds; it never schedules gameplay. */
   render(dtSec = 0): void {
     for (const { view } of this.fighters.values()) view.update(dtSec);
+    for (const h of [...this.frameHooks]) h(dtSec);
     this.arena.sky.position.copy(this.camera.position);
     this.arena.clouds.rotation.y += dtSec * 0.003;
     this.renderer.render(this.scene, this.camera);
@@ -207,6 +212,7 @@ export class GameScene {
     this.disposed = true;
     this.win.removeEventListener("resize", this.onResize);
     for (const id of [...this.fighters.keys()]) this.removeFighter(id);
+    this.frameHooks.clear();
     this.effects.dispose();
     for (const g of this.geometries) g.dispose();
     for (const m of this.materials) m.dispose();
