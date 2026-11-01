@@ -1,4 +1,5 @@
 import { Room, type Client } from "colyseus";
+import { StateView } from "@colyseus/schema";
 import {
   ChangeKitMessageSchema, ClientMessage, JoinOptionsSchema, MAX_CLIENTS, P0_KITS, PATCH_RATE_MS,
   PROTOCOL_VERSION, PingMessageSchema, RECONNECT_SECONDS, ReadyMessageSchema, ServerMessage, TICK_RATE,
@@ -131,6 +132,7 @@ export class ArenaRoom extends Room {
     p.hp100 = COMBAT.hp100Max;
     p.connected = true;
     this.state.players.set(String(entityId), p);
+    this.attachOwnerView(client, p);
     const now = performance.now();
     this.seats.set(client.sessionId, {
       sessionAuthId: auth.authId, entityId, input: new InputChannel(now), pendingKit: null,
@@ -160,6 +162,7 @@ export class ArenaRoom extends Room {
     const p = seat && this.playerOf(seat);
     if (!seat || !p) return;
     p.connected = true;
+    this.attachOwnerView(client, p);
     seat.input.renewEpoch(performance.now()); // old epoch packets are now stale
     this.sendWelcome(client);
     log("info", "player reconnected", { room: this.roomId, entity: seat.entityId });
@@ -197,6 +200,12 @@ export class ArenaRoom extends Room {
   // ---- internals ----
   private playerOf(seat: Seat): PlayerSchema | undefined {
     return this.state.players.get(String(seat.entityId));
+  }
+
+  /** Owner-only record is visible only to the owning client (R08). Idempotent: add() on a reused view is a no-op. */
+  private attachOwnerView(client: Client, p: PlayerSchema): void {
+    client.view ??= new StateView();
+    client.view.add(p.owner);
   }
 
   private sendWelcome(client: Client): void {
@@ -299,7 +308,10 @@ export class ArenaRoom extends Room {
     const m = ChangeKitMessageSchema.safeParse(raw);
     if (!m.success || !P0_KITS.includes(m.data.kitId)) return;
     if (!p.ready) p.kitId = m.data.kitId;
-    else seat.pendingKit = m.data.kitId; // applied at next respawn (T17)
+    else {
+      seat.pendingKit = m.data.kitId; // applied at next respawn (T17)
+      p.owner.pendingKit = m.data.kitId;
+    }
   }
 
   private onPing(client: Client, raw: unknown): void {

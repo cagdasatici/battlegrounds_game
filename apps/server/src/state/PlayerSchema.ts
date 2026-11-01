@@ -1,5 +1,23 @@
-import { Schema, defineTypes } from "@colyseus/schema";
+import { ArraySchema, Schema, defineTypes, view } from "@colyseus/schema";
 import type { Action, Form } from "@eb/shared/schema";
+
+/**
+ * Owner-only record (spec sections 15, 20, 22). Tagged with view() on PlayerSchema.owner, so only clients whose
+ * StateView contains it receive it. Ticks are absolute server ticks.
+ */
+export class OwnerSchema extends Schema {
+  ackSeq = 0;
+  ackInputTick = 0;
+  epoch = 1;
+  pendingKit = "";
+  evasiveEndTick = 0;
+  chargeStartTick = 0;
+  lethalCounterRemaining = 0;
+}
+defineTypes(OwnerSchema, {
+  ackSeq: "uint32", ackInputTick: "uint32", epoch: "uint32", pendingKit: "string",
+  evasiveEndTick: "uint32", chargeStartTick: "uint32", lethalCounterRemaining: "uint16",
+});
 
 /**
  * Public replicated player record (spec section 20). Positions are centimetres, yaw is 1/1024 turn
@@ -34,6 +52,9 @@ export class PlayerSchema extends Schema {
   kills = 0;
   deaths = 0;
   assists = 0;
+  /** Absolute tick at which each slot (1..4) of the current form is ready again; 0 = ready. */
+  cooldownEndTicks = new ArraySchema<number>(0, 0, 0, 0);
+  owner = new OwnerSchema();
 }
 defineTypes(PlayerSchema, {
   entityId: "uint8", lifeId: "uint16", kitId: "string", displayName: "string",
@@ -42,4 +63,8 @@ defineTypes(PlayerSchema, {
   form: "string", formEndTick: "uint32", meter100: "uint16", awakenedUsedMask: "uint8", contextSpent: "boolean",
   connected: "boolean", ready: "boolean", protectedUntilTick: "uint32",
   kills: "uint16", deaths: "uint16", assists: "uint16",
+  cooldownEndTicks: { array: "uint32" },
+  owner: OwnerSchema,
 });
+// defineTypes ignores the `view` option in the installed 5.0.43 API; apply the tag explicitly (after the field is declared).
+view()(PlayerSchema.prototype, "owner");

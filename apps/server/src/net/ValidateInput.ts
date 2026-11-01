@@ -15,6 +15,8 @@ export class InputChannel {
   lastReceivedSeq = 0;
   lastEdgeId = 0;
   lastInputTick = 0;
+  /** Client sampleTick of the last accepted packet (replay anchor for prediction, T08). */
+  lastSampleTick = 0;
   held: HeldIntent = neutralIntent();
   queue: QueuedEdge[] = [];
   /** edge id -> seq of the carrying packet, bounded; lets buffered edges be answered with the right seq. */
@@ -31,6 +33,7 @@ export class InputChannel {
   renewEpoch(nowMs: number): number {
     this.epoch += 1;
     this.lastReceivedSeq = 0;
+    this.lastSampleTick = 0;
     this.lastEdgeId = 0;
     this.queue = [];
     this.edgeSeqs.clear();
@@ -70,6 +73,7 @@ export class InputChannel {
     };
     this.lastReceivedSeq = p.seq;
     this.lastInputTick = tick;
+    this.lastSampleTick = p.sampleTick;
     return null;
   }
 

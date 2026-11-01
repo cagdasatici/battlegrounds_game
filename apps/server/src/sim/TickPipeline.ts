@@ -67,7 +67,7 @@ export class TickPipeline {
         this.afterHits(tick);
         this.deathsAndRespawns(tick);
       }
-      this.publish();
+      this.publish(tick);
     }
     this.d.state.serverTick = tick;
     this.scratch.clear();
@@ -210,8 +210,8 @@ export class TickPipeline {
     for (const r of this.results) this.reportHit(tick, r);
   }
 
-  private publish(): void {
-    for (const seat of this.d.seats().values()) { this.publishBody(seat.entityId); this.publishAction(seat.entityId); }
+  private publish(tick: number): void {
+    for (const seat of this.d.seats().values()) { this.publishBody(seat.entityId); this.publishAction(seat.entityId); this.publishOwner(seat, tick); }
   }
 
   private reportHit(tick: number, r: HitResult): void {
@@ -270,5 +270,24 @@ export class TickPipeline {
     p.meter100 = f.meter100;
     p.awakenedUsedMask = f.awakenedUsedMask;
     p.contextSpent = f.contextSpent;
+    const kit = this.d.abilities.kitOf(entityId);
+    for (let i = 0; i < 4; i++) {
+      const def = kit ? this.d.abilities.registry.slotted(kit, f.form, (i + 1) as 1 | 2 | 3 | 4) : undefined;
+      const end = def ? f.cooldowns.get(def.id) ?? 0 : 0;
+      if (p.cooldownEndTicks[i] !== end) p.cooldownEndTicks[i] = end;
+    }
+  }
+
+  /** Owner-only record (R08). pendingKit is written by ArenaRoom; chargeStartTick awaits hold moves (T19). */
+  private publishOwner(seat: PipelineSeat, tick: number): void {
+    const p = this.d.state.players.get(String(seat.entityId));
+    const f = this.d.combat.get(seat.entityId);
+    if (!p) return;
+    const o = p.owner;
+    o.ackSeq = seat.input.lastReceivedSeq;
+    o.ackInputTick = seat.input.lastSampleTick;
+    o.epoch = seat.input.epoch;
+    o.evasiveEndTick = Math.min(f?.cooldowns.get("evasive") ?? 0, 0xffffffff);
+    o.lethalCounterRemaining = f ? Math.max(0, Math.min(0xffff, f.lethalCounterUntil - tick)) : 0;
   }
 }
