@@ -32,7 +32,7 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | T18e | P0 playable gate | T15 T16 T17 T18d R12 R13 | IMPLEMENTED (DEVICE CHECK PENDING) | 61b79ba 3f8d897 00e3469 | docs/test-results/T18e.md | 16 PASS 0 FAIL 13 NOT RUN. D01-D09 need both iPads (plan section 7) |
 | T19 | Charge and projectile system | T18e | IMPLEMENTED (DEVICE CHECK PENDING) | 107e90d 83feef4 | docs/test-results/T19.md | A10 A11 A19 pass on test-only ea.b3 (T20 ships it). D03 NOT RUN. Rules: decision 0010 |
 | T20 | Artificer base | T19 | IMPLEMENTED (DEVICE CHECK PENDING) | cef3142 eaff0cd | docs/test-results/T20.md | decisions/0014. Ember Orb ea.b3 now shipped, T19 tests repointed. Wire rows use a server kit fixture (Artificer not selectable). iPad NOT RUN. Browser suite flaky: see T20.md |
-| T21 | Artificer awakening | T20 | TODO | | | |
+| T21 | Artificer awakening | T20 | IMPLEMENTED (DEVICE CHECK PENDING) | b4e72a5 bbcda67 244ec29 | docs/test-results/T21.md | decisions/0022. ea.a1 to ea.a4 and ea.activate; Artificer now selectable in the lobby. iPad NOT RUN. Browser specs need exclusive ports: see T21.md |
 | T22 | Passives | T21 | TODO | | | |
 | T23 | Props and wall context | T18e T19 | IMPLEMENTED (DEVICE CHECK PENDING) | 3a476b2 f59234b ce40158 591be2d 53997fe | docs/test-results/T23.md | decisions/0016. Wire: tests/integration/t23-urns, t23-wall, t23-gale tests. flow.spec T27 mirror check fails in browser run (client, untouched); iPad NOT RUN |
 | T24 | Duelist P1 variants | T16 | IMPLEMENTED (DEVICE CHECK PENDING) | 65c11d6 c37d624 | docs/test-results/T24.md | decisions/0012-t24-duelist-p1-variants. Wire: tests/integration/t24-variants.test.ts (3 clients chain, elevated slam) |
