@@ -30,6 +30,8 @@ import { ARENA, type MapVec3 } from "@eb/shared/config/arena";
 import { quantizeCm, quantizeYaw } from "@eb/shared/schema";
 import { InputChannel } from "../net/ValidateInput.js";
 import { TokenBucket } from "../net/RateLimits.js";
+import { InvalidMessageGuard } from "../net/InvalidMessageGuard.js";
+import { originOk } from "../http/securityHeaders.js";
 import type { AuthServices } from "../auth/Services.js";
 import { log } from "../ops/StructuredLog.js";
 import { roomDirectory } from "./RoomDirectory.js";
@@ -48,6 +50,7 @@ export interface Seat {
   pendingKit: KitId | null; // owner-only; applied at next respawn (T17)
   readyBucket: TokenBucket;
   pingBucket: TokenBucket;
+  invalid: InvalidMessageGuard;
 }
 
 export class ArenaRoom extends Room {
@@ -114,10 +117,16 @@ export class ArenaRoom extends Room {
     this.onMessage(ClientMessage.ping, (client, raw) => this.onPing(client, raw));
     this.onMessage(ClientMessage.leave, (client) => { void client.leave(); });
     // No arbitrary client events: everything else is dropped.
-    this.onMessage("*", () => undefined);
+    this.onMessage("*", (client) => { this.noteInvalid(client, "unknown_type"); });
   }
 
-  override async onAuth(_client: Client, options: unknown): Promise<{ authId: string; displayName: string }> {
+  override async onAuth(_client: Client, options: unknown, context?: { headers?: Headers }): Promise<{ authId: string; displayName: string }> {
+    // Spec 24: Origin allowlist on the WebSocket upgrade. Browsers always send Origin; a present foreign Origin is refused.
+    // A missing Origin is a non-browser client; it still needs a one use ticket bound to this room.
+    if (authServices && originOk(context?.headers?.get("origin"), authServices.config.allowedOrigins) === "foreign") {
+      log("warn", "websocket origin refused", { room: this.roomId });
+      throw new Error("AUTH_FAILED");
+    }
     if (this.sim.isOverloaded(this.wallNow())) {
       log("warn", "room overloaded: refusing new player", { room: this.roomId, overloads: this.sim.overloads });
       throw new Error("ROOM_FULL");
@@ -151,7 +160,7 @@ export class ArenaRoom extends Room {
     const now = performance.now();
     this.seats.set(client.sessionId, {
       sessionAuthId: auth.authId, entityId, input: new InputChannel(now), pendingKit: null,
-      readyBucket: new TokenBucket(2, 2, now), pingBucket: new TokenBucket(1, 2, now),
+      readyBucket: new TokenBucket(2, 2, now), pingBucket: new TokenBucket(1, 2, now), invalid: new InvalidMessageGuard(),
     });
     this.seatByAuth.set(auth.authId, client.sessionId);
     this.sendWelcome(client);
@@ -315,11 +324,22 @@ export class ArenaRoom extends Room {
     return [pick[0], surface + ARENA.capsule.centreAboveSurface, pick[2]];
   }
 
+  /** Spec 24: ten invalid messages in ten seconds disconnect the client. Logs the category only. */
+  protected noteInvalid(client: Client, category: string): void {
+    const seat = this.seats.get(client.sessionId);
+    if (!seat) return;
+    if (seat.invalid.record(performance.now())) {
+      log("warn", "client dropped for invalid messages", { room: this.roomId, category });
+      client.leave(4000);
+    }
+  }
+
   private onInput(client: Client, raw: unknown): void {
     const seat = this.seats.get(client.sessionId);
     if (!seat) return;
     const reason = seat.input.accept(raw, this.sim.tick, performance.now());
     if (reason === "RATE_LIMIT") log("warn", "input rate limited", { room: this.roomId, entity: seat.entityId });
+    if (reason === "MALFORMED") this.noteInvalid(client, "input_malformed");
   }
 
   private onReady(client: Client, raw: unknown): void {
@@ -327,7 +347,7 @@ export class ArenaRoom extends Room {
     const p = seat && this.playerOf(seat);
     if (!seat || !p || !seat.readyBucket.take(performance.now())) return;
     const m = ReadyMessageSchema.safeParse(raw);
-    if (!m.success || m.data.contentHash !== this.contentHash || !P0_KITS.includes(m.data.kitId)) return;
+    if (!m.success || m.data.contentHash !== this.contentHash || !P0_KITS.includes(m.data.kitId)) { this.noteInvalid(client, "ready_invalid"); return; }
     if (p.ready) return;
     p.kitId = m.data.kitId;
     p.ready = true;
@@ -347,7 +367,7 @@ export class ArenaRoom extends Room {
     const p = seat && this.playerOf(seat);
     if (!seat || !p || !seat.readyBucket.take(performance.now())) return;
     const m = ChangeKitMessageSchema.safeParse(raw);
-    if (!m.success || !P0_KITS.includes(m.data.kitId)) return;
+    if (!m.success || !P0_KITS.includes(m.data.kitId)) { this.noteInvalid(client, "changeKit_invalid"); return; }
     if (!p.ready) p.kitId = m.data.kitId;
     else {
       // Applied by the tick pipeline at the next respawn, or once 480 ticks pass without dealing or taking damage.
@@ -361,7 +381,7 @@ export class ArenaRoom extends Room {
     const seat = this.seats.get(client.sessionId);
     if (!seat || !seat.pingBucket.take(performance.now())) return;
     const m = PingMessageSchema.safeParse(raw);
-    if (!m.success) return;
+    if (!m.success) { this.noteInvalid(client, "ping_invalid"); return; }
     client.send(ServerMessage.pong, { nonce: m.data.nonce, serverMs: Date.now(), serverTick: this.sim.tick });
   }
 }

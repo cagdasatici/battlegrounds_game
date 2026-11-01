@@ -2,6 +2,7 @@ import { createReadStream, existsSync, statSync } from "node:fs";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { HttpApp } from "./sessionRoutes.js";
+import { securityHeaders } from "./securityHeaders.js";
 
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
@@ -23,8 +24,9 @@ export function resolveStaticPath(root: string, urlPath: string): string | null 
  * Serves the Vite build from the same origin as the API. GET only; /healthz and /api/* are registered first and win.
  * Unknown extensionless paths fall back to index.html; unknown paths with an extension are 404.
  */
-export function registerStaticRoutes(app: HttpApp, rootDir: string): void {
+export function registerStaticRoutes(app: HttpApp, rootDir: string, publicOrigin = "http://localhost"): void {
   const root = resolve(rootDir);
+  const secure = securityHeaders(publicOrigin);
   const serve = (req: IncomingMessage, res: ServerResponse): void => {
     const url = req.url ?? "/";
     if (url.startsWith("/api/") || url.startsWith("/matchmake")) { res.statusCode = 404; res.end(); return; }
@@ -39,7 +41,7 @@ export function registerStaticRoutes(app: HttpApp, rootDir: string): void {
     res.statusCode = 200;
     res.setHeader("Content-Type", TYPES[extname(file)] ?? "application/octet-stream");
     res.setHeader("Cache-Control", hashed ? "public, max-age=31536000, immutable" : "no-cache");
-    res.setHeader("X-Content-Type-Options", "nosniff");
+    for (const [k, v] of Object.entries(secure)) res.setHeader(k, v);
     const stream = createReadStream(file);
     stream.on("error", () => { if (!res.headersSent) res.statusCode = 500; res.end(); });
     res.on("close", () => stream.destroy());

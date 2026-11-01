@@ -1,3 +1,4 @@
+import "./base.css";
 import { WebGLRenderer } from "three";
 import type { Room } from "@colyseus/sdk";
 import { meterFraction } from "@eb/shared/awakening";

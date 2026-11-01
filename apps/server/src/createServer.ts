@@ -15,7 +15,7 @@ export function createGameServer(auth: AuthServices, opts: { staticDir?: string 
     transport: new WebSocketTransport(),
     express: (app: unknown) => {
       registerSessionRoutes(app as HttpApp, auth);
-      if (opts.staticDir) registerStaticRoutes(app as HttpApp, opts.staticDir);
+      if (opts.staticDir) registerStaticRoutes(app as HttpApp, opts.staticDir, auth.config.allowedOrigins[0]);
     },
   });
   // Joining requires a ticket (onAuth); filterBy keeps each private room code in its own room.

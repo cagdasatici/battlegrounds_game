@@ -12,8 +12,10 @@ export interface AuthConfig {
   /** roomCode to Colyseus room name. The server owns room creation. */
   roomCodes: Record<string, string>;
   buildId: string;
-  /** Per-IP session creations per minute. Default 10. */
+  /** Per-source session attempts per minute. Default 5 (spec 24). */
   sessionsPerMinute?: number;
+  /** Session attempts per minute across all sources. Default 30 (spec 24). */
+  globalSessionsPerMinute?: number;
 }
 
 export interface AuthServices {

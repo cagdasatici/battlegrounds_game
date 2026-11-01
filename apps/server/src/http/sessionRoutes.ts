@@ -8,6 +8,7 @@ import type { AuthServices } from "../auth/Services.js";
 import { RateLimiter } from "../auth/RateLimiter.js";
 import { safeEqual } from "../auth/tokens.js";
 import { log } from "../ops/StructuredLog.js";
+import { securityHeaders } from "./securityHeaders.js";
 
 type Handler = (req: IncomingMessage, res: ServerResponse) => void | Promise<void>;
 export interface HttpApp {
@@ -19,10 +20,12 @@ export interface HttpApp {
 export const COOKIE_NAME = "eb_session";
 const MAX_BODY = 1024;
 
+let baseHeaders: Record<string, string> = { "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" };
+
 function send(res: ServerResponse, status: number, body?: unknown, headers: Record<string, string> = {}): void {
   res.statusCode = status;
   res.setHeader("Cache-Control", "no-store");
-  res.setHeader("X-Content-Type-Options", "nosniff");
+  for (const [k, v] of Object.entries(baseHeaders)) res.setHeader(k, v);
   for (const [k, v] of Object.entries(headers)) res.setHeader(k, v);
   if (body === undefined) { res.end(); return; }
   res.setHeader("Content-Type", "application/json");
@@ -77,7 +80,10 @@ export function clientKey(req: IncomingMessage): string {
 export function registerSessionRoutes(app: HttpApp, svc: AuthServices, now: () => number = Date.now): void {
   const { config } = svc;
   const contentHash = computeContentHash();
-  const sessionLimiter = new RateLimiter(config.sessionsPerMinute ?? 10, 60_000, now);
+  baseHeaders = securityHeaders(config.allowedOrigins[0] ?? "http://localhost");
+  // Spec 24: 5 invitation attempts per minute per source plus 30 per minute across all sources.
+  const sessionLimiter = new RateLimiter(config.sessionsPerMinute ?? 5, 60_000, now);
+  const globalSessionLimiter = new RateLimiter(config.globalSessionsPerMinute ?? 30, 60_000, now);
   const ticketLimiter = new RateLimiter(20, 60_000, now);
 
   app.get("/healthz", (_req, res) => send(res, 200, { ok: true }));
@@ -89,7 +95,7 @@ export function registerSessionRoutes(app: HttpApp, svc: AuthServices, now: () =
 
   app.post("/api/session", async (req, res) => {
     if (!originAllowed(req, config.allowedOrigins)) return send(res, 403, { error: "ORIGIN" });
-    if (!sessionLimiter.allow(clientKey(req))) return send(res, 429, { error: "RATE_LIMITED" });
+    if (!sessionLimiter.allow(clientKey(req)) || !globalSessionLimiter.allow("*")) return send(res, 429, { error: "RATE_LIMITED" });
     const raw = await readBody(req);
     if (raw === TOO_LARGE) return send(res, 413, { error: "TOO_LARGE" }, { Connection: "close" });
     const parsed = SessionRequestSchema.safeParse(raw);

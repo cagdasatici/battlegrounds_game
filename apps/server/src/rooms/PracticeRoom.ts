@@ -68,7 +68,7 @@ export class PracticeRoom extends ArenaRoom {
     const p = seat && this.playerOf(seat);
     if (!seat || !p || !this.practiceBucket.take(performance.now())) return;
     const m = PracticeSetSchema.safeParse(raw);
-    if (!m.success) return;
+    if (!m.success) { this.noteInvalid(client, "practice_invalid"); return; }
     this.toggles = { guard: m.data.guard, ragdoll: m.data.ragdoll };
     p.owner.dummyGuard = m.data.guard;
     p.owner.dummyRagdoll = m.data.ragdoll;

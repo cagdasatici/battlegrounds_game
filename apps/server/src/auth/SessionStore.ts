@@ -64,6 +64,28 @@ export class SessionStore {
     return s && this.expiry(s) > this.now() ? s : null;
   }
 
+  /** Deletes expired records (spec 24: daily). Returns how many were removed. */
+  purgeExpired(): number {
+    const data = this.store.read();
+    const before = data.sessions.length;
+    this.prune(data);
+    if (data.sessions.length !== before) this.store.write(data);
+    return before - data.sessions.length;
+  }
+
+  /** Operator revoke by session id (or unique id prefix). Returns false when nothing matched. */
+  revokeById(idOrPrefix: string): boolean {
+    if (idOrPrefix.length < 8) return false;
+    const data = this.store.read();
+    const hits = data.sessions.filter((s) => s.id.startsWith(idOrPrefix));
+    if (hits.length !== 1) return false;
+    const id = hits[0]!.id;
+    data.sessions = data.sessions.filter((s) => s.id !== id);
+    this.store.write(data);
+    for (const fn of this.revokeListeners) fn(id);
+    return true;
+  }
+
   revoke(cookieToken: string): void {
     const id = sha256(cookieToken);
     const data = this.store.read();

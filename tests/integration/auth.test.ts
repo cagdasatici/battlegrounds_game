@@ -41,7 +41,7 @@ async function login(displayName = "Arel") {
 beforeAll(async () => {
   svc = createAuthServices({
     dataDir: dir, allowedOrigins: [ORIGIN], secureCookies: true,
-    roomCodes: { play: "arena" }, buildId: "test",
+    roomCodes: { play: "arena" }, buildId: "test", sessionsPerMinute: 1000, globalSessionsPerMinute: 1000,
   });
   server = createGameServer(svc);
   await server.listen(PORT, undefined, undefined);
@@ -135,10 +135,22 @@ describe("csrf and join tickets", () => {
     expect((await api("/api/csrf", { cookie })).status).toBe(401);
     expect(svc.tickets.consume(t.ticket, { roomName: "arena", contentHash: computeContentHash(), protocolVersion: PROTOCOL_VERSION })).toBeNull();
   });
-  test("session creation is rate limited", async () => {
-    let last = 0;
-    for (let i = 0; i < 14; i++) last = (await api("/api/session", { method: "POST", body: { invite: "garbage-garbage", displayName: "x" } })).status;
-    expect(last).toBe(429);
+  test("session creation is limited to 5 per source per minute by default, and responses carry security headers", async () => {
+    const p2 = PORT + 1;
+    const o2 = `http://localhost:${p2}`;
+    const s2 = createGameServer(createAuthServices({ dataDir: mkdtempSync(join(tmpdir(), "eb-rl-")), allowedOrigins: [o2], secureCookies: true, roomCodes: { play: "arena" }, buildId: "test" }));
+    await s2.listen(p2, undefined, undefined);
+    try {
+      const post = () => fetch(`${o2}/api/session`, { method: "POST", headers: { origin: o2, "content-type": "application/json" }, body: JSON.stringify({ invite: "garbage-garbage", displayName: "x" }) });
+      const codes: number[] = [];
+      for (let i = 0; i < 7; i++) codes.push((await post()).status);
+      expect(codes.slice(0, 5)).toEqual([401, 401, 401, 401, 401]);
+      expect(codes.slice(5)).toEqual([429, 429]);
+      const h = (await fetch(`${o2}/healthz`)).headers;
+      expect(h.get("referrer-policy")).toBe("no-referrer");
+      expect(h.get("content-security-policy")).toContain("frame-ancestors 'none'");
+      expect(h.get("x-content-type-options")).toBe("nosniff");
+    } finally { await s2.gracefullyShutdown(false); }
   });
 });
 

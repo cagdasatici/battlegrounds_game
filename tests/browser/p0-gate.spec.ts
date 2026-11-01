@@ -44,7 +44,7 @@ test.beforeAll(async () => {
   base = `http://localhost:${vitePort}`;
   svc = createAuthServices({
     dataDir: mkdtempSync(path.join(tmpdir(), "eb-pw-p0-")), allowedOrigins: [base], secureCookies: false,
-    roomCodes: Object.fromEntries(Array.from({ length: 40 }, (_, i) => [`p0r${i}`, "arena"])), buildId: "test", sessionsPerMinute: 10_000,
+    roomCodes: Object.fromEntries(Array.from({ length: 40 }, (_, i) => [`p0r${i}`, "arena"])), buildId: "test", sessionsPerMinute: 10_000, globalSessionsPerMinute: 10_000,
   });
   game = createGameServer(svc);
   await game.listen(gamePort, undefined, undefined);
