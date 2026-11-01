@@ -7,6 +7,7 @@ import {
   AbilityRunner, type AbilityHost, type AbilityPose, type Launch, type SkillOutcome,
 } from "../../apps/server/src/sim/AbilityRunner.js";
 import type { HitResult } from "../../apps/server/src/sim/HitResolver.js";
+import type { ReflectableProjectile, ReflectableProjectiles, ReflectOutcome } from "../../apps/server/src/sim/Reflect.js";
 
 /**
  * T12 Stone Vanguard base moves (spec 15, A09). Uses the shipped registry and handlers with the real
@@ -18,14 +19,14 @@ const def = (id: string) => SV_DEFS.find((d) => d.id === id)!;
 
 interface Hit { tick: number; r: HitResult }
 
-function rig(n = 2) {
+function rig(n = 2, projectiles?: ReflectableProjectiles) {
   const registry = buildKitRegistry();
   const cs = new CombatSystem();
   const poses = new Map<number, AbilityPose>();
   for (let i = 1; i <= n; i++) cs.add(i, i, 0).protectedUntilTick = 0;
   poses.set(1, { x: 0, y: 1, z: 0, facingYaw: 0, grounded: true });
   for (let i = 2; i <= n; i++) poses.set(i, { x: 0, y: 1, z: -1.5, facingYaw: Math.PI, grounded: true });
-  const host: AbilityHost = { combat: cs, pose: (id) => poses.get(id), blocked: () => false };
+  const host: AbilityHost = { combat: cs, pose: (id) => poses.get(id), blocked: () => false, ...(projectiles ? { projectiles } : {}) };
   const runner = new AbilityRunner(registry, ALL_HANDLERS, host);
   runner.setKit(1, "sv");
   const results: Hit[] = [];
@@ -520,5 +521,251 @@ describe("sv.b2 Gravel Flurry", () => {
     expect(r.outcomes.at(-1)!.o).toEqual({ kind: "rejected", reason: "COOLDOWN" });
     r.step(T0 + 900, 2);
     expect(r.outcomes.at(-1)!.o.kind).toBe("started");
+  });
+});
+
+/** Fake projectile provider standing in for the T19 projectile system (spec 13 reflection rules). */
+class FakeProjectiles implements ReflectableProjectiles {
+  readonly list: (ReflectableProjectile & { damage100: number; alive: boolean; castCounter: number })[] = [];
+  readonly calls: { id: number; newOwnerId: number; castCounter: number; tick: number }[] = [];
+  add(id: number, ownerId: number, x: number, y: number, z: number, damage100 = 1500, radius = 0): void {
+    this.list.push({ id, ownerId, x, y, z, radius, reflectCount: 0, damage100, alive: true, castCounter: 0 });
+  }
+  reflectable(): readonly ReflectableProjectile[] { return this.list.filter((p) => p.alive).sort((a, b) => a.id - b.id); }
+  reflect(id: number, newOwnerId: number, castCounter: number, tick: number): ReflectOutcome {
+    this.calls.push({ id, newOwnerId, castCounter, tick });
+    const p = this.list.find((q) => q.id === id && q.alive);
+    if (!p) return "rejected";
+    if (p.reflectCount >= 1) { p.alive = false; return "absorbed"; } // second attempt absorbs with no damage
+    p.ownerId = newOwnerId; p.reflectCount = 1; p.castCounter = castCounter;
+    return "reflected";
+  }
+}
+
+describe("sv.b3 Rift Palm", () => {
+  test("definition matches the spec 15 table", () => {
+    const d = def("sv.b3");
+    expect([d.slot, d.form, d.handler]).toEqual([3, "Base", "reflectPalm"]);
+    expect([d.startup, d.active, d.recovery, d.cooldown]).toEqual([8, 3, 14, 600]);
+    expect(d.damage100).toEqual([700]);
+    expect([d.range, d.block, d.stunTicks, d.ragdollTicks]).toEqual([2, "U", 30, 0]);
+    expect(d.launch).toEqual({ forward: 2, up: 0 });
+    expect(d.targetStates).toContain("ragdoll");
+    expect(d.maxTargets).toBe(1);
+  });
+
+  test("melee hit at startTick+8: 7 HP, stun 30, launch F2 U0, no ragdoll, one hit over the 3 tick window", () => {
+    const r = rig();
+    r.step(T0, 3);
+    r.run(T0 + 1, T0 + 7);
+    expect(r.hp(2)).toBe(10000);
+    r.step(T0 + 8);
+    expect(r.hp(2)).toBe(9300);
+    const v = r.cs.get(2)!;
+    expect([v.action, v.actionStartTick, v.actionEndTick]).toEqual(["Stunned", T0 + 8, T0 + 38]);
+    expect(r.launches.map((x) => [x.tick, x.l.targetId, x.l.vx + 0, x.l.vy, x.l.vz])).toEqual([[T0 + 8, 2, 0, 0, -2]]);
+    r.run(T0 + 9, T0 + 30);
+    expect(r.hitsOn(2).map((x) => x.tick)).toEqual([T0 + 8]);
+    expect(r.hp(2)).toBe(9300);
+  });
+
+  test("guard bypass (U): a frontally guarding target is hit and no block is recorded", () => {
+    const r = rig();
+    r.run(T0 - 5, T0 - 1, [2]);
+    r.step(T0, 3, [2]);
+    r.run(T0 + 1, T0 + 10, [2]);
+    expect(r.hp(2)).toBe(9300);
+    expect(r.results.some((x) => x.r.outcome === "blocked")).toBe(false);
+  });
+
+  test("supports ragdolled targets: damage, stun 30 and launch apply", () => {
+    const r = rig();
+    applyReaction(r.cs.get(2)!, T0 - 5, { kind: "ragdoll", ticks: 200 }, false);
+    r.step(T0, 3);
+    r.run(T0 + 1, T0 + 8);
+    expect(r.hp(2)).toBe(9300);
+    expect(r.cs.get(2)!.action).toBe("Stunned");
+    expect(r.launches).toHaveLength(1);
+  });
+
+  test("counter consumes the melee hit: no damage, no launch", () => {
+    const r = rig();
+    r.cs.get(2)!.counterOpenUntil = T0 + 100;
+    r.step(T0, 3);
+    r.run(T0 + 1, T0 + 12);
+    expect(r.results.filter((x) => x.r.outcome === "countered").map((x) => x.tick)).toEqual([T0 + 8]);
+    expect(r.hp(2)).toBe(10000);
+    expect(r.launches).toHaveLength(0);
+  });
+
+  test("miss spends the cooldown; ready exactly 600 ticks after the press", () => {
+    const r = rig(1);
+    r.step(T0, 3);
+    r.run(T0 + 1, T0 + 100);
+    expect(r.results).toHaveLength(0);
+    r.step(T0 + 599, 3);
+    expect(r.outcomes.at(-1)!.o).toEqual({ kind: "rejected", reason: "COOLDOWN" });
+    r.step(T0 + 600, 3);
+    expect(r.outcomes.at(-1)!.o.kind).toBe("started");
+  });
+
+  test("target entering during the window is still hit once; leaving before activeStart or after activeEnd is a miss", () => {
+    const r = rig();
+    r.place(2, 0, 1, -4);
+    r.step(T0, 3);
+    r.run(T0 + 1, T0 + 8);
+    r.place(2, 0, 1, -1.5);
+    r.step(T0 + 9);
+    expect(r.hitsOn(2).map((x) => x.tick)).toEqual([T0 + 9]);
+    const late = rig();
+    late.place(2, 0, 1, -4);
+    late.step(T0, 3);
+    late.run(T0 + 1, T0 + 10);
+    late.place(2, 0, 1, -1.5);
+    late.run(T0 + 11, T0 + 20); // activeEnd is T0+11 (exclusive)
+    expect(late.hp(2)).toBe(10000);
+  });
+
+  test("interruption: stun during startup (and in the activeStart tick) cancels the palm", () => {
+    const r = rig();
+    r.step(T0, 3);
+    r.run(T0 + 1, T0 + 4);
+    applyReaction(r.cs.get(1)!, T0 + 5, { kind: "stun", ticks: 24 }, false);
+    r.run(T0 + 5, T0 + 30);
+    expect(r.hp(2)).toBe(10000);
+    const same = rig();
+    same.step(T0, 3);
+    same.run(T0 + 1, T0 + 7);
+    applyReaction(same.cs.get(1)!, T0 + 8, { kind: "stun", ticks: 24 }, false);
+    same.run(T0 + 8, T0 + 30);
+    expect(same.hp(2)).toBe(10000);
+  });
+
+  test("death of the attacker voids the palm; death of the victim clamps and yields one KO", () => {
+    const a = rig();
+    a.step(T0, 3);
+    a.run(T0 + 1, T0 + 5);
+    a.cs.kill(1, T0 + 6);
+    a.run(T0 + 6, T0 + 30);
+    expect(a.hp(2)).toBe(10000);
+    const v = rig();
+    v.cs.get(2)!.hp100 = 300;
+    v.step(T0, 3);
+    v.run(T0 + 1, T0 + 12);
+    expect(v.cs.get(2)!.action).toBe("Dead");
+    expect(v.cs.get(2)!.koCount).toBe(1);
+    expect(v.results.find((x) => x.r.killed)!.r.damage100).toBe(300);
+    expect(v.launches).toHaveLength(0);
+  });
+
+  describe("reflection (fake T19 provider; the real Ember Orb acceptance is pending T19)", () => {
+    test("a projectile in the 1.8 m frontal hemisphere is reflected on the first active tick, once per cast", () => {
+      const pr = new FakeProjectiles();
+      pr.add(10, 2, 0, 1, -1.2);
+      pr.add(11, 2, 0, 1, -1.0);
+      const r = rig(2, pr);
+      r.step(T0, 3);
+      r.run(T0 + 1, T0 + 7);
+      expect(pr.calls).toHaveLength(0); // not during startup
+      r.step(T0 + 8);
+      expect(pr.calls).toEqual([{ id: 11, newOwnerId: 1, castCounter: 1, tick: T0 + 8 }]); // nearest first
+      expect(pr.list.find((p) => p.id === 11)!.ownerId).toBe(1);
+      r.run(T0 + 9, T0 + 12);
+      expect(pr.calls).toHaveLength(1); // at most one reflected projectile per cast
+      expect(pr.list.find((p) => p.id === 10)!.ownerId).toBe(2);
+      expect(r.runner.castOf(1)!.data.reflectedProjectileIds).toEqual([11]);
+    });
+
+    test("reflect preserves damage, grants no damage or meter, and does not reset the cooldown", () => {
+      const pr = new FakeProjectiles();
+      pr.add(10, 2, 0, 1, -1.2, 2500);
+      const r = rig(2, pr);
+      r.step(T0, 3);
+      r.run(T0 + 1, T0 + 8);
+      expect(pr.list[0]!.damage100).toBe(2500);
+      expect(pr.list[0]!.reflectCount).toBe(1);
+      expect(r.cs.get(1)!.cooldowns.get("sv.b3")).toBe(T0 + 600);
+      r.run(T0 + 9, T0 + 40);
+      r.step(T0 + 599, 3);
+      expect(r.outcomes.at(-1)!.o).toEqual({ kind: "rejected", reason: "COOLDOWN" });
+    });
+
+    test("a projectile can be reflected in a later active tick; behind, beyond 1.8 m, own or after activeEnd is ignored", () => {
+      const pr = new FakeProjectiles();
+      pr.add(1, 2, 0, 1, 1.0); // behind the palm
+      pr.add(2, 2, 0, 1, -2.2); // outside 1.8 m
+      pr.add(3, 1, 0, 1, -1.0); // own projectile
+      const r = rig(2, pr);
+      r.step(T0, 3);
+      r.run(T0 + 1, T0 + 8);
+      expect(pr.calls).toHaveLength(0);
+      pr.add(4, 2, 0, 1, -1.5);
+      r.step(T0 + 9);
+      expect(pr.calls.map((c) => c.id)).toEqual([4]);
+      const late = new FakeProjectiles();
+      const l = rig(2, late);
+      l.step(T0, 3);
+      l.run(T0 + 1, T0 + 10);
+      late.add(5, 2, 0, 1, -1.0);
+      l.run(T0 + 11, T0 + 30); // activeEnd T0+11 exclusive
+      expect(late.calls).toHaveLength(0);
+    });
+
+    test("projectile radius extends the reach: centre at 2.2 m with radius 0.5 is reflectable", () => {
+      const pr = new FakeProjectiles();
+      pr.add(7, 2, 0, 1, -2.2, 1500, 0.5);
+      const r = rig(2, pr);
+      r.step(T0, 3);
+      r.run(T0 + 1, T0 + 8);
+      expect(pr.calls.map((c) => c.id)).toEqual([7]);
+    });
+
+    test("cannot bounce indefinitely: an already reflected projectile is absorbed, not returned, and uses the cast's one interaction", () => {
+      const pr = new FakeProjectiles();
+      pr.add(10, 2, 0, 1, -1.0);
+      pr.list[0]!.reflectCount = 1; // already bounced once by someone else
+      pr.add(11, 2, 0, 1, -1.5);
+      const r = rig(2, pr);
+      r.step(T0, 3);
+      r.run(T0 + 1, T0 + 12);
+      expect(pr.list[0]!.alive).toBe(false); // absorbed, no damage anywhere
+      expect(pr.list[0]!.ownerId).toBe(2);
+      expect(pr.calls.map((c) => c.id)).toEqual([10]);
+      expect(pr.list[1]!.ownerId).toBe(2); // second projectile untouched this cast
+      expect(r.runner.castOf(1)!.data.reflectedProjectileIds).toBeUndefined();
+      expect(r.hitsOn(2).every((x) => x.r.candidate.moveId === "sv.b3")).toBe(true);
+    });
+
+    test("melee branch is independent: reflect one projectile and still hit one other target", () => {
+      const pr = new FakeProjectiles();
+      pr.add(10, 3, 0, 1, -1.0);
+      const r = rig(3, pr);
+      r.place(3, 5, 1, 5); // projectile owner is far away and not in the palm box
+      r.step(T0, 3);
+      r.run(T0 + 1, T0 + 12);
+      expect(pr.list[0]!.ownerId).toBe(1);
+      expect(r.hp(2)).toBe(9300);
+      expect(r.hp(3)).toBe(10000);
+    });
+
+    test("without a projectile provider only the melee branch runs", () => {
+      const r = rig();
+      r.step(T0, 3);
+      r.run(T0 + 1, T0 + 10);
+      expect(r.hp(2)).toBe(9300);
+    });
+
+    test("a rejected projectile does not consume the cast's reflect", () => {
+      const pr = new FakeProjectiles();
+      pr.add(1, 2, 0, 1, -1.0);
+      pr.add(2, 2, 0, 1, -1.5);
+      const origReflect = pr.reflect.bind(pr);
+      pr.reflect = (id, o, c, t) => (id === 1 ? (pr.calls.push({ id, newOwnerId: o, castCounter: c, tick: t }), "rejected") : origReflect(id, o, c, t));
+      const r = rig(2, pr);
+      r.step(T0, 3);
+      r.run(T0 + 1, T0 + 8);
+      expect(pr.calls.map((c) => c.id)).toEqual([1, 2]);
+      expect(pr.list.find((p) => p.id === 2)!.ownerId).toBe(1);
+    });
   });
 });

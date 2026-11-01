@@ -18,4 +18,10 @@ export const SV_DEFS: AbilityDef[] = [
     hitOffsets: [0, 8, 16, 24, 32, 39], damage100: [200, 200, 200, 200, 200, 500], range: 2.5, block: "B",
     targetStates: ["standing", "air", "ragdoll"], stunTicks: 12, ragdollTicks: 0, moveScale: 0.15, turnRate: 90, maxTargets: 3,
   }),
+  // Rift Palm: 7 HP, U, stun 30, launch F2 U0 (no ragdoll), reflects one projectile per cast (handler).
+  defineAbility({
+    id: "sv.b3", label: "Rift Palm", handler: "reflectPalm", startup: 8, active: 3, recovery: 14, cooldown: 600,
+    damage100: [700], range: 2, block: "U", targetStates: ["standing", "air", "ragdoll"],
+    stunTicks: 30, ragdollTicks: 0, launch: { forward: 2, up: 0 },
+  }),
 ];
