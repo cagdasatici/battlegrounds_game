@@ -1,0 +1,15 @@
+{
+  "serverOfflineRetryRecovered": true,
+  "cooldownTextAfterTap": "9.9",
+  "cooldownEndTicks": [
+    0,
+    0,
+    1006,
+    0
+  ],
+  "pendingKitAfterChange": "not shown",
+  "respawnSecondsSeen": [
+    "3",
+    "2"
+  ]
+}
