@@ -1,6 +1,6 @@
 # Hosted sparring implementation plan
 
-Planning baseline: main at b6c9e56, 1 November 2026. All BOT rows are TODO. This is an additive local design (D) for spec section 6. Keep Play and the private Practice tutorial available. The existing tutorial's guard/ragdoll controls, refill and meter rules belong there. Hosted sparring uses ordinary FFA combat and room-local scoring. Art, effects, T21 and public hosting are independent of the feature.
+Planning baseline: main at b6c9e56, 1 November 2026. BOT0 contracts are frozen; execution status is in docs/tasks.md. This is an additive local design (D) for spec section 6. Keep Play and the private Practice tutorial available. The existing tutorial's guard/ragdoll controls, refill and meter rules belong there. Hosted sparring uses ordinary FFA combat and room-local scoring. Art, effects, T21 and public hosting are independent of the feature.
 
 ## Player journey and limits
 
@@ -23,6 +23,26 @@ All network records below are strict, with no additional keys. Use the current d
 Difficulty wire literals are `easy`, `medium`, `hard`. The copy URL is configured game origin plus `/#spar=<token>`. Strip the fragment on read, keep token in memory only until redemption, and show a selectable link if clipboard access fails. Reuse the existing login fragment and cookie for ordinary invitations. Use a separate `eb_spar_guest` cookie for scoped guests, same flags as the session cookie. Bind guest CSRF and tickets to the guest session. For sparring choose the ordinary session only if it owns the requested match, else use its matching guest. General endpoints never authorize a guest cookie. For authenticated page reload use GET /api/sparring/guest to recover {roomCode,csrfToken} from that cookie only while its reservation or membership is valid.
 
 Create/link/end and ticket issuance require allowed origin, matching session/CSRF, and the existing 1 KiB body limit. Redeem requires allowed origin and the session-route IP rate limit. Apply ticket-route limiter policy to host mutations. Token is 32 random bytes, hashed at rest, single use, wall-time TTL 10 minutes. Store hosted match state in memory on the single server. Minting replaces the previous unused link. Reserve the host slot on creation. Redeem consumes the link and reserves one available human slot in one synchronous transaction before issuing credentials. Expire an unjoined guest reservation after 60 seconds. Repeated ticket requests for the same principal share one reservation and cannot admit duplicate simultaneous fighters. On failure release provisional resources. Return 401 for invalid credentials/link, 403 for origin/CSRF/authority, 400 for schema errors, 409 for full/closed/already-hosting, 429 for rate limits. Never expose tokens in telemetry, screenshots or public player state.
+
+### Frozen export names (BOT0)
+
+Import from `@eb/shared/sparring` (the existing shared package wildcard export).
+`DifficultySchema`, `SparringRoomCodeSchema`, `SparringTokenSchema` and
+`SparringConfigSchema` validate the scalar/config contracts. Route records are
+`SparringCreateRequestSchema`, `SparringCreateResponseSchema`,
+`SparringLinkRequestSchema`, `SparringLinkResponseSchema`,
+`SparringRedeemRequestSchema`, `SparringRedeemResponseSchema`,
+`SparringEndRequestSchema` and `SparringGuestResponseSchema`. Each route record
+also exports its inferred type without the `Schema` suffix. End has no response
+body schema (204); join-ticket uses the unchanged contracts in `protocol.ts`.
+Constants are `SPARRING_ROOM_NAME` and `SPARRING_GUEST_COOKIE`.
+
+Credential encoding follows existing auth helpers: link tokens use `newToken(32)`
+(43 base64url characters); guest CSRF uses `newToken(24)` (32 base64url
+characters). `expiresAt` is a nonnegative integer Unix time in milliseconds.
+Room codes remain `sp-` plus 32 lowercase hex digits. These are local wire
+decisions, not gameplay or reference claims. BOT1–BOT3 must stop and report a
+contract mismatch rather than changing these exports independently.
 
 ## Bot behavior
 

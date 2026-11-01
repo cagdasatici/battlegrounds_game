@@ -1,0 +1,64 @@
+import { z } from "zod";
+import { DisplayNameSchema } from "./protocol.js";
+
+/** Hosted sparring contracts (local design, docs/sparring-plan.md). */
+export const SPARRING_ROOM_NAME = "sparring" as const;
+export const SPARRING_GUEST_COOKIE = "eb_spar_guest" as const;
+export const DifficultySchema = z.enum(["easy", "medium", "hard"]);
+export type Difficulty = z.infer<typeof DifficultySchema>;
+export const SparringRoomCodeSchema = z.string().regex(/^sp-[0-9a-f]{32}$/);
+/** Same base64url encoding as auth newToken(32); CSRF uses newToken(24). */
+export const SparringTokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
+const expiresAt = z.number().finite().int().nonnegative();
+
+export const SparringConfigSchema = z.strictObject({ bots: z.array(DifficultySchema).max(3) });
+export type SparringConfig = z.infer<typeof SparringConfigSchema>;
+export const SparringCreateRequestSchema = SparringConfigSchema;
+export const SparringCreateResponseSchema = z.strictObject({ roomCode: SparringRoomCodeSchema });
+export const SparringLinkRequestSchema = z.strictObject({ roomCode: SparringRoomCodeSchema });
+export const SparringLinkResponseSchema = z.strictObject({ token: SparringTokenSchema, expiresAt });
+export const SparringRedeemRequestSchema = z.strictObject({
+  token: SparringTokenSchema,
+  displayName: DisplayNameSchema,
+});
+export const SparringGuestResponseSchema = z.strictObject({
+  roomCode: SparringRoomCodeSchema,
+  csrfToken: z.string().regex(/^[A-Za-z0-9_-]{32}$/),
+});
+export const SparringRedeemResponseSchema = SparringGuestResponseSchema;
+export const SparringEndRequestSchema = z.strictObject({ roomCode: SparringRoomCodeSchema });
+// End succeeds with HTTP 204 and no body. Join tickets keep the protocol.ts contracts.
+export type SparringCreateRequest = z.infer<typeof SparringCreateRequestSchema>;
+export type SparringCreateResponse = z.infer<typeof SparringCreateResponseSchema>;
+export type SparringLinkRequest = z.infer<typeof SparringLinkRequestSchema>;
+export type SparringLinkResponse = z.infer<typeof SparringLinkResponseSchema>;
+export type SparringRedeemRequest = z.infer<typeof SparringRedeemRequestSchema>;
+export type SparringRedeemResponse = z.infer<typeof SparringRedeemResponseSchema>;
+export type SparringGuestResponse = z.infer<typeof SparringGuestResponseSchema>;
+export type SparringEndRequest = z.infer<typeof SparringEndRequestSchema>;
+
+/** World-space x/z metres. */
+export type SparringPoint = { x: number; z: number };
+export interface BotObservation {
+  tick: number;
+  spawnTick: number;
+  selfId: number;
+  self: SparringPoint;
+  slot1Ready: boolean;
+  enemies: ReadonlyArray<SparringPoint & {
+    id: number; alive: boolean; connected: boolean; ready: boolean; attacking: boolean;
+  }>;
+}
+export interface BotDecision {
+  targetId: number | null;
+  attackHeld: boolean;
+  blockHeld: boolean;
+  approach: boolean;
+  castSlot1: boolean;
+  yaw: number;
+}
+export interface SparringSetupActions {
+  start(config: SparringConfig, kitId: "sv" | "td"): Promise<void>;
+  copyLink(): Promise<string>;
+  end(): Promise<void>;
+}
