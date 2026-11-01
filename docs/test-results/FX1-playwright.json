@@ -1,10 +1,10 @@
 {
   "hitfx": {
     "frames": {
-      "frame": 8,
-      "hit": 8,
-      "active": 8,
-      "flash": 8,
+      "frame": 28,
+      "hit": 21,
+      "active": 21,
+      "flash": 21,
       "maxActive": 10
     },
     "pageErrors": []

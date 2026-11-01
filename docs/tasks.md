@@ -46,7 +46,8 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | T30 | Performance pass | T24 T26 T27 | IN PROGRESS | pending | docs/test-results/T30.md | decisions/0031. Adaptive quality controller done and unit tested. Section 24 budget measurements (tick, network, memory, draw calls with final art, iPad) NOT RUN |
 | T31 | Fidelity calibration | T18e T27 | IMPLEMENTED (DEVICE CHECK PENDING) | 779475b | docs/test-results/T31.md | decisions/0017. Layout JSON + ledger done; all O01-O08 NOT RUN. test:browser: 1 intermittent T27 flow test failure |
 | T33a | Owner ops kit: one-command start | T28 | IMPLEMENTED (DEVICE CHECK PENDING) | d3c3333 | docs/test-results/T33a.md | `pnpm play`; QR encoder + origin logic unit-tested; Tailscale path and iPad scan NOT RUN |
-| T32 | Release candidate | T29 T30 T31 | TODO | | | |
+| T32 | Release candidate | T29 T30 T31 | BLOCKED | | docs/test-results/T32.md | Missing: DEV1 owner iPad session and T30 device rows. Automated gates pass |
+| DEV1 | iPad device session (owner-run) | T30 BOT5 HELP2 | BLOCKED | | docs/test-results/DEV1.md | Missing: physical iPads; all rows NOT RUN |
 
 ## Review fix packets (docs/implementation-plan.md section 4)
 

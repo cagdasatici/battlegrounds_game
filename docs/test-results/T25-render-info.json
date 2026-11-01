@@ -1,8 +1,8 @@
 {
   "calls": 54,
-  "triangles": 115048,
+  "triangles": 103208,
   "swiftShaderFps1180x820": {
     "medium": 20.5,
-    "low": 23
+    "low": 24.5
   }
 }
