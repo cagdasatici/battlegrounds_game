@@ -40,6 +40,8 @@ export class PointerRouter {
   yaw = 0;
   pitch = 0;
   facingLock = false;
+  /** Camera drag multiplier from Settings (T27). Local presentation only. */
+  sensitivity = 1;
   disabled = false;
 
   constructor(layout: Layout, private readonly hooks: RouterHooks = {}) {
@@ -120,7 +122,7 @@ export class PointerRouter {
     else if (o === "camera") {
       const prev = this.last.get(p.pointerId);
       if (!prev) return;
-      const k = CAMERA_SENSITIVITY / this.layout.s;
+      const k = (CAMERA_SENSITIVITY * this.sensitivity) / this.layout.s;
       this.yaw -= (p.x - prev.x) * k;
       this.pitch = clamp(this.pitch - (p.y - prev.y) * k, PITCH_MIN, PITCH_MAX);
       this.last.set(p.pointerId, { x: p.x, y: p.y });

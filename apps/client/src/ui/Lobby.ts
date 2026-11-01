@@ -41,6 +41,8 @@ export interface LobbyActions {
   retry(): void;
   back(): void;
   ready(kit: KitId): void;
+  /** Opens the settings panel (T27). Optional so older callers keep working. */
+  settings?(): void;
 }
 
 export class Lobby {
@@ -65,6 +67,7 @@ export class Lobby {
       else if (a === "practice") this.act.practice();
       else if (a === "retry") this.act.retry();
       else if (a === "back") this.act.back();
+      else if (a === "settings") this.act.settings?.();
       else if (a === "ready") this.act.ready(this.selected);
       else if (a === "name" && b?.dataset["name"]) { this.name = b.dataset["name"]; if (this.last) this.render(this.last.st, this.last.view); }
       else if (a === "kit" && b?.dataset["kit"]) { this.selected = b.dataset["kit"] as KitId; if (this.last) this.render(this.last.st, this.last.view); }
@@ -109,6 +112,7 @@ export class Lobby {
       this.add("p", "Your name is only a label. An invitation from a grown-up lets you in.", { "data-ui": "presets" });
       this.add("button", "Play", { "data-act": "play" });
       this.add("button", "Practice", { "data-act": "practice" });
+      this.add("button", "Settings", { "data-act": "settings" });
       return;
     }
     if (st.screen === "error" && st.error) {

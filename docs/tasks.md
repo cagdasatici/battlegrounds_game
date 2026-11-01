@@ -38,7 +38,7 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | T24 | Duelist P1 variants | T16 | TODO | | | |
 | T25 | Original art pipeline | T18e | TODO | | | |
 | T26 | Effects audio and camera | T21 T23 T25 | TODO | | | |
-| T27 | Settings and layout editor | T07 T18e | TODO | | | |
+| T27 | Settings and layout editor | T07 T18e | IMPLEMENTED (DEVICE CHECK PENDING) | PENDING_HASH | docs/test-results/T27.md | decisions/0010. Playwright 34/34. D05 D06 NOT RUN. Several settings stored, not yet consumed |
 | T28 | Production hosting | T04 T18e | TODO | | | |
 | T29 | Security hardening | T22 T28 | TODO | | | |
 | T30 | Performance pass | T24 T26 T27 | TODO | | | |

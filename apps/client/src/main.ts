@@ -9,7 +9,9 @@ import {
 import islandsUrl from "../../../assets/maps/islands.v1.json?url";
 import { AppFlow } from "./app/AppFlow.js";
 import { GameLoop, type LoopPlayer, type LoopState } from "./app/GameLoop.js";
-import { computeLayout } from "./input/ControlLayout.js";
+import { SettingsStore } from "./app/SettingsStore.js";
+import { computeLayout, type Layout } from "./input/ControlLayout.js";
+import { resolveLayout, viewportClass } from "./input/LayoutEdit.js";
 import { attachKeyboardRouter } from "./input/KeyboardRouter.js";
 import { IntentSampler } from "./input/IntentSampler.js";
 import { PointerRouter, attachPointerRouter } from "./input/PointerRouter.js";
@@ -24,6 +26,7 @@ import {
 } from "./ui/HudFormat.js";
 import { KIT_LABEL, Lobby, type LobbyView } from "./ui/Lobby.js";
 import { PracticePanel } from "./ui/PracticePanel.js";
+import { SettingsPanel } from "./ui/Settings.js";
 
 export interface BootOptions {
   /** Invitation consumed from the URL fragment; without it Play shows INVITE_INVALID. */
@@ -86,8 +89,38 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     retry: () => { void flowRef.current?.retry(); },
     back: () => { void flowRef.current?.back(); },
     ready: (k) => { flowRef.current?.ready(k); },
+    settings: () => { openSettings(); },
   }, { kit: opts.kitId, name: opts.displayName });
   cleanups.push(() => lobby.dispose());
+
+  // T27 settings: one store and panel per local profile name (Arel/Nora); rebuilt if the label changes.
+  const safeProbe = document.createElement("div");
+  safeProbe.style.cssText = "position:fixed;inset:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)";
+  document.body.append(safeProbe);
+  cleanups.push(() => safeProbe.remove());
+  let settingsRef: { name: string; store: SettingsStore; panel: SettingsPanel; unsub: () => void } | null = null;
+  const settingsHooks = {
+    onOpen: () => { for (const f of settingsOpenHooks) f(); },
+    inMatch: () => matchCleanups.length > 0,
+    safeRect: () => readSafeRect(window, safeProbe),
+  };
+  const settingsOpenHooks = new Set<() => void>();
+  const settingsChangeHooks = new Set<() => void>();
+  const activeSettings = (): SettingsStore => {
+    const name = lobby.displayName;
+    if (settingsRef && settingsRef.name === name) return settingsRef.store;
+    settingsRef?.unsub();
+    settingsRef?.panel.dispose();
+    let storage: Storage | null = null;
+    try { storage = window.localStorage; } catch { storage = null; }
+    const store = new SettingsStore(storage, name);
+    const panel = new SettingsPanel(document.body, store, settingsHooks);
+    const unsub = store.subscribe(() => { for (const f of [...settingsChangeHooks]) f(); });
+    settingsRef = { name, store, panel, unsub };
+    return store;
+  };
+  const openSettings = (): void => { activeSettings(); settingsRef?.panel.open(); };
+  cleanups.push(() => { settingsRef?.unsub(); settingsRef?.panel.dispose(); settingsRef = null; });
 
   const flow = new AppFlow({
     hasInvite: opts.invite !== null,
@@ -152,6 +185,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     const welcome = rc.welcome as WelcomeMessage;
     let showBoard = false, menuOpen = false, kitMenu = false;
     let ko: { tick: number; by: string } | null = null;
+    const settings = activeSettings();
     const router = new PointerRouter(computeLayout({ x0: 0, y0: 0, W: window.innerWidth, H: window.innerHeight }), {
       awakeningReady: () => { const me = localOf(); return me !== undefined && meterFraction(me.kitId, me.meter100 ?? 0) >= 1; },
       onMenu: () => { menuOpen = !menuOpen; },
@@ -175,12 +209,29 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     const probe = document.createElement("div");
     probe.style.cssText = "position:fixed;inset:0;visibility:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)";
     document.body.append(probe);
-    const hud = new Hud(document.body, document, (k) => { r.send("changeKit", { kitId: k }); kitMenu = false; }, () => { void flow.back(); });
+    const hud = new Hud(document.body, document, (k) => { r.send("changeKit", { kitId: k }); kitMenu = false; }, () => { void flow.back(); }, () => { menuOpen = false; openSettings(); });
     matchCleanups.push(() => { hud.dispose(); probe.remove(); });
     let hudKey = "";
-    let lastLayout = computeLayout(readSafeRect(window, probe));
+    const currentLayout = (): Layout => {
+      const base = computeLayout(readSafeRect(window, probe));
+      const st = settings.get();
+      return resolveLayout(base, st.layouts[viewportClass(base.safe.W)], st.handedness).layout;
+    };
+    let lastLayout = currentLayout();
     router.setLayout(lastLayout);
-    const relayout = (): void => { lastLayout = computeLayout(readSafeRect(window, probe)); router.setLayout(lastLayout); hudKey = ""; };
+    router.facingLock = settings.get().facingLock;
+    router.sensitivity = settings.get().sensitivity;
+    const relayout = (): void => { lastLayout = currentLayout(); router.setLayout(lastLayout); hudKey = ""; };
+    // Opening Settings releases every held input; the arena keeps running (spec section 6).
+    const onSettingsOpen = (): void => { router.releaseAll(); };
+    const onSettingsChange = (): void => {
+      router.sensitivity = settings.get().sensitivity;
+      cam.setDistance(settings.get().cameraDistance);
+      relayout();
+    };
+    settingsOpenHooks.add(onSettingsOpen);
+    settingsChangeHooks.add(onSettingsChange);
+    matchCleanups.push(() => { settingsOpenHooks.delete(onSettingsOpen); settingsChangeHooks.delete(onSettingsChange); settingsRef?.panel.close(); });
     window.addEventListener("resize", relayout);
     window.addEventListener("orientationchange", relayout);
     matchCleanups.push(() => { window.removeEventListener("resize", relayout); window.removeEventListener("orientationchange", relayout); });
@@ -188,8 +239,10 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     matchCleanups.push(attachPointerRouter(router, canvas, window, document));
     matchCleanups.push(attachKeyboardRouter(router, window, canvas));
 
+    const cam = new CameraRig(m.colliders);
+    cam.setDistance(settings.get().cameraDistance);
     const loop = new GameLoop({
-      scene: g, camera: new CameraRig(m.colliders), collide: kitHandle.collide, router, sampler, clock,
+      scene: g, camera: cam, collide: kitHandle.collide, router, sampler, clock,
       readState: (): LoopState => ({ serverTick: (r.state as { serverTick?: number }).serverTick ?? 0, players: players().entries() }),
       sendInput: (p) => { rc.send("input", p); },
       sendPing: (p) => { rc.send("ping", p); },
