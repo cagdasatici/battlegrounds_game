@@ -72,4 +72,4 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 
 | Task | Title | Depends on | Status | Commit | Test report | Notes |
 |------|-------|-----------|--------|--------|-------------|-------|
-| FX0 | Combat event contract and presentation bus | none | DONE | 4332b9f | docs/test-results/FX0.md | decisions/0021 |
+| FX0 | Combat event contract and presentation bus | none | DONE | 20028c9 | docs/test-results/FX0.md | decisions/0021 |
