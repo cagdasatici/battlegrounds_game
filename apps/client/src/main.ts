@@ -217,6 +217,10 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       else if (e.kind === "respawn") ko = null;
     });
 
+    // Debug only: server-confirmed hit move ids, so browser tests need not sample short actions from replicated state.
+    const debugHitMoves: string[] = [];
+    if (opts.debug) matchCleanups.push(bus.on((e: CombatEvent) => { if (e.kind === "hit" && e.moveId) { debugHitMoves.push(e.moveId); if (debugHitMoves.length > 256) debugHitMoves.shift(); } }));
+
     const probe = document.createElement("div");
     probe.style.cssText = "position:fixed;inset:0;visibility:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)";
     document.body.append(probe);
@@ -314,6 +318,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
           localEntityId: loop.localEntityId,
           serverTick: (r.state as { serverTick?: number }).serverTick ?? 0,
           reconciles: loop.reconcileCount,
+          hitMoveIds: [...debugHitMoves],
           corrections: { ...loop.correctionCounts },
           predicted: loop.prediction ? { ...loop.prediction.pos } : null,
           players: [...players().values()].map((p) => ({

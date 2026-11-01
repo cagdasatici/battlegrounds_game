@@ -21,6 +21,7 @@ const GL_ARGS = ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-s
 
 interface Dev { close(): Promise<void>; listen(): Promise<unknown> }
 interface Snap {
+  hitMoveIds?: string[];
   localEntityId: number | null; serverTick: number; reconciles: number;
   corrections: Record<string, number>; predicted: { x: number; y: number; z: number } | null;
   players: { entityId: number; name: string; kitId: string; hp100: number; action: string; moveId: string; ready: boolean; x: number; y: number; z: number; local: boolean }[];
@@ -160,11 +161,12 @@ test("two browser contexts fight: walk, four-hit chain, four Vanguard skills, re
       const m = s.players.find((p) => p.local)!.moveId;
       if (m) moveIds.add(m);
       if (!shot && hpTrace.length >= 3) { shot = true; mkdirSync(outDir, { recursive: true }); await A.page.screenshot({ path: path.join(outDir, "T18b.png") }); }
-      if (hpTrace.length >= 5 || f.action === "Dead") break;
+      if (hpTrace.length >= 5 || f.action === "Dead" || (s.hitMoveIds ?? []).includes("m1.4.finisher")) break;
       await sleep(30);
     }
     await A.page.mouse.up();
-    const damageSteps = hpTrace.length - 1;
+    // Count chain hits from server-confirmed events: a slow renderer can sample two HP drops as one.
+    const damageSteps = ((await snap(A.page)).hitMoveIds ?? []).filter((m) => m.startsWith("m1.")).length;
     expect(damageSteps).toBeGreaterThanOrEqual(4); // four chain hits, each a distinct replicated HP drop
 
     // Both contexts read the same HP for B (A's foe, B's own record).
@@ -197,7 +199,9 @@ test("two browser contexts fight: walk, four-hit chain, four Vanguard skills, re
     const skillsSeen = [1, 2, 3, 4].filter((n) => moveIds.has(`sv.b${n}`)).length;
     // The chain must be the M1 family; every skill that fired must be a Vanguard move.
     expect([...moveIds].every((m) => m.startsWith("sv.") || m.startsWith("m1."))).toBe(true);
-    expect(["m1.1", "m1.2", "m1.3", "m1.4.finisher"].every((m) => moveIds.has(m))).toBe(true);
+    // Chain membership comes from server-confirmed hit events; sampling replicated moveId can miss a short action.
+    const hitMoves = new Set<string>((await snap(A.page)).hitMoveIds ?? []);
+    expect(["m1.1", "m1.2", "m1.3", "m1.4.finisher"].filter((m) => !hitMoves.has(m))).toEqual([]);
     expect(skillsSeen).toBeGreaterThanOrEqual(3);
     expect(A.errors).toEqual([]);
     expect(B.errors).toEqual([]);
