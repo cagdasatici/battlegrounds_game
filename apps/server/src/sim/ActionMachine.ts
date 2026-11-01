@@ -1,5 +1,5 @@
 import { COMBAT } from "@eb/shared/config/combat";
-import type { Action } from "@eb/shared/schema";
+import type { Action, Form } from "@eb/shared/schema";
 import type { RejectReason } from "@eb/shared/protocol";
 
 /**
@@ -42,6 +42,11 @@ export interface Fighter {
   counterOpenUntil: number;
   armored: boolean;
   koCount: number; // KOs suffered this life; must stay <= 1
+  /** Form state (spec 14/15). Awakened bits and contextSpent reset on a new awakening (T14). */
+  form: Form;
+  formEndTick: number; // exclusive; 0 when not timed
+  awakenedUsedMask: number; // bit (slot-1) set once an oncePerForm move was committed
+  contextSpent: boolean;
 }
 
 const OPEN = Number.MAX_SAFE_INTEGER;
@@ -57,6 +62,7 @@ export function createFighter(entityId: number, lifeId: number, tick: number): F
     generation: 0, castCounter: 0, cast: null, dash: null, ragdollStartTick: -1, landingBonus: false,
     cooldowns: new Map(), blockstunUntil: 0, protectedUntilTick: tick + COMBAT.spawnProtectionTicks,
     invulnerableUntil: 0, counterOpenUntil: 0, armored: false, koCount: 0,
+    form: "Base", formEndTick: 0, awakenedUsedMask: 0, contextSpent: false,
   };
 }
 
@@ -214,6 +220,9 @@ export function respawn(f: Fighter, tick: number, lifeId: number): void {
   f.invulnerableUntil = 0;
   f.landingBonus = false;
   f.ragdollStartTick = -1;
+  f.armored = false;
+  f.counterOpenUntil = 0;
+  f.form = "Base"; f.formEndTick = 0; f.awakenedUsedMask = 0; f.contextSpent = false;
   f.protectedUntilTick = tick + COMBAT.spawnProtectionTicks;
   setAction(f, "Idle", tick, OPEN);
 }

@@ -84,6 +84,10 @@ export class HitLedger {
     const t = `${targetId}:${lifeId}`;
     m.set(t, (m.get(t) ?? 0) + 1);
   }
+  /** Distinct (target, life) pairs already hit by this cast. */
+  targetsHit(attackerId: number, castCounter: number): number {
+    return this.casts.get(HitLedger.castKey(attackerId, castCounter))?.size ?? 0;
+  }
   /** Drops every cast for which `live` is false (ended, cancelled or attacker gone). */
   prune(live: (attackerId: number, castCounter: number) => boolean): void {
     for (const k of [...this.casts.keys()]) {

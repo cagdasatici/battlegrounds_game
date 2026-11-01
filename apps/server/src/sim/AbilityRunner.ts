@@ -1,0 +1,408 @@
+import { COMBAT } from "@eb/shared/config/combat";
+import type { AbilityDef, AbilityRegistry, Shape } from "@eb/shared/abilities";
+import type { RejectReason } from "@eb/shared/protocol";
+import { beginCast, isAlive, type Fighter, type Reaction } from "./ActionMachine.js";
+import type { CombatSystem } from "./Combat.js";
+import type { HitCandidate, HitResult } from "./HitResolver.js";
+
+/**
+ * Ability framework (spec sections 12, 13, 14). Pure server module: no Rapier, no timers, no DOM.
+ *
+ * - Definitions come from the validated registry (shared/abilities.ts); behaviour comes from named handlers.
+ * - A cast is committed through ActionMachine.beginCast (cooldown starts on the accepted press, miss or not),
+ *   then advanced only by the room's fixed tick. All phase boundaries are integer ticks, exclusive ends.
+ * - Hit phases are scheduled relative to activeStart and tagged with the fighter's action generation, so any
+ *   cancellation (stun, ragdoll, death, capture, replacement) makes every later phase stale. cancel() is
+ *   idempotent. No JavaScript timeout ever controls damage.
+ * - One offensive edge is buffered for COMBAT.bufferTicks and consumed at the Recovery -> Idle boundary.
+ *   Awakening, dash, recast and counter stance are never buffered.
+ */
+export interface AbilityPose { x: number; y: number; z: number; facingYaw: number; grounded: boolean }
+
+export interface AbilityHost {
+  readonly combat: CombatSystem;
+  pose(entityId: number): AbilityPose | undefined;
+  /** True when static geometry blocks the straight segment a -> b. */
+  blocked(a: readonly [number, number, number], b: readonly [number, number, number]): boolean;
+}
+
+export interface ActiveCast {
+  readonly def: AbilityDef;
+  readonly entityId: number;
+  readonly castCounter: number;
+  readonly generation: number;
+  readonly startTick: number;
+  readonly activeStart: number;
+  /** Mutable so a handler can extend the active window (capture sequences); use extendCast(). */
+  activeEnd: number;
+  endTick: number;
+  /** Aim snapshot taken at commit (spec 14: turnRate 0 after commit). */
+  readonly aimYaw: number;
+  /** Armor granted by the handler until this tick (exclusive), in addition to def.armor. */
+  armorUntil: number;
+  /** Handler private state. Never shared between casts. */
+  data: Record<string, unknown>;
+}
+
+export interface CastContext {
+  tick: number;
+  fighter: Fighter;
+  cast: ActiveCast;
+  host: AbilityHost;
+  runner: AbilityRunner;
+}
+
+export type EndReason = "completed" | "cancelled" | "died";
+
+export interface AbilityHandler {
+  readonly name: string;
+  /** Spec 14: attacks may activate in air unless a card says grounded. */
+  readonly requiresGrounded?: boolean;
+  /** Extra start condition (handler specific). Return a reject reason, or null to allow. */
+  canStart?(c: { tick: number; fighter: Fighter; def: AbilityDef; pose: AbilityPose; host: AbilityHost }): RejectReason | null;
+  onCommit?(c: CastContext): void;
+  /** Hit candidates for this tick. Default: the scheduled hit groups on def.shape (meleeCandidates). */
+  candidates?(c: CastContext): HitCandidate[];
+  /** Called with this cast's own results after serial resolution (also when blocked/countered). */
+  onResults?(c: CastContext, results: readonly HitResult[]): void;
+  /** Called exactly once per cast when it ends, whatever the reason. */
+  onEnd?(c: CastContext, why: EndReason): void;
+}
+
+export type SkillOutcome =
+  | { kind: "started"; castCounter: number; moveId: string }
+  | { kind: "rejected"; reason: RejectReason }
+  | { kind: "buffered" };
+
+export interface BufferedOutcome { edgeId: number; outcome: SkillOutcome }
+
+interface Buffered { edgeId: number; slot: 1 | 2 | 3 | 4; tick: number }
+
+export interface Launch { targetId: number; vx: number; vy: number; vz: number }
+
+const CAP_R = COMBAT.capsule.radius;
+const CAP_HALF = COMBAT.capsule.halfHeight;
+
+export const reactionOfDef = (d: AbilityDef): Reaction =>
+  d.ragdollTicks > 0 ? { kind: "ragdoll", ticks: d.ragdollTicks }
+    : d.stunTicks > 0 ? { kind: "stun", ticks: d.stunTicks } : { kind: "none" };
+
+/** Facing vector for yaw 0 = -Z (shared convention with M1 and dashes). */
+export const forwardOf = (yaw: number): [number, number] => [-Math.sin(yaw), -Math.cos(yaw)];
+
+/**
+ * Exact overlap of an attack shape with a target's vertical capsule. Attacker local frame: forward along
+ * aimYaw, box lateral +-w/2, box forward span [0, d] (equals the spec default "centred range/2" when d = range),
+ * vertical centre 0.2 m above the attacker centre. Spheres are centred `range` ahead (range 0 = around the
+ * caster). Beams run horizontally from the attacker centre for `length`, truncated at `maxLength` if given.
+ */
+export function shapeOverlaps(shape: Shape, range: number, a: AbilityPose, aimYaw: number, t: AbilityPose, maxLength?: number): boolean {
+  const [fx, fz] = forwardOf(aimYaw);
+  const rx = -fz, rz = fx; // right-hand vector
+  const dx = t.x - a.x, dz = t.z - a.z;
+  const fwd = dx * fx + dz * fz, right = dx * rx + dz * rz;
+  const segLo = t.y - CAP_HALF, segHi = t.y + CAP_HALF;
+  const gap = (lo: number, hi: number): number => Math.max(0, lo - segHi, segLo - hi);
+  if (shape.kind === "box") {
+    const cy = a.y + 0.2;
+    const dv = gap(cy - shape.h / 2, cy + shape.h / 2);
+    const cr = Math.max(-shape.w / 2, Math.min(shape.w / 2, right));
+    const cf = Math.max(0, Math.min(shape.d, fwd));
+    return Math.hypot(Math.hypot(right - cr, fwd - cf), dv) <= CAP_R;
+  }
+  const dyc = Math.max(0, Math.abs(t.y - a.y) - CAP_HALF); // vertical gap to a feature at attacker height
+  if (shape.kind === "sphere") {
+    return Math.hypot(Math.hypot(right, fwd - range), dyc) <= shape.r + CAP_R;
+  }
+  const len = Math.min(shape.length, maxLength ?? shape.length);
+  const cf = Math.max(0, Math.min(len, fwd));
+  return Math.hypot(Math.hypot(right, fwd - cf), dyc) <= shape.radius + CAP_R;
+}
+
+function targetStateOf(t: Fighter, p: AbilityPose): "standing" | "air" | "ragdoll" {
+  if (t.action === "Ragdolled") return "ragdoll";
+  return p.grounded ? "standing" : "air";
+}
+
+/** Builds a candidate for one scheduled hit from the cast definition. Handlers may adjust the result. */
+export function buildCandidate(c: CastContext, targetId: number, hitIndex: number, originX: number, originZ: number): HitCandidate {
+  const d = c.cast.def;
+  return {
+    attackerId: c.cast.entityId, attackerGeneration: c.cast.generation, castCounter: c.cast.castCounter, hitIndex, toi: 0,
+    targetId, moveId: d.id, originX, originZ, block: d.block, counterable: d.counterable, armorBreak: d.armorBreak,
+    damage100: d.damage100[Math.min(hitIndex, d.damage100.length - 1)]!, reaction: reactionOfDef(d),
+    maxHitsPerTarget: d.maxHitsPerTarget,
+  };
+}
+
+/**
+ * Eligible targets of one query in stable order (distance, then entity id). Excludes self, the dead, captured
+ * fighters, states the move does not support, static occlusion, targets already at the per target hit cap and
+ * new targets beyond maxTargets for the whole cast.
+ */
+export function queryTargets(c: CastContext, opts: { maxLength?: number; allowCaptured?: boolean } = {}): number[] {
+  const { cast, host, fighter } = c;
+  const d = cast.def;
+  const ap = host.pose(fighter.entityId);
+  if (!ap) return [];
+  const ledger = host.combat.ledger;
+  const found: { id: number; dist: number }[] = [];
+  for (const t of host.combat.all()) {
+    if (t.entityId === fighter.entityId || !isAlive(t)) continue;
+    if (t.action === "Captured" && !opts.allowCaptured) continue;
+    const tp = host.pose(t.entityId);
+    if (!tp) continue;
+    if (!d.targetStates.includes(targetStateOf(t, tp))) continue;
+    if (ledger.count(fighter.entityId, cast.castCounter, t.entityId, t.lifeId) >= d.maxHitsPerTarget) continue;
+    if (!shapeOverlaps(d.shape, d.range, ap, cast.aimYaw, tp, opts.maxLength)) continue;
+    if (host.blocked([ap.x, ap.y, ap.z], [tp.x, tp.y, tp.z])) continue;
+    found.push({ id: t.entityId, dist: Math.hypot(tp.x - ap.x, tp.z - ap.z) });
+  }
+  found.sort((a, b) => a.dist - b.dist || a.id - b.id);
+  const out: number[] = [];
+  let distinct = ledger.targetsHit(fighter.entityId, cast.castCounter);
+  for (const f of found) {
+    const t = host.combat.get(f.id)!;
+    const already = ledger.count(fighter.entityId, cast.castCounter, f.id, t.lifeId) > 0;
+    if (!already) { if (distinct >= d.maxTargets) continue; distinct += 1; }
+    out.push(f.id);
+  }
+  return out;
+}
+
+/** Which scheduled hit indices are due this tick (spec 14). */
+export function dueHitIndices(cast: ActiveCast, tick: number): number[] {
+  const d = cast.def;
+  if (tick < cast.activeStart) return [];
+  if (d.hitOffsets.length === 1) {
+    // Single hit: active is a query window; dedupe across the window.
+    return tick >= cast.activeStart + d.hitOffsets[0]! && tick < cast.activeEnd ? [0] : [];
+  }
+  const out: number[] = [];
+  d.hitOffsets.forEach((off, i) => { if (tick === cast.activeStart + off) out.push(i); });
+  return out;
+}
+
+/** Default scheduled-hit query used by the "melee" handler and reusable by custom handlers. */
+export function meleeCandidates(c: CastContext): HitCandidate[] {
+  const ap = c.host.pose(c.fighter.entityId);
+  if (!ap) return [];
+  const out: HitCandidate[] = [];
+  for (const i of dueHitIndices(c.cast, c.tick)) {
+    for (const id of queryTargets(c)) out.push(buildCandidate(c, id, i, ap.x, ap.z));
+  }
+  return out;
+}
+
+export const MELEE_HANDLER: AbilityHandler = { name: "melee", candidates: meleeCandidates };
+
+export class AbilityRunner {
+  private readonly casts = new Map<number, ActiveCast>();
+  private readonly kits = new Map<number, string>();
+  private readonly buffers = new Map<number, Buffered>();
+  private readonly handlers = new Map<string, AbilityHandler>();
+
+  constructor(readonly registry: AbilityRegistry, handlers: Iterable<AbilityHandler>, private readonly host: AbilityHost) {
+    for (const h of handlers) {
+      if (this.handlers.has(h.name)) throw new Error(`duplicate handler ${h.name}`);
+      this.handlers.set(h.name, h);
+    }
+    for (const d of registry.defs) if (!this.handlers.has(d.handler)) throw new Error(`ability ${d.id}: unknown handler ${d.handler}`);
+  }
+
+  setKit(entityId: number, kit: string): void { this.kits.set(entityId, kit); }
+  kitOf(entityId: number): string | undefined { return this.kits.get(entityId); }
+  castOf(entityId: number): ActiveCast | undefined { return this.casts.get(entityId); }
+  get activeCount(): number { return this.casts.size; }
+  get bufferedCount(): number { return this.buffers.size; }
+
+  /**
+   * Skill press edge (priority: after evasive and awakening, lowest slot first - the caller orders edges).
+   * Idle: try to commit now. Busy (cast, recovery, guard, dash, stun): buffer one offensive edge for 6 ticks.
+   */
+  skillDown(f: Fighter, tick: number, slot: 1 | 2 | 3 | 4, edgeId: number): SkillOutcome {
+    if (!isAlive(f) || f.action === "Captured") return { kind: "rejected", reason: "STATE" };
+    const def = this.defFor(f, slot);
+    if (!def) return { kind: "rejected", reason: "INVALID" };
+    if (def.input !== "press") return { kind: "rejected", reason: "INVALID" }; // holdRelease/recast/context arrive with T19/T23
+    if (f.action === "Idle") {
+      return this.commit(f, tick, def);
+    }
+    if (f.action === "Stunned" || f.action === "Ragdolled" || f.action === "Awakening") return { kind: "rejected", reason: "STATE" };
+    this.buffers.set(f.entityId, { edgeId, slot, tick }); // most recent edge replaces any older one
+    return { kind: "buffered" };
+  }
+
+  /** Recovery -> Idle boundary: consume one still valid buffered edge; drop expired ones. */
+  consumeBuffer(f: Fighter, tick: number): BufferedOutcome | null {
+    const b = this.buffers.get(f.entityId);
+    if (!b) return null;
+    if (!isAlive(f)) { this.buffers.delete(f.entityId); return null; }
+    if (tick - b.tick > COMBAT.bufferTicks) {
+      this.buffers.delete(f.entityId);
+      return { edgeId: b.edgeId, outcome: { kind: "rejected", reason: "STATE" } };
+    }
+    if (f.action !== "Idle") {
+      if (f.action === "Stunned" || f.action === "Ragdolled" || f.action === "Captured") { this.buffers.delete(f.entityId); return { edgeId: b.edgeId, outcome: { kind: "rejected", reason: "STATE" } }; }
+      return null; // still busy: keep waiting inside the 6 tick window
+    }
+    this.buffers.delete(f.entityId);
+    const def = this.defFor(f, b.slot);
+    if (!def) return { edgeId: b.edgeId, outcome: { kind: "rejected", reason: "INVALID" } };
+    return { edgeId: b.edgeId, outcome: this.commit(f, tick, def) };
+  }
+
+  private defFor(f: Fighter, slot: 1 | 2 | 3 | 4): AbilityDef | undefined {
+    const kit = this.kits.get(f.entityId);
+    return kit ? this.registry.slotted(kit, f.form, slot) : undefined;
+  }
+
+  /** Validates form, once-per-form, grounded and cooldown, then commits through beginCast. */
+  private commit(f: Fighter, tick: number, def: AbilityDef): SkillOutcome {
+    const handler = this.handlers.get(def.handler)!;
+    const pose = this.host.pose(f.entityId);
+    if (!pose) return { kind: "rejected", reason: "STATE" };
+    if (def.form !== f.form) return { kind: "rejected", reason: "FORM" };
+    const bit = def.slot ? 1 << (def.slot - 1) : 0;
+    if (def.oncePerForm && (f.awakenedUsedMask & bit) !== 0) return { kind: "rejected", reason: "FORM" };
+    if (handler.requiresGrounded && !pose.grounded) return { kind: "rejected", reason: "STATE" };
+    const extra = handler.canStart?.({ tick, fighter: f, def, pose, host: this.host });
+    if (extra) return { kind: "rejected", reason: extra };
+    const r = beginCast(f, tick, def.id, def.startup, def.active, def.recovery, def.cooldown);
+    if (!r.ok) return { kind: "rejected", reason: r.reason };
+    const cc = f.cast!;
+    const cast: ActiveCast = {
+      def, entityId: f.entityId, castCounter: f.castCounter, generation: f.generation, startTick: tick,
+      activeStart: cc.activeStart, activeEnd: cc.activeEnd, endTick: cc.endTick, aimYaw: pose.facingYaw,
+      armorUntil: 0, data: {},
+    };
+    this.endCast(f.entityId, "cancelled"); // defensive: a stale cast can never survive a new commit
+    this.casts.set(f.entityId, cast);
+    if (def.oncePerForm) f.awakenedUsedMask |= bit;
+    // consumesForm: the awakening is spent at commit; the current ability still resolves from `cast`.
+    if (def.consumesForm) { f.form = "Base"; f.formEndTick = 0; }
+    handler.onCommit?.({ tick, fighter: f, cast, host: this.host, runner: this });
+    this.syncArmor(f, cast, tick);
+    return { kind: "started", castCounter: f.castCounter, moveId: def.id };
+  }
+
+  /** Extends the active window and/or the end of a running cast (capture sequences). Keeps the fighter consistent. */
+  extendCast(f: Fighter, cast: ActiveCast, activeEnd: number, endTick: number): void {
+    if (f.generation !== cast.generation || !f.cast || f.cast.castCounter !== cast.castCounter) return;
+    cast.activeEnd = Math.max(cast.activeEnd, activeEnd);
+    cast.endTick = Math.max(cast.endTick, endTick, cast.activeEnd);
+    f.cast.activeEnd = cast.activeEnd;
+    f.cast.endTick = cast.endTick;
+    if (f.action === "Active") f.actionEndTick = cast.activeEnd;
+    else if (f.action === "Recovery") f.actionEndTick = cast.endTick;
+  }
+
+  private armorOf(cast: ActiveCast, tick: number): boolean {
+    if (tick < cast.armorUntil) return true;
+    switch (cast.def.armor) {
+      case "startup": return tick < cast.activeStart;
+      case "onHit": return tick < cast.activeEnd; // D: armored through startup and active, not recovery
+      default: return false;
+    }
+  }
+
+  private syncArmor(f: Fighter, cast: ActiveCast | undefined, tick: number): void {
+    f.armored = !!cast && this.armorOf(cast, tick);
+  }
+
+  /**
+   * Collision query step. Retires finished or cancelled casts (calling onEnd once), refreshes armor and returns
+   * every handler's candidates for this tick. The room sorts and resolves them together with other sources.
+   */
+  collect(tick: number): HitCandidate[] {
+    const out: HitCandidate[] = [];
+    for (const id of [...this.casts.keys()].sort((a, b) => a - b)) {
+      const cast = this.casts.get(id)!;
+      const f = this.host.combat.get(id);
+      if (!f || !isAlive(f)) { this.endCast(id, "died"); continue; }
+      if (f.generation !== cast.generation || f.castCounter !== cast.castCounter) { this.endCast(id, "cancelled"); this.syncArmor(f, undefined, tick); continue; }
+      if (tick >= cast.endTick) { this.endCast(id, "completed"); this.syncArmor(f, undefined, tick); continue; }
+      this.syncArmor(f, cast, tick);
+      const ctx: CastContext = { tick, fighter: f, cast, host: this.host, runner: this };
+      const handler = this.handlers.get(cast.def.handler)!;
+      for (const c of (handler.candidates ?? meleeCandidates)(ctx)) out.push(c);
+    }
+    return out;
+  }
+
+  /** Delivers resolved results to the owning cast's handler. */
+  afterResolve(tick: number, results: readonly HitResult[]): void {
+    const byAttacker = new Map<number, HitResult[]>();
+    for (const r of results) {
+      const c = r.candidate;
+      const cast = this.casts.get(c.attackerId);
+      if (!cast || cast.castCounter !== c.castCounter) continue;
+      let l = byAttacker.get(c.attackerId);
+      if (!l) { l = []; byAttacker.set(c.attackerId, l); }
+      l.push(r);
+    }
+    for (const [id, list] of [...byAttacker.entries()].sort((a, b) => a[0] - b[0])) {
+      const cast = this.casts.get(id)!;
+      const f = this.host.combat.get(id);
+      if (!f) continue;
+      this.handlers.get(cast.def.handler)!.onResults?.({ tick, fighter: f, cast, host: this.host, runner: this }, list);
+    }
+  }
+
+  /** Launch velocities for ragdolled victims of ability hits that landed this tick. */
+  launches(tick: number, results: readonly HitResult[]): Launch[] {
+    const out: Launch[] = [];
+    for (const r of results) {
+      const c = r.candidate;
+      if (r.outcome !== "hit" || r.killed || c.reaction.kind !== "ragdoll") continue;
+      const def = this.registry.byId(c.moveId);
+      const v = this.host.combat.get(c.targetId);
+      const ap = this.host.pose(c.attackerId);
+      if (!def || !v || !ap || v.action !== "Ragdolled" || v.actionStartTick !== tick) continue; // armor: no launch
+      if (def.launch.forward === 0 && def.launch.up === 0) continue;
+      const cast = this.casts.get(c.attackerId);
+      const yaw = cast && cast.castCounter === c.castCounter ? cast.aimYaw : ap.facingYaw;
+      const [fx, fz] = forwardOf(yaw);
+      out.push({ targetId: c.targetId, vx: fx * def.launch.forward, vy: def.launch.up, vz: fz * def.launch.forward });
+    }
+    return out;
+  }
+
+  /** Movement scale for the running ability cast, or null when no ability cast is running (spec 14). */
+  moveScaleOf(entityId: number): number | null {
+    const c = this.casts.get(entityId);
+    return c ? c.def.moveScale : null;
+  }
+
+  private endCast(entityId: number, why: EndReason): void {
+    const cast = this.casts.get(entityId);
+    if (!cast) return;
+    this.casts.delete(entityId); // delete first: onEnd can never run twice
+    const f = this.host.combat.get(entityId);
+    if (f) {
+      f.armored = false;
+      this.handlers.get(cast.def.handler)!.onEnd?.({ tick: f.actionStartTick, fighter: f, cast, host: this.host, runner: this }, why);
+    }
+  }
+
+  /** Idempotent cancel: stale scheduled effects die with the generation; the handler is told once. */
+  cancel(entityId: number): void { this.endCast(entityId, "cancelled"); }
+
+  /** Death, respawn or kit change: drops cast, buffered edge and armor. */
+  reset(entityId: number): void {
+    this.endCast(entityId, "died");
+    this.buffers.delete(entityId);
+  }
+
+  remove(entityId: number): void {
+    this.reset(entityId);
+    this.kits.delete(entityId);
+  }
+
+  dispose(): void {
+    for (const id of [...this.casts.keys()]) this.endCast(id, "cancelled");
+    this.casts.clear();
+    this.buffers.clear();
+    this.kits.clear();
+  }
+}
