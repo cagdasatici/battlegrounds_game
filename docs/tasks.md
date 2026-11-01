@@ -91,7 +91,7 @@ Execution details, ownership and acceptance gates are in [the sparring plan](spa
 
 | Task | Title | Depends on | Status | Commit | Test report |
 |---|---|---|---|---|---|
-| BOT0 | Freeze sparring contracts | T18d T33a | TODO | | |
+| BOT0 | Freeze sparring contracts | T18d T33a | IN PROGRESS | f8a66a5 | docs/test-results/BOT0.md | Contracts implemented; aggregate test runner stalls, stop-and-report gate reached. 11 focused and 1078 unit tests pass |
 | BOT1 | Deterministic opponents | BOT0 | TODO | | |
 | BOT2 | Private match membership | BOT0 | TODO | | |
 | BOT3 | Host setup controls | BOT0 | TODO | | |
