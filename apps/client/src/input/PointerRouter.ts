@@ -4,7 +4,7 @@
  * an ignored extra pointer can never release the owner's action. The router only records local
  * intent; the server decides every outcome.
  */
-import { clamp, hitTest, type ControlId, type Layout } from "./ControlLayout.js";
+import { HIT_ORDER, clamp, hitTest, type ControlId, type Layout } from "./ControlLayout.js";
 
 export const CAMERA_SENSITIVITY = 0.003; // rad per CSS px, divided by s (D)
 export const PITCH_MIN = (-55 * Math.PI) / 180;
@@ -59,6 +59,32 @@ export class PointerRouter {
   get chargeHeldSlot(): 0 | SkillSlot {
     for (const i of [1, 2, 3, 4] as const) if (this.holders.has(`skill${i}`)) return i;
     return 0;
+  }
+
+  /** True while a local edge waits to be sent (the sampler then sends immediately within the rate bucket). */
+  get hasEdges(): boolean { return this.edges.length > 0; }
+
+  /**
+   * Keyboard or mouse hold of a control (T18b). Uses a reserved negative pseudo pointer id per control, so the
+   * same first-holder-wins rule and edge generation apply as for touch.
+   */
+  keyHold(id: ControlId, on: boolean): void {
+    const token = -1 - HIT_ORDER.indexOf(id);
+    if (on) {
+      if (this.disabled || this.holders.has(id)) return;
+      this.owners.set(token, id);
+      this.holders.set(id, token);
+      this.press(id);
+    } else {
+      this.release(token, false);
+    }
+  }
+
+  /** Keyboard movement in camera relative stick space. Ignored while a joystick pointer owns movement. */
+  setKeyboardMove(x: number, z: number): void {
+    if (this.holders.has("joystick")) return;
+    this.moveX = x;
+    this.moveZ = z;
   }
 
   takeEdges(): LocalEdge[] {
