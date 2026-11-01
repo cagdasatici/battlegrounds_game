@@ -23,6 +23,11 @@ export class ContextSystem {
     return d;
   }
 
+  /** True while the fighter may spend its shared sv.x use. */
+  private vanguardOpen(f: Fighter): boolean {
+    return f.kitId === "sv" && f.form === "Awakened" && !f.contextSpent;
+  }
+
   /** An opponent within the attacker's reach that stands within the wall gap of a vertical face (spec 13). */
   wallTargetOf(f: Fighter, tick: number): number | null {
     const ap = this.host.pose(f.entityId);
@@ -60,6 +65,8 @@ export class ContextSystem {
       const r = start(`${f.kitId}.wall`, true);
       if (r) return r;
     }
+    // 4. Grounded mini uppercut with jump held.
+    if (this.vanguardOpen(f) && req.pose.grounded && req.held.jumpHeld) return start("sv.x1", true);
     return null;
   }
 }

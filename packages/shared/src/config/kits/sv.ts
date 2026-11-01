@@ -56,4 +56,10 @@ export const SV_DEFS: AbilityDef[] = [
     hitOffsets: [0, 90], damage100: [0, 10000], range: 3, block: "U", counterable: false, armorBreak: true,
     stunTicks: 0, ragdollTicks: 90, launch: { forward: 6, up: 10 }, oncePerForm: true, consumesForm: true,
   }),
+  // P1 contextual attacks (T23, spec 15). Awakened Vanguard only, one shared use bit (Fighter.contextSpent).
+  // Echo Tap: grounded fourth M1 with jumpHeld, 24 HP, box 2 x 2 x 2, U, R84 F14 U6, counterable.
+  defineAbility({
+    id: "sv.x1", label: "Echo Tap", handler: "melee", startup: 12, active: 4, recovery: 30, cooldown: 0,
+    damage100: [2400], range: 2, block: "U", input: "context", stunTicks: 0, ragdollTicks: 84, launch: { forward: 14, up: 6 },
+  }),
 ];
