@@ -31,6 +31,8 @@ export interface LoopPlayer {
   hp100: number;
   meter100?: number;
   moveId?: string;
+  actionStartTick?: number;
+  actionEndTick?: number;
   ready?: boolean;
   action: Action;
   /** Present only on the local player (owner-only view, decision 0007). */
@@ -143,7 +145,7 @@ export class GameLoop {
       scene.updateRemotes(est);
     }
     this.present(dtSec);
-    scene.render();
+    scene.render(dtSec);
   }
 
   // ---- replicated state -------------------------------------------------------------------------------
@@ -165,7 +167,7 @@ export class GameLoop {
           vx: fromCm(p.vx), vy: fromCm(p.vy), vz: fromCm(p.vz), yaw: fromYaw(p.facingYaw),
         });
       }
-      this.d.scene.viewFor(key)?.setAction(p.action);
+      this.d.scene.viewFor(key)?.setAction(p.action, p.moveId ?? "", Math.max(0, (p.actionEndTick ?? 0) - (p.actionStartTick ?? 0)));
     }
     for (const key of [...this.known]) {
       if (seen.has(key)) continue;
