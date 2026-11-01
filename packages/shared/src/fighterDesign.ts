@@ -8,7 +8,8 @@
 import type { KitId } from "./protocol.js";
 import type { BoneName, Vec3 } from "./rig.js";
 
-export type PartShape = "box" | "sphere" | "capsule" | "cone" | "cylinder" | "torus";
+/** "box" is a rounded box (beveled, 2 segments per side at medium detail); "limb" is a tapered capsule skinned over two bones. */
+export type PartShape = "box" | "sphere" | "capsule" | "cone" | "cylinder" | "torus" | "limb";
 export type PaletteSlot = "skin" | "hair" | "primary" | "secondary" | "accent" | "trim" | "cloth" | "dark" | "stone";
 
 export interface PartDef {
@@ -17,12 +18,17 @@ export interface PartDef {
   readonly bone: BoneName;
   /** Offset from the bone origin in the rest pose. */
   readonly pos: Vec3;
-  /** box [w,h,d]; sphere [r]; capsule [r,length]; cone [r,h]; cylinder [rTop,rBottom,h]; torus [R,r]. */
+  /** box [w,h,d]; sphere [r]; capsule [r,length]; cone [r,h]; cylinder [rTop,rBottom,h]; torus [R,r];
+   * limb [rTop,rBottom,length,bulge] hanging down -Y from pos, blended with the neighbouring bones at its joints. */
   readonly size: readonly number[];
   readonly rot?: Vec3;
   readonly color: PaletteSlot;
   /** Drawn unlit so it reads as a light source; skipped by the outline pass. */
   readonly glow?: boolean;
+  /** Box bevel radius in metres (default: a small share of the smallest side). */
+  readonly bevel?: number;
+  /** Small detail (brows, mouth, thumb): only built at medium detail, skipped by the low-poly level of detail. */
+  readonly fine?: boolean;
 }
 
 export interface FighterDesign {
@@ -34,32 +40,42 @@ export interface FighterDesign {
 }
 
 type P = PartDef;
-const part = (name: string, shape: PartShape, bone: BoneName, pos: Vec3, size: readonly number[], color: PaletteSlot, extra: { rot?: Vec3; glow?: boolean } = {}): P =>
-  ({ name, shape, bone, pos, size, color, ...(extra.rot ? { rot: extra.rot } : {}), ...(extra.glow ? { glow: true } : {}) });
+const part = (name: string, shape: PartShape, bone: BoneName, pos: Vec3, size: readonly number[], color: PaletteSlot, extra: { rot?: Vec3; glow?: boolean; bevel?: number; fine?: boolean } = {}): P =>
+  ({ name, shape, bone, pos, size, color, ...(extra.rot ? { rot: extra.rot } : {}), ...(extra.glow ? { glow: true } : {}), ...(extra.bevel !== undefined ? { bevel: extra.bevel } : {}), ...(extra.fine ? { fine: true } : {}) });
+
+/** Limb sizes [rTop, rBottom, length, bulge]; lengths match the rig bone spacing so joints sit on bone origins. */
+const ARM_UPPER = [0.075, 0.06, 0.28, 0.006] as const;
+const ARM_LOWER = [0.06, 0.048, 0.26, 0.004] as const;
+const LEG_UPPER = [0.105, 0.075, 0.42, 0.008] as const;
+const LEG_LOWER = [0.075, 0.056, 0.38, 0.006] as const;
 
 /** Body shared by every kit: pelvis, torso, head, limbs. Colour slots decide how it reads per kit. */
 function body(): P[] {
   const out: P[] = [
-    part("pelvis", "box", "hips", [0, 0, 0], [0.34, 0.2, 0.22], "dark"),
-    part("belly", "box", "spine", [0, 0.04, 0], [0.33, 0.26, 0.21], "primary"),
-    part("chest", "box", "chest", [0, 0.07, 0], [0.46, 0.36, 0.28], "primary"),
+    part("pelvis", "box", "hips", [0, 0, 0], [0.34, 0.2, 0.22], "dark", { bevel: 0.05 }),
+    part("belly", "box", "spine", [0, 0.04, 0], [0.33, 0.26, 0.21], "primary", { bevel: 0.05 }),
+    part("chest", "box", "chest", [0, 0.07, 0], [0.46, 0.36, 0.28], "primary", { bevel: 0.07 }),
     part("neck", "cylinder", "neck", [0, 0.01, 0], [0.05, 0.055, 0.1], "skin"),
-    part("head", "box", "head", [0, 0.085, -0.005], [0.25, 0.25, 0.23], "skin"),
-    part("eyeL", "box", "head", [-0.045, 0.09, -0.108], [0.034, 0.022, 0.012], "dark"),
-    part("eyeR", "box", "head", [0.045, 0.09, -0.108], [0.034, 0.022, 0.012], "dark"),
-    part("hair", "box", "head", [0, 0.17, 0.03], [0.27, 0.12, 0.27], "hair"),
+    part("head", "box", "head", [0, 0.085, -0.005], [0.25, 0.25, 0.23], "skin", { bevel: 0.09 }),
+    part("eyeL", "box", "head", [-0.05, 0.09, -0.12], [0.034, 0.024, 0.012], "dark", { bevel: 0.006 }),
+    part("eyeR", "box", "head", [0.05, 0.09, -0.12], [0.034, 0.024, 0.012], "dark", { bevel: 0.006 }),
+    part("browL", "box", "head", [-0.05, 0.125, -0.121], [0.06, 0.014, 0.012], "hair", { rot: [0, 0, 0.18], bevel: 0.005, fine: true }),
+    part("browR", "box", "head", [0.05, 0.125, -0.121], [0.06, 0.014, 0.012], "hair", { rot: [0, 0, -0.18], bevel: 0.005, fine: true }),
+    part("mouth", "box", "head", [0, 0.03, -0.121], [0.05, 0.01, 0.012], "dark", { bevel: 0.004, fine: true }),
+    part("hair", "box", "head", [0, 0.17, 0.03], [0.27, 0.12, 0.27], "hair", { bevel: 0.05 }),
   ];
   for (const s of ["L", "R"] as const) {
     const x = s === "L" ? -1 : 1;
     const sh = `shoulder${s}` as BoneName, el = `elbow${s}` as BoneName, ha = `hand${s}` as BoneName;
     const hp = `hip${s}` as BoneName, kn = `knee${s}` as BoneName, an = `ankle${s}` as BoneName;
     out.push(
-      part(`upperArm${s}`, "box", sh, [0, -0.14, 0], [0.14, 0.3, 0.14], "cloth"),
-      part(`foreArm${s}`, "box", el, [0, -0.13, 0], [0.13, 0.28, 0.13], "skin"),
-      part(`hand${s}`, "box", ha, [0, -0.035, 0], [0.12, 0.12, 0.12], "skin"),
-      part(`thigh${s}`, "box", hp, [0, -0.2, 0], [0.19, 0.44, 0.2], "dark"),
-      part(`shin${s}`, "box", kn, [0, -0.19, 0], [0.16, 0.4, 0.17], "dark"),
-      part(`foot${s}`, "box", an, [x * 0.005, 0.04, -0.05], [0.125, 0.09, 0.27], "secondary"),
+      part(`upperArm${s}`, "limb", sh, [0, 0, 0], ARM_UPPER, "cloth"),
+      part(`foreArm${s}`, "limb", el, [0, 0, 0], ARM_LOWER, "skin"),
+      part(`hand${s}`, "box", ha, [0, -0.05, 0], [0.09, 0.1, 0.05], "skin", { bevel: 0.02 }),
+      part(`thumb${s}`, "capsule", ha, [-x * 0.052, -0.035, -0.012], [0.017, 0.045], "skin", { rot: [0, 0, -x * 0.35], fine: true }),
+      part(`thigh${s}`, "limb", hp, [0, 0, 0], LEG_UPPER, "dark"),
+      part(`shin${s}`, "limb", kn, [0, 0, 0], LEG_LOWER, "dark"),
+      part(`foot${s}`, "box", an, [x * 0.005, 0.04, -0.05], [0.125, 0.09, 0.27], "secondary", { bevel: 0.035 }),
     );
   }
   return out;
@@ -99,6 +115,10 @@ function stoneVanguard(): FighterDesign {
     part("bootWedgeR", "cone", "ankleR", [0.005, 0.05, -0.17], [0.065, 0.12], "accent", { rot: [-Math.PI / 2, 0, 0] }),
     part("kneePlateL", "box", "kneeL", [0, 0.02, -0.075], [0.12, 0.1, 0.05], "stone"),
     part("kneePlateR", "box", "kneeR", [0, 0.02, -0.075], [0.12, 0.1, 0.05], "stone"),
+    // Armour layers: hanging tassets and a back slab so the rear silhouette is blocky and heavy.
+    part("tassetL", "box", "hips", [-0.13, -0.14, -0.1], [0.14, 0.2, 0.04], "stone", { rot: [0.1, 0, 0.05], bevel: 0.015 }),
+    part("tassetR", "box", "hips", [0.13, -0.14, -0.1], [0.14, 0.2, 0.04], "stone", { rot: [0.1, 0, -0.05], bevel: 0.015 }),
+    part("backSlab", "box", "chest", [0, 0.1, 0.17], [0.34, 0.3, 0.07], "stone", { bevel: 0.025 }),
   );
   return {
     kit: "sv", label: "Stone Vanguard", glowColor: 0xffa63a,
@@ -112,8 +132,8 @@ function tideDuelist(): FighterDesign {
   parts = override(parts, "chest", { color: "cloth", size: [0.43, 0.35, 0.26] });
   parts = override(parts, "belly", { color: "primary" });
   parts = override(parts, "pelvis", { color: "dark" });
-  parts = override(parts, "upperArmL", { color: "cloth", size: [0.15, 0.3, 0.15] });
-  parts = override(parts, "upperArmR", { color: "cloth", size: [0.15, 0.3, 0.15] });
+  parts = override(parts, "upperArmL", { color: "cloth", size: [0.082, 0.06, 0.28, 0.01] });
+  parts = override(parts, "upperArmR", { color: "cloth", size: [0.082, 0.06, 0.28, 0.01] });
   parts = override(parts, "foreArmL", { color: "cloth" });
   parts = override(parts, "foreArmR", { color: "cloth" });
   parts = override(parts, "foot" + "L", { color: "dark" });
@@ -137,6 +157,9 @@ function tideDuelist(): FighterDesign {
     part("bangs", "box", "head", [0, 0.18, -0.07], [0.19, 0.04, 0.09], "hair", { rot: [-0.3, 0, 0] }),
     part("wristTealL", "cylinder", "elbowL", [0, -0.2, 0], [0.06, 0.06, 0.06], "accent"),
     part("wristTealR", "cylinder", "elbowR", [0, -0.2, 0], [0.06, 0.06, 0.06], "accent"),
+    // Cloth layers: a high collar scarf and a long back cape give the duelist a tall, flowing outline.
+    part("scarf", "torus", "neck", [0, -0.02, 0], [0.085, 0.028], "secondary", { rot: [Math.PI / 2, 0, 0] }),
+    part("capeBack", "box", "chest", [0, -0.05, 0.16], [0.3, 0.5, 0.025], "cloth", { rot: [-0.06, 0, 0], bevel: 0.01 }),
   );
   return {
     kit: "td", label: "Tide Duelist", glowColor: 0x5fe3d3,
@@ -167,8 +190,8 @@ function emberArtificer(): FighterDesign {
     part("ventGlowL", "sphere", "chest", [-0.1, 0.36, 0.22], [0.03], "accent", { glow: true }),
     part("ventGlowR", "sphere", "chest", [0.1, 0.36, 0.22], [0.03], "accent", { glow: true }),
     // Floating copper rings orbiting the backpack (they ride the chest bone).
-    part("ringOuter", "torus", "chest", [0, 0.2, 0.42], [0.3, 0.022], "accent", { rot: [Math.PI / 2 - 0.35, 0, 0.2], glow: true }),
-    part("ringInner", "torus", "chest", [0, 0.2, 0.42], [0.2, 0.018], "trim", { rot: [Math.PI / 2 + 0.4, 0.5, 0] }),
+    part("ringOuter", "torus", "chest", [0, 0.2, 0.34], [0.24, 0.022], "accent", { rot: [Math.PI / 2 - 0.35, 0, 0.2], glow: true }),
+    part("ringInner", "torus", "chest", [0, 0.2, 0.34], [0.17, 0.018], "trim", { rot: [Math.PI / 2 + 0.4, 0.5, 0] }),
     // Independent gauntlets with heat vents.
     part("gauntletL", "box", "elbowL", [0, -0.14, 0], [0.15, 0.2, 0.15], "secondary"),
     part("gauntletR", "box", "elbowR", [0, -0.14, 0], [0.15, 0.2, 0.15], "secondary"),
@@ -182,6 +205,10 @@ function emberArtificer(): FighterDesign {
     part("lensR", "cylinder", "head", [0.05, 0.165, -0.105], [0.035, 0.035, 0.03], "accent", { rot: [Math.PI / 2, 0, 0], glow: true }),
     part("bootCapL", "box", "ankleL", [0, 0.08, -0.04], [0.14, 0.1, 0.28], "accent"),
     part("bootCapR", "box", "ankleR", [0, 0.08, -0.04], [0.14, 0.1, 0.28], "accent"),
+    // Armour and cloth layers: shoulder plates and a front apron.
+    part("apron", "box", "hips", [0, -0.17, -0.12], [0.22, 0.3, 0.03], "trim", { rot: [0.06, 0, 0], bevel: 0.012 }),
+    part("shoulderPlateL", "box", "chest", [-0.27, 0.21, 0], [0.16, 0.07, 0.2], "secondary", { bevel: 0.03 }),
+    part("shoulderPlateR", "box", "chest", [0.27, 0.21, 0], [0.16, 0.07, 0.2], "secondary", { bevel: 0.03 }),
   );
   return {
     kit: "ea", label: "Ember Artificer", glowColor: 0xffb070,
