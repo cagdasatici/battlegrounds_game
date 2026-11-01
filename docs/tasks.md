@@ -83,6 +83,7 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | FX4-td | Tide Duelist ability effects | FX1 | IMPLEMENTED (DEVICE CHECK PENDING) | d41b63b | docs/test-results/FX4-td.md | recipes for 8 td abilities; iPad NOT RUN |
 | FX4-sv | Stone Vanguard ability effects | FX1 | IMPLEMENTED (DEVICE CHECK PENDING) | 2cbc0d0 | docs/test-results/FX4-sv.md | recipes for 11 sv abilities; iPad NOT RUN |
 | FX4-ea | Ember Artificer ability effects | FX1 T21 | IMPLEMENTED (DEVICE CHECK PENDING) | b07be69 | docs/test-results/FX4-ea.md | recipes for 8 ea abilities; iPad NOT RUN |
+| FX4-align | Directional FX and terrain placement | FX4-sv FX4-td FX4-ea | IMPLEMENTED (DEVICE CHECK PENDING) | 2c31554 | docs/test-results/FX4-align.md | Four headings, mixed-height terrain and defender-side Gravel Flurry verified in Chromium. iPad NOT RUN |
 | FX5 | Capture camera and reduced motion | FX1 | IMPLEMENTED (DEVICE CHECK PENDING) | ab5030b | docs/test-results/FX5.md | decisions/0029. iPad NOT RUN |
 | FX1 | Hit impact effects: sparks, flash, hitstop, shake | FX0 | IMPLEMENTED (DEVICE CHECK PENDING) | 53e03bc | docs/test-results/FX1.md | decisions/0024. shake scale constant 0.25; iPad NOT RUN |
 
