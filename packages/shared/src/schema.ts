@@ -26,6 +26,9 @@ export const PROJECTILE_FIELDS = [
   "chargeClass", "remainingTicks", "reflectionCount",
 ] as const;
 
+/** Public urn record fields (T23, spec 10). */
+export const URN_FIELDS = ["id", "state", "holderId", "returnTick", "x", "y", "z"] as const;
+
 /** Fields that must never be replicated. */
 export const FORBIDDEN_STATE_FIELDS = ["invite", "token", "ticket", "sessionId", "authId", "cookie"] as const;
 

@@ -5,8 +5,9 @@ import { SV_HANDLERS } from "./sv.js";
 import { TD_HANDLERS } from "./td.js";
 import { EA_HANDLERS } from "./ea.js";
 import { PROJECTILE_HANDLERS } from "./projectile.js";
+import { CONTEXT_HANDLERS } from "./context.js";
 
-export const ALL_HANDLERS: readonly AbilityHandler[] = [MELEE_HANDLER, ...SV_HANDLERS, ...TD_HANDLERS, ...EA_HANDLERS, ...PROJECTILE_HANDLERS];
+export const ALL_HANDLERS: readonly AbilityHandler[] = [MELEE_HANDLER, ...SV_HANDLERS, ...TD_HANDLERS, ...EA_HANDLERS, ...PROJECTILE_HANDLERS, ...CONTEXT_HANDLERS];
 
 /** Validated registry of every shipped definition; throws on any invalid or unhandled definition. */
 export function buildKitRegistry(): AbilityRegistry {

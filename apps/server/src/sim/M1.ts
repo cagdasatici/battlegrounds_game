@@ -17,7 +17,11 @@ import type { HitCandidate, HitResult } from "./HitResolver.js";
 export type FourthVariant = "finisher" | "uppercut" | "downslam";
 
 export interface M1Pose { x: number; y: number; z: number; facingYaw: number; grounded: boolean }
-export interface M1Held { attackHeld: boolean; blockHeld: boolean; jumpHeld: boolean }
+export interface M1Held { attackHeld: boolean; blockHeld: boolean; jumpHeld: boolean; moveX?: number; moveZ?: number }
+/** T23: a context move that replaces the M1 about to start. `advance` also resets the chain (fourth hit replacements). */
+export interface ContextStart { accept: Accept; advance: boolean }
+export interface ContextRequest { index: 0 | 1 | 2 | 3; held: M1Held; pose: M1Pose; /** A fresh press within the buffer window. */ pressed: boolean }
+export type ContextHook = (f: Fighter, tick: number, req: ContextRequest) => ContextStart | null;
 export interface Launch { targetId: number; vx: number; vy: number; vz: number }
 
 interface ActiveSwing { castCounter: number; index: 0 | 1 | 2 | 3; variant: FourthVariant | null }
@@ -101,6 +105,9 @@ export class M1System {
   /** `buffer` is the room wide single offensive buffer shared with AbilityRunner (spec 12, R03). */
   constructor(readonly buffer: OffensiveBuffer = new OffensiveBuffer()) {}
 
+  /** T23: set by the room. Asked before every M1 commit; a non-null answer means a context move started instead. */
+  contextHook: ContextHook | null = null;
+
   private chain(f: Fighter): ChainState {
     let s = this.chains.get(f.entityId);
     if (!s || s.lifeId !== f.lifeId) {
@@ -128,6 +135,14 @@ export class M1System {
     if (!wanted || held.blockHeld || !pose || f.action !== "Idle") return null;
     if (s.lastEndTick >= 0 && tick - s.lastEndTick > M.chainResetGap) s.next = 0;
     const index = s.next;
+    const ctx = this.contextHook?.(f, tick, { index, held, pose, pressed: pending });
+    if (ctx) {
+      if (!ctx.accept.ok) return ctx.accept;
+      if (pending) this.buffer.drop(f.entityId);
+      if (ctx.advance) { s.next = 0; s.lastEndTick = f.cast?.endTick ?? tick; }
+      s.swing = null;
+      return ctx.accept;
+    }
     const variant = index === 3 ? selectFourth(pose.grounded, held.jumpHeld) : null;
     const r = beginCast(f, tick, m1MoveId(index, variant), M.startup, M.active, index === 3 ? M.finalRecovery : M.recovery, 0);
     if (!r.ok) return r;
