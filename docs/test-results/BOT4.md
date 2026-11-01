@@ -1,6 +1,6 @@
 # BOT4 — Authoritative room integration
 
-Date: 1 November 2026. Prerequisites: BOT1 fd80a2c, BOT2 e761c3a.
+Date: 1 November 2026. Implementation commit: 57ac46d. Prerequisites: BOT1 fd80a2c, BOT2 e761c3a.
 
 ## Implemented behavior
 
