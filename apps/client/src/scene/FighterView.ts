@@ -7,7 +7,7 @@ import type { KitId } from "@eb/shared/protocol";
 import { TICK_RATE } from "@eb/shared/protocol";
 import { FIGHTER_DESIGNS } from "@eb/shared/fighterDesign";
 import { chooseClip, retimeScale } from "./FighterAnim.js";
-import { buildFighterRig, type FighterRig } from "./FighterModel.js";
+import { buildFighterRig, type FighterRig, type Lod } from "./FighterModel.js";
 
 export const KIT_COLORS: Readonly<Record<KitId, number>> = {
   sv: FIGHTER_DESIGNS.sv.palette.accent, td: FIGHTER_DESIGNS.td.palette.accent, ea: FIGHTER_DESIGNS.ea.palette.accent,
@@ -34,8 +34,8 @@ export class FighterView {
   private flashTotalMs = 0;
   private frozenFrames = 0;
 
-  constructor(readonly kitId: KitId, ramp: DataTexture, opts: { outline?: boolean } = {}) {
-    this.rig = buildFighterRig(kitId, ramp, { outline: opts.outline ?? true });
+  constructor(readonly kitId: KitId, ramp: DataTexture, opts: { outline?: boolean; lod?: Lod } = {}) {
+    this.rig = buildFighterRig(kitId, ramp, { outline: opts.outline ?? true, ...(opts.lod ? { lod: opts.lod } : {}) });
     this.group.add(this.rig.root, ...this.rig.meshes);
     this.mixer = new AnimationMixer(this.group);
     this.play("idle", true);
@@ -69,7 +69,13 @@ export class FighterView {
   }
 
   /** Meshes that should cast shadows are flagged on creation; this lets the scene toggle them by quality. */
-  setShadows(on: boolean): void { for (const m of this.rig.meshes) if (m.name.endsWith(".body")) { m.castShadow = on; m.receiveShadow = on; } }
+  setShadows(on: boolean): void {
+    for (const m of this.rig.meshes) if (m.name.endsWith(".body")) { m.castShadow = on; m.receiveShadow = on; }
+    // GameScene turns shadows off exactly on the low quality tier, so that tier also gets the low-poly level of detail.
+    this.setLod(on ? "medium" : "low");
+  }
+  /** Swaps to the low-poly (<= 3k triangles) or medium (<= 8k) geometry in place. */
+  setLod(lod: Lod): void { if (!this.disposed) this.rig.setLod(lod); }
   get meshCount(): number { return this.rig.meshes.length; }
   hasClip(id: string): boolean { return this.rig.clips.has(id); }
 
