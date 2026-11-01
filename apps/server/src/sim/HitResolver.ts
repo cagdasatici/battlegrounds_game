@@ -36,7 +36,9 @@ export interface HitCandidate {
    * Present only for projectile hits (T19). A counter stance intercepts projectiles only when reflectable
    * (spec 13/15); melee candidates leave this unset.
    */
-  projectile?: { id: number; reflectable: boolean };
+  projectile?: { id: number; reflectable: boolean; ownerLifeId: number };
+  /** Damage in hundredths applied when a blocked hit lands on a guard (T19 chip). Never lethal. Default 0. */
+  chip100?: number;
   /** Present for capture commits. A losing capture deals nothing. */
   capture?: { cinematic: boolean; maxTicks: number };
 }
@@ -116,11 +118,13 @@ export function resolveHits(tick: number, candidates: readonly HitCandidate[], c
     const atk = ctx.fighter(c.attackerId);
     const tgt = ctx.fighter(c.targetId);
     if (c.attackerId === c.targetId) { res(c, "self"); continue; }
-    // Later attacks from a player killed or interrupted earlier in the same tick are invalid.
-    if (!atk || !isAlive(atk) || atk.generation !== c.attackerGeneration) { res(c, "staleAttacker"); continue; }
+    // Later attacks from a player killed or interrupted earlier in the same tick are invalid. A detached projectile
+    // (T19) is not tied to the owner's action: it keeps its owner life attribution when the owner is dead, gone or busy.
+    const live = !!atk && isAlive(atk) && (c.projectile ? atk.lifeId === c.projectile.ownerLifeId : atk.generation === c.attackerGeneration);
+    if (!c.projectile && !live) { res(c, "staleAttacker"); continue; }
     if (!tgt || !isAlive(tgt)) { res(c, "deadTarget"); continue; }
     if (ctx.ledger.count(c.attackerId, c.castCounter, c.targetId, tgt.lifeId) >= c.maxHitsPerTarget) { res(c, "duplicate"); continue; }
-    if (isProtected(atk, tick) || isProtected(tgt, tick)) { res(c, "protected"); continue; }
+    if ((live && isProtected(atk!, tick)) || isProtected(tgt, tick)) { res(c, "protected"); continue; }
     if (isInvulnerable(tgt, tick)) { res(c, "invulnerable"); continue; }
     if (ctx.captures.shieldsFrom(c.targetId, c.attackerId)) { res(c, "shielded"); continue; }
     if (c.counterable && (tick < tgt.counterOpenUntil || tick < tgt.lethalCounterUntil) && (!c.projectile || c.projectile.reflectable)) {
@@ -134,12 +138,15 @@ export function resolveHits(tick: number, candidates: readonly HitCandidate[], c
     if (c.block === "B" && isGuarding(tgt, tick) && tp && isFrontal(tp.x, tp.z, tp.facingYaw, c.originX, c.originZ)) {
       ctx.ledger.record(c.attackerId, c.castCounter, c.targetId, tgt.lifeId);
       applyBlockstun(tgt, tick);
-      res(c, "blocked");
+      // Chip never kills: it is clamped so the guard always keeps at least 1 hundredth of HP.
+      const chip = c.chip100 ? Math.max(0, Math.min(Math.trunc(c.chip100), tgt.hp100 - 1)) : 0;
+      tgt.hp100 -= chip;
+      res(c, "blocked", chip);
       continue;
     }
     if (c.capture) {
       const won = ctx.captures.tryCapture({
-        victimId: c.targetId, captorId: c.attackerId, captorGeneration: atk.generation, castCounter: c.castCounter,
+        victimId: c.targetId, captorId: c.attackerId, captorGeneration: atk!.generation, castCounter: c.castCounter,
         moveId: c.moveId, cinematic: c.capture.cinematic, startTick: tick, endTick: tick + c.capture.maxTicks,
       });
       if (!won) { res(c, "captureLost"); continue; }

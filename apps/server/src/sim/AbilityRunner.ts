@@ -9,6 +9,7 @@ import { LandingBonusBook } from "./LandingBonus.js";
 import { launchVector } from "./Knockback.js";
 import { OffensiveBuffer } from "./OffensiveBuffer.js";
 import type { ReflectableProjectiles } from "./Reflect.js";
+import type { ProjectileSpawn } from "./Projectiles.js";
 
 /**
  * Ability framework (spec sections 12, 13, 14). Pure server module: no Rapier, no timers, no DOM.
@@ -42,8 +43,17 @@ export interface AbilityHost {
   wallContact?(entityId: number, tick: number): boolean;
   /** Optional (T13): height of the walkable surface below (x, z), or null over the void. */
   surfaceHeight?(x: number, z: number): number | null;
-  /** Optional projectile provider for reflect handlers (sv.b3). The projectile system arrives in T19. */
+  /** Optional projectile provider for reflect handlers (sv.b3). Implemented by ProjectileSystem (T19). */
   readonly projectiles?: ReflectableProjectiles;
+  /** Optional (T19): spawns a detached projectile for charge/projectile handlers. Returns its id, or null at the room cap. */
+  readonly projectileSpawner?: { spawn(s: ProjectileSpawn, tick: number): number | null };
+  /** Optional (T19): continuous sphere sweep against static geometry; fraction 0..1 of the first contact, or null. */
+  sweepSphere?(a: readonly [number, number, number], b: readonly [number, number, number], radius: number): number | null;
+  /**
+   * Optional (T19): hold state of a charge slot for the entity's input channel. "held" while the slot's hold is
+   * refreshed by fresh packets, "released" when the player let go, "stale" when the input lease lapsed (A11).
+   */
+  hold?(entityId: number, slot: 1 | 2 | 3 | 4, tick: number): "held" | "released" | "stale";
   /**
    * Optional (T13): shared reflection rule used by counter stances (td.b4) for an incoming reflectable projectile.
    * Kept separate from `projectiles` until T19 unifies both into one provider.
@@ -64,7 +74,8 @@ export interface ActiveCast {
   readonly castCounter: number;
   readonly generation: number;
   readonly startTick: number;
-  readonly activeStart: number;
+  /** Mutable only through AbilityRunner.rescheduleCast (charge release moves the windup end). */
+  activeStart: number;
   /** Mutable so a handler can extend the active window (capture sequences); use extendCast(). */
   activeEnd: number;
   endTick: number;
@@ -107,6 +118,15 @@ export interface AbilityHandler {
   globalCollect?(c: { tick: number; host: AbilityHost; runner: AbilityRunner }): HitCandidate[];
   /** All results of the tick, for handlers with detached effects. */
   globalResults?(c: { tick: number; host: AbilityHost; runner: AbilityRunner }, results: readonly HitResult[]): void;
+  /**
+   * T19: vertical velocity is held at zero while this returns true and the caster is airborne (charge, Cinder Array).
+   */
+  freezeVertical?(c: CastContext): boolean;
+  /**
+   * T19: a second press of the same slot while the cast runs (input "recast"). Return true when the press is accepted,
+   * false when it is ignored (for example before the minimum active ticks).
+   */
+  onRecast?(c: CastContext): boolean;
   /** Called exactly once per cast when it ends, whatever the reason. */
   onEnd?(c: CastContext, why: EndReason): void;
 }
@@ -306,7 +326,15 @@ export class AbilityRunner {
     if (!isAlive(f) || f.action === "Captured") return { kind: "rejected", reason: "STATE" };
     const def = this.defFor(f, slot);
     if (!def) return { kind: "rejected", reason: "INVALID" };
-    if (def.input !== "press") return { kind: "rejected", reason: "INVALID" }; // holdRelease/recast/context arrive with T19/T23
+    if (def.input === "context") return { kind: "rejected", reason: "INVALID" }; // context moves arrive with T23
+    if (f.action !== "Idle") {
+      const running = this.casts.get(f.entityId);
+      if (running && running.def.input === "recast" && running.def.slot === slot && running.generation === f.generation
+        && running.def.form === f.form) {
+        const ok = this.handlers.get(running.def.handler)?.onRecast?.({ tick, fighter: f, cast: running, host: this.host, runner: this });
+        return ok ? { kind: "started", castCounter: running.castCounter, moveId: running.def.id } : { kind: "rejected", reason: "STATE" };
+      }
+    }
     if (f.action === "Idle") {
       return this.commit(f, tick, def);
     }
@@ -315,6 +343,45 @@ export class AbilityRunner {
     // One shared offensive buffer: the most recent edge replaces any older one (tie: lower action number).
     const lost = this.buffer.set(f.entityId, { kind: "skill", slot, edgeId, tick });
     return lost && lost.kind === "skill" && lost.edgeId === edgeId ? { kind: "rejected", reason: "STATE" } : { kind: "buffered" };
+  }
+
+  /**
+   * Skill release edge (T19). Only a running holdRelease cast of that slot reacts: it records the release tick so the
+   * handler fires on the next collect. Press moves ignore the edge; a stale or duplicate edge changes nothing.
+   */
+  skillUp(f: Fighter, tick: number, slot: 1 | 2 | 3 | 4): void {
+    this.nowTick = Math.max(this.nowTick, tick);
+    const cast = this.casts.get(f.entityId);
+    if (!cast || cast.def.input !== "holdRelease" || cast.def.slot !== slot) return;
+    if (cast.generation !== f.generation || cast.castCounter !== f.castCounter) return;
+    cast.data.upTick ??= tick;
+  }
+
+  /** T19: moves a running cast's windup end (charge release). Never earlier than tick + 1; keeps the fighter consistent. */
+  rescheduleCast(f: Fighter, cast: ActiveCast, tick: number, activeStart: number): void {
+    if (f.generation !== cast.generation || !f.cast || f.cast.castCounter !== cast.castCounter) return;
+    const start = Math.max(tick + 1, activeStart);
+    cast.activeStart = start;
+    cast.activeEnd = start + cast.def.active;
+    cast.endTick = cast.activeEnd + cast.def.recovery;
+    f.cast.activeStart = cast.activeStart;
+    f.cast.activeEnd = cast.activeEnd;
+    f.cast.endTick = cast.endTick;
+    if (f.action === "Windup") f.actionEndTick = start;
+  }
+
+  /** Owner-only chargeStartTick: the commit tick while a charge is being held, else 0. */
+  chargeStartOf(entityId: number): number {
+    const c = this.casts.get(entityId);
+    return c && c.data.charging === true ? (c.data.chargeStart as number) : 0;
+  }
+
+  /** True when the running cast's handler holds the caster's vertical velocity at zero this tick (airborne only). */
+  freezesVertical(entityId: number, tick: number): boolean {
+    const cast = this.casts.get(entityId);
+    const f = this.host.combat.get(entityId);
+    if (!cast || !f || !isAlive(f)) return false;
+    return this.handlers.get(cast.def.handler)?.freezeVertical?.({ tick, fighter: f, cast, host: this.host, runner: this }) ?? false;
   }
 
   /** Recovery -> Idle boundary: consume one still valid buffered edge; drop expired ones. */

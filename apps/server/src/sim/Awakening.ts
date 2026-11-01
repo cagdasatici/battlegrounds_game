@@ -88,6 +88,7 @@ export class AwakeningSystem {
       if (AWAKENED_MOVE_RE.test(c.moveId)) continue; // D (T15): damage of a consumed awakened move never feeds the next meter
       const a = this.host.combat.get(c.attackerId);
       if (!a || !isAlive(a) || a.form !== "Base" || a.action === "Awakening") continue;
+      if (c.projectile && a.lifeId !== c.projectile.ownerLifeId) continue; // a detached shot of a past life builds nothing (spec 15)
       a.meter100 = Math.min(meterRequired100(a.kitId), a.meter100 + r.damage100);
     }
   }

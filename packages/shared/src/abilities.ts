@@ -21,6 +21,28 @@ export const ShapeSchema = z.discriminatedUnion("kind", [
 ]);
 export type Shape = z.infer<typeof ShapeSchema>;
 
+/**
+ * Projectile block of a definition (T19, spec 15 Ember Orb card). All numbers are D. Charge: the cast holds for up to
+ * chargeMaxTicks (0 = no charge stage); only a full charge deals fullDamage100 and bypasses guard (U). A partial charge
+ * uses damage100[0] and the definition's block with chip100 on a block. lifeTicks and maxRange both end the flight.
+ */
+export const ProjectileSpecSchema = z.strictObject({
+  speed: nonNeg,
+  lifeTicks: int.min(1),
+  maxRange: nonNeg,
+  radius: nonNeg,
+  splashRadius: nonNeg,
+  splashMax: int.min(1),
+  reflectable: z.boolean(),
+  /** Fixed lateral arc: offset = amplitude * sin(pi * s / span) for s < span, then back on the centre line. */
+  arcAmplitude: nonNeg,
+  arcSpan: nonNeg,
+  chargeMaxTicks: nonNegInt,
+  fullDamage100: nonNegInt,
+  chip100: nonNegInt,
+});
+export type ProjectileSpec = z.infer<typeof ProjectileSpecSchema>;
+
 export const TARGET_STATES = ["standing", "air", "ragdoll"] as const;
 export type TargetState = (typeof TARGET_STATES)[number];
 
@@ -56,6 +78,7 @@ export const AbilityDefSchema = z.strictObject({
   consumesForm: z.boolean(),
   maxTargets: int.min(1),
   maxHitsPerTarget: int.min(1),
+  projectile: ProjectileSpecSchema.optional(),
   animationId: z.string().min(1),
   vfxId: z.string().min(1),
   sfxId: z.string().min(1),

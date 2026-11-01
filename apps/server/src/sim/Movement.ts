@@ -79,12 +79,14 @@ export class MovementSystem {
    * velocity for this tick, e.g. a dash; gravity and collision still apply.
    */
   step(tick: number, intentOf: (entityId: number) => MoveIntent, overrideOf?: (entityId: number) => HorizontalOverride | null,
-    facingOverrideOf?: (entityId: number) => number | null): void {
+    facingOverrideOf?: (entityId: number) => number | null, holdVertical?: (entityId: number) => boolean): void {
     if (this.disposed) throw new Error("movement disposed");
     const ids = [...this.bodies.keys()].sort((a, b) => a - b);
     for (const id of ids) {
       const b = this.bodies.get(id)!;
       const desired = integrateMovement(b.state, intentOf(id), tick);
+      // T19: charge and Cinder Array hold an airborne caster's vertical velocity at zero (spec 15).
+      if (!b.state.grounded && holdVertical?.(id)) { b.state.vy = 0; desired.dy = 0; }
       const fo = facingOverrideOf?.(id);
       if (fo !== null && fo !== undefined && Number.isFinite(fo)) b.state.facingYaw = fo; // cast aim owns the body facing (R07)
       const o = overrideOf?.(id);

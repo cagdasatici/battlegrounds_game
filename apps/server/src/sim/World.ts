@@ -102,6 +102,19 @@ export class World {
     return this.rapier.castRay(ray, len, true, RAPIER.QueryFilterFlags.EXCLUDE_KINEMATIC) !== null;
   }
 
+  /**
+   * Continuous sphere sweep a -> b against static geometry (T19, A19). Returns the fraction 0..1 of the first contact
+   * or null. A cast, not a point sample, so a fast projectile cannot tunnel through thin cover; a sphere that starts
+   * overlapping geometry reports 0.
+   */
+  sweepSphere(a: MapVec3, b: MapVec3, radius: number): number | null {
+    const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
+    if (!(Math.hypot(dx, dy, dz) > 1e-9)) return null;
+    const hit = this.rapier.castShape({ x: a[0], y: a[1], z: a[2] }, { x: 0, y: 0, z: 0, w: 1 }, { x: dx, y: dy, z: dz },
+      new RAPIER.Ball(radius), 0, 1, true, RAPIER.QueryFilterFlags.EXCLUDE_KINEMATIC);
+    return hit ? Math.max(0, Math.min(1, hit.time_of_impact)) : null;
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
