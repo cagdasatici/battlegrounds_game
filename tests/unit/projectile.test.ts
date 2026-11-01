@@ -34,7 +34,7 @@ describe("T19 definition: projectile block and holdRelease", () => {
     expect([d.startup, d.active, d.recovery, d.cooldown]).toEqual([6, 1, 24, 1500]);
     expect(d.damage100).toEqual([1500]);
     expect(d.projectile).toMatchObject({ speed: 24, lifeTicks: 120, maxRange: 40, radius: 0.35, splashRadius: 2, splashMax: 4, chargeMaxTicks: 180, fullDamage100: 2500, chip100: 500 });
-    const reg = buildAbilityRegistry([...ALL_ABILITY_DEFS, d], new Set(ALL_HANDLERS.map((h) => h.name)));
+    const reg = buildAbilityRegistry([...ALL_ABILITY_DEFS.filter((x) => x.id !== d.id), d], new Set(ALL_HANDLERS.map((h) => h.name)));
     expect(reg.slotted("ea", "Base", 3)?.id).toBe("ea.b3");
   });
   test("the projectile block is strict: unknown keys and bad numbers fail", () => {
@@ -48,8 +48,11 @@ describe("T19 definition: projectile block and holdRelease", () => {
     r.input.heldSlot = 3;
     expect(() => r.step(T0, { press: [{ id: 1, slot: 3 }] })).toThrow(/projectile block/);
   });
-  test("no shipped definition changed: ea stays empty until T20", () => {
-    expect(ALL_ABILITY_DEFS.filter((d) => d.id.startsWith("ea.")).length).toBe(0);
+  test("T20 ships the Ember Orb: ea.b3 is in the shipped registry and the rig default is that very definition", () => {
+    const shipped = ALL_ABILITY_DEFS.find((d) => d.id === "ea.b3")!;
+    expect(shipped.label).toBe("Ember Orb");
+    expect(orbDef()).toBe(shipped);
+    expect(ALL_ABILITY_DEFS.filter((d) => d.id.startsWith("ea.")).map((d) => d.id)).toEqual(["ea.b1", "ea.b2", "ea.b3", "ea.b4"]);
   });
 });
 

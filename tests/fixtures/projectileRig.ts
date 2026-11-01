@@ -12,21 +12,13 @@ import type { HitResult } from "../../apps/server/src/sim/HitResolver.js";
 import { World } from "../../apps/server/src/sim/World.js";
 
 /**
- * T19 test rig. Test-only definitions: the Ember Artificer kit is T20, so ea.b3 is NOT shipped. The definition below
- * carries the spec 15 Ember Orb numbers and exists only inside this test registry (decision 0010).
+ * T19 test rig. Since T20 the Ember Orb is the SHIPPED ea.b3 definition (packages/shared/src/config/kits/ea.ts); this
+ * file no longer carries a test-only copy. ORB_SPEC is the shipped definition and orbDef() derives variants from it.
  */
-export const ORB_SPEC: AbilitySpec = {
-  id: "ea.b3", label: "Test Orb", handler: "chargeProjectile",
-  startup: 6, active: 1, recovery: 24, cooldown: 1500, range: 40, block: "B", damage100: [1500],
-  input: "holdRelease", moveScale: 0.15, turnRate: 120,
-  stunTicks: 0, ragdollTicks: 60, launch: { forward: 6, up: 3 }, targetStates: ["standing", "air", "ragdoll"],
-  shape: { kind: "sphere", r: 0.35 },
-  projectile: {
-    speed: 24, lifeTicks: 120, maxRange: 40, radius: 0.35, splashRadius: 2, splashMax: 4, reflectable: true,
-    arcAmplitude: 0.5, arcSpan: 20, chargeMaxTicks: 180, fullDamage100: 2500, chip100: 500,
-  },
-};
-export const orbDef = (over: Partial<AbilitySpec> = {}): AbilityDef => defineAbility({ ...ORB_SPEC, ...over });
+const SHIPPED_ORB = ALL_ABILITY_DEFS.find((d) => d.id === "ea.b3");
+if (!SHIPPED_ORB) throw new Error("ea.b3 must be shipped by T20");
+export const ORB_SPEC: AbilitySpec = SHIPPED_ORB;
+export const orbDef = (over: Partial<AbilitySpec> = {}): AbilityDef => (Object.keys(over).length === 0 ? SHIPPED_ORB : defineAbility({ ...ORB_SPEC, ...over }));
 
 /** Flat 100 m floor with an optional thin cover plate (0.1 m thick) across the -Z lane at z = -5. */
 export function flatMap(thinCover: boolean, extra: ArenaMap["colliders"] = []): ArenaMap {
@@ -52,7 +44,8 @@ export async function makeRig(opts: RigOptions = {}) {
   const cs = new CombatSystem();
   const poses = new Map<number, AbilityPose>();
   const kits = { 1: "ea", 2: "td", 3: "td", 4: "td", 5: "td", 6: "td", ...(opts.kits ?? {}) } as Record<number, KitId>;
-  const registry = buildAbilityRegistry([...ALL_ABILITY_DEFS, ...(opts.defs ?? [orbDef()])], new Set(ALL_HANDLERS.map((h) => h.name)));
+  const override = opts.defs ?? [];
+  const registry = buildAbilityRegistry([...ALL_ABILITY_DEFS.filter((d) => !override.some((o) => o.id === d.id)), ...override], new Set(ALL_HANDLERS.map((h) => h.name)));
   const input = { heldSlot: 0 as 0 | 1 | 2 | 3 | 4, lastInput: 0 };
   const GROUND_Y = 0.9;
   for (const id of [1, 2, 3, 4, 5, 6]) { cs.add(id, id, 0, kits[id]!).protectedUntilTick = 0; }
