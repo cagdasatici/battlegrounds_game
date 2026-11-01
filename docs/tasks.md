@@ -108,3 +108,15 @@ The [dispatch board](agent-dispatch.md) contains the file ownership, acceptance 
 |---|---|---|---|---|---|
 | HELP1 | Standalone How to play guide for touch and keyboard | T18c T18d | TODO | | |
 | HELP2 | Welcome entry and guided practice handoff | HELP1 | TODO | | |
+
+## Web app, room list and admin (documentation only)
+
+Plan and file ownership are in [the web plan](web-plan.md); hosting steps are in [Cloudflare hosting](cloudflare-hosting.md).
+
+| Task | Title | Depends on | Status | Commit | Test report |
+|---|---|---|---|---|---|
+| WEB1 | Installable app and offline shell | | TODO | | |
+| WEB2 | Update button | WEB1 | TODO | | |
+| WEB3 | Room list and one-tap join | BOT5 | TODO | | |
+| WEB4 | Admin API and login | | TODO | | |
+| WEB5 | Admin app screens | WEB4 WEB3 | TODO | | |
