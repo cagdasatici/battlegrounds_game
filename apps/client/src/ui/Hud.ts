@@ -85,10 +85,11 @@ export class Hud {
   private readonly kitPanel: HTMLElement;
   private readonly menuPanel: HTMLElement;
   private kitKey = "";
+  private opacity = 1;
   private readonly kitListener: (e: Event) => void;
   private readonly menuListener: (e: Event) => void;
 
-  constructor(parent: HTMLElement, private readonly doc: Document = document, private readonly onKitPick: (kit: string) => void = () => undefined, private readonly onLeave: () => void = () => undefined) {
+  constructor(parent: HTMLElement, private readonly doc: Document = document, private readonly onKitPick: (kit: string) => void = () => undefined, private readonly onLeave: () => void = () => undefined, private readonly onSettings: () => void = () => undefined) {
     this.root = doc.createElement("div");
     this.root.className = "eb-hud";
     this.root.style.cssText = "position:fixed;inset:0;pointer-events:none;font:600 13px system-ui;color:#fff";
@@ -112,8 +113,15 @@ export class Hud {
     const leave = Object.assign(doc.createElement("button"), { textContent: "Leave" });
     leave.dataset["leave"] = "1";
     leave.style.cssText = "display:block;margin:10px auto;min-width:200px;min-height:44px;font:600 15px system-ui";
-    this.menuPanel.append(leave);
-    this.menuListener = (e: Event): void => { if ((e.target as HTMLElement | null)?.dataset?.["leave"]) this.onLeave(); };
+    const settings = Object.assign(doc.createElement("button"), { textContent: "Settings" });
+    settings.dataset["settings"] = "1";
+    settings.style.cssText = leave.style.cssText;
+    this.menuPanel.append(settings, leave);
+    this.menuListener = (e: Event): void => {
+      const d = (e.target as HTMLElement | null)?.dataset;
+      if (d?.["leave"]) this.onLeave();
+      else if (d?.["settings"]) this.onSettings();
+    };
     this.menuPanel.addEventListener("click", this.menuListener);
     this.kitListener = (e: Event): void => {
       const b = (e.target as HTMLElement | null)?.closest?.("button[data-kit]") as HTMLElement | null;
@@ -171,6 +179,9 @@ export class Hud {
     this.menuPanel.style.display = st.menuOpen ? "block" : "none";
   }
 
+  /** Control opacity from the layout editor (0.35 to 0.90); display only. */
+  setOpacity(o: number): void { this.opacity = Number.isFinite(o) ? Math.min(1, Math.max(0.2, o)) : 1; }
+
   render(layout: Layout, st: HudState): HudModel {
     const m = hudModel(layout, st);
     for (const b of m.boxes) {
@@ -188,9 +199,11 @@ export class Hud {
       el.style.height = `${b.height}px`;
       el.style.borderRadius = b.round ? "50%" : "10px";
       el.textContent = b.id === "health" ? `${b.label} ${m.hpText}` : b.label;
-      if (b.id.startsWith("skill")) el.style.opacity = b.label.length > 1 ? "0.55" : "1";
+      const o = (layout as { opacity?: number }).opacity ?? this.opacity;
+      el.style.opacity = String(o);
+      if (b.id.startsWith("skill")) el.style.opacity = String(b.label.length > 1 ? o * 0.6 : o);
       if (b.id === "facing") el.style.background = st.facingLock ? "#3a7bd5cc" : "#1d2b3acc";
-      if (b.id === "awaken") el.style.opacity = m.awakenReady ? "1" : "0.6";
+      if (b.id === "awaken") el.style.opacity = String(m.awakenReady ? o : o * 0.65);
       if (b.id === "health") this.fill(el, st.maxHp > 0 ? st.hp / st.maxHp : 0);
     }
     this.renderExtras(st);

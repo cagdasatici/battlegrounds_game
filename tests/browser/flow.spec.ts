@@ -267,3 +267,46 @@ test("happy path to Ready, then HUD: meter, cooldown, rejection, scoreboard, kit
     expect(errors).toEqual([]);
   } finally { await ctx.close(); }
 });
+
+// T27: Settings wired into the real app. Welcome opens it; in a match the menu opens it, the arena keeps running,
+// left hand mirrors the real HUD, and Leave still works with the panel closed.
+test("T27 Settings from Welcome and from the match menu; arena keeps running", async () => {
+  const { ctx, page, errors } = await open("&name=Arel&kit=sv");
+  try {
+    await page.waitForSelector("[data-act=play]");
+    await page.click("[data-act=settings]");
+    await expect(page.locator("[data-ui=settings]")).toBeVisible();
+    await expect(page.locator("[data-ui=settings] p")).toBeHidden(); // note only while a match runs
+    await page.click("button[data-act=close]");
+    await page.click("[data-act=play]");
+    await page.click("[data-act=ready]");
+    await page.waitForFunction(() => (window as unknown as { __eb?: unknown }).__eb !== undefined, undefined, { timeout: 30_000 });
+    await until(async () => { const s = await snap(page); return s.players.some((p) => p.local) || null; }, 15_000, "in match");
+    const a0 = await centre(page, "attack");
+    await page.keyboard.press("Escape");
+    await expect(page.locator("[data-hud=menu]")).toBeVisible();
+    await page.click("[data-hud=menu] button[data-settings]");
+    const panel = page.locator("[data-ui=settings]");
+    await expect(panel).toBeVisible();
+    await expect(panel).toContainText("The arena continues while this menu is open.");
+    await expect(page.locator("[data-hud=menu]")).toBeHidden();
+    const t0 = (await snap(page)).serverTick;
+    await until(async () => ((await snap(page)).serverTick > t0 + 10 ? true : null), 5000, "ticks advance with Settings open");
+    await page.click("button[data-toggle=hand]");
+    await page.click("button[data-act=close]");
+    await expect(panel).toBeHidden();
+    const a1 = await centre(page, "attack");
+    expect(Math.abs(a1.x - (1024 - a0.x))).toBeLessThan(2);
+    evidence["t27InMatchSettings"] = { ticksAdvancedWhileOpen: true, leftHandMirrorsHud: true };
+    await page.keyboard.press("Escape");
+    await expect(page.locator("[data-hud=menu]")).toBeVisible(); // Escape reaches the game after Settings closes
+    await page.click("[data-hud=menu] button[data-leave]");
+    await expect(page.locator("[data-act=settings]")).toBeVisible();
+    await page.click("[data-act=settings]");
+    await expect(page.locator("[data-ui=settings]")).toBeVisible();
+    await expect(page.locator("button[data-toggle=hand]")).toHaveAttribute("aria-pressed", "true"); // persisted per profile
+    await page.click("button[data-act=reset-all]");
+    await page.click("button[data-act=close]");
+    expect(errors).toEqual([]);
+  } finally { await ctx.close(); }
+});

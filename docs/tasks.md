@@ -35,11 +35,11 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | T21 | Artificer awakening | T20 | TODO | | | |
 | T22 | Passives | T21 | TODO | | | |
 | T23 | Props and wall context | T18e T19 | TODO | | | |
-| T24 | Duelist P1 variants | T16 | IMPLEMENTED (DEVICE CHECK PENDING) | 65c11d6 | docs/test-results/T24.md | decisions/0012-t24-duelist-p1-variants. Unit only for chain/elevated; no wire row |
+| T24 | Duelist P1 variants | T16 | IMPLEMENTED (DEVICE CHECK PENDING) | 65c11d6 c37d624 | docs/test-results/T24.md | decisions/0012-t24-duelist-p1-variants. Wire: tests/integration/t24-variants.test.ts (3 clients chain, elevated slam) |
 | T25 | Original art pipeline | T18e | TODO | | | |
 | T26 | Effects audio and camera | T21 T23 T25 | TODO | | | |
-| T27 | Settings and layout editor | T07 T18e | TODO | | | |
-| T28 | Production hosting | T04 T18e | IMPLEMENTED, DEVICE CHECK PENDING | 3778216 | docs/test-results/T28.md | Local build/serve/health/two-client verified; TLS, host, iPad remote checks NOT RUN (no host chosen) |
+| T27 | Settings and layout editor | T07 T18e | IMPLEMENTED (DEVICE CHECK PENDING) | 2281bc6 | docs/test-results/T27.md | decisions/0013. Playwright 34/34. D05 D06 NOT RUN. Several settings stored, not yet consumed |
+| T28 | Production hosting | T04 T18e | IMPLEMENTED (DEVICE CHECK PENDING) | 3778216 | docs/test-results/T28.md | decisions/0011. Local build/serve/health/two-client verified; TLS, host, iPad remote checks NOT RUN (no host chosen) |
 | T29 | Security hardening | T22 T28 | TODO | | | |
 | T30 | Performance pass | T24 T26 T27 | TODO | | | |
 | T31 | Fidelity calibration | T18e T27 | TODO | | | |

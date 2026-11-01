@@ -1,0 +1,33 @@
+{
+  "d06Simulated": {
+    "savedNx": 0.5,
+    "reloadStable": true,
+    "resetRestoresFixture": true
+  },
+  "rejections": {
+    "overlap": true,
+    "offScreen": true
+  },
+  "fallback": {
+    "fellBack": true
+  },
+  "importExport": {
+    "unknownKeyRejected": true,
+    "oversizeRejected": true,
+    "validAccepted": true
+  },
+  "cleanup": {
+    "listenersBeforeDispose": {
+      "click": 2,
+      "input": 2,
+      "keydown": 1,
+      "keyup": 1,
+      "pointerdown": 1,
+      "pointermove": 1,
+      "pointerup": 1,
+      "pointercancel": 1
+    },
+    "listenersAfterDispose": {},
+    "elementsRemoved": true
+  }
+}
