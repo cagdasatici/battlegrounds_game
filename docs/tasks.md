@@ -23,11 +23,11 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | T13 | Duelist base | T11 | DONE | ea963db 1f315a3 557018b 2cdffcd aa9916b feef664 | docs/test-results/T13.md | Projectile reflect A10 A19 wait for T19. Wire tests: R12 |
 | T14 | Awakening system | T12 T13 | DONE | a403214 | docs/test-results/T14.md | Ocean Surge line of sight: R05. HUD: T18c |
 | T15 | Vanguard awakening | T14 | DONE | afee336 b4a53b5 9595eff 7fc484b d0fd5ca f0c1ac9 | docs/test-results/T15.md | Skybreak and beam anchors: R05. Owner status: R08 |
-| T16 | Duelist awakening | T14 R02 R04 R05 | TODO | | | |
-| T17 | Respawn and FFA | T10 T14 R10 | TODO | | | Add A13 A18 |
+| T16 | Duelist awakening | T14 R02 R04 R05 | DONE | 3bfd775 3dc1869 e2ba01d ac688b3 | docs/test-results/T16.md | td.a2 area and td.a4 wall stop unit-only. Spec gaps as D values in T16.md |
+| T17 | Respawn and FFA | T10 T14 R10 | DONE | d4af402 | docs/test-results/T17.md | A13 A18 pass. decisions/0008. Hit-region 2 m approximation (D) |
 | T18a | Scene and fighter views | R01 R17 T05 | IMPLEMENTED (DEVICE CHECK PENDING) | eff9c06 fd3c78a | docs/test-results/T18a.md | decisions/0001. Chromium SwiftShader run only |
-| T18b | Client input and prediction loop | T18a R08 R14 | TODO | | | decisions/0001 |
-| T18c | App flow, lobby and HUD | T18b T14 | TODO | | | decisions/0001 |
+| T18b | Client input and prediction loop | T18a R08 R14 | IMPLEMENTED (DEVICE CHECK PENDING) | 4c051b9 5975c02 55b0915 78eecfa 5053d53 | docs/test-results/T18b.md | Playwright two-context match passes. No double-W run or mouse-look; cast movement not predicted |
+| T18c | App flow, lobby and HUD | T18b T14 | IMPLEMENTED (DEVICE CHECK PENDING) | 8246b5e f17098f 84f5cf8 | docs/test-results/T18c.md | Playwright 9/9. Form timer and Stillpoint not browser-tested |
 | T18d | Practice room and onboarding | T18c T17 | TODO | | | decisions/0001 |
 | T18e | P0 playable gate | T15 T16 T17 T18d R12 R13 | TODO | | | D02 D04 D08 on both iPads |
 | T19 | Charge and projectile system | T18e | TODO | | | |
@@ -60,9 +60,9 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | R09 | Protocol details and overload gate | R01 | DONE | 9d1d694 | docs/test-results/R09.md | |
 | R10 | One owner for the fighter kit | R01 | DONE | c858d75 | docs/test-results/R10.md | Blocks T17 |
 | R11 | Shared knockback vector | R01 | DONE | 6d605fe | docs/test-results/R11.md | |
-| R12 | Two-client matrix for every move, A15 | R02 R03 R04 R05 R06 | TODO | | | |
+| R12 | Two-client matrix for every move, A15 | R02 R03 R04 R05 R06 | DONE | 71be8ea 630c400 3e577bc | docs/test-results/R12.md | 18 moves + A15 on two real clients; block/miss/duplicate stay in unit tests |
 | R13 | Browser layout evidence | R01 | DONE | db8ce44 | docs/test-results/R13.md | Desktop Chromium only; iPad D01-D06 NOT RUN |
-| R14 | Prediction on the real collider | R08 | TODO | | | |
+| R14 | Prediction on the real collider | R08 | DONE | 628964f | docs/test-results/R14.md | Corner contact untested; face-centre only |
 | R15 | Node 24 run and decision records | R01 | DONE | 9e8246a | docs/test-results/R15.md | Decisions numbered 0003-0006 (0002 taken by R01) |
 | R17 | Tick pipeline extraction | R01 | DONE | 85fa1a7 | docs/test-results/R17.md | Wave 1 |
-| R18 | Latency matrix on loopback | R12 | TODO | | | Wave 3b |
+| R18 | Latency matrix on loopback | R12 | DONE | 87dd454 | docs/test-results/R18.md | In-process TCP delay proxy. 1%/3% loss NOT RUN; A12/A15 not under latency |
