@@ -15,11 +15,10 @@ function rig() {
   const buffer = new OffensiveBuffer();
   const registry = buildAbilityRegistry([defineAbility(spec("sv.b1")), defineAbility(spec("sv.b2"))], new Set(["melee"]));
   const cs = new CombatSystem();
-  cs.add(1, 1, 0).protectedUntilTick = 0;
+  cs.add(1, 1, 0, "sv").protectedUntilTick = 0;
   const pose: AbilityPose & M1Pose = { x: 0, y: 1, z: 0, facingYaw: 0, grounded: true };
   const runner = new AbilityRunner(registry, [MELEE_HANDLER], { combat: cs, pose: () => pose, blocked: () => false }, buffer);
   const m1 = new M1System(buffer);
-  runner.setKit(1, "sv");
   const commits: { tick: number; what: string }[] = [];
   const answers: { tick: number; edgeId: number; kind: string; reason?: string }[] = [];
   const step = (tick: number, o: { skill?: 1 | 2; edge?: number; attack?: boolean } = {}) => {

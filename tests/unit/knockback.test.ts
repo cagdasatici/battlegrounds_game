@@ -32,13 +32,12 @@ describe("R11 knockback direction", () => {
 
   test("a target standing 90 degrees to the side of an sv.b2 caster is pushed sideways, away from the caster", () => {
     const cs = new CombatSystem();
-    for (const i of [1, 2]) cs.add(i, i, 0).protectedUntilTick = 0;
+    for (const i of [1, 2]) cs.add(i, i, 0, "sv").protectedUntilTick = 0;
     const poses = new Map<number, AbilityPose>([
       [1, { x: 0, y: 1, z: 0, facingYaw: 0, grounded: true }], // faces -Z
       [2, { x: 1.5, y: 1, z: 0, facingYaw: Math.PI, grounded: true }], // exactly to the caster's side (+X)
     ]);
     const runner = new AbilityRunner(buildKitRegistry(), ALL_HANDLERS, { combat: cs, pose: (id) => poses.get(id), blocked: () => false });
-    runner.setKit(1, "sv");
     applyReaction(cs.get(2)!, T, { kind: "ragdoll", ticks: 60 }, false);
     const res: HitResult = { candidate: candidate("sv.b2", { launch: { forward: 7, up: 2 } }), outcome: "hit", damage100: 100, killed: false };
     const [l] = runner.launches(T, [res]);
@@ -49,7 +48,7 @@ describe("R11 knockback direction", () => {
 
   test("M1 finisher pushes along the hit origin to target direction, not the attacker facing", () => {
     const cs = new CombatSystem();
-    for (const i of [1, 2]) cs.add(i, i, 0).protectedUntilTick = 0;
+    for (const i of [1, 2]) cs.add(i, i, 0, "sv").protectedUntilTick = 0;
     const poses = new Map<number, M1Pose>([
       [1, { x: 0, y: 1, z: 0, facingYaw: 0, grounded: true }],
       [2, { x: -1.2, y: 1, z: 0, facingYaw: Math.PI, grounded: true }], // to the side (-X)
