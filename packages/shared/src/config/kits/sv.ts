@@ -24,4 +24,10 @@ export const SV_DEFS: AbilityDef[] = [
     damage100: [700], range: 2, block: "U", targetStates: ["standing", "air", "ragdoll"],
     stunTicks: 30, ragdollTicks: 0, launch: { forward: 2, up: 0 },
   }),
+  // Rising Pillar: 15 HP, U, R84 F1 U11, standing/air/ragdoll, no landing damage.
+  defineAbility({
+    id: "sv.b4", label: "Rising Pillar", handler: "launcher", startup: 16, active: 4, recovery: 20, cooldown: 900,
+    damage100: [1500], range: 2, block: "U", targetStates: ["standing", "air", "ragdoll"],
+    stunTicks: 0, ragdollTicks: 84, launch: { forward: 1, up: 11 },
+  }),
 ];

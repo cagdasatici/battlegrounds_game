@@ -1,7 +1,9 @@
 import { describe, expect, test } from "vitest";
 import { SV_DEFS } from "../../packages/shared/src/config/kits/sv.js";
 import { ALL_HANDLERS, buildKitRegistry } from "../../apps/server/src/kits/index.js";
-import { applyReaction, kill } from "../../apps/server/src/sim/ActionMachine.js";
+import { buildAbilityRegistry, type AbilityRegistry } from "../../packages/shared/src/abilities.js";
+import { applyReaction, enterCaptured, kill } from "../../apps/server/src/sim/ActionMachine.js";
+import { M1System } from "../../apps/server/src/sim/M1.js";
 import { CombatSystem } from "../../apps/server/src/sim/Combat.js";
 import {
   AbilityRunner, type AbilityHost, type AbilityPose, type Launch, type SkillOutcome,
@@ -19,8 +21,7 @@ const def = (id: string) => SV_DEFS.find((d) => d.id === id)!;
 
 interface Hit { tick: number; r: HitResult }
 
-function rig(n = 2, projectiles?: ReflectableProjectiles) {
-  const registry = buildKitRegistry();
+function rig(n = 2, projectiles?: ReflectableProjectiles, registry: AbilityRegistry = buildKitRegistry()) {
   const cs = new CombatSystem();
   const poses = new Map<number, AbilityPose>();
   for (let i = 1; i <= n; i++) cs.add(i, i, 0).protectedUntilTick = 0;
@@ -767,5 +768,230 @@ describe("sv.b3 Rift Palm", () => {
       expect(pr.calls.map((c) => c.id)).toEqual([1, 2]);
       expect(pr.list.find((p) => p.id === 2)!.ownerId).toBe(1);
     });
+  });
+});
+
+describe("sv.b4 Rising Pillar", () => {
+  test("definition matches the spec 15 table", () => {
+    const d = def("sv.b4");
+    expect([d.slot, d.form, d.handler]).toEqual([4, "Base", "launcher"]);
+    expect([d.startup, d.active, d.recovery, d.cooldown]).toEqual([16, 4, 20, 900]);
+    expect(d.damage100).toEqual([1500]);
+    expect([d.range, d.block, d.ragdollTicks]).toEqual([2, "U", 84]);
+    expect(d.launch).toEqual({ forward: 1, up: 11 });
+    expect(d.targetStates).toEqual(["standing", "air", "ragdoll"]);
+  });
+
+  test("hit at startTick+16: 15 HP, ragdoll 84, launch F1 U11, one hit over the 4 tick window", () => {
+    const r = rig();
+    r.step(T0, 4);
+    r.run(T0 + 1, T0 + 15);
+    expect(r.hp(2)).toBe(10000);
+    r.step(T0 + 16);
+    expect(r.hp(2)).toBe(8500);
+    const v = r.cs.get(2)!;
+    expect([v.action, v.actionStartTick, v.actionEndTick]).toEqual(["Ragdolled", T0 + 16, T0 + 16 + 84]);
+    expect(r.launches.map((x) => [x.tick, x.l.targetId, x.l.vx + 0, x.l.vy, x.l.vz])).toEqual([[T0 + 16, 2, 0, 11, -1]]);
+    r.run(T0 + 17, T0 + 40);
+    expect(r.hitsOn(2).map((x) => x.tick)).toEqual([T0 + 16]);
+    expect(r.hp(2)).toBe(8500);
+  });
+
+  test("guard bypass (U): a frontally guarding target is launched anyway", () => {
+    const r = rig();
+    r.run(T0 - 5, T0 - 1, [2]);
+    r.step(T0, 4, [2]);
+    r.run(T0 + 1, T0 + 16, [2]);
+    expect(r.hp(2)).toBe(8500);
+    expect(r.cs.get(2)!.action).toBe("Ragdolled");
+    expect(r.results.some((x) => x.r.outcome === "blocked")).toBe(false);
+  });
+
+  test("supports ragdolled targets: re-launched with a fresh ragdoll", () => {
+    const r = rig();
+    applyReaction(r.cs.get(2)!, T0 - 10, { kind: "ragdoll", ticks: 300 }, false);
+    r.step(T0, 4);
+    r.run(T0 + 1, T0 + 16);
+    expect(r.hp(2)).toBe(8500);
+    expect([r.cs.get(2)!.actionStartTick, r.cs.get(2)!.actionEndTick]).toEqual([T0 + 16, T0 + 100]);
+    expect(r.launches).toHaveLength(1);
+  });
+
+  test("aerial use is relative to the authoritative capsule: attacker and target airborne; vertical reach 2.1 m", () => {
+    const r = rig();
+    r.poses.set(1, { x: 0, y: 6, z: 0, facingYaw: 0, grounded: false });
+    r.place(2, 0, 8.0, -1.5, false);
+    r.step(T0, 4);
+    r.run(T0 + 1, T0 + 16);
+    expect(r.hp(2)).toBe(8500);
+    const miss = rig();
+    miss.poses.set(1, { x: 0, y: 6, z: 0, facingYaw: 0, grounded: false });
+    miss.place(2, 0, 8.3, -1.5, false);
+    miss.step(T0, 4);
+    miss.run(T0 + 1, T0 + 30);
+    expect(miss.hp(2)).toBe(10000);
+    const below = rig();
+    below.poses.set(1, { x: 0, y: 6, z: 0, facingYaw: 0, grounded: false });
+    below.place(2, 0, 4.5, -1.5, false);
+    below.step(T0, 4);
+    below.run(T0 + 1, T0 + 16);
+    expect(below.hp(2)).toBe(8500); // box spans 1.0 below the attacker centre plus the capsule
+    // The server pose carries no camera pitch at all.
+    expect(Object.keys(below.poses.get(1)!).sort()).toEqual(["facingYaw", "grounded", "x", "y", "z"]);
+  });
+
+  test("no extra damage when landing, even for an airborne victim that gets the generic landing flag", () => {
+    const r = rig();
+    r.poses.set(1, { x: 0, y: 6, z: 0, facingYaw: 0, grounded: false });
+    r.place(2, 0, 6.5, -1.5, false);
+    r.step(T0, 4);
+    r.run(T0 + 1, T0 + 20);
+    expect(r.hp(2)).toBe(8500);
+    expect(r.runner.landing.size).toBe(0);
+    r.place(2, 0, 1, -1.5, true); // lands
+    r.run(T0 + 21, T0 + 200);
+    expect(r.hp(2)).toBe(8500);
+  });
+
+  test("a target captured by another attacker is ineligible until released", () => {
+    const r = rig(3);
+    r.place(3, 4, 1, 4);
+    const captor = r.cs.get(3)!;
+    r.cs.captures.tryCapture({
+      victimId: 2, captorId: 3, captorGeneration: captor.generation, castCounter: 1, moveId: "td.b1", cinematic: false,
+      startTick: T0, endTick: T0 + 500,
+    });
+    enterCaptured(r.cs.get(2)!, T0, "td.b1");
+    r.step(T0, 4);
+    r.run(T0 + 1, T0 + 40);
+    expect(r.hp(2)).toBe(10000);
+    expect(r.cs.get(2)!.action).toBe("Captured");
+    expect(r.results).toHaveLength(0);
+    // Released before activeStart: eligible again.
+    const rel = rig(3);
+    rel.place(3, 4, 1, 4);
+    rel.cs.captures.tryCapture({
+      victimId: 2, captorId: 3, captorGeneration: rel.cs.get(3)!.generation, castCounter: 1, moveId: "td.b1", cinematic: false,
+      startTick: T0, endTick: T0 + 500,
+    });
+    enterCaptured(rel.cs.get(2)!, T0, "td.b1");
+    rel.step(T0, 4);
+    rel.run(T0 + 1, T0 + 9);
+    rel.cs.releaseFinal(2, T0 + 10);
+    rel.run(T0 + 10, T0 + 16);
+    expect(rel.hp(2)).toBe(8500);
+  });
+
+  test("animation playback speed cannot change the active tick or the launch velocity", () => {
+    const base = rig();
+    const slow = buildAbilityRegistry(
+      SV_DEFS.map((d) => (d.id === "sv.b4" ? { ...d, animationId: "sv.b4.anim.slow", vfxId: "x", sfxId: "y" } : d)),
+      new Set(ALL_HANDLERS.map((h) => h.name)),
+    );
+    const alt = rig(2, undefined, slow);
+    for (const r of [base, alt]) { r.step(T0, 4); r.run(T0 + 1, T0 + 30); }
+    const key = (r: ReturnType<typeof rig>) => [r.hitsOn(2).map((x) => x.tick), r.launches.map((x) => [x.tick, x.l.vx + 0, x.l.vy, x.l.vz])];
+    expect(key(alt)).toEqual(key(base));
+    expect(key(base)[0]).toEqual([T0 + 16]);
+  });
+
+  test("counter consumes the hit: no damage, no launch", () => {
+    const r = rig();
+    r.cs.get(2)!.counterOpenUntil = T0 + 100;
+    r.step(T0, 4);
+    r.run(T0 + 1, T0 + 20);
+    expect(r.results.filter((x) => x.r.outcome === "countered").map((x) => x.tick)).toEqual([T0 + 16]);
+    expect(r.hp(2)).toBe(10000);
+    expect(r.launches).toHaveLength(0);
+  });
+
+  test("miss spends the cooldown; ready exactly 900 ticks after the press", () => {
+    const r = rig(1);
+    r.step(T0, 4);
+    r.run(T0 + 1, T0 + 100);
+    expect(r.results).toHaveLength(0);
+    r.step(T0 + 899, 4);
+    expect(r.outcomes.at(-1)!.o).toEqual({ kind: "rejected", reason: "COOLDOWN" });
+    r.step(T0 + 900, 4);
+    expect(r.outcomes.at(-1)!.o.kind).toBe("started");
+  });
+
+  test("interruption: stun in startup or in the activeStart tick cancels the pillar; a stun after the hit changes nothing", () => {
+    const r = rig();
+    r.step(T0, 4);
+    r.run(T0 + 1, T0 + 9);
+    applyReaction(r.cs.get(1)!, T0 + 10, { kind: "stun", ticks: 24 }, false);
+    r.run(T0 + 10, T0 + 40);
+    expect(r.hp(2)).toBe(10000);
+    const same = rig();
+    same.step(T0, 4);
+    same.run(T0 + 1, T0 + 15);
+    applyReaction(same.cs.get(1)!, T0 + 16, { kind: "stun", ticks: 24 }, false);
+    same.run(T0 + 16, T0 + 40);
+    expect(same.hp(2)).toBe(10000);
+    const after = rig();
+    after.step(T0, 4);
+    after.run(T0 + 1, T0 + 16);
+    applyReaction(after.cs.get(1)!, T0 + 17, { kind: "stun", ticks: 24 }, false);
+    after.run(T0 + 17, T0 + 40);
+    expect(after.hp(2)).toBe(8500);
+  });
+
+  test("death of the attacker voids the pillar; death of the victim clamps and yields one KO", () => {
+    const a = rig();
+    a.step(T0, 4);
+    a.run(T0 + 1, T0 + 9);
+    a.cs.kill(1, T0 + 10);
+    a.run(T0 + 10, T0 + 40);
+    expect(a.hp(2)).toBe(10000);
+    const v = rig();
+    v.cs.get(2)!.hp100 = 900;
+    v.step(T0, 4);
+    v.run(T0 + 1, T0 + 40);
+    expect(v.cs.get(2)!.action).toBe("Dead");
+    expect(v.cs.get(2)!.koCount).toBe(1);
+    expect(v.results.find((x) => x.r.killed)!.r.damage100).toBe(900);
+    expect(v.launches).toHaveLength(0);
+    const early = rig();
+    early.step(T0, 4);
+    early.run(T0 + 1, T0 + 8);
+    kill(early.cs.get(2)!, T0 + 9);
+    early.run(T0 + 10, T0 + 40);
+    expect(early.results.filter((x) => x.r.outcome === "hit")).toHaveLength(0);
+  });
+});
+
+describe("base abilities and M1 chain progression", () => {
+  const held = (a: boolean) => ({ attackHeld: a, blockHeld: false, jumpHeld: false });
+  const pose = { x: 0, y: 1, z: 0, facingYaw: 0, grounded: true };
+  // slot, total ticks (startup + active + recovery)
+  const cases: [1 | 2 | 3 | 4, number][] = [[1, 52], [2, 68], [3, 25], [4, 40]];
+
+  test.each(cases)("slot %i does not reset the chain: next index stays 1 while casting; resets only after a gap above 54", (slot, total) => {
+    const r = rig(1);
+    const m1 = new M1System();
+    const f = r.cs.get(1)!;
+    r.step(T0);
+    expect(m1.update(f, T0, held(true), pose)?.ok).toBe(true); // m1.1: ends T0+21
+    for (let t = T0 + 1; t < T0 + 21; t++) { r.step(t); m1.update(f, t, held(false), pose); }
+    const lastEnd = T0 + 21;
+    r.step(lastEnd, slot);
+    expect(r.outcomes.at(-1)!.o.kind).toBe("started");
+    for (let t = lastEnd + 1; t < lastEnd + total; t++) {
+      r.step(t);
+      if (t - lastEnd <= 54) expect(m1.nextIndex(f, t)).toBe(1);
+      expect(m1.update(f, t, held(true), pose)).toBeNull(); // no M1 while a base cast is running
+    }
+    r.step(lastEnd + total);
+    expect(f.action).toBe("Idle");
+    const gap = total;
+    expect(m1.nextIndex(f, lastEnd + total)).toBe(gap > 54 ? 0 : 1);
+    expect(m1.nextIndex(f, lastEnd + 54)).toBe(1); // a gap of exactly 54 continues the chain
+    expect(m1.nextIndex(f, lastEnd + 55)).toBe(0); // a gap above 54 resets normally
+    if (gap <= 54) {
+      const next = m1.update(f, lastEnd + total, held(true), pose);
+      expect(next?.ok).toBe(true);
+      expect(f.moveId).toBe("m1.2");
+    }
   });
 });
