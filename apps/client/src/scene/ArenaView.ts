@@ -89,7 +89,8 @@ function groundGeometry(c: Collider): BufferGeometry {
   const lip = 0.38;
   const rock: Shader = (_x, y) => {
     const t = (top - lip - y) / Math.max(1, top - lip - bottom);
-    return t < 0.25 ? lerpHex(PALETTE.soil, PALETTE.rockHi, t / 0.25) : lerpHex(PALETTE.rockHi, PALETTE.rockLow, (t - 0.25) / 0.75);
+    // The bank just under the lip is darkened so the pale meadow edge reads against it.
+    return t < 0.25 ? lerpHex(0x4e3a28, PALETTE.rockHi, Math.pow(t / 0.25, 0.7)) : lerpHex(PALETTE.rockHi, PALETTE.rockLow, (t - 0.25) / 0.75);
   };
   const grass: Shader = (x, _y, z, _nx, ny) => {
     if (ny <= 0.5) return PALETTE.grassSide;
@@ -207,7 +208,7 @@ export const ISLETS: ReadonlyArray<readonly [number, number, number, number]> = 
 const RIM_OFFSET = 1.1;
 const TREE_MODELS: readonly EnvModelId[] = ["CommonTree_1", "Pine_1", "TwistedTree_2"];
 const ROCK_MODELS: readonly EnvModelId[] = ["Rock_Medium_1", "Rock_Medium_2", "Rock_Medium_3"];
-const MODEL_SCALE: Readonly<Record<EnvModelId, number>> = { CommonTree_1: 1.1, Pine_1: 1.1, TwistedTree_2: 0.55, Bush_Common: 1, Fern_1: 0.1, Bush_Common_Flowers: 0.1, RockPath_Round_Thin: 0.3, Rock_Medium_1: 1, Rock_Medium_2: 1, Rock_Medium_3: 1 };
+const MODEL_SCALE: Readonly<Record<EnvModelId, number>> = { CommonTree_1: 1.1, Pine_1: 1.1, TwistedTree_2: 0.55, Bush_Common: 1, Fern_1: 0.1, Bush_Common_Flowers: 0.1, Grass_Common_Short: 0.08, RockPath_Round_Thin: 0.3, Rock_Medium_1: 1, Rock_Medium_2: 1, Rock_Medium_3: 1 };
 
 const groundFootprintGap = (colliders: readonly Collider[], x: number, z: number): number => {
   let gap = Infinity;
@@ -265,8 +266,8 @@ export function planDressing(colliders: readonly Collider[]): EnvPlacement[] {
   // East spawn (-3 z) -> bridge: asymmetric broadleaf gate rooted beyond the island edge.
   // West deck answers with a narrow pine skyline. No solid-looking prop enters a walkable footprint.
   if (colliders.some((c) => c.id === "sat.east")) {
-    for (const [x, z, scale] of [[29, -9.5, 0.8], [29, 9.4, 1.05]] as const)
-      out.push({ model: "CommonTree_1", x, y: -0.6, z, yaw: 0.7, scale });
+    for (const [x, z, scale] of [[29, -9.5, 0.8], [30.4, 9.9, 1.1]] as const)
+      out.push({ model: "CommonTree_1", x, y: -0.6, z, yaw: z < 0 ? 0.7 : 2.3, scale });
     for (const [x, z, scale] of [[-34, -12.5, 1.3], [-39, -13.8, 1.7]] as const)
       out.push({ model: "Pine_1", x, y: -0.8, z, yaw: 1.2, scale });
     for (let i = 0; i < 2; i++) {
@@ -274,6 +275,7 @@ export function planDressing(colliders: readonly Collider[]): EnvPlacement[] {
         const x = 32 + i * 6, z = side * (4.6 + (i % 2) * 0.35);
         out.push({ model: "Fern_1", x, y: 0.005, z, yaw: i * 1.7, scale: 0.055 });
         if (i === 0) out.push({ model: "Bush_Common_Flowers", x: x + 0.25, y: 0.005, z: z + side * 0.35, yaw: i, scale: 0.1 });
+        out.push({ model: "Grass_Common_Short", x: x - 0.9, y: 0.005, z: z + side * 0.2, yaw: i * 2.1 + side, scale: 0.08 });
         if (i === 1) out.push({ model: "RockPath_Round_Thin", x: x - 0.2, y: 0.003, z: side * 3.8, yaw: i * 0.6, scale: 0.28 });
       }
     }
@@ -286,7 +288,7 @@ export function buildDressing(colliders: readonly Collider[], kit: EnvKit): { gr
   const plan = planDressing(colliders);
   const group = new Group();
   group.name = "env.dressing";
-  const far = new Set<EnvModelId>([...TREE_MODELS, "Fern_1", "Bush_Common_Flowers"]), meshes: InstancedMesh[] = [];
+  const far = new Set<EnvModelId>([...TREE_MODELS, "Fern_1", "Bush_Common_Flowers", "Grass_Common_Short"]), meshes: InstancedMesh[] = [];
   // Distant islet props and rim boulders cast no shadows; only the pillar boulders sit in the shadow frustum.
   meshes.push(...instancePlacements(kit, plan.filter((p) => far.has(p.model) || p.model === "Bush_Common"), { cast: false, receive: false }));
   meshes.push(...instancePlacements(kit, plan.filter((p) => !far.has(p.model) && p.model !== "Bush_Common"), { cast: false, receive: true }));

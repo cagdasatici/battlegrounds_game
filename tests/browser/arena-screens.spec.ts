@@ -66,6 +66,14 @@ for (const view of ["route", "reverse"] as const) {
       writeFileSync(path.join(outDir, `ART1-${TAG}-${view}.json`), JSON.stringify(info, null, 2) + "\n");
       expect(info.calls).toBeLessThanOrEqual(120);
       expect(info.triangles).toBeLessThanOrEqual(150_000);
+      // QE01: the east landmark must be on screen in both gameplay angles (hiding it changes the frame) at medium and low.
+      const withTrees = await page.screenshot();
+      await page.evaluate(() => (window as unknown as { __art: { hide(p: string): void } }).__art.hide("env.CommonTree_1"));
+      await page.waitForTimeout(200);
+      const withoutTrees = await page.screenshot();
+      expect(withTrees.equals(withoutTrees), `${view}: east landmark trees are not visible`).toBe(false);
+      await page.reload();
+      await page.waitForFunction(() => (window as unknown as { __art: ArtApi }).__art.envState() === "ready");
       if (view === "route") {
         await page.evaluate(() => (window as unknown as { __art: { quality(q: string): void } }).__art.quality("low"));
         await page.waitForTimeout(200);

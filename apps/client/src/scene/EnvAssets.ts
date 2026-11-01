@@ -10,7 +10,7 @@ import {
 import { SimplifyModifier } from "three/examples/jsm/modifiers/SimplifyModifier.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
-export const ENV_MODELS = ["CommonTree_1", "Pine_1", "TwistedTree_2", "Bush_Common", "Fern_1", "Bush_Common_Flowers", "RockPath_Round_Thin", "Rock_Medium_1", "Rock_Medium_2", "Rock_Medium_3"] as const;
+export const ENV_MODELS = ["CommonTree_1", "Pine_1", "TwistedTree_2", "Bush_Common", "Fern_1", "Bush_Common_Flowers", "Grass_Common_Short", "RockPath_Round_Thin", "Rock_Medium_1", "Rock_Medium_2", "Rock_Medium_3"] as const;
 export type EnvModelId = (typeof ENV_MODELS)[number];
 
 export interface EnvPart { readonly geometry: BufferGeometry; readonly material: Material }

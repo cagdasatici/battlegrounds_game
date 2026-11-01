@@ -336,6 +336,42 @@
       "notes": "Stylized Nature MegaKit (Standard) texture, downscaled to 512 px"
     },
     {
+      "id": "env.quaternius.Grass.png",
+      "kind": "environment",
+      "path": "assets/vendor/quaternius-stylized-nature/Grass.png",
+      "sha256": "5d69048193b246a73c996b892607fb36c75d0c60afcb2dab8aa12de3c0b2d9bd",
+      "byteSize": 33605,
+      "license": "CC0-1.0",
+      "author": "Quaternius",
+      "source": "https://quaternius.com/packs/stylizednaturemegakit.html",
+      "creationMethod": "third-party CC0 pack",
+      "notes": "Stylized Nature MegaKit (Standard) texture, downscaled to 512 px"
+    },
+    {
+      "id": "env.quaternius.Grass_Common_Short.bin",
+      "kind": "environment",
+      "path": "assets/vendor/quaternius-stylized-nature/Grass_Common_Short.bin",
+      "sha256": "7a0f0f7a9ac39cfa4b303bac03a6594f43e48d873b73553fa06a79e4df1271e9",
+      "byteSize": 7052,
+      "license": "CC0-1.0",
+      "author": "Quaternius",
+      "source": "https://quaternius.com/packs/stylizednaturemegakit.html",
+      "creationMethod": "third-party CC0 pack",
+      "notes": "Stylized Nature MegaKit (Standard) file, unmodified"
+    },
+    {
+      "id": "env.quaternius.Grass_Common_Short.gltf",
+      "kind": "environment",
+      "path": "assets/vendor/quaternius-stylized-nature/Grass_Common_Short.gltf",
+      "sha256": "6957b50622c9e26e7296c1b47ea8653bc0d957e0a547de444e2ed96f0075a21a",
+      "byteSize": 2023,
+      "license": "CC0-1.0",
+      "author": "Quaternius",
+      "source": "https://quaternius.com/packs/stylizednaturemegakit.html",
+      "creationMethod": "third-party CC0 pack",
+      "notes": "Stylized Nature MegaKit (Standard) file, unmodified"
+    },
+    {
       "id": "env.quaternius.Leaf_Pine_C.png",
       "kind": "environment",
       "path": "assets/vendor/quaternius-stylized-nature/Leaf_Pine_C.png",
@@ -579,8 +615,8 @@
       "id": "code.arena-view",
       "kind": "code",
       "path": "apps/client/src/scene/ArenaView.ts",
-      "sha256": "a0896c8fcd0c22957dc06df247ed87a8f4feb63a1920c9dd71afa1056dbc976c",
-      "byteSize": 24522,
+      "sha256": "e7e7b0366165dd3df93c75a65ba242752d146234c64493c7ddf46ea24dc1097f",
+      "byteSize": 24811,
       "license": "Project-original work; no third-party material; rights held by the project owner",
       "author": "Elemental Battlegrounds project (code authored in repository by Claude Code under owner direction)",
       "source": "repo:apps/client/src/scene/ArenaView.ts",
