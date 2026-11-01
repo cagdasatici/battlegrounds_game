@@ -32,7 +32,7 @@ describe("settings schema", () => {
   test.each([
     ["cameraDistance", 3.4], ["cameraDistance", 10.1], ["effectsVolume", 1.01], ["musicVolume", -0.1], ["flashLevel", 2],
     ["sensitivity", 0], ["cameraDistance", Number.NaN], ["cameraDistance", "6"], ["reducedMotion", 1], ["handedness", "both"],
-    ["quality", "ultra"], ["v", 2],
+    ["quality", "ultra"], ["v", 3],
   ])("rejects %s = %s", (k, v) => {
     const s = clone(); s[k] = v; expect(parseSettings(s)).toBeNull();
   });
@@ -93,7 +93,7 @@ describe("SettingsStore", () => {
     expect(a.update({ musicVolume: 0.1, handedness: "left" })).toBe(true);
     expect(new SettingsStore(ms, "Arel").get().musicVolume).toBe(0.1);
     expect(new SettingsStore(ms, "Nora").get().musicVolume).toBe(defaultSettings().musicVolume);
-    expect(ms.getItem(profileKey("Arel"))).toContain('"v":1');
+    expect(ms.getItem(profileKey("Arel"))).toContain('"v":2');
   });
   test("corrupt, wrong-version or oversized stored data falls back to defaults and is removed", () => {
     for (const bad of ["{oops", JSON.stringify({ ...defaultSettings(), v: 0 }), "x".repeat(9000)]) {

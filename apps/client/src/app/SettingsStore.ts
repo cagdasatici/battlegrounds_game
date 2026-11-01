@@ -1,11 +1,11 @@
 /**
- * Local settings (T27, spec sections 7 and 9). Pure module: no DOM, storage is injected. Schema version 1, strict
+ * Local settings (T27, spec sections 7 and 9). Pure module: no DOM, storage is injected. Schema version 2 (FX2 added damageNumbers and combatText; version 1 saves migrate), strict
  * runtime validation (unknown keys, wrong types and out-of-range numbers are all rejected), 8 KB import cap.
  * Ranges not fixed by the spec are D (local design choices). Invitations are never stored here.
  */
 import type { ControlId } from "../input/ControlLayout.js";
 
-export const SETTINGS_VERSION = 1;
+export const SETTINGS_VERSION = 2;
 export const MAX_SETTINGS_BYTES = 8192;
 export const STORAGE_PREFIX = "eb.settings.v1.";
 
@@ -18,12 +18,13 @@ export const EDITABLE_CONTROLS: readonly ControlId[] = [
 export type ViewportClass = "wide" | "compact";
 export type Handedness = "right" | "left";
 export type Quality = "low" | "medium" | "high";
+export type CombatTextMode = "all" | "mine" | "off";
 
 export interface ControlEdit { nx: number; ny: number; size: number }
 export interface LayoutProfile { opacity: number; controls: Partial<Record<ControlId, ControlEdit>> }
 
 export interface Settings {
-  v: 1;
+  v: 2;
   /** Camera drag multiplier (D 0.5..2). */
   sensitivity: number;
   /** Camera distance in metres (spec section 9: 3.5..10). */
@@ -38,6 +39,10 @@ export interface Settings {
   reducedMotion: boolean;
   /** Flash intensity 0..1 (spec default 0.3). */
   flashLevel: number;
+  /** Show damage and heal numbers (FX2, owner requirement: default on). */
+  damageNumbers: boolean;
+  /** Combat text scope: everything, only events involving the local player, or nothing. */
+  combatText: CombatTextMode;
   layouts: Record<ViewportClass, LayoutProfile>;
 }
 
@@ -50,8 +55,9 @@ export const defaultProfile = (): LayoutProfile => ({ opacity: 0.9, controls: {}
 
 export function defaultSettings(): Settings {
   return {
-    v: 1, sensitivity: 1, cameraDistance: 6.5, facingLock: false, quickUse: true, autoRun: false, handedness: "right",
+    v: 2, sensitivity: 1, cameraDistance: 6.5, facingLock: false, quickUse: true, autoRun: false, handedness: "right",
     effectsVolume: 0.8, musicVolume: 0.5, quality: "medium", reducedMotion: false, flashLevel: 0.3,
+    damageNumbers: true, combatText: "all",
     layouts: { wide: defaultProfile(), compact: defaultProfile() },
   };
 }
@@ -73,27 +79,36 @@ function parseProfile(x: unknown): LayoutProfile | null {
   return { opacity: x["opacity"], controls };
 }
 
+/** Fills defaults for older saves (version 1 had no combat text keys). Anything else passes through untouched. */
+export function migrateSettings(x: unknown): unknown {
+  if (!isObj(x) || x["v"] !== 1) return x;
+  return { ...x, v: 2, damageNumbers: true, combatText: "all" };
+}
+
 /** Strict parse of an already decoded value. Returns null when anything is unknown or out of range. */
 export function parseSettings(x: unknown): Settings | null {
+  x = migrateSettings(x);
   if (!isObj(x)) return null;
   const keys = ["v", "sensitivity", "cameraDistance", "facingLock", "quickUse", "autoRun", "handedness", "effectsVolume",
-    "musicVolume", "quality", "reducedMotion", "flashLevel", "layouts"];
+    "musicVolume", "quality", "reducedMotion", "flashLevel", "damageNumbers", "combatText", "layouts"];
   if (!onlyKeys(x, keys) || keys.some((k) => !(k in x))) return null;
   if (x["v"] !== SETTINGS_VERSION) return null;
   if (!num(x["sensitivity"], RANGES.sensitivity) || !num(x["cameraDistance"], RANGES.cameraDistance)) return null;
   if (!num(x["effectsVolume"], RANGES.effectsVolume) || !num(x["musicVolume"], RANGES.musicVolume) || !num(x["flashLevel"], RANGES.flashLevel)) return null;
-  for (const k of ["facingLock", "quickUse", "autoRun", "reducedMotion"] as const) if (typeof x[k] !== "boolean") return null;
+  for (const k of ["facingLock", "quickUse", "autoRun", "reducedMotion", "damageNumbers"] as const) if (typeof x[k] !== "boolean") return null;
   if (x["handedness"] !== "right" && x["handedness"] !== "left") return null;
   if (x["quality"] !== "low" && x["quality"] !== "medium" && x["quality"] !== "high") return null;
+  if (x["combatText"] !== "all" && x["combatText"] !== "mine" && x["combatText"] !== "off") return null;
   const l = x["layouts"];
   if (!isObj(l) || !onlyKeys(l, ["wide", "compact"])) return null;
   const wide = parseProfile(l["wide"]), compact = parseProfile(l["compact"]);
   if (!wide || !compact) return null;
   return {
-    v: 1, sensitivity: x["sensitivity"], cameraDistance: x["cameraDistance"], facingLock: x["facingLock"] as boolean,
+    v: 2, sensitivity: x["sensitivity"], cameraDistance: x["cameraDistance"], facingLock: x["facingLock"] as boolean,
     quickUse: x["quickUse"] as boolean, autoRun: x["autoRun"] as boolean, handedness: x["handedness"],
     effectsVolume: x["effectsVolume"], musicVolume: x["musicVolume"], quality: x["quality"],
-    reducedMotion: x["reducedMotion"] as boolean, flashLevel: x["flashLevel"], layouts: { wide, compact },
+    reducedMotion: x["reducedMotion"] as boolean, flashLevel: x["flashLevel"],
+    damageNumbers: x["damageNumbers"] as boolean, combatText: x["combatText"], layouts: { wide, compact },
   };
 }
 
