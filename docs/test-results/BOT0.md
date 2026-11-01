@@ -19,7 +19,7 @@ pure shared contracts.
 ## Completion verification
 
 Completed 1 November 2026 on Node v24.22.2, with local socket access for the
-real-client integration tests. Production contracts are unchanged from f8a66a5.
+real-client integration tests. Production contracts are unchanged from e035ecc.
 
 - `pnpm verify`: PASS, exit 0. Includes typecheck, lint, the complete unit and
   integration suite, production build, assets:audit and content:validate.
