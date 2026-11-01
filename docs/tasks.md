@@ -39,7 +39,7 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | T25 | Original art pipeline | T18e | IMPLEMENTED (DEVICE CHECK PENDING) | d71a447 b17bed8 | docs/test-results/T25.md | decisions/0015. assets:audit passes (3 fighters, 84 clips). Fighters and arena rebuilt as original rigged toon art; glTF files verified but runtime builds the same rig in code. Before/after: T25-before*.png, T25-after*.png. iPad perf NOT RUN |
 | ART1 | Environment art from CC0 packs | ART0 | IMPLEMENTED (DEVICE CHECK PENDING) | 4c5f8c3 | docs/test-results/ART1.md | decisions/0023. Quaternius CC0 props instanced outside walkable ground; collider meshes aligned within 0.05 m; 66 calls, 92.7k tris medium (SwiftShader). iPad perf NOT RUN |
 | ART1-follow-up | Art-direct east spawn-to-bridge route with MegaKit | ART1 | IMPLEMENTED (DEVICE CHECK PENDING) | 6f5b3b5 | docs/test-results/ART1-route.md | Owner-scoped route pass; opposite pine skyline, low margin cover, 4 browser / 6 unit checks pass. Physical iPad NOT RUN |
-| ART2 | Smooth skinned fighter meshes, textures and LOD | B1 | IMPLEMENTED (DEVICE CHECK PENDING) | pending | docs/test-results/ART2.md | decisions/0027. Rounded boxes, 12-segment tapered limbs, 0.06 m two-bone joint blend, 512 px per-kit atlas, low LOD; medium 3.3-4.3k tris, low 1.6-2.1k. iPad perf NOT RUN |
+| ART2 | Smooth skinned fighter meshes, textures and LOD | B1 | IMPLEMENTED (DEVICE CHECK PENDING) | 57f849f | docs/test-results/ART2.md | decisions/0027. Rounded boxes, 12-segment tapered limbs, 0.06 m two-bone joint blend, 512 px per-kit atlas, low LOD; medium 3.3-4.3k tris, low 1.6-2.1k. iPad perf NOT RUN |
 | T26 | Effects audio and camera | T21 T23 T25 | RETIRED (decision 0021) | | | Split into FX0-FX5 |
 | T27 | Settings and layout editor | T07 T18e | IMPLEMENTED (DEVICE CHECK PENDING) | 2281bc6 | docs/test-results/T27.md | decisions/0013. Playwright 34/34. D05 D06 NOT RUN. Several settings stored, not yet consumed |
 | T28 | Production hosting | T04 T18e | IMPLEMENTED (DEVICE CHECK PENDING) | 3778216 | docs/test-results/T28.md | decisions/0011. Local build/serve/health/two-client verified; TLS, host, iPad remote checks NOT RUN (no host chosen) |
@@ -141,7 +141,7 @@ Execute one row per session using [the Quality 90 instructions](quality-90-plan.
 | QC01 | Close-combat visibility | Q01 | IN PROGRESS | 1c9190b | docs/test-results/QC01.md |
 | QE01 | East bridge MegaKit art pass | Q01 ART1 | IMPLEMENTED (DEVICE CHECK PENDING) | de8cf2a | docs/test-results/QE01.md |
 | QF01 | Stone Vanguard silhouette and animation | Q01 ART2 | IMPLEMENTED (DEVICE CHECK PENDING) | c8e12ad | docs/test-results/QF01.md |
-| QV01 | Visible urn lifecycle | Q01 T23 ORB2 | IMPLEMENTED (DEVICE CHECK PENDING) | pending | docs/test-results/QV01.md |
+| QV01 | Visible urn lifecycle | Q01 T23 ORB2 | IMPLEMENTED (DEVICE CHECK PENDING) | 57f849f | docs/test-results/QV01.md |
 | QV02 | Durable attack telegraphs | Q01 FX4-align | TODO | | docs/test-results/QV02.md |
 | QV03 | Fault Strike signature | QV02 QF01 | TODO | | docs/test-results/QV03.md |
 | QV04 | Undertow Spiral signature | QV02 | TODO | | docs/test-results/QV04.md |
