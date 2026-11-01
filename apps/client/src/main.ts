@@ -8,6 +8,7 @@ import {
 } from "@eb/shared/protocol";
 import islandsUrl from "../../../assets/maps/islands.v1.json?url";
 import { AppFlow } from "./app/AppFlow.js";
+import { CombatBus } from "./app/CombatBus.js";
 import { GameLoop, type LoopPlayer, type LoopState } from "./app/GameLoop.js";
 import { SettingsStore } from "./app/SettingsStore.js";
 import { computeLayout, type Layout } from "./input/ControlLayout.js";
@@ -24,6 +25,7 @@ import { Hud, readSafeRect } from "./ui/Hud.js";
 import {
   RejectionNotice, cooldownLabel, formTimerText, meterLabel, respawnSecondsLeft, scoreboardRows, stillpointText,
 } from "./ui/HudFormat.js";
+import { registerPresentation } from "./fx/index.js";
 import { KIT_LABEL, Lobby, type LobbyView } from "./ui/Lobby.js";
 import { PracticePanel } from "./ui/PracticePanel.js";
 import { SettingsPanel } from "./ui/Settings.js";
@@ -203,14 +205,21 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       r.onMessage(ServerMessage.pong, (x: PongMessage) => { clock.onPong(x, performance.now()); }),
       r.onMessage(ServerMessage.welcome, (w: WelcomeMessage) => { sampler.setEpoch(w.epoch); }),
       r.onMessage(ServerMessage.actionResult, (a: ActionResult) => { if (!a.accepted) rejections.push(a.reason, performance.now()); }),
-      r.onMessage(ServerMessage.combatEvent, (e: CombatEvent) => {
-        const me = localOf();
-        if (!me || e.targetId !== String(me.entityId)) return;
-        if (e.kind === "ko") ko = { tick: e.tick, by: e.actorId === e.targetId ? "the arena" : players().get(e.actorId)?.displayName ?? "a rival" };
-        else if (e.kind === "respawn") ko = null;
-      }),
     ];
     matchCleanups.push(() => { for (const u of unsubs) u(); });
+    // FX0 (decision 0021): one deduplicating bus per match; KO and respawn handling moved onto it.
+    const bus = new CombatBus(
+      (h) => r.onMessage(ServerMessage.combatEvent, h),
+      (id) => (players().get(id) as { lifeId?: number } | undefined)?.lifeId,
+    );
+    matchCleanups.push(() => bus.dispose());
+    matchCleanups.push(bus.on((e: CombatEvent) => {
+      const me = localOf();
+      if (!me || e.targetId !== String(me.entityId)) return;
+      if (e.kind === "ko") ko = { tick: e.tick, by: e.actorId === e.targetId ? "the arena" : players().get(e.actorId)?.displayName ?? "a rival" };
+      else if (e.kind === "respawn") ko = null;
+    }));
+
 
     const probe = document.createElement("div");
     probe.style.cssText = "position:fixed;inset:0;visibility:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)";
@@ -256,6 +265,9 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       sendPing: (p) => { rc.send("ping", p); },
     });
     matchCleanups.push(() => loop.dispose());
+    matchCleanups.push(registerPresentation(bus, {
+      scene: g.scene, camera: g.camera, players, settings, localId: () => { const me = localOf(); return me ? String(me.entityId) : undefined; },
+    }));
 
     if (flow.mode === "practice") {
       const panel = new PracticePanel(document.body, (t) => { r.send("practice", t); });

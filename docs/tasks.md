@@ -68,3 +68,9 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | R15 | Node 24 run and decision records | R01 | DONE | 9e8246a | docs/test-results/R15.md | Decisions numbered 0003-0006 (0002 taken by R01) |
 | R17 | Tick pipeline extraction | R01 | DONE | 85fa1a7 | docs/test-results/R17.md | Wave 1 |
 | R18 | Latency matrix on loopback | R12 | DONE | 87dd454 | docs/test-results/R18.md | In-process TCP delay proxy. 1%/3% loss NOT RUN; A12/A15 not under latency |
+
+## Backlog v2 slices
+
+| Task | Title | Depends on | Status | Commit | Test report | Notes |
+|------|-------|-----------|--------|--------|-------------|-------|
+| FX0 | Combat event contract and presentation bus | M0 | IMPLEMENTED (DEVICE CHECK PENDING) | pending | docs/test-results/FX0.md | decisions/0021. hitClass, targetHp100, heal kind; CombatBus dedup + stale-life drop; fx stubs. iPad NOT RUN |

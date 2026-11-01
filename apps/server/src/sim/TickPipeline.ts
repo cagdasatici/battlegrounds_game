@@ -54,8 +54,11 @@ export interface TickPipelineDeps {
   sendActionResult: (sessionId: string, seat: PipelineSeat, edgeId: number, seq: number, tick: number, accepted: boolean,
     reason?: ActionResult["reason"], castId?: string) => void;
   broadcastEvent: (tick: number, kind: CombatEvent["kind"], actor: number, target: number | undefined,
-    lifeId: number, moveId?: string, damage100?: number) => void;
+    lifeId: number, moveId?: string, damage100?: number, extra?: CombatEventExtra) => void;
 }
+
+/** FX0 presentation fields filled by the event-mapping block (decision 0021). */
+export interface CombatEventExtra { hitClass?: "light" | "heavy"; targetHp100?: number }
 
 interface SeatScratch {
   edges: QueuedEdge[];
@@ -336,7 +339,11 @@ export class TickPipeline {
     const victim = combat.get(c.targetId);
     const kind: CombatEvent["kind"] | null = r.outcome === "hit" ? "hit" : r.outcome === "blocked" ? "block"
       : r.outcome === "countered" ? "counter" : null;
-    if (kind && victim) this.d.broadcastEvent(tick, kind, c.attackerId, c.targetId, victim.lifeId, c.moveId, r.damage100);
+    if (kind === "hit" && victim) {
+      const heavy = r.damage100 >= 1000 || (c.moveId?.startsWith("m1.4.finisher") ?? false) || combat.get(c.attackerId)?.form === "Awakened";
+      this.d.broadcastEvent(tick, kind, c.attackerId, c.targetId, victim.lifeId, c.moveId, r.damage100,
+        { hitClass: heavy ? "heavy" : "light", targetHp100: victim.hp100 });
+    } else if (kind && victim) this.d.broadcastEvent(tick, kind, c.attackerId, c.targetId, victim.lifeId, c.moveId, r.damage100);
     else if (r.outcome === "captured" && victim) this.d.broadcastEvent(tick, "capture", c.attackerId, c.targetId, victim.lifeId, c.moveId, r.damage100);
     if (r.killed && victim) this.knockOut(tick, victim, c.attackerId, c.moveId, c.projectile?.ownerLifeId);
   }
