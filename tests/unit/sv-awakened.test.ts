@@ -24,7 +24,7 @@ const def = (id: string) => reg.byId(id)!;
 function makeRig(n = 3) {
   const cs = new CombatSystem();
   const poses = new Map<number, AbilityPose>();
-  for (let i = 1; i <= n; i++) cs.add(i, i, 0).protectedUntilTick = 0;
+  for (let i = 1; i <= n; i++) cs.add(i, i, 0, i === 1 ? "sv" : "td").protectedUntilTick = 0;
   // 1: Stone Vanguard at the origin facing -Z. 2: target 1.5 m ahead. 3: second target 3 m ahead and slightly right.
   // 4: far bystander. Other poses are set per test.
   poses.set(1, { x: 0, y: 1, z: 0, facingYaw: 0, grounded: true });
@@ -43,7 +43,6 @@ function makeRig(n = 3) {
     launch: (id, vx, vy, vz) => { launches.push({ id, vx, vy, vz, tick: curTick }); },
   };
   const runner = new AbilityRunner(reg, ALL_HANDLERS, host);
-  for (let i = 1; i <= n; i++) runner.setKit(i, i === 1 ? "sv" : "td");
   const results: { tick: number; r: HitResult }[] = [];
   const outcomes: { tick: number; who: number; o: SkillOutcome }[] = [];
   let strikeSeq = 100;
@@ -318,7 +317,7 @@ describe("sv.a1 Stillpoint Reversal (lethalCounter)", () => {
     const b = makeRig(2);
     b.awaken();
     b.step(T0, { press: [{ slot: 1 }] });
-    b.runner.setKit(1, "td"); // kit change consumes the awakening and everything attached to it
+    b.cs.get(1)!.kitId = "td"; // kit change consumes the awakening and everything attached to it
     b.step(T0 + 1, { extra: [b.strike(2, 1)] });
     expect(b.of("countered").length).toBe(0);
     expect(b.hp(1)).toBe(HP - 300);
@@ -414,10 +413,9 @@ describe("sv.a1 Stillpoint Reversal (lethalCounter)", () => {
 describe("awakened damage never feeds the next meter (D)", () => {
   test("a resolved sv.a2 or sv.a1 hit adds no meter although the form is already Base", () => {
     const cs = new CombatSystem();
-    cs.add(1, 1, 0); cs.add(2, 2, 0);
+    cs.add(1, 1, 0, "sv"); cs.add(2, 2, 0, "sv");
     const host = { combat: cs, pose: () => ({ x: 0, y: 1, z: 0, facingYaw: 0, grounded: true }) };
     const aw = new AwakeningSystem(host);
-    aw.setKit(1, "sv");
     const cand = (moveId: string): HitResult => ({
       candidate: { attackerId: 1, attackerGeneration: 0, castCounter: 1, hitIndex: 0, toi: 0, targetId: 2, moveId, originX: 0, originZ: 0,
         block: "U", counterable: false, armorBreak: true, damage100: 1000, reaction: { kind: "none" }, maxHitsPerTarget: 1 },
@@ -1155,7 +1153,6 @@ describe("sv.a4 Orbit Collapse (cinematicGrab)", () => {
   test("A14 form state changes while the awakened capture is active: the cast finishes, nothing new starts, protections released", () => {
     const r = makeRig(2);
     const aw = new AwakeningSystem(r.host);
-    aw.setKit(1, "sv");
     r.awaken();
     r.step(T0, { press: [{ slot: 4 }] });
     r.run(T0 + 1, AS + 5);

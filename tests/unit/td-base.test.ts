@@ -33,7 +33,7 @@ function makeRig(n = 3, hostOpts: {
 } = {}) {
   const cs = new CombatSystem();
   const poses = new Map<number, AbilityPose>();
-  for (let i = 1; i <= n; i++) cs.add(i, i, 0).protectedUntilTick = 0;
+  for (let i = 1; i <= n; i++) cs.add(i, i, 0, "td").protectedUntilTick = 0;
   // 1: Tide captor at the origin facing -Z. 2: victim 1.5 m ahead facing the captor. 3: second Tide fighter on the
   // far side of the victim facing +Z (also in reach of the victim, out of reach of 1).
   poses.set(1, { x: 0, y: 1, z: 0, facingYaw: 0, grounded: true });
@@ -58,7 +58,6 @@ function makeRig(n = 3, hostOpts: {
     ...(hostOpts.projectiles ? { projectileReflector: hostOpts.projectiles } : {}),
   };
   const runner = new AbilityRunner(reg, hostOpts.handlers ?? ALL_HANDLERS, host);
-  for (let i = 1; i <= n; i++) runner.setKit(i, "td");
   const results: { tick: number; r: HitResult }[] = [];
   const outcomes: { tick: number; who: number; o: SkillOutcome }[] = [];
   let strikeSeq = 100;

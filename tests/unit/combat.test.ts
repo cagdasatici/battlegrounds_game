@@ -13,7 +13,7 @@ function setup(n = 3): { cs: CombatSystem; f: Fighter[]; poses: Map<number, Pose
   const f: Fighter[] = [];
   const poses = new Map<number, Pose>();
   for (let i = 1; i <= n; i++) {
-    const x = cs.add(i, i, 0);
+    const x = cs.add(i, i, 0, "sv");
     x.protectedUntilTick = 0;
     f.push(x);
     poses.set(i, { x: 0, z: 0, facingYaw: 0, grounded: true });
@@ -358,7 +358,7 @@ describe("no orphan captures", () => {
       const id = 1 + rnd(4);
       if (op === 0) cs.kill(id, t);
       else if (op === 1) cs.remove(id, t);
-      else if (op === 2 && !cs.get(id)) { const nf = cs.add(id, ++life, t); nf.protectedUntilTick = 0; }
+      else if (op === 2 && !cs.get(id)) { const nf = cs.add(id, ++life, t, "sv"); nf.protectedUntilTick = 0; }
       else if (op === 3 && cs.get(id)?.action === "Dead") { cs.respawn(id, t, ++life); cs.get(id)!.protectedUntilTick = 0; }
       else if (op === 4) cs.requestDash(id, t, 0, rnd(3) - 1, rnd(3) - 1);
       else if (op >= 6 && op < 30) cs.updateGuard(id, t, op < 20, true);

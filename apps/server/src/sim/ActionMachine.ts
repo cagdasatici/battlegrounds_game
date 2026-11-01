@@ -1,6 +1,6 @@
 import { COMBAT } from "@eb/shared/config/combat";
 import type { Action, Form } from "@eb/shared/schema";
-import type { RejectReason } from "@eb/shared/protocol";
+import type { KitId, RejectReason } from "@eb/shared/protocol";
 
 /**
  * Authoritative per-fighter action state machine (spec section 12). Pure: no Rapier, no timers, no DOM.
@@ -54,6 +54,8 @@ export interface Fighter {
   contextSpent: boolean;
   /** Awakening meter in hundredths of damage points (spec 15/26); threshold 20000 (sv) or 35000. */
   meter100: number;
+  /** R10: the single owner of the fighter kit; abilities, awakening and the replicated kit all read it. */
+  kitId: KitId;
 }
 
 const OPEN = Number.MAX_SAFE_INTEGER;
@@ -63,13 +65,13 @@ export const RAGDOLL_GET_UP_TICKS = 12;
 /** D: captor recovery after its victim dies or departs (spec 12). */
 export const CAPTOR_RELEASE_RECOVERY = 18;
 
-export function createFighter(entityId: number, lifeId: number, tick: number): Fighter {
+export function createFighter(entityId: number, lifeId: number, tick: number, kitId: KitId): Fighter {
   return {
     entityId, lifeId, hp100: COMBAT.hp100Max, action: "Idle", actionStartTick: tick, actionEndTick: OPEN, moveId: "",
     generation: 0, castCounter: 0, cast: null, dash: null, ragdollStartTick: -1, landingBonus: false,
     cooldowns: new Map(), blockstunUntil: 0, protectedUntilTick: tick + COMBAT.spawnProtectionTicks,
     invulnerableUntil: 0, counterOpenUntil: 0, lethalCounterUntil: 0, armored: false, koCount: 0,
-    form: "Base", formEndTick: 0, awakenedUsedMask: 0, contextSpent: false, meter100: 0,
+    form: "Base", formEndTick: 0, awakenedUsedMask: 0, contextSpent: false, meter100: 0, kitId,
   };
 }
 

@@ -1,3 +1,4 @@
+import type { KitId } from "../../packages/shared/src/protocol.js";
 import { describe, expect, test } from "vitest";
 import { buildAbilityRegistry, defineAbility, type AbilitySpec } from "../../packages/shared/src/abilities.js";
 import { meterFraction, meterRequired100 } from "../../packages/shared/src/awakening.js";
@@ -16,15 +17,13 @@ const base = (id: string, o: Partial<AbilitySpec> = {}): AbilitySpec => ({
 function rig(kit = "sv", targets = 1, specs: AbilitySpec[] = [base("sv.b1"), base("td.b1"), base("td.a1", { recovery: 200, active: 100 })]) {
   const cs = new CombatSystem();
   const poses = new Map<number, AbilityPose>();
-  for (let i = 1; i <= 1 + targets; i++) cs.add(i, i, 0).protectedUntilTick = 0;
+  for (let i = 1; i <= 1 + targets; i++) cs.add(i, i, 0, i === 1 ? (kit as KitId) : "sv").protectedUntilTick = 0;
   poses.set(1, { x: 0, y: 1, z: 0, facingYaw: 0, grounded: true });
   for (let i = 2; i <= 1 + targets; i++) poses.set(i, { x: 0, y: 1, z: -1.5 - (i - 2) * 0.1, facingYaw: Math.PI, grounded: true });
   const host: AbilityHost = { combat: cs, pose: (id) => poses.get(id), blocked: () => false };
   const registry = buildAbilityRegistry(specs.map(defineAbility), new Set(["melee"]));
   const runner = new AbilityRunner(registry, [MELEE_HANDLER], host);
   const aw = new AwakeningSystem(host);
-  runner.setKit(1, kit);
-  aw.setKit(1, kit);
   const results: { tick: number; r: HitResult }[] = [];
   const step = (tick: number, extra: HitCandidate[] = []) => {
     cs.expire(tick, (id) => poses.get(id)!.grounded);
@@ -125,7 +124,7 @@ describe("Stone Vanguard activation (sv.activate)", () => {
   test("rejects below full meter; never touches state", () => {
     const r = rig();
     r.cs.get(1)!.meter100 = 19999;
-    expect(r.aw.request(r.cs.get(1)!, T0, "sv")).toEqual({ kind: "rejected", reason: "METER" });
+    expect(r.aw.request(r.cs.get(1)!, T0)).toEqual({ kind: "rejected", reason: "METER" });
     expect(r.cs.get(1)!.action).toBe("Idle");
   });
 
@@ -133,7 +132,7 @@ describe("Stone Vanguard activation (sv.activate)", () => {
     const r = rig();
     const f = r.cs.get(1)!;
     f.meter100 = 20000; f.awakenedUsedMask = 0b1010; f.contextSpent = true; f.hp100 = 6000;
-    const o = r.aw.request(f, T0, "sv");
+    const o = r.aw.request(f, T0);
     expect(o).toMatchObject({ kind: "started", moveId: "sv.activate" });
     expect(f.action).toBe("Awakening");
     expect(f.armored).toBe(true);
@@ -160,7 +159,7 @@ describe("Stone Vanguard activation (sv.activate)", () => {
     const r = rig();
     const f = r.cs.get(1)!;
     f.meter100 = 20000;
-    r.aw.request(f, T0, "sv");
+    r.aw.request(f, T0);
     r.step(T0 + 5, [strike(1, 2, 500, {}, f.generation)]);
     expect(f.meter100).toBe(20000);
   });
@@ -170,19 +169,21 @@ describe("Stone Vanguard activation (sv.activate)", () => {
     const f = r.cs.get(1)!;
     f.meter100 = 20000;
     r.poses.get(1)!.grounded = false;
-    expect(r.aw.request(f, T0, "sv")).toEqual({ kind: "rejected", reason: "STATE" });
+    expect(r.aw.request(f, T0)).toEqual({ kind: "rejected", reason: "STATE" });
     r.poses.get(1)!.grounded = true;
     f.protectedUntilTick = T0 + 10;
-    expect(r.aw.request(f, T0, "sv")).toEqual({ kind: "rejected", reason: "STATE" });
+    expect(r.aw.request(f, T0)).toEqual({ kind: "rejected", reason: "STATE" });
     f.protectedUntilTick = 0;
     r.cast(T0, 1);
-    expect(r.aw.request(f, T0 + 1, "sv")).toEqual({ kind: "rejected", reason: "STATE" }); // mid cast
+    expect(r.aw.request(f, T0 + 1)).toEqual({ kind: "rejected", reason: "STATE" }); // mid cast
     expect(r.runner.bufferedCount).toBe(0);
     for (let t = T0 + 1; t < T0 + 20; t++) r.step(t);
     expect(r.aw.activeCount).toBe(0);
-    expect(r.aw.request(f, T0 + 20, "ea")).toEqual({ kind: "rejected", reason: "INVALID" });
+    f.kitId = "ea";
+    expect(r.aw.request(f, T0 + 20)).toEqual({ kind: "rejected", reason: "INVALID" });
+    f.kitId = "sv";
     f.form = "Awakened";
-    expect(r.aw.request(f, T0 + 20, "sv")).toEqual({ kind: "rejected", reason: "FORM" });
+    expect(r.aw.request(f, T0 + 20)).toEqual({ kind: "rejected", reason: "FORM" });
   });
 
   test("an accepted activation ends spawn protection", () => {
@@ -190,7 +191,7 @@ describe("Stone Vanguard activation (sv.activate)", () => {
     const f = r.cs.get(1)!;
     f.meter100 = 20000;
     f.protectedUntilTick = T0; // already over at T0 (exclusive)
-    expect(r.aw.request(f, T0, "sv").kind).toBe("started");
+    expect(r.aw.request(f, T0).kind).toBe("started");
     expect(f.protectedUntilTick).toBeLessThanOrEqual(T0);
   });
 
@@ -199,7 +200,7 @@ describe("Stone Vanguard activation (sv.activate)", () => {
       const r = rig();
       const f = r.cs.get(1)!;
       f.meter100 = 20000;
-      r.aw.request(f, T0, "sv");
+      r.aw.request(f, T0);
       r.step(T0 + 3, [strike(2, 1, 400, { armorBreak, reaction: { kind: "stun", ticks: 24 } }, r.cs.get(2)!.generation)]);
       expect(f.hp100).toBe(9600);
       if (armorBreak) {
@@ -223,7 +224,7 @@ describe("Stone Vanguard activation (sv.activate)", () => {
     const r = rig();
     const f = r.cs.get(1)!;
     f.meter100 = 20000;
-    r.aw.request(f, T0, "sv");
+    r.aw.request(f, T0);
     enterCaptured(f, T0 + 2, "td.b1");
     r.step(T0 + 3);
     expect(f.form).toBe("Base");
@@ -235,7 +236,7 @@ describe("Stone Vanguard activation (sv.activate)", () => {
     const r = rig();
     const f = r.cs.get(1)!;
     f.meter100 = 20000;
-    r.aw.request(f, T0, "sv");
+    r.aw.request(f, T0);
     r.cs.kill(1, T0 + 5);
     r.aw.reset(1);
     for (let t = T0 + 5; t < T0 + 50; t++) r.step(t);
@@ -262,7 +263,7 @@ describe("Tide Duelist activation (td.activate, Ocean Surge)", () => {
   test("60 ticks; invulnerable exactly ticks 48 to 59; completion at +60", () => {
     const r = tdRig();
     const f = r.cs.get(1)!;
-    expect(r.aw.request(f, T0, "td").kind).toBe("started");
+    expect(r.aw.request(f, T0).kind).toBe("started");
     const hitAt = (rel: number, expectLands: boolean) => {
       const hp = f.hp100;
       r.step(T0 + rel, [strike(2, 1, 100, {}, r.cs.get(2)!.generation)]);
@@ -284,7 +285,7 @@ describe("Tide Duelist activation (td.activate, Ocean Surge)", () => {
     for (let i = 2; i <= 6; i++) r.cs.get(i)!.counterOpenUntil = T0 + 500; // counters cannot intercept a noncounterable burst
     const f = r.cs.get(1)!;
     r.poses.get(6)!.z = -3; // farthest of five
-    r.aw.request(f, T0, "td");
+    r.aw.request(f, T0);
     for (let rel = 0; rel < 48; rel++) r.step(T0 + rel);
     expect(r.cs.get(2)!.hp100).toBe(10000);
     r.step(T0 + 48);
@@ -303,7 +304,7 @@ describe("Tide Duelist activation (td.activate, Ocean Surge)", () => {
     const r = tdRig(2);
     r.poses.get(2)!.z = -5.3; // edge is 5 m radius + 0.35 capsule radius = 5.35
     r.poses.get(3)!.z = -5.4;
-    r.aw.request(r.cs.get(1)!, T0, "td");
+    r.aw.request(r.cs.get(1)!, T0);
     for (let rel = 0; rel <= 48; rel++) r.step(T0 + rel);
     expect(r.cs.get(2)!.hp100).toBe(8000);
     expect(r.cs.get(3)!.hp100).toBe(10000);
@@ -313,7 +314,7 @@ describe("Tide Duelist activation (td.activate, Ocean Surge)", () => {
     const r = tdRig();
     const f = r.cs.get(1)!;
     f.hp100 = 5000;
-    r.aw.request(f, T0, "td");
+    r.aw.request(f, T0);
     for (let rel = 0; rel < 60; rel++) r.step(T0 + rel);
     expect(f.hp100).toBe(5000);
     r.step(T0 + 60);
@@ -328,7 +329,7 @@ describe("Tide Duelist activation (td.activate, Ocean Surge)", () => {
     expect(f.formEndTick).toBe(0);
     const g = tdRig();
     g.cs.get(1)!.hp100 = 9000;
-    g.aw.request(g.cs.get(1)!, T0, "td");
+    g.aw.request(g.cs.get(1)!, T0);
     for (let rel = 0; rel <= 60; rel++) g.step(T0 + rel);
     expect(g.cs.get(1)!.hp100).toBe(10000);
   });
@@ -338,7 +339,7 @@ describe("Tide Duelist activation (td.activate, Ocean Surge)", () => {
     const f = r.cs.get(1)!;
     f.cooldowns.set("td.b1", T0 + 9999);
     f.awakenedUsedMask = 0b100;
-    r.aw.request(f, T0, "td");
+    r.aw.request(f, T0);
     for (let rel = 0; rel <= 60; rel++) r.step(T0 + rel);
     expect(f.awakenedUsedMask).toBe(0);
     expect(f.cooldowns.get("td.b1")).toBe(T0 + 9999);
@@ -386,7 +387,7 @@ describe("cleanup", () => {
   test("remove and dispose leave no activation or kit state", () => {
     const r = rig();
     r.cs.get(1)!.meter100 = 20000;
-    r.aw.request(r.cs.get(1)!, T0, "sv");
+    r.aw.request(r.cs.get(1)!, T0);
     expect(r.aw.activeCount).toBe(1);
     r.aw.remove(1);
     expect(r.aw.activeCount).toBe(0);

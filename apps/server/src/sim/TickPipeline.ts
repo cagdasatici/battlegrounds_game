@@ -135,7 +135,7 @@ export class TickPipeline {
           if (f) this.reportSkill(sessionId, seat, f, q.edge.id, tick, o);
         } else if (q.edge.kind === "awaken") {
           // Never buffered. Rejections are METER, FORM or STATE and are answered immediately.
-          const o: AwakenOutcome = f ? awakening.request(f, tick, abilities.kitOf(seat.entityId)) : { kind: "rejected", reason: "STATE" };
+          const o: AwakenOutcome = f ? awakening.request(f, tick) : { kind: "rejected", reason: "STATE" };
           if (f) this.reportSkill(sessionId, seat, f, q.edge.id, tick, o);
         } else if (q.edge.kind === "jump") jumpPressed = true;
         // skillUp: press moves ignore the release; holdRelease moves arrive with T19. awaken: T14.
@@ -264,6 +264,7 @@ export class TickPipeline {
     p.moveId = f.moveId;
     p.hp100 = f.hp100;
     p.protectedUntilTick = f.protectedUntilTick;
+    p.kitId = f.kitId;
     p.form = f.form;
     p.formEndTick = Math.min(f.formEndTick, 0xffffffff);
     p.meter100 = f.meter100;

@@ -60,9 +60,10 @@ export class AwakeningSystem {
 
   get activeCount(): number { return this.active.size; }
 
-  request(f: Fighter, tick: number, kit: string | undefined): AwakenOutcome {
-    const cfg = kit ? ACTIVATIONS[kit] : undefined;
-    if (!kit || !cfg) return { kind: "rejected", reason: "INVALID" };
+  request(f: Fighter, tick: number): AwakenOutcome {
+    const kit = f.kitId;
+    const cfg = ACTIVATIONS[kit];
+    if (!cfg) return { kind: "rejected", reason: "INVALID" };
     if (!isAlive(f) || f.action !== "Idle") return { kind: "rejected", reason: "STATE" };
     if (f.form === "Awakened") return { kind: "rejected", reason: "FORM" };
     if (f.meter100 < meterRequired100(kit)) return { kind: "rejected", reason: "METER" };
@@ -85,15 +86,9 @@ export class AwakeningSystem {
       if (AWAKENED_MOVE_RE.test(c.moveId)) continue; // D (T15): damage of a consumed awakened move never feeds the next meter
       const a = this.host.combat.get(c.attackerId);
       if (!a || !isAlive(a) || a.form !== "Base" || a.action === "Awakening") continue;
-      const kit = this.kitOf(a);
-      if (!kit) continue;
-      a.meter100 = Math.min(meterRequired100(kit), a.meter100 + r.damage100);
+      a.meter100 = Math.min(meterRequired100(a.kitId), a.meter100 + r.damage100);
     }
   }
-
-  private kits = new Map<number, string>();
-  setKit(entityId: number, kit: string): void { this.kits.set(entityId, kit); }
-  private kitOf(f: Fighter): string | undefined { return this.kits.get(f.entityId); }
 
   /**
    * Expiry step, after combat.expire and before input. Completes or drops activations, expires timed forms.
@@ -164,8 +159,8 @@ export class AwakeningSystem {
     return out;
   }
 
-  remove(entityId: number): void { this.active.delete(entityId); this.kits.delete(entityId); }
+  remove(entityId: number): void { this.active.delete(entityId); }
   /** Death or respawn. */
   reset(entityId: number): void { this.active.delete(entityId); }
-  dispose(): void { this.active.clear(); this.kits.clear(); }
+  dispose(): void { this.active.clear(); }
 }

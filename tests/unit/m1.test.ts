@@ -14,7 +14,7 @@ function rig(n = 2, targetZ = -1.5) {
   const cs = new CombatSystem();
   const m1 = new M1System();
   const poses = new Map<number, M1Pose>();
-  for (let i = 1; i <= n; i++) cs.add(i, i, 0).protectedUntilTick = 0;
+  for (let i = 1; i <= n; i++) cs.add(i, i, 0, "sv").protectedUntilTick = 0;
   poses.set(1, { x: 0, y: 1, z: 0, facingYaw: 0, grounded: true });
   poses.set(2, { x: 0, y: 1, z: targetZ, facingYaw: Math.PI, grounded: true });
   if (n >= 3) poses.set(3, { x: 0, y: 1, z: 1.5, facingYaw: 0, grounded: true });

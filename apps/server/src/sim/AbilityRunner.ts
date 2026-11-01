@@ -250,7 +250,6 @@ export const MELEE_HANDLER: AbilityHandler = { name: "melee", candidates: meleeC
 
 export class AbilityRunner {
   private readonly casts = new Map<number, ActiveCast>();
-  private readonly kits = new Map<number, string>();
   private readonly buffers = new Map<number, Buffered>();
   private readonly handlers = new Map<string, AbilityHandler>();
   /** Delayed landing damage that outlives the casting action (Fault Strike). Cleaned on reset/remove/dispose. */
@@ -273,8 +272,7 @@ export class AbilityRunner {
     return this.scratchStore.get(key) as T;
   }
 
-  setKit(entityId: number, kit: string): void { this.kits.set(entityId, kit); }
-  kitOf(entityId: number): string | undefined { return this.kits.get(entityId); }
+  kitOf(entityId: number): string | undefined { return this.host.combat.get(entityId)?.kitId; }
   castOf(entityId: number): ActiveCast | undefined { return this.casts.get(entityId); }
   get activeCount(): number { return this.casts.size; }
   get bufferedCount(): number { return this.buffers.size; }
@@ -319,8 +317,7 @@ export class AbilityRunner {
   }
 
   private defFor(f: Fighter, slot: 1 | 2 | 3 | 4): AbilityDef | undefined {
-    const kit = this.kits.get(f.entityId);
-    return kit ? this.registry.slotted(kit, f.form, slot) : undefined;
+    return this.registry.slotted(f.kitId, f.form, slot);
   }
 
   /** Validates form, once-per-form, grounded and cooldown, then commits through beginCast. */
@@ -528,14 +525,12 @@ export class AbilityRunner {
 
   remove(entityId: number): void {
     this.reset(entityId);
-    this.kits.delete(entityId);
   }
 
   dispose(): void {
     for (const id of [...this.casts.keys()]) this.endCast(id, "cancelled");
     this.casts.clear();
     this.buffers.clear();
-    this.kits.clear();
     this.landing.clear();
     this.scratchStore.clear();
   }

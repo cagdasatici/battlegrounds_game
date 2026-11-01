@@ -37,7 +37,7 @@ function rig(specs: AbilitySpec[], n = 2) {
   const registry = buildAbilityRegistry(defs, new Set(["melee", "probe", "grounded"]));
   const cs = new CombatSystem();
   const poses = new Map<number, AbilityPose>();
-  for (let i = 1; i <= n; i++) cs.add(i, i, 0).protectedUntilTick = 0;
+  for (let i = 1; i <= n; i++) cs.add(i, i, 0, "sv").protectedUntilTick = 0;
   poses.set(1, { x: 0, y: 1, z: 0, facingYaw: 0, grounded: true });
   if (n >= 2) poses.set(2, { x: 0, y: 1, z: -1.5, facingYaw: Math.PI, grounded: true });
   if (n >= 3) poses.set(3, { x: 0, y: 1, z: -1.0, facingYaw: Math.PI, grounded: true });
@@ -47,7 +47,6 @@ function rig(specs: AbilitySpec[], n = 2) {
     combat: cs, pose: (id) => poses.get(id), blocked: () => occluded,
   };
   const runner = new AbilityRunner(registry, [MELEE_HANDLER, handler, groundedHandler], host);
-  runner.setKit(1, "sv");
   const results: { tick: number; r: HitResult }[] = [];
   const outcomes: { tick: number; edgeId: number; o: SkillOutcome }[] = [];
   /** One tick in spec 12 order: expiry, buffered intent, collision query, hit resolution. */
@@ -338,7 +337,6 @@ describe("AbilityRunner combat matrix", () => {
   test("armor during startup keeps the cast through a non-armorBreak hit but still takes damage; armorBreak bypasses it", () => {
     for (const armorBreak of [false, true]) {
       const r = rig([base("sv.b1", { armor: "startup", startup: 10 }), base("sv.b2", { startup: 2, damage100: [500], armorBreak })]);
-      r.runner.setKit(2, "sv");
       const f2 = r.cs.get(2)!;
       r.poses.get(2)!.facingYaw = Math.PI;
       expect(r.runner.skillDown(f2, T0, 1, 9).kind).toBe("started");
@@ -474,7 +472,7 @@ describe("AbilityRunner cleanup", () => {
     r.step(T0 + 100, { slot: 1 });
     r.runner.remove(1);
     expect(r.runner.activeCount).toBe(0);
-    expect(r.runner.kitOf(1)).toBeUndefined();
+    expect(r.runner.kitOf(1)).toBe("sv"); // R10: the kit lives on the fighter, not in the runner
     r.runner.dispose();
     expect(r.runner.bufferedCount).toBe(0);
   });

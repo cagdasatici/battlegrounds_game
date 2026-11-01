@@ -24,12 +24,11 @@ interface Hit { tick: number; r: HitResult }
 function rig(n = 2, projectiles?: ReflectableProjectiles, registry: AbilityRegistry = buildKitRegistry()) {
   const cs = new CombatSystem();
   const poses = new Map<number, AbilityPose>();
-  for (let i = 1; i <= n; i++) cs.add(i, i, 0).protectedUntilTick = 0;
+  for (let i = 1; i <= n; i++) cs.add(i, i, 0, "sv").protectedUntilTick = 0;
   poses.set(1, { x: 0, y: 1, z: 0, facingYaw: 0, grounded: true });
   for (let i = 2; i <= n; i++) poses.set(i, { x: 0, y: 1, z: -1.5, facingYaw: Math.PI, grounded: true });
   const host: AbilityHost = { combat: cs, pose: (id) => poses.get(id), blocked: () => false, ...(projectiles ? { projectiles } : {}) };
   const runner = new AbilityRunner(registry, ALL_HANDLERS, host);
-  runner.setKit(1, "sv");
   const results: Hit[] = [];
   const outcomes: { tick: number; o: SkillOutcome }[] = [];
   const launches: { tick: number; l: Launch }[] = [];

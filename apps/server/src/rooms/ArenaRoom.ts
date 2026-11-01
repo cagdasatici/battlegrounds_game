@@ -273,12 +273,10 @@ export class ArenaRoom extends Room {
     if (!m.success || m.data.contentHash !== this.contentHash || !P0_KITS.includes(m.data.kitId)) return;
     if (p.ready) return;
     p.kitId = m.data.kitId;
-    this.abilities.setKit(seat.entityId, m.data.kitId);
-    this.awakening.setKit(seat.entityId, m.data.kitId);
     p.ready = true;
     p.lifeId = ++this.lifeSeq; // room-unique so events can identify a victim life
     p.hp100 = COMBAT.hp100Max;
-    this.combat.add(seat.entityId, p.lifeId, this.sim.tick);
+    this.combat.add(seat.entityId, p.lifeId, this.sim.tick, m.data.kitId);
     if (this.movement) {
       this.movement.add(seat.entityId, this.chooseSpawn());
       this.pipeline.publishBody(seat.entityId);

@@ -1,3 +1,4 @@
+import type { KitId } from "@eb/shared/protocol";
 import {
   CAPTOR_RELEASE_RECOVERY, createFighter, enterRecovery, expire, isAlive, kill, leaveCaptured, requestDash,
   respawn, updateGuard, type Accept, type Fighter,
@@ -17,9 +18,9 @@ export class CombatSystem {
   /** Optional observer of every capture release (the room publishes CombatEvent "release"). */
   onRelease: ((rel: Release, tick: number) => void) | null = null;
 
-  add(entityId: number, lifeId: number, tick: number): Fighter {
+  add(entityId: number, lifeId: number, tick: number, kitId: KitId): Fighter {
     this.remove(entityId, tick);
-    const f = createFighter(entityId, lifeId, tick);
+    const f = createFighter(entityId, lifeId, tick, kitId);
     this.fighters.set(entityId, f);
     return f;
   }
