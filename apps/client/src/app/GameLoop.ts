@@ -31,6 +31,7 @@ export interface LoopPlayer {
   facingYaw: number;
   hp100: number;
   meter100?: number;
+  form?: string;
   moveId?: string;
   actionStartTick?: number;
   actionEndTick?: number;
@@ -182,7 +183,9 @@ export class GameLoop {
         });
       }
       if (p.owner === undefined) this.remoteAction.set(key, p.action);
-      this.d.scene.viewFor(key)?.setAction(p.action, p.moveId ?? "", Math.max(0, (p.actionEndTick ?? 0) - (p.actionStartTick ?? 0)));
+      const view = this.d.scene.viewFor(key);
+      view?.setAction(p.action, p.moveId ?? "", Math.max(0, (p.actionEndTick ?? 0) - (p.actionStartTick ?? 0)));
+      view?.setAwakened(p.form === "Awakened");
     }
     for (const key of [...this.known.keys()]) {
       if (seen.has(key)) continue;
