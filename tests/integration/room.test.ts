@@ -168,14 +168,17 @@ describe("room capacity and lobby rules", () => {
     for (const r of rooms) await r.leave();
   });
 
-  test("ready validates kit and content hash; P1 kit is not selectable; kit change after ready is pending only", async () => {
+  test("ready validates kit and content hash; the Artificer is selectable; kit change after ready is pending only", async () => {
     const code = freshCode();
     const a = await loginClient(h, "Arel");
     const ra = await a.join(code);
-    a.send("ready", { kitId: "ea", contentHash: a.localContentHash });
+    a.send("ready", { kitId: "ea", contentHash: "0".repeat(16) });
     a.send("ready", { kitId: "sv", contentHash: "0".repeat(16) });
     await new Promise((r) => setTimeout(r, 1100)); // ready/changeKit are limited to 2 per second
-    expect([...players(ra).values()][0].ready).toBe(false);
+    expect([...players(ra).values()][0].ready).toBe(false); // wrong content hash is refused for every kit
+    a.send("changeKit", { kitId: "ea" });
+    await waitFor(() => [...players(ra).values()][0].kitId === "ea", 3000, "Artificer picked in the lobby");
+    await new Promise((r) => setTimeout(r, 1100));
     a.send("changeKit", { kitId: "td" });
     await waitFor(() => [...players(ra).values()][0].kitId === "td", 3000, "kit change in lobby");
     a.send("ready", { kitId: "td", contentHash: a.localContentHash });
@@ -184,6 +187,17 @@ describe("room capacity and lobby rules", () => {
     a.send("changeKit", { kitId: "sv" });
     await new Promise((r) => setTimeout(r, 200));
     expect([...players(ra).values()][0].kitId).toBe("td"); // applied at next respawn (T17)
+    await a.leave();
+  });
+
+  test("ready with the Artificer is accepted and the replicated fighter carries the ea kit", async () => {
+    const code = freshCode();
+    const a = await loginClient(h, "Arel");
+    const ra = await a.join(code);
+    await waitFor(() => players(ra).size === 1, 3000, "seated");
+    a.send("ready", { kitId: "ea", contentHash: a.localContentHash });
+    await waitFor(() => [...players(ra).values()][0].ready, 3000, "ready as ea");
+    expect([...players(ra).values()][0].kitId).toBe("ea");
     await a.leave();
   });
 

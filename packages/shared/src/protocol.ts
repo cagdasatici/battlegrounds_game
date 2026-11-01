@@ -49,8 +49,8 @@ export type InputPacket = z.infer<typeof InputPacketSchema>;
 
 export const KitIdSchema = z.enum(["sv", "td", "ea"]);
 export type KitId = z.infer<typeof KitIdSchema>;
-/** Kits playable in P0; ea is hidden until P1 (spec section 6). */
-export const P0_KITS: readonly KitId[] = ["sv", "td"];
+/** Kits selectable in the lobby. The Ember Artificer joined with T21 once its four base and four awakened moves existed (decision 0022). */
+export const P0_KITS: readonly KitId[] = ["sv", "td", "ea"];
 
 const hashStr = z.string().regex(/^[0-9a-f]{16}$/);
 export const ReadyMessageSchema = z.strictObject({ kitId: KitIdSchema, contentHash: hashStr });

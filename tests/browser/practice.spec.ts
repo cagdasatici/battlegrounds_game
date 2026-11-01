@@ -95,7 +95,7 @@ test("Practice from Welcome: dummy room, server confirmed tutorial in order, tog
     await expect(page.locator("[data-act=play]")).toBeVisible();
     await page.click("[data-act=practice]");
     await expect(page.locator("[data-ui=room-status]")).toContainText("training dummy");
-    await expect(page.locator("[data-act=kit]")).toHaveCount(2);
+    await expect(page.locator("[data-act=kit]")).toHaveCount(3);
     await page.click("[data-act=ready]");
     await page.waitForFunction(() => (window as unknown as { __eb?: unknown }).__eb !== undefined, undefined, { timeout: 30_000 });
     await until(async () => (await snap(page)).players.some((q) => q.local && q.action === "Idle") || null, 15_000, "ready");
