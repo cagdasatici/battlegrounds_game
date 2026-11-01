@@ -73,4 +73,4 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 
 | Task | Title | Depends on | Status | Commit | Test report | Notes |
 |------|-------|-----------|--------|--------|-------------|-------|
-| FX0 | Combat event contract and presentation bus | M0 | IMPLEMENTED (DEVICE CHECK PENDING) | pending | docs/test-results/FX0.md | decisions/0021. hitClass, targetHp100, heal kind; CombatBus dedup + stale-life drop; fx stubs. iPad NOT RUN |
+| FX0 | Combat event contract and presentation bus | M0 | IMPLEMENTED (DEVICE CHECK PENDING) | 8555409 | docs/test-results/FX0.md | decisions/0021. hitClass, targetHp100, heal kind; CombatBus dedup + stale-life drop; fx stubs. iPad NOT RUN |
