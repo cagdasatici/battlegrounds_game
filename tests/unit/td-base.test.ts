@@ -5,8 +5,13 @@ import { COMBAT } from "../../packages/shared/src/config/combat.js";
 import { CAPTOR_RELEASE_RECOVERY, applyReaction } from "../../apps/server/src/sim/ActionMachine.js";
 import { CombatSystem } from "../../apps/server/src/sim/Combat.js";
 import {
-  AbilityRunner, type AbilityHost, type AbilityPose, type ProjectileProvider, type ReflectRequest, type SkillOutcome,
+  AbilityRunner, type AbilityHandler, type AbilityHost, type AbilityPose, type ProjectileProvider, type ReflectRequest,
+  type SkillOutcome,
 } from "../../apps/server/src/sim/AbilityRunner.js";
+import { P1_ELEVATED_SLAM, createDragSlam } from "../../apps/server/src/kits/td/dragSlam.js";
+import { NEUTRAL_MOVE } from "../../packages/shared/src/movement.js";
+import { World } from "../../apps/server/src/sim/World.js";
+import { MovementSystem } from "../../apps/server/src/sim/Movement.js";
 import type { HitCandidate, HitResult } from "../../apps/server/src/sim/HitResolver.js";
 import type { Release } from "../../apps/server/src/sim/CaptureRegistry.js";
 
@@ -22,7 +27,10 @@ const reg = buildKitRegistry();
 const def = (id: string) => reg.byId(id)!;
 
 interface Rig extends ReturnType<typeof makeRig> {}
-function makeRig(n = 3, hostOpts: { moveTogether?: AbilityHost["moveTogether"]; surfaceHeight?: AbilityHost["surfaceHeight"]; projectiles?: ProjectileProvider } = {}) {
+function makeRig(n = 3, hostOpts: {
+  moveTogether?: AbilityHost["moveTogether"]; surfaceHeight?: AbilityHost["surfaceHeight"]; projectiles?: ProjectileProvider;
+  handlers?: readonly AbilityHandler[];
+} = {}) {
   const cs = new CombatSystem();
   const poses = new Map<number, AbilityPose>();
   for (let i = 1; i <= n; i++) cs.add(i, i, 0).protectedUntilTick = 0;
@@ -49,7 +57,7 @@ function makeRig(n = 3, hostOpts: { moveTogether?: AbilityHost["moveTogether"]; 
     ...(hostOpts.surfaceHeight ? { surfaceHeight: hostOpts.surfaceHeight } : {}),
     ...(hostOpts.projectiles ? { projectiles: hostOpts.projectiles } : {}),
   };
-  const runner = new AbilityRunner(reg, ALL_HANDLERS, host);
+  const runner = new AbilityRunner(reg, hostOpts.handlers ?? ALL_HANDLERS, host);
   for (let i = 1; i <= n; i++) runner.setKit(i, "td");
   const results: { tick: number; r: HitResult }[] = [];
   const outcomes: { tick: number; who: number; o: SkillOutcome }[] = [];
@@ -96,7 +104,7 @@ function makeRig(n = 3, hostOpts: { moveTogether?: AbilityHost["moveTogether"]; 
 
 describe("td definitions match the spec 15 table", () => {
   test("slotted base moves carry the exact table numbers", () => {
-    expect(TD_DEFS.map((d) => d.id)).toEqual(["td.b1"]);
+    expect(TD_DEFS.map((d) => d.id)).toEqual(["td.b1", "td.b2"]);
     const table: Record<string, [number, number, number, number, number, number, string, string]> = {
       "td.b1": [10, 5, 18, 1020, 2400, 2.4, "U", "captureBarrage"],
       "td.b2": [14, 5, 24, 1200, 1900, 2.2, "B", "dragSlam"],
@@ -420,6 +428,291 @@ describe("td.b1 Current Bind (captureBarrage)", () => {
     const a = makeRig(2), b = makeRig(2);
     for (const r of [a, b]) { r.step(T0, { press: [{ slot: 1 }] }); r.run(T0 + 1, T0 + 70); }
     expect(snap(a)).toBe(snap(b));
+  });
+});
+
+describe("td.b2 Undertow Spiral (dragSlam)", () => {
+  const c = T0 + 14; // activeStart: capture tick
+  test("definition: damage [5,14] at [0,48], release R72 F3 U8, blockable, three target states", () => {
+    const d = def("td.b2");
+    expect(d.hitOffsets).toEqual([0, 48]);
+    expect(d.damage100).toEqual([500, 1400]);
+    expect(d.ragdollTicks).toBe(72);
+    expect(d.launch).toEqual({ forward: 3, up: 8 });
+    expect(d.block).toBe("B");
+    expect(d.targetStates).toEqual(["standing", "air", "ragdoll"]);
+  });
+
+  test("hit: 5 at capture, 14 at +48, 3 m over 36 equal steps at +1..+36, release at +49", () => {
+    const r = makeRig(2);
+    r.step(T0, { press: [{ slot: 2 }] });
+    r.run(T0 + 1, c - 1);
+    r.step(c);
+    expect(r.cs.get(2)!.action).toBe("Captured");
+    expect(r.cs.get(1)!.armored).toBe(true);
+    r.run(c + 1, c + 48);
+    expect(r.dealt(1, 2)).toEqual([[c, 500], [c + 48, 1400]]);
+    expect(r.hp(2)).toBe(HP - 1900);
+    expect(r.moves.length).toBe(36);
+    expect(r.moves.every((m) => m.ids.join() === "1,2" && Math.abs(m.dx) < 1e-12 && Math.abs(m.dz + 3 / 36) < 1e-12)).toBe(true);
+    expect(r.moves.reduce((s, m) => s + m.dz, 0)).toBeCloseTo(-3, 9);
+    expect(r.poses.get(1)!.z).toBeCloseTo(-3, 9);
+    expect(r.poses.get(2)!.z).toBeCloseTo(-4.5, 9);
+    expect(r.cs.get(2)!.action).toBe("Captured");
+    r.step(c + 49);
+    const v = r.cs.get(2)!;
+    expect(v.action).toBe("Ragdolled");
+    expect(v.actionEndTick - v.actionStartTick).toBe(72);
+    expect(r.launches.map((l) => [l.id, l.vx + 0, l.vy, l.vz, l.tick])).toEqual([[2, 0, 8, -3, c + 49]]);
+    expect(r.cs.captures.size).toBe(0);
+    expect(r.cs.get(1)!.armored).toBe(false);
+    r.run(c + 50, c + 49 + 23);
+    expect(r.cs.get(1)!.action).toBe("Recovery");
+    r.step(c + 49 + 24);
+    expect(r.cs.get(1)!.action).toBe("Idle");
+  });
+
+  test("miss: probe window then recovery, cooldown spent; a later victim cannot attach", () => {
+    const r = makeRig(2);
+    r.poses.get(2)!.z = -5;
+    r.step(T0, { press: [{ slot: 2 }] });
+    r.run(T0 + 1, c + 4);
+    r.poses.get(2)!.z = -1.5;
+    r.run(c + 5, c + 30);
+    expect(r.cs.get(2)!.action).toBe("Idle");
+    expect(r.results.length).toBe(0);
+    expect(r.moves.length).toBe(0);
+    r.step(T0 + 14 + 5 + 24, { press: [{ slot: 2 }] });
+    expect(r.outcomes.at(-1)!.o).toEqual({ kind: "rejected", reason: "COOLDOWN" });
+  });
+
+  test("block: a frontal guard blocks the B probe (blockstun, no capture); from behind it is captured", () => {
+    const r = makeRig(2);
+    r.run(T0 - 10, T0 - 1, () => ({ guard: [2] }));
+    r.step(T0, { press: [{ slot: 2 }], guard: [2] });
+    r.run(T0 + 1, c + 8, () => ({ guard: [2] }));
+    expect(r.results.map((x) => x.r.outcome)[0]).toBe("blocked");
+    expect(r.results.slice(1).every((x) => x.r.outcome === "duplicate")).toBe(true); // one probe hit across the window
+    expect(r.hp(2)).toBe(HP);
+    expect(r.cs.get(2)!.action).not.toBe("Captured");
+    expect(r.cs.get(2)!.blockstunUntil).toBe(c + COMBAT.guard.blockstun);
+    expect(r.moves.length).toBe(0);
+    const b = makeRig(2);
+    b.poses.get(2)!.facingYaw = 0; // facing away from the captor
+    b.run(T0 - 10, T0 - 1, () => ({ guard: [2] }));
+    b.step(T0, { press: [{ slot: 2 }], guard: [2] });
+    b.run(T0 + 1, c, () => ({ guard: [2] }));
+    expect(b.cs.get(2)!.action).toBe("Captured");
+  });
+
+  test("counter: a counterable initial hit is intercepted before any capture", () => {
+    const r = makeRig(2);
+    r.cs.get(2)!.counterOpenUntil = T0 + 100;
+    r.step(T0, { press: [{ slot: 2 }] });
+    r.run(T0 + 1, c + 10);
+    expect(r.results[0]!.r.outcome).toBe("countered");
+    expect(r.hp(2)).toBe(HP);
+    expect(r.cs.captures.size).toBe(0);
+    expect(r.moves.length).toBe(0);
+  });
+
+  test("duplicate hit: exactly two damage events and one capture over the whole cast", () => {
+    const r = makeRig(2);
+    r.step(T0, { press: [{ slot: 2 }] });
+    r.run(T0 + 1, c + 90);
+    expect(r.dealt(1, 2).length).toBe(2);
+    expect(r.results.filter((x) => x.r.outcome === "captured").length).toBe(1);
+  });
+
+  test("airborne and grounded ragdoll targets are both capturable; static occlusion is not", () => {
+    for (const [ragdoll, grounded] of [[true, false], [true, true], [false, false]] as const) {
+      const r = makeRig(2);
+      if (ragdoll) applyReaction(r.cs.get(2)!, T0 - 5, { kind: "ragdoll", ticks: 300 }, !grounded);
+      r.poses.get(2)!.grounded = grounded;
+      r.step(T0, { press: [{ slot: 2 }] });
+      r.run(T0 + 1, c + 2);
+      expect(r.cs.get(2)!.action).toBe("Captured");
+    }
+    const o = makeRig(2);
+    o.setOccluded(true);
+    o.step(T0, { press: [{ slot: 2 }] });
+    o.run(T0 + 1, c + 10);
+    expect(o.results.length).toBe(0);
+  });
+
+  test("interruption: startup stun cancels; mid sequence armor ignores stun; armorBreak releases and stops motion", () => {
+    const a = makeRig(3);
+    a.poses.get(3)!.z = 5;
+    a.step(T0, { press: [{ slot: 2 }] });
+    a.run(T0 + 1, T0 + 5);
+    a.step(T0 + 6, { extra: [a.strike(3, 1)] });
+    a.run(T0 + 7, c + 60);
+    expect(a.cs.get(2)!.action).toBe("Idle");
+    expect(a.hp(2)).toBe(HP);
+    expect(a.moves.length).toBe(0);
+
+    const b = makeRig(3);
+    b.poses.get(3)!.z = 5;
+    b.step(T0, { press: [{ slot: 2 }] });
+    b.run(T0 + 1, c + 9);
+    b.step(c + 10, { extra: [b.strike(3, 1, { damage100: 400 }), b.strike(3, 1, { damage100: 100, reaction: { kind: "ragdoll", ticks: 60 } })] });
+    expect(b.hp(1)).toBe(HP - 500);
+    b.run(c + 11, c + 49);
+    expect(b.hp(2)).toBe(HP - 1900);
+    expect(b.moves.length).toBe(36);
+
+    const d = makeRig(3);
+    d.poses.get(3)!.z = 5;
+    d.step(T0, { press: [{ slot: 2 }] });
+    d.run(T0 + 1, c + 9);
+    d.step(c + 10, { extra: [d.strike(3, 1, { armorBreak: true })] });
+    expect(d.cs.get(1)!.action).toBe("Stunned");
+    expect(d.cs.get(2)!.action).toBe("Idle");
+    const movesAtBreak = d.moves.length;
+    d.run(c + 11, c + 80);
+    expect(d.moves.length).toBe(movesAtBreak);
+    expect(d.hp(2)).toBe(HP - 500);
+    expect(d.cs.captures.size).toBe(0);
+  });
+
+  test("death of the captor and of the victim mid sequence", () => {
+    const a = makeRig(2);
+    a.step(T0, { press: [{ slot: 2 }] });
+    a.run(T0 + 1, c + 20);
+    a.cs.kill(1, c + 21);
+    a.run(c + 21, c + 80);
+    expect(a.cs.get(2)!.action).toBe("Idle");
+    expect(a.hp(2)).toBe(HP - 500);
+
+    const b = makeRig(3);
+    b.poses.get(3)!.z = 5;
+    b.step(T0, { press: [{ slot: 2 }] });
+    b.run(T0 + 1, c + 20);
+    b.cs.get(2)!.hp100 = 50;
+    b.step(c + 21, { extra: [b.strike(3, 2, { damage100: 900 })] });
+    expect(b.cs.get(2)!.action).toBe("Dead");
+    expect(b.cs.get(1)!.action).toBe("Recovery");
+    expect(b.cs.get(1)!.actionEndTick).toBe(c + 21 + CAPTOR_RELEASE_RECOVERY);
+    const n = b.moves.length;
+    b.run(c + 22, c + 80);
+    expect(b.moves.length).toBe(n); // no more motion after the victim died
+    expect(b.dealt(1, 2).length).toBe(1);
+  });
+
+  test("capture arbitration, removal and cooldown 1200", () => {
+    const r = makeRig(3);
+    r.step(T0, { press: [{ slot: 2, who: 1 }, { slot: 2, who: 3 }] });
+    r.run(T0 + 1, c + 60);
+    expect(r.results.filter((x) => x.r.outcome === "captured").map((x) => x.r.candidate.attackerId)).toEqual([1]);
+    expect(r.results.filter((x) => x.r.outcome === "captureLost").map((x) => x.r.candidate.attackerId)).toEqual([3]);
+    expect(r.dealt(3, 2)).toEqual([]);
+    expect(r.moves.every((m) => m.ids.includes(1) && !m.ids.includes(3))).toBe(true);
+
+    const b = makeRig(2);
+    b.step(T0, { press: [{ slot: 2 }] });
+    b.run(T0 + 1, c + 10);
+    b.runner.remove(1);
+    b.cs.remove(1, c + 11);
+    expect(b.cs.get(2)!.action).toBe("Idle");
+    expect(b.cs.captures.size).toBe(0);
+
+    const e = makeRig(2);
+    e.step(T0, { press: [{ slot: 2 }] });
+    e.run(T0 + 1, c + 60);
+    e.step(T0 + 1199, { press: [{ slot: 2 }] });
+    expect(e.outcomes.at(-1)!.o).toEqual({ kind: "rejected", reason: "COOLDOWN" });
+    e.step(T0 + 1200, { press: [{ slot: 2 }] });
+    expect(e.outcomes.at(-1)!.o).toMatchObject({ kind: "started", moveId: "td.b2" });
+  });
+
+  test("a wall stops the motion but not the remaining damage schedule or the release", () => {
+    let calls = 0;
+    const r = makeRig(2, { moveTogether: (ids, dx, dz) => { calls++; if (calls <= 5) { for (const i of ids) { const p = r.poses.get(i)!; p.x += dx; p.z += dz; } return { dx, dz }; } return { dx: 0, dz: 0 }; } });
+    r.step(T0, { press: [{ slot: 2 }] });
+    r.run(T0 + 1, c + 48);
+    expect(calls).toBe(6); // five free steps, one blocked step, then no more attempts
+    expect(r.dealt(1, 2)).toEqual([[c, 500], [c + 48, 1400]]);
+    r.step(c + 49);
+    expect(r.cs.get(2)!.action).toBe("Ragdolled");
+    expect(r.cs.captures.size).toBe(0);
+  });
+
+  test("P1 elevated branch is OFF by default; when enabled, final damage 24 once only if started >= 2 m up and landed before +48", () => {
+    expect(P1_ELEVATED_SLAM).toBe(false);
+    const withFlag = [...ALL_HANDLERS.filter((h) => h.name !== "dragSlam"), createDragSlam({ elevatedBranch: true })];
+    const run = (flag: boolean, startY: number, landAt: number | null) => {
+      const r = makeRig(2, { surfaceHeight: () => 0, ...(flag ? { handlers: withFlag } : {}) });
+      for (const i of [1, 2]) { r.poses.get(i)!.y = startY; r.poses.get(i)!.grounded = false; }
+      r.step(T0, { press: [{ slot: 2 }] });
+      r.run(T0 + 1, c);
+      r.run(c + 1, c + 49, (t) => { if (landAt !== null && t === c + landAt) r.poses.get(1)!.grounded = true; return undefined; });
+      return r;
+    };
+    const high = 0.9 + 2.5;
+    expect(run(true, high, 20).dealt(1, 2)).toEqual([[c, 500], [c + 48, 2400]]);
+    expect(run(true, high, 47).dealt(1, 2).at(-1)).toEqual([c + 48, 2400]); // lands on +47: still before +48
+    expect(run(true, high, 48).dealt(1, 2).at(-1)).toEqual([c + 48, 1400]); // lands on +48: not before
+    expect(run(true, high, null).dealt(1, 2).at(-1)).toEqual([c + 48, 1400]); // never lands
+    expect(run(true, 0.9 + 1.9, 20).dealt(1, 2).at(-1)).toEqual([c + 48, 1400]); // started under 2 m
+    expect(run(false, high, 20).dealt(1, 2).at(-1)).toEqual([c + 48, 1400]); // flag off (the shipped P0 setting)
+    expect(run(true, high, 20).dealt(1, 2).filter(([, d]) => d === 2400).length).toBe(1);
+  });
+});
+
+describe("td.b2 with the real collision world (swept movement)", () => {
+  const setup = async (cap: [number, number, number], vic: [number, number, number]) => {
+    const world = await World.create();
+    const sys = new MovementSystem(world);
+    sys.add(1, cap); sys.add(2, vic);
+    for (let t = 1; t <= 40; t++) sys.step(t, () => NEUTRAL_MOVE);
+    let ref: ReturnType<typeof makeRig> | null = null;
+    const sync = () => {
+      for (const i of [1, 2]) {
+        const p = sys.position(i)!, q = ref!.poses.get(i)!;
+        ref!.poses.set(i, { x: p[0], y: p[1], z: p[2], facingYaw: q.facingYaw, grounded: sys.get(i)!.state.grounded });
+      }
+    };
+    const r = makeRig(2, { moveTogether: (ids, dx, dz) => { const m = sys.moveTogether(ids, dx, dz); sync(); return m; } });
+    ref = r;
+    r.poses.get(2)!.facingYaw = Math.PI;
+    sync();
+    const tick = (t: number, press?: boolean) => { sys.step(t, () => NEUTRAL_MOVE); sync(); r.step(t, press ? { press: [{ slot: 2 }] } : undefined); };
+    return { world, sys, r, tick, done: () => { sys.dispose(); world.dispose(); } };
+  };
+
+  test("free ground: the pair travels 3 m forward and stays 1.5 m apart", async () => {
+    const s = await setup([0, 0.92, 8], [0, 0.92, 6.5]);
+    try {
+      const z0 = s.sys.position(2)![2];
+      s.tick(1000, true);
+      for (let t = 1001; t <= 1070; t++) s.tick(t);
+      expect(s.r.moves.length).toBe(0); // the real host path does not use the fake host recorder
+      expect(z0 - s.sys.position(2)![2]).toBeGreaterThan(2.97);
+      expect(z0 - s.sys.position(2)![2]).toBeLessThan(3.03);
+      expect(s.sys.position(1)![2] - s.sys.position(2)![2]).toBeGreaterThan(1.47);
+      expect(s.sys.position(1)![2] - s.sys.position(2)![2]).toBeLessThan(1.53);
+      expect(s.r.hp(2)).toBe(HP - 1900);
+    } finally { s.done(); }
+  });
+
+  test("acceptance: crossing a wall never drags the victim through it (wall.0 spans z -0.3..0.3)", async () => {
+    const s = await setup([-10, 0.92, 2.5], [-10, 0.92, 1.0]);
+    try {
+      s.tick(1000, true);
+      let minZ = Infinity;
+      for (let t = 1001; t <= 1070; t++) {
+        s.tick(t);
+        const p = s.sys.position(2)!;
+        minZ = Math.min(minZ, p[2]);
+        expect(s.world.capsuleOverlaps(p, COMBAT.capsule.radius - 0.01, COMBAT.capsule.halfHeight).filter((id) => id.startsWith("wall"))).toEqual([]);
+      }
+      expect(minZ).toBeGreaterThan(0.3 + COMBAT.capsule.radius - 0.03); // never inside or beyond the wall
+      expect(1.0 - minZ).toBeLessThan(0.5); // the motion stopped at the wall, far short of 3 m
+      expect(1.0 - minZ).toBeGreaterThan(0.2); // ... after moving up to it (not blocked from the start)
+      expect(s.r.dealt(1, 2).map(([, d]) => d)).toEqual([500, 1400]); // the damage schedule still ran
+      expect(s.r.cs.get(2)!.action).toBe("Ragdolled"); // released at +49 as scheduled
+      expect(s.r.cs.captures.size).toBe(0);
+    } finally { s.done(); }
   });
 });
 

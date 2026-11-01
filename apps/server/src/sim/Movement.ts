@@ -4,6 +4,8 @@ import { MOVE_DT, applyCorrection, initialMoveState, integrateMovement, type Mov
 import type { MapVec3 } from "@eb/shared/config/arena";
 import type { World } from "./World.js";
 
+/** D: lift (m) applied to the capsule for straight sweeps so floor contact never blocks a horizontal move. */
+const SWEEP_LIFT = 0.06;
 const WALKABLE_COS = Math.cos((COMBAT.controller.maxSlopeDeg * Math.PI) / 180);
 
 /** Forced horizontal velocity in m/s for one tick. */
@@ -28,8 +30,7 @@ export interface Body {
 export class MovementSystem {
   private readonly bodies = new Map<number, Body>();
   private readonly controller: RAPIER.KinematicCharacterController;
-  /** Straight-line sweep controller: no slide, no autostep, no snap, so it stops at the first contact. */
-  private readonly sweeper: RAPIER.KinematicCharacterController;
+  private readonly sweepShape = new RAPIER.Capsule(COMBAT.capsule.halfHeight, COMBAT.capsule.radius);
   private disposed = false;
 
   constructor(private readonly world: World) {
@@ -42,13 +43,6 @@ export class MovementSystem {
     this.controller.enableSnapToGround(c.snapDown);
     this.controller.setSlideEnabled(true);
     this.controller.setApplyImpulsesToDynamicBodies(false);
-    this.sweeper = world.rapier.createCharacterController(c.offset);
-    this.sweeper.setUp({ x: 0, y: 1, z: 0 });
-    this.sweeper.setSlideEnabled(false);
-    this.sweeper.disableAutostep();
-    this.sweeper.disableSnapToGround();
-    this.sweeper.setMaxSlopeClimbAngle((c.maxSlopeDeg * Math.PI) / 180);
-    this.sweeper.setApplyImpulsesToDynamicBodies(false);
   }
 
   add(entityId: number, centre: MapVec3, facingYaw = 0): Body {
@@ -129,9 +123,11 @@ export class MovementSystem {
     if (!(len > 1e-9) || !Number.isFinite(len) || bodies.length === 0) return { dx: 0, dz: 0 };
     let frac = 1;
     for (const b of bodies) {
-      this.sweeper.computeColliderMovement(b.collider, { x: dx, y: 0, z: dz }, RAPIER.QueryFilterFlags.EXCLUDE_KINEMATIC);
-      const m = this.sweeper.computedMovement();
-      frac = Math.min(frac, Math.max(0, Math.min(1, (m.x * dx + m.z * dz) / (len * len))));
+      // Cast the capsule, lifted off the floor so floor contact cannot stop a horizontal move, along the move.
+      const t = b.rb.translation();
+      const hit = this.world.rapier.castShape({ x: t.x, y: t.y + SWEEP_LIFT, z: t.z }, { x: 0, y: 0, z: 0, w: 1 },
+        { x: dx, y: 0, z: dz }, this.sweepShape, COMBAT.controller.offset, 1, true, RAPIER.QueryFilterFlags.EXCLUDE_KINEMATIC);
+      if (hit) frac = Math.min(frac, Math.max(0, Math.min(1, hit.time_of_impact)));
     }
     if (frac < 1e-6) return { dx: 0, dz: 0 };
     for (const b of bodies) {
@@ -156,6 +152,5 @@ export class MovementSystem {
     for (const id of [...this.bodies.keys()]) this.remove(id);
     this.disposed = true;
     this.world.rapier.removeCharacterController(this.controller);
-    this.world.rapier.removeCharacterController(this.sweeper);
   }
 }

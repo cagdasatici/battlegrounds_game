@@ -16,4 +16,12 @@ export const TD_DEFS: AbilityDef[] = [
     targetStates: ["standing", "air", "ragdoll"], // grounded ragdoll is filtered by the handler
     stunTicks: 0, ragdollTicks: 60, launch: { forward: 7, up: 3 },
   }),
+  // Undertow Spiral: capture, 5 at +0 and 14 at +48, pair moves 3 m over 36 ticks, release +49 R72 F3 U8.
+  defineAbility({
+    id: "td.b2", label: "Undertow Spiral", handler: "dragSlam",
+    startup: 14, active: 5, recovery: 24, cooldown: 1200, range: 2.2, block: "B",
+    hitOffsets: [0, 48], damage100: [500, 1400],
+    targetStates: ["standing", "air", "ragdoll"],
+    stunTicks: 0, ragdollTicks: 72, launch: { forward: 3, up: 8 },
+  }),
 ];
