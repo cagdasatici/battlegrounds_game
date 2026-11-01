@@ -401,7 +401,8 @@ export class AbilityRunner {
     if (tick < cast.armorUntil) return true;
     switch (cast.def.armor) {
       case "startup": return tick < cast.activeStart;
-      case "onHit": return tick < cast.activeEnd; // D: armored through startup and active, not recovery
+      // onHit: armor begins the tick after the first confirmed damage or capture (R04) and lasts to activeEnd.
+      case "onHit": return cast.data.firstHitTick !== undefined && tick < cast.activeEnd;
       default: return false;
     }
   }
@@ -453,6 +454,9 @@ export class AbilityRunner {
       const cast = this.casts.get(id)!;
       const f = this.host.combat.get(id);
       if (!f) continue;
+      for (const r of list) {
+        if ((r.outcome === "hit" && r.damage100 > 0) || r.outcome === "captured") cast.data.firstHitTick ??= tick;
+      }
       this.handlers.get(cast.def.handler)!.onResults?.({ tick, fighter: f, cast, host: this.host, runner: this }, list);
     }
     // Results seen from the target side (counter stances), then detached-effect handlers.

@@ -360,6 +360,38 @@ describe("AbilityRunner combat matrix", () => {
   });
 });
 
+describe("R04 armor semantics for startup and onHit", () => {
+  const armoredAt = (mode: "startup" | "onHit", withTarget: boolean): boolean[] => {
+    const r = rig([base("sv.b1", { armor: mode, startup: 4, active: 4, recovery: 6 })]);
+    if (!withTarget) r.poses.get(2)!.z = -30;
+    const f = r.cs.get(1)!;
+    const seen: boolean[] = [];
+    for (let t = T0; t <= T0 + 9; t++) { r.step(t, t === T0 ? { slot: 1 } : undefined); seen.push(f.armored); }
+    return seen;
+  };
+
+  test("startup: armored while tick < activeStart, not at activeStart, activeEnd-1 or activeEnd", () => {
+    const a = armoredAt("startup", true);
+    expect(a.slice(0, 4)).toEqual([true, true, true, true]); // T0 .. activeStart-1
+    expect(a[4]).toBe(false); // activeStart
+    expect(a[7]).toBe(false); // activeEnd-1
+    expect(a[8]).toBe(false); // activeEnd
+  });
+
+  test("onHit: not armored at activeStart-1, not at the first-hit tick, armored from the next tick to activeEnd-1, not at activeEnd", () => {
+    const a = armoredAt("onHit", true);
+    expect(a.slice(0, 4)).toEqual([false, false, false, false]); // through activeStart-1
+    expect(a[4]).toBe(false); // activeStart = first-hit tick: the hit resolved before armor existed
+    expect(a[5]).toBe(true);
+    expect(a[7]).toBe(true); // activeEnd-1
+    expect(a[8]).toBe(false); // activeEnd
+  });
+
+  test("onHit: a miss never grants armor", () => {
+    expect(armoredAt("onHit", false).every((x) => !x)).toBe(true);
+  });
+});
+
 describe("AbilityRunner input rules", () => {
   test("rejects unknown slots, airborne grounded-only moves and dead casters", () => {
     const r = rig([base("sv.b1"), base("sv.b2", { handler: "grounded" })]);
