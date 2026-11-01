@@ -92,7 +92,7 @@ Execution details, ownership and acceptance gates are in [the sparring plan](spa
 | Task | Title | Depends on | Status | Commit | Test report |
 |---|---|---|---|---|---|
 | BOT0 | Freeze sparring contracts | T18d T33a | DONE | e035ecc | docs/test-results/BOT0.md |
-| BOT1 | Deterministic opponents | BOT0 | TODO | | |
+| BOT1 | Deterministic opponents | BOT0 | DONE | 461ce49 | docs/test-results/BOT1.md |
 | BOT2 | Private match membership | BOT0 | DONE | e761c3a | docs/test-results/BOT2.md |
 | BOT3 | Host setup controls | BOT0 | IMPLEMENTED (DEVICE CHECK PENDING) | 99e5722 | docs/test-results/BOT3.md |
 | BOT4 | Authoritative room integration | BOT1 BOT2 | TODO | | |
