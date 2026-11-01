@@ -41,7 +41,7 @@ export const CINEMATIC_GRAB: AbilityHandler = {
     for (const r of results) {
       if (r.candidate.hitIndex !== GRAB_DAMAGE_INDEX || r.outcome !== "hit" || r.damage100 <= 0) continue;
       c.cast.data.healed = true;
-      c.fighter.hp100 = COMBAT.hp100Max;
+      c.host.combat.heal(c.fighter, COMBAT.hp100Max, c.cast.def.id, c.tick);
       return;
     }
   },

@@ -27,7 +27,7 @@ export function grantCastInvulnerability(c: CastContext): void {
 export function healOnce(c: CastContext, flag: string, amount100: number): boolean {
   if (c.cast.data[flag] === true || !isAlive(c.fighter)) return false;
   c.cast.data[flag] = true;
-  c.fighter.hp100 = Math.min(COMBAT.hp100Max, c.fighter.hp100 + amount100);
+  c.host.combat.heal(c.fighter, amount100, c.cast.def.id, c.tick);
   return true;
 }
 

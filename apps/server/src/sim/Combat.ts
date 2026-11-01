@@ -1,3 +1,4 @@
+import { COMBAT } from "@eb/shared/config/combat";
 import type { KitId } from "@eb/shared/protocol";
 import {
   CAPTOR_RELEASE_RECOVERY, createFighter, enterRecovery, expire, isAlive, kill, leaveCaptured, requestDash,
@@ -17,6 +18,22 @@ export class CombatSystem {
   readonly ledger = new HitLedger();
   /** Optional observer of every capture release (the room publishes CombatEvent "release"). */
   onRelease: ((rel: Release, tick: number) => void) | null = null;
+
+  /** Optional observer of every applied heal (the pipeline publishes CombatEvent "heal", T22). */
+  onHeal: ((f: Fighter, applied100: number, moveId: string, tick: number) => void) | null = null;
+
+  /**
+   * The only way HP is restored (T22). Heals a living fighter, clamps at full HP and reports the HP actually restored.
+   * A dead fighter, a non positive amount or a full HP fighter heals nothing and emits nothing.
+   */
+  heal(f: Fighter, amount100: number, moveId: string, tick: number): number {
+    if (!isAlive(f) || amount100 <= 0) return 0;
+    const applied = Math.min(COMBAT.hp100Max, f.hp100 + amount100) - f.hp100;
+    if (applied <= 0) return 0;
+    f.hp100 += applied;
+    this.onHeal?.(f, applied, moveId, tick);
+    return applied;
+  }
 
   add(entityId: number, lifeId: number, tick: number, kitId: KitId): Fighter {
     this.remove(entityId, tick);

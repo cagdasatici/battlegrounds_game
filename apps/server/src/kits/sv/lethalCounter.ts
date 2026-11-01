@@ -126,7 +126,7 @@ export const LETHAL_COUNTER: AbilityHandler = {
     for (const r of results) {
       if (r.candidate.hitIndex !== 0 || r.outcome !== "hit" || r.damage100 <= 0) continue;
       c.cast.data.healed = true;
-      if (isAlive(c.fighter)) c.fighter.hp100 = COMBAT.hp100Max;
+      c.host.combat.heal(c.fighter, COMBAT.hp100Max, c.cast.def.id, c.tick);
       return;
     }
   },

@@ -18,9 +18,10 @@ import { UrnSchema } from "../state/UrnSchema.js";
 import { ProjectileSchema } from "../state/ProjectileSchema.js";
 import type { HitCandidate, HitResult } from "./HitResolver.js";
 import { dashCandidates } from "./DashAttack.js";
-import { locomotionLocked, intentsSuppressed, isAlive } from "./ActionMachine.js";
+import { killRewardFor } from "@eb/shared/config/passives";
+import { locomotionLocked, intentsSuppressed, isAlive, type Fighter } from "./ActionMachine.js";
 import {
-  HOSTILE_REGION_RADIUS_M, finisherHeal100, pickSpawn, type RespawnSystem, type Pt, type Region,
+  HOSTILE_REGION_RADIUS_M, pickSpawn, type RespawnSystem, type Pt, type Region,
 } from "./RespawnSystem.js";
 
 /** The part of a room seat the pipeline needs. */
@@ -73,7 +74,11 @@ export class TickPipeline {
   private candidates: HitCandidate[] = [];
   private results: HitResult[] = [];
 
-  constructor(private readonly d: TickPipelineDeps) {}
+  constructor(private readonly d: TickPipelineDeps) {
+    // T22: every applied heal is one "heal" event: the healed fighter is actor and target, damage100 is the HP restored.
+    d.combat.onHeal = (f, applied100, moveId, tick) =>
+      d.broadcastEvent(tick, "heal", f.entityId, f.entityId, f.lifeId, moveId, applied100, { targetHp100: f.hp100 });
+  }
 
   step(tick: number): void {
     const mv = this.d.movement();
@@ -365,10 +370,18 @@ export class TickPipeline {
     if (killer !== undefined && scorer === killer && respawn.claimReward(victim.lifeId)) {
       const k = combat.get(killer);
       // A detached projectile of a previous life heals nobody (spec 15).
-      if (k && isAlive(k) && (killerLifeId === undefined || k.lifeId === killerLifeId)) k.hp100 = Math.min(COMBAT.hp100Max, k.hp100 + finisherHeal100(k.kitId, moveId));
+      if (k && isAlive(k) && (killerLifeId === undefined || k.lifeId === killerLifeId)) this.payKillReward(tick, k, moveId);
     }
     respawn.schedule(id, tick);
     this.d.broadcastEvent(tick, "ko", scorer ?? id, id, victim.lifeId, moveId);
+  }
+
+  /** T22: the registry decides the reward; a heal goes through CombatSystem.heal (which emits "heal"), a reset readies cooldowns. */
+  private payKillReward(tick: number, killer: Fighter, moveId: string | undefined): void {
+    const reward = killRewardFor(killer.kitId, moveId);
+    if (!reward) return;
+    if (reward.kind === "heal") this.d.combat.heal(killer, reward.amount100, moveId!, tick);
+    else for (const key of reward.moveIds) if ((killer.cooldowns.get(key) ?? 0) > tick) killer.cooldowns.set(key, tick);
   }
 
   /** Spec 10: y below the void plane or horizontal radius beyond the boundary is one KO per life. */

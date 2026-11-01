@@ -131,7 +131,7 @@ export class AwakeningSystem {
         f.awakenedUsedMask = 0;
         f.contextSpent = false;
         f.formEndTick = cfg.formTicks > 0 ? tick + cfg.formTicks : 0;
-        if (cfg.healAtCompletion100 > 0) f.hp100 = Math.min(10000, f.hp100 + cfg.healAtCompletion100);
+        if (cfg.healAtCompletion100 > 0) this.host.combat.heal(f, cfg.healAtCompletion100, `${f.kitId}.activate`, tick);
       }
     }
     for (const f of this.host.combat.all()) {

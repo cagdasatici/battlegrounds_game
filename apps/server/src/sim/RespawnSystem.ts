@@ -1,6 +1,7 @@
 import { COMBAT } from "@eb/shared/config/combat";
 import type { Anchor } from "@eb/shared/config/arena";
 import type { KitId } from "@eb/shared/protocol";
+import { killRewardFor } from "@eb/shared/config/passives";
 
 /** D: an anchor is rejected when an occupied capsule is closer than this (spec section 10). */
 export const SPAWN_CLEARANCE_M = 2;
@@ -47,11 +48,9 @@ export function pickSpawn(anchors: readonly Anchor[], occupied: readonly Pt[], r
 }
 
 /** Duelist finisher passive (spec section 15): heal in hundredths by the lethal move. Zero for everything else. */
-const FINISHER_HEAL: Readonly<Record<string, number>> = {
-  "td.b1": 3500, "td.b2": 3000, "td.b3": 2000, "td.b4": 4000, "td.a1": 5000, "td.a2": 5000, "td.a3": 5000,
-};
 export function finisherHeal100(kit: KitId, moveId: string | undefined): number {
-  return kit === "td" && moveId ? FINISHER_HEAL[moveId] ?? 0 : 0;
+  const r = killRewardFor(kit, moveId);
+  return r?.kind === "heal" ? r.amount100 : 0;
 }
 
 interface DamageEntry { attacker: number; tick: number; damage100: number }
