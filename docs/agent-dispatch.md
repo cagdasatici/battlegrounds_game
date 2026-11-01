@@ -2,40 +2,36 @@
 
 Read this board before using the original wave numbers in [backlog v2](backlog-v2.md). Those numbers describe dependencies at project start. The board below distinguishes work that already exists from work available to assign. Gameplay requirements remain in [the specification](spec.md), detailed FX/T packets in [backlog v2](backlog-v2.md), and BOT packets in [the sparring plan](sparring-plan.md).
 
-## Coordinator handoff
+## Current handoff
 
-Remote main was verified at `5bf2fac`. M0/T23, B1, B2, ART1, SPD1, FX0 and T21 are merged. T18d already supplies the stationary dummy and server-confirmed seven-step tutorial. T27 already supplies settings and layout editing. T28/T33a have local hosting and launcher evidence. T31 has calibration tooling and outstanding physical observations. T26 is the umbrella for the FX slices.
+Verified remote main at `e6f1202` on 1 November. ART2, T21, T22, all FX0–FX5 work (including all three FX4 kits), and T29 security hardening are merged. FX4-sv landed at `2cbc0d0` and FX4-ea at `b07be69`. Let their assigned agent finish any verification handoff. T30 performance is in progress with its existing owner, including changes to apps/client/src/main.ts. The BOT and HELP plans are already on main. Start each new slice in its own clean worktree from main containing its merged prerequisites.
 
-Two integration jobs already have code. Keep each with its current owner. Studio branch `studio/fx1-art2` at `7253e33` combines FX1 and ART2. Cloud branch `origin/claude/dazzling-goldberg-2xpty3` at `c41fb42` contains T22 and FX3. Review and merge into current main before releasing dependents. The Studio branch carries a separate FX0 history, so preserve the merged FX0 behavior and verify before merging. Check current branches and owners again before allocating FX2 or any apparently available row. An unpublished worktree on another machine cannot be discovered from Git.
+## Dispatch for two or three agents
 
-The planning branch is local until shared. Give each agent a checkout containing this board, the sparring plan, and its merged code prerequisites. For remote workers, the coordinator must first make the planning documents available. Do not branch new implementation from the older planning baseline alone.
+Nine feature slices remain, followed by DEV1 physical acceptance and T32 release. The rows show one feasible staffing order, not synchronized sprints. Move an agent forward when its own prerequisites have merged. Each ID is a separate session. While T30 is active it consumes one slot.
 
-## One assignment per agent
+| Stage | Two agents total | Three agents total |
+|---|---|---|
+| T30 still running | T30 + BOT0. When BOT0 merges, use the free lane for BOT1. | T30 + BOT0 + HELP1. After BOT0, use available lanes for BOT1 and BOT2. |
+| After existing owners finish | If starting fresh: BOT0 + HELP1, then BOT1 + BOT2. Skip slices already finished above. | Once BOT0 lands: BOT1 + BOT2 + BOT3. If HELP1 is still running, start BOT3 when a slot opens. |
+| Integration | After BOT1 and BOT2, pair BOT4 with BOT3. Then run BOT4C in the client lane. Fit HELP2 into the first free client window after HELP1. | BOT4 server + BOT4C client may overlap. Use a spare slot for unfinished HELP1. HELP2 uses the client window immediately before or after BOT4C. |
+| Acceptance | BOT5 after BOT4 and BOT4C. Then DEV1 on both iPads and T32. | Same gates. Reserve one owner for DEV1. |
 
-Each row is a separate session. Read prerequisites as merged and verified on that agent's base. A row becoming ready does not require every other row above it to finish.
+| ID | One-agent assignment | Required before start |
+|---|---|---|
+| BOT0 | Freeze the shared room, difficulty and setup contracts. | Ready now. |
+| HELP1 | Build and fixture-test standalone touch and keyboard instructions. | Ready now. Independent of T30 and BOT0. |
+| BOT1 | Implement Easy, Medium and Hard bot decisions. | BOT0 |
+| BOT2 | Implement guest links, membership, seat limits and reservations. | BOT0 |
+| BOT3 | Build and fixture-test pre-match host controls. | BOT0 |
+| BOT4 | Integrate bots and scoped guests into authoritative rooms. Exercise the new routes against the merged T29 protections. | BOT1 + BOT2 |
+| BOT4C | Wire the host/guest screens and room connection. | BOT3; reserve main.ts. |
+| HELP2 | Add How to play to Welcome and connect Try practice to the existing guided tutorial. | HELP1; reserve main.ts. |
+| BOT5 | Verify solo and invited sparring with real browser contexts; include a four-fighter performance check against the T30 baseline when available. | BOT4 + BOT4C |
+| DEV1 | Owner tests both iPads, including guide, bots, four-fighter performance, remote invite/QR and T31 observations. Record tested device, OS and results. | T30 + BOT5 + HELP2 for this release; reachable host for remote checks. |
+| T32 | Assemble release evidence and report unresolved exceptions. | T29 (merged), T30, DEV1 and T31 calibration evidence. |
 
-| ID | Give the agent this outcome | Can start when | Coordination |
-|---|---|---|---|
-| BOT0 | Freeze strict room, difficulty, setup and bot-decision contracts. | Planning docs available | Cloud. Unlocks three lanes. |
-| HELP1 | Build the standalone How to play guide and test its content. | Planning docs available | Cloud. Independent of bots and effects. Packet below. |
-| FX2 | Add damage text, move names and KO feed. | FX0 merged; confirm unclaimed | Cloud. Owns settings migration and combat text. |
-| BOT1 | Implement deterministic Easy, Medium and Hard opponent decisions. | BOT0 | Cloud. Parallel with BOT2 and BOT3. |
-| BOT2 | Implement scoped guest links, host membership and seat reservations. | BOT0 | Cloud. Parallel with BOT1 and BOT3. |
-| BOT3 | Build and fixture-test the pre-match setup and copy-link controls. | BOT0 | Cloud. Parallel with BOT1 and BOT2. |
-| HELP2 | Connect the guide to Welcome and the existing tutorial. | HELP1 | Client integration. Reserve main.ts or land before BOT4C. |
-| BOT4 | Integrate bots, auth and room lifecycle on the server. | BOT1 + BOT2 | Can overlap BOT4C. Reserve sessionRoutes/ArenaRoom/TickPipeline against T29 and active combat changes. |
-| BOT4C | Wire host/guest flows to the client and enable sparring help. | BOT3 | Can overlap BOT4. Rebase after any HELP2 or FX edit to main.ts. |
-| BOT5 | Verify solo and invited sparring with real browser contexts. | BOT4 + BOT4C | Run on combined base. |
-| FX4-sv | Ship Vanguard ability effects. | FX1 | Studio. Parallel kit files. |
-| FX4-td | Ship Duelist ability effects. | FX1 | Cloud. Parallel kit files. |
-| FX4-ea | Ship Artificer ability effects. | FX1 + T21 | Studio. Parallel kit files. |
-| FX5 | Add capture camera tracks and reduced-motion behavior. | FX1 | Studio/Cloud with browser evidence. Reserve CameraRig against ongoing FX1 fixes. |
-| T29 | Harden auth, rate limits and input boundaries. | T22 + T28 | Cloud. Prefer after BOT4 for a release containing hosted rooms. |
-| T30 | Measure final art/effects, implement adaptive quality and verify budgets. | ART1 + ART2 + T24 + T27 + completed FX replacement for T26 | Studio. Include the four-fighter sparring case after BOT5 if shipping bots. |
-| DEV1 | Run the physical acceptance and calibration checklist on both iPads. | T30; BOT5 + HELP2 if shipping those features | Owner. Record device, OS and actual results. Close only rows exercised successfully. |
-| T32 | Assemble the release candidate and report remaining exceptions. | T29 + T30 + T31 calibration evidence + DEV1 | Include BOT5 and HELP2 evidence for this scope. |
-
-The FX4 kit agents each own one registration in apps/client/src/fx/index.ts. The integrator keeps all three registrations and runs the combined tests. Serialize full browser/network suites on a shared host if their fixed ports collide. Shared docs/tasks.md rows can be reconciled by the coordinator. T28 remote HTTPS/WSS and T33a real invite/QR checks remain owner-operated device/hosting gates; obtain a reachable host before the remote portion of DEV1. Never send an invitation, purchase hosting or deploy as part of a coding slice.
+Give T30, BOT4C and HELP2 separate editing windows for apps/client/src/main.ts. BOT3 owns a standalone component and can proceed during any of those windows. Serialize full network/browser suites on a shared machine when fixed ports collide. Keep physical checks NOT RUN until exercised. Never send invitations or deploy as part of a coding slice.
 
 ## HELP1 · Build standalone player instructions
 
