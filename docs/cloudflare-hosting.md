@@ -1,6 +1,6 @@
 # Hosting on cagdasatici.com with Cloudflare (owner steps)
 
-Goal: `https://play.cagdasatici.com` serves the game to the iPads over HTTPS. HTTPS is required for installing a web app to the iPad home screen. Cost: Cloudflare Tunnel and DNS are free; no Apple developer account is involved (this is a web app, installed from Safari with Share > Add to Home Screen).
+Goal: `https://battle.cagdasatici.com` serves the game to the iPads over HTTPS. HTTPS is required for installing a web app to the iPad home screen. Cost: Cloudflare Tunnel and DNS are free; no Apple developer account is involved (this is a web app, installed from Safari with Share > Add to Home Screen).
 
 The game server runs on your Mac (or any always-on machine) and listens only on 127.0.0.1. A Cloudflare Tunnel makes an outbound connection to Cloudflare, so you open no router ports and need no public IP. Cloudflare proxies WebSockets by default, which the game needs.
 
@@ -10,7 +10,7 @@ Copy `ops/deploy/env.example` to a file outside the repository (chmod 600) and s
 NODE_ENV=production
 HOST=127.0.0.1
 PORT=2567
-PUBLIC_ORIGIN=https://play.cagdasatici.com
+PUBLIC_ORIGIN=https://battle.cagdasatici.com
 DATA_DIR=/Users/<you>/eb-data
 BUILD_ID=<short commit hash>
 ```
@@ -21,7 +21,7 @@ Build the client (`pnpm build`), then start with `EB_ENV_FILE=<that file> ops/de
 brew install cloudflared
 cloudflared tunnel login
 cloudflared tunnel create battlegrounds
-cloudflared tunnel route dns battlegrounds play.cagdasatici.com
+cloudflared tunnel route dns battlegrounds battle.cagdasatici.com
 ```
 `route dns` creates the DNS record for you: a proxied (orange cloud) CNAME `play` pointing to `<tunnel-id>.cfargotunnel.com`. Check it under Cloudflare dashboard > cagdasatici.com > DNS > Records.
 
@@ -30,7 +30,7 @@ Create `~/.cloudflared/config.yml`:
 tunnel: battlegrounds
 credentials-file: /Users/<you>/.cloudflared/<tunnel-id>.json
 ingress:
-  - hostname: play.cagdasatici.com
+  - hostname: battle.cagdasatici.com
     service: http://127.0.0.1:2567
   - service: http_status:404
 ```
@@ -41,15 +41,20 @@ Run it: `cloudflared tunnel run battlegrounds`. To keep it running after reboot:
 - SSL/TLS > Edge Certificates: Always Use HTTPS **on**. Minimum TLS 1.2.
 - Network: WebSockets **on** (default).
 - Caching: leave defaults. The game sends `Cache-Control: no-store` for API calls; the service worker (WEB1) handles file caching, so do not enable Rocket Loader, Auto Minify or any "Email obfuscation"/JS rewriting for this hostname.
-- Optional but recommended for the future admin page (WEB4): Zero Trust > Access > Applications > add `play.cagdasatici.com/admin*` with an email one-time-PIN policy limited to your address. That puts a second login in front of the admin app.
+- Optional but recommended for the future admin page (WEB4): Zero Trust > Access > Applications > add `battle.cagdasatici.com/admin*` with an email one-time-PIN policy limited to your address. That puts a second login in front of the admin app.
 
 ## 4. Verify
-1. `curl https://play.cagdasatici.com/healthz` returns `{"ok":true}`.
-2. `curl https://play.cagdasatici.com/api/version` shows your `buildId`.
-3. Make an invite: `DATA_DIR=<dir> pnpm tsx ops/scripts/invite.ts https://play.cagdasatici.com`, open it on an iPad in Safari.
+1. `curl https://battle.cagdasatici.com/healthz` returns `{"ok":true}`.
+2. `curl https://battle.cagdasatici.com/api/version` shows your `buildId`.
+3. Make an invite: `DATA_DIR=<dir> pnpm --filter @eb/server exec tsx ../../ops/scripts/invite.ts https://battle.cagdasatici.com`, open it on an iPad in Safari.
 4. After WEB1 ships: Share > Add to Home Screen, then launch from the icon.
 
 ## Updating
 Pull, `pnpm build`, bump `BUILD_ID`, restart the server. Installed iPads show the **Update** button on next launch (WEB2). Server-only changes need only the restart.
 
 Never commit the env file, the tunnel credentials JSON or the data directory.
+
+## Running at boot on macOS (as set up for this project)
+- Game server: launchd job `~/Library/LaunchAgents/com.elementalbattlegrounds.server.plist` runs `ops/deploy/run-prod.sh` with `EB_ENV_FILE=~/eb-env`; logs in `~/eb-logs`. It starts at login (FileVault prevents auto-login, so after a reboot unlock the disk and log in). Restart after an update: `launchctl kickstart -k gui/$(id -u)/com.elementalbattlegrounds.server`.
+- Tunnel: a system daemon `/Library/LaunchDaemons/com.cloudflare.cloudflared.plist` whose arguments are `--config /etc/cloudflared/config.yml tunnel run battlegrounds`. The default `cloudflared service install` runs bare `cloudflared` and does nothing, so keep these arguments. The config and credentials JSON are copied to `/etc/cloudflared` (credentials mode 600). Logs: `/Library/Logs/com.cloudflare.cloudflared.err.log`.
+- Keep the Mac awake: `sudo pmset -a sleep 0`.

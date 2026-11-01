@@ -48,7 +48,7 @@ pnpm vitest run tests/integration/t28-production.test.ts   # spawns the producti
 3. Create a service account, a `chmod 700` data directory and a `chmod 600` env file outside the repository from `ops/deploy/env.example`. Set `PUBLIC_ORIGIN` to the exact HTTPS origin and `BUILD_ID` to the tag.
 4. Start with `sh ops/deploy/run-prod.sh` (with `EB_ENV_FILE` set) and check `/healthz` and `/api/version` on loopback.
 5. Put TLS in front (below). The Node process always stays on `127.0.0.1`.
-6. Create invitations: `DATA_DIR=... pnpm tsx ops/scripts/invite.ts https://your-origin 24 1`. The adult distributes the links; nothing sends them automatically.
+6. Create invitations: `DATA_DIR=... pnpm --filter @eb/server exec tsx ../../ops/scripts/invite.ts https://your-origin 24 1`. The adult distributes the links; nothing sends them automatically.
 7. Install the launchd job: edit the plist paths, copy to `/Library/LaunchDaemons/`, `launchctl bootstrap system <plist>`.
 8. On both iPads: open the HTTPS URL, check certificate trust, WSS upgrade, audio activation, touch. Test once from another network. Record as device checks (NOT RUN until done).
 
