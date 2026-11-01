@@ -5,3 +5,4 @@ export * from "./config/combat.js";
 export * from "./config/content.js";
 export * from "./config/arena.js";
 export * from "./movement.js";
+export * from "./awakening.js";

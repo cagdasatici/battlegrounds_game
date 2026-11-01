@@ -14,6 +14,7 @@ import { MovementSystem, type HorizontalOverride } from "../sim/Movement.js";
 import { CombatSystem } from "../sim/Combat.js";
 import { M1System, type M1Pose } from "../sim/M1.js";
 import { AbilityRunner, type AbilityHost, type SkillOutcome } from "../sim/AbilityRunner.js";
+import { AwakeningSystem, type AwakenOutcome } from "../sim/Awakening.js";
 import { ALL_HANDLERS, buildKitRegistry } from "../kits/index.js";
 import type { HitResult } from "../sim/HitResolver.js";
 import { locomotionLocked, intentsSuppressed } from "../sim/ActionMachine.js";
@@ -59,6 +60,7 @@ export class ArenaRoom extends Room {
   movement: MovementSystem | null = null;
   readonly combat = new CombatSystem();
   readonly m1 = new M1System();
+  readonly awakening: AwakeningSystem = new AwakeningSystem(this.abilityHost());
   readonly abilities: AbilityRunner = new AbilityRunner(buildKitRegistry(), ALL_HANDLERS, this.abilityHost());
   private eventSeq = 0;
 
@@ -154,6 +156,7 @@ export class ArenaRoom extends Room {
     this.combat.remove(seat.entityId, this.sim.tick);
     this.m1.remove(seat.entityId);
     this.abilities.remove(seat.entityId);
+    this.awakening.remove(seat.entityId);
     this.movement?.remove(seat.entityId);
     this.state.players.delete(String(seat.entityId));
     this.seatByAuth.delete(seat.sessionAuthId);
@@ -168,6 +171,7 @@ export class ArenaRoom extends Room {
     this.combat.dispose();
     this.m1.dispose();
     this.abilities.dispose();
+    this.awakening.dispose();
     this.movement?.dispose();
     this.world?.dispose();
     this.movement = null;
@@ -201,6 +205,7 @@ export class ArenaRoom extends Room {
     const grounded = (id: number): boolean => mv?.get(id)?.state.grounded ?? false;
     // Expiries before input intents.
     this.combat.expire(tick, grounded);
+    this.awakening.update(tick);
     const intents = new Map<number, MoveIntent>();
     for (const [sessionId, seat] of this.seats) {
       seat.input.expireLease(tick, COMBAT.inputLeaseTicks);
@@ -223,6 +228,10 @@ export class ArenaRoom extends Room {
           this.sendActionResult(sessionId, seat, q.edge.id, tick, r.ok, r.ok ? undefined : r.reason);
         } else if (q.edge.kind === "skillDown") {
           const o: SkillOutcome = f ? this.abilities.skillDown(f, tick, q.edge.slot, q.edge.id) : { kind: "rejected", reason: "STATE" };
+          if (f) this.reportSkill(sessionId, seat, f, q.edge.id, tick, o);
+        } else if (q.edge.kind === "awaken") {
+          // Never buffered. Rejections are METER, FORM or STATE and are answered immediately.
+          const o: AwakenOutcome = f ? this.awakening.request(f, tick, this.abilities.kitOf(seat.entityId)) : { kind: "rejected", reason: "STATE" };
           if (f) this.reportSkill(sessionId, seat, f, q.edge.id, tick, o);
         } else if (q.edge.kind === "jump") jumpPressed = true;
         // skillUp: press moves ignore the release; holdRelease moves arrive with T19. awaken: T14.
@@ -274,7 +283,7 @@ export class ArenaRoom extends Room {
     return 8;
   }
 
-  private reportSkill(sessionId: string, seat: Seat, f: { entityId: number; lifeId: number }, edgeId: number, tick: number, o: SkillOutcome): void {
+  private reportSkill(sessionId: string, seat: Seat, f: { entityId: number; lifeId: number }, edgeId: number, tick: number, o: SkillOutcome | AwakenOutcome): void {
     if (o.kind === "buffered") return; // answered when the buffered edge is consumed or expires
     if (o.kind === "started") {
       this.sendActionResult(sessionId, seat, edgeId, tick, true, undefined, `${f.entityId}.${o.castCounter}`);
@@ -296,6 +305,7 @@ export class ArenaRoom extends Room {
       ...this.m1.candidates(tick, this.combat.all(), pose,
         (a, t) => !!w && w.segmentBlocked([a.x, a.y, a.z], [t.x, t.y, t.z])),
       ...this.abilities.collect(tick),
+      ...this.awakening.collect(tick),
     ];
     if (cands.length === 0) return;
     const results = this.combat.resolve(tick, cands, (id) => {
@@ -303,6 +313,7 @@ export class ArenaRoom extends Room {
       return q && { x: q.x, z: q.z, facingYaw: q.facingYaw, grounded: q.grounded };
     });
     this.abilities.afterResolve(tick, results);
+    this.awakening.gain(results);
     const launches = [...this.m1.launches(tick, results, (id) => this.combat.get(id), pose), ...this.abilities.launches(tick, results)];
     for (const l of launches) {
       const b = this.movement?.get(l.targetId);
@@ -323,6 +334,7 @@ export class ArenaRoom extends Room {
     if (r.killed && victim) {
       this.m1.reset(c.targetId);
       this.abilities.reset(c.targetId);
+      this.awakening.reset(c.targetId);
       // Death resets held inputs (spec 11): neutralize the victim's input channel.
       for (const seat of this.seats.values()) if (seat.entityId === c.targetId) seat.input.neutralize();
       this.broadcastEvent(tick, "ko", c.attackerId, c.targetId, victim.lifeId, c.moveId);
@@ -353,6 +365,11 @@ export class ArenaRoom extends Room {
     p.moveId = f.moveId;
     p.hp100 = f.hp100;
     p.protectedUntilTick = f.protectedUntilTick;
+    p.form = f.form;
+    p.formEndTick = Math.min(f.formEndTick, 0xffffffff);
+    p.meter100 = f.meter100;
+    p.awakenedUsedMask = f.awakenedUsedMask;
+    p.contextSpent = f.contextSpent;
   }
 
   private sendActionResult(sessionId: string, seat: Seat, edgeId: number, tick: number, accepted: boolean, reason?: ActionResult["reason"], castId?: string): void {
@@ -401,6 +418,7 @@ export class ArenaRoom extends Room {
     if (p.ready) return;
     p.kitId = m.data.kitId;
     this.abilities.setKit(seat.entityId, m.data.kitId);
+    this.awakening.setKit(seat.entityId, m.data.kitId);
     p.ready = true;
     p.lifeId = ++this.lifeSeq; // room-unique so events can identify a victim life
     p.hp100 = COMBAT.hp100Max;

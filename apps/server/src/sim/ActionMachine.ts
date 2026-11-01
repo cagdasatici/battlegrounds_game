@@ -47,6 +47,8 @@ export interface Fighter {
   formEndTick: number; // exclusive; 0 when not timed
   awakenedUsedMask: number; // bit (slot-1) set once an oncePerForm move was committed
   contextSpent: boolean;
+  /** Awakening meter in hundredths of damage points (spec 15/26); threshold 20000 (sv) or 35000. */
+  meter100: number;
 }
 
 const OPEN = Number.MAX_SAFE_INTEGER;
@@ -62,7 +64,7 @@ export function createFighter(entityId: number, lifeId: number, tick: number): F
     generation: 0, castCounter: 0, cast: null, dash: null, ragdollStartTick: -1, landingBonus: false,
     cooldowns: new Map(), blockstunUntil: 0, protectedUntilTick: tick + COMBAT.spawnProtectionTicks,
     invulnerableUntil: 0, counterOpenUntil: 0, armored: false, koCount: 0,
-    form: "Base", formEndTick: 0, awakenedUsedMask: 0, contextSpent: false,
+    form: "Base", formEndTick: 0, awakenedUsedMask: 0, contextSpent: false, meter100: 0,
   };
 }
 
@@ -155,6 +157,16 @@ export function beginCast(f: Fighter, tick: number, moveId: string, startup: num
   return { ok: true, castCounter: f.castCounter };
 }
 
+/** Awakening activation (spec 12 Idle -> Awakening). The caller validates meter, form, grounded and protection. */
+export function beginAwakening(f: Fighter, tick: number, ticks: number, moveId: string): Accept {
+  if (f.action !== "Idle") return reject("STATE");
+  cancelCurrent(f);
+  f.castCounter += 1;
+  f.protectedUntilTick = Math.min(f.protectedUntilTick, tick); // an accepted offensive request ends protection
+  setAction(f, "Awakening", tick, tick + ticks, moveId);
+  return { ok: true, castCounter: f.castCounter };
+}
+
 /** Guard hold handling: Idle + blockHeld + grounded enters Guard; release enters 3 tick recovery. */
 export function updateGuard(f: Fighter, tick: number, blockHeld: boolean, grounded: boolean): void {
   if (f.action === "Idle" && blockHeld && grounded) {
@@ -206,6 +218,9 @@ export function kill(f: Fighter, tick: number): boolean {
   f.koCount += 1;
   f.landingBonus = false;
   f.counterOpenUntil = 0;
+  // Death resets meter and consumes any awakening (spec 11, 15).
+  f.meter100 = 0; f.form = "Base"; f.formEndTick = 0; f.awakenedUsedMask = 0; f.contextSpent = false;
+  f.armored = false;
   setAction(f, "Dead", tick, OPEN);
   return true;
 }
@@ -223,7 +238,7 @@ export function respawn(f: Fighter, tick: number, lifeId: number): void {
   f.ragdollStartTick = -1;
   f.armored = false;
   f.counterOpenUntil = 0;
-  f.form = "Base"; f.formEndTick = 0; f.awakenedUsedMask = 0; f.contextSpent = false;
+  f.form = "Base"; f.formEndTick = 0; f.awakenedUsedMask = 0; f.contextSpent = false; f.meter100 = 0;
   f.protectedUntilTick = tick + COMBAT.spawnProtectionTicks;
   setAction(f, "Idle", tick, OPEN);
 }
@@ -246,6 +261,7 @@ export function expire(f: Fighter, tick: number, grounded: boolean): void {
       f.dash = null;
       setAction(f, "Recovery", tick, tick + RAGDOLL_GET_UP_TICKS);
       return;
+    case "Awakening":
     case "Dash":
     case "Stunned":
     case "Recovery":
