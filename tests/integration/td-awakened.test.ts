@@ -19,15 +19,19 @@ afterAll(async () => { await h.stop(); });
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const L = computeLayout({ x0: 0, y0: 0, W: 1024, H: 768 });
 
-function placeAhead(room: ArenaRoom, aId: number, bId: number, dist: number): void {
+/** Places A `dist` metres from B on the arena-centre side (T17 spawns may put B on a satellite island) facing B.
+ * Returns the sign of A's forward Z direction (-1 when A faces -Z). */
+function placeAhead(room: ArenaRoom, aId: number, bId: number, dist: number): number {
   const mv = room.movement!;
   const bp = mv.position(bId)!;
   const a = mv.get(aId)!;
-  const p = { x: bp[0], y: bp[1], z: bp[2] + dist };
+  const north = bp[2] > 0; // B on the +Z side: A stands toward the centre and faces +Z
+  const p = { x: bp[0], y: bp[1], z: bp[2] + (north ? -dist : dist) };
   a.rb.setTranslation(p, true);
   a.rb.setNextKinematicTranslation(p);
-  a.state.facingYaw = 0; // faces -Z, toward B
+  a.state.facingYaw = north ? Math.PI : 0; // yaw 0 faces -Z
   a.state.vx = 0; a.state.vz = 0;
+  return north ? 1 : -1;
 }
 
 async function setup() {
@@ -169,7 +173,7 @@ describe("T16 Tide Duelist awakened moves over a real Colyseus connection", () =
 
   test("td.a4 Riptide Pursuit ranged branch: the server dashes the caster, captures after travel, 27 HP at +36", async () => {
     const c = await setup();
-    placeAhead(c.room, c.aId, c.bId, 5);
+    const fwd = placeAhead(c.room, c.aId, c.bId, 5);
     c.awaken();
     await sleep(60);
     const startZ = c.room.movement!.position(c.aId)![2];
@@ -185,8 +189,8 @@ describe("T16 Tide Duelist awakened moves over a real Colyseus connection", () =
     expect(ev.filter((e) => e.kind === "hit").map((e) => [e.tick - cap.tick, e.damage100])).toEqual([[36, 2700]]);
     expect(ev.find((e) => e.kind === "release")!.tick - cap.tick).toBe(37);
     const endZ = c.room.movement!.position(c.aId)![2];
-    expect(startZ - endZ).toBeGreaterThan(3); // moved forward (-Z) by the server, never by the client
-    expect(startZ - endZ).toBeLessThanOrEqual(9.01);
+    expect((endZ - startZ) * fwd).toBeGreaterThan(3); // moved forward by the server, never by the client
+    expect((endZ - startZ) * fwd).toBeLessThanOrEqual(9.01);
     await waitFor(() => c.byName("Nora").hp100 === 10000 - 2700, 2000, "victim hp replicated");
     await finish(c);
   }, 40000);
