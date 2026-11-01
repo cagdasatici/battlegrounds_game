@@ -39,6 +39,8 @@ export interface AbilityHost {
    * All bodies stop together at the first contact of any of them. Returns the displacement actually applied.
    */
   moveTogether?(entityIds: readonly number[], dx: number, dz: number): { dx: number; dz: number };
+  /** Optional (T20): validated camera pitch of the entity's input channel in radians (positive looks down), or undefined. */
+  aimPitch?(entityId: number): number | undefined;
   /** Optional (T13): true when the body touched a static wall (not the floor) during `tick`. */
   wallContact?(entityId: number, tick: number): boolean;
   /** Optional (T13): height of the walkable surface below (x, z), or null over the void. */

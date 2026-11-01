@@ -211,6 +211,12 @@ export class TickPipeline {
     return "released";
   }
 
+  /** Validated camera pitch of an entity's input channel (T20 Vent Rush air branch). Undefined for seatless entities. */
+  pitchOf(entityId: number): number | undefined {
+    for (const seat of this.d.seats().values()) if (seat.entityId === entityId) return seat.input.held.pitch;
+    return undefined;
+  }
+
   /** Collision queries for M1 swings, abilities and awakening at the current server poses (spec 12/13). */
   private queries(tick: number): void {
     const w = this.d.world();

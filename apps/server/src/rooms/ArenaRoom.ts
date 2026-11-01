@@ -252,6 +252,7 @@ export class ArenaRoom extends Room {
       get projectileReflector() { return { reflect: (req: ReflectRequest) => self.projectiles.reflectWith(req) }; },
       sweepSphere: (a, b, r) => this.world?.sweepSphere([a[0], a[1], a[2]], [b[0], b[1], b[2]], r) ?? null,
       hold: (id, slot, tick) => this.pipeline.holdOf(id, slot, tick),
+      aimPitch: (id) => this.pipeline.pitchOf(id),
       combat: this.combat,
       pose: (id) => this.poseOf(id),
       blocked: (a, b) => !!this.world && this.world.segmentBlocked([a[0], a[1], a[2]], [b[0], b[1], b[2]]),
