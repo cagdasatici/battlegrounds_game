@@ -5,4 +5,4 @@ data/
 *.log
 *.tsbuildinfo
 dist-types/
-test-results/
+/test-results/
