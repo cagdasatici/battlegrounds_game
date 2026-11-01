@@ -58,6 +58,15 @@ export const ChangeKitMessageSchema = z.strictObject({ kitId: KitIdSchema });
 export const PingMessageSchema = z.strictObject({ nonce: uint32, clientMs: finite });
 export const LeaveMessageSchema = z.strictObject({});
 
+/** Practice room dummy toggles (T18d). Intent only: the server applies them to its own dummy. */
+export const PracticeSetSchema = z.strictObject({ guard: z.boolean(), ragdoll: z.boolean() });
+export type PracticeSetMessage = z.infer<typeof PracticeSetSchema>;
+/** Practice tutorial steps in order. Each is confirmed by the server from simulation state, never by the client. */
+export const TUTORIAL_STEPS = ["move", "turn", "attack", "block", "dash", "skills", "awaken"] as const;
+export type TutorialStep = (typeof TUTORIAL_STEPS)[number];
+/** Room code the client asks for; the server derives a private per session room code from it. */
+export const PRACTICE_ROOM_CODE = "practice" as const;
+
 export type ReadyMessage = z.infer<typeof ReadyMessageSchema>;
 export type ChangeKitMessage = z.infer<typeof ChangeKitMessageSchema>;
 export type PingMessage = z.infer<typeof PingMessageSchema>;
@@ -102,6 +111,7 @@ export const ClientMessage = {
   changeKit: "changeKit",
   ping: "ping",
   leave: "leave",
+  practice: "practice",
 } as const;
 export const ServerMessage = {
   welcome: "welcome",
@@ -145,7 +155,11 @@ export const JoinTicketRequestSchema = z.strictObject({
 });
 export interface VersionResponse { protocolVersion: number; contentHash: string; buildId: string }
 export interface SessionResponse { expiresAt: number }
-export interface JoinTicketResponse { ticket: string; expiresAt: number; roomName: string; roomId: string }
+export interface JoinTicketResponse {
+  ticket: string; expiresAt: number; roomName: string; roomId: string;
+  /** Present when the server chose a private code for this session (practice rooms); use it in the join options. */
+  roomCode?: string;
+}
 export const JoinOptionsSchema = z.strictObject({
   roomCode: z.string().min(1).max(64),
   ticket: z.string().regex(/^[0-9a-f]{64}$/),

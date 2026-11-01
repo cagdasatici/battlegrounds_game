@@ -114,7 +114,7 @@ export class RoomClient {
     let room: Room;
     try {
       room = await client.joinById(t.roomId, {
-        roomCode, ticket: t.ticket, protocolVersion: PROTOCOL_VERSION, contentHash: this.localContentHash,
+        roomCode: t.roomCode ?? roomCode, ticket: t.ticket, protocolVersion: PROTOCOL_VERSION, contentHash: this.localContentHash,
       });
     } catch (e) {
       throw this.mapJoinError(e);

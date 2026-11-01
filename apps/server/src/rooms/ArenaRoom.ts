@@ -38,7 +38,7 @@ export const roomTuning = { reconnectSeconds: RECONNECT_SECONDS as number };
 
 export function setArenaAuth(a: AuthServices | null): void { authServices = a; }
 
-interface Seat {
+export interface Seat {
   sessionAuthId: string; // internal; never replicated or logged
   entityId: number;
   input: InputChannel;
@@ -48,17 +48,17 @@ interface Seat {
 }
 
 export class ArenaRoom extends Room {
-  override maxClients = MAX_CLIENTS;
+  override maxClients: number = MAX_CLIENTS;
   override state = new ArenaState();
   override maxMessagesPerSecond = 90;
 
   roomCode = "";
   readonly sim = new FixedClock();
   private readonly contentHash = computeContentHash();
-  private seats = new Map<string, Seat>(); // by Colyseus sessionId
+  protected seats = new Map<string, Seat>(); // by Colyseus sessionId
   private seatByAuth = new Map<string, string>(); // auth session id -> colyseus sessionId
-  private nextEntityId = 1;
-  private lifeSeq = 0;
+  protected nextEntityId = 1;
+  protected lifeSeq = 0;
   private lastTickMs = 0;
   world: World | null = null;
   movement: MovementSystem | null = null;
@@ -74,9 +74,9 @@ export class ArenaRoom extends Room {
   roomEpoch = Math.floor(Math.random() * 0x100000000);
   /** Wall clock for overload checks; tests inject a fake. */
   wallNow: () => number = () => performance.now();
-  private readonly pipeline: TickPipeline = new TickPipeline({
+  protected readonly pipeline: TickPipeline = new TickPipeline({
     state: this.state, combat: this.combat, m1: this.m1, abilities: this.abilities, awakening: this.awakening,
-    movement: () => this.movement, world: () => this.world, seats: () => this.seats,
+    movement: () => this.movement, world: () => this.world, seats: () => this.seats, extraBodies: () => this.extraBodyIds(),
     poseOf: (id) => this.poseOf(id), respawn: this.respawns, nextLifeId: () => ++this.lifeSeq,
     sendActionResult: (sid, seat, edgeId, seq, tick, ok, reason, castId) => this.sendActionResult(sid, seat, edgeId, seq, tick, ok, reason, castId),
     broadcastEvent: (tick, kind, actor, target, lifeId, moveId, dmg) => this.broadcastEvent(tick, kind, actor, target, lifeId, moveId, dmg),
@@ -205,7 +205,7 @@ export class ArenaRoom extends Room {
   }
 
   // ---- internals ----
-  private playerOf(seat: Seat): PlayerSchema | undefined {
+  protected playerOf(seat: Seat): PlayerSchema | undefined {
     return this.state.players.get(String(seat.entityId));
   }
 
@@ -235,6 +235,9 @@ export class ArenaRoom extends Room {
   stepTick(tick: number): void {
     this.pipeline.step(tick);
   }
+
+  /** Entities simulated without a seat (the practice dummy) whose bodies are still published each tick. */
+  protected extraBodyIds(): readonly number[] { return []; }
 
   private abilityHost(): AbilityHost {
     return {
@@ -274,7 +277,7 @@ export class ArenaRoom extends Room {
   }
 
   /** First spawn: the spec section 10 rule (RespawnSystem.pickSpawn) with no retry window; later spawns run in the tick pipeline. */
-  private chooseSpawn(): MapVec3 {
+  protected chooseSpawn(): MapVec3 {
     const w = this.world!;
     const occupied: Pt[] = [];
     for (const s of this.seats.values()) {

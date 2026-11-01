@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import {
-  JoinTicketRequestSchema, PROTOCOL_VERSION, SessionRequestSchema,
+  JoinTicketRequestSchema, PRACTICE_ROOM_NAME, PROTOCOL_VERSION, SessionRequestSchema,
   type JoinTicketResponse, type SessionResponse, type VersionResponse,
 } from "@eb/shared/protocol";
 import { computeContentHash } from "@eb/shared/config/content";
@@ -128,10 +128,13 @@ export function registerSessionRoutes(app: HttpApp, svc: AuthServices, now: () =
     const roomName = Object.hasOwn(config.roomCodes, parsed.data.roomCode) ? config.roomCodes[parsed.data.roomCode] : undefined;
     if (!roomName) return send(res, 409, { error: "UNKNOWN_ROOM" });
     if (!svc.ensureRoom) return send(res, 503, { error: "NOT_READY" });
+    // Practice is private to one session: the server derives the room code, so two children never share a dummy room.
+    const roomCode = roomName === PRACTICE_ROOM_NAME ? `${parsed.data.roomCode}-${s.id.slice(0, 16)}` : parsed.data.roomCode;
     let roomId: string;
-    try { roomId = await svc.ensureRoom(roomName, parsed.data.roomCode); } catch { return send(res, 503, { error: "NOT_READY" }); }
-    const t = svc.tickets.issue({ sessionId: s.id, roomName, roomCode: parsed.data.roomCode, contentHash, protocolVersion: PROTOCOL_VERSION });
+    try { roomId = await svc.ensureRoom(roomName, roomCode); } catch { return send(res, 503, { error: "NOT_READY" }); }
+    const t = svc.tickets.issue({ sessionId: s.id, roomName, roomCode, contentHash, protocolVersion: PROTOCOL_VERSION });
     const body: JoinTicketResponse = { ticket: t.ticket, expiresAt: t.expiresAt, roomName, roomId };
+    if (roomCode !== parsed.data.roomCode) body.roomCode = roomCode;
     send(res, 200, body);
   });
 

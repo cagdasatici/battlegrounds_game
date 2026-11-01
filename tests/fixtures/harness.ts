@@ -13,7 +13,7 @@ export async function startHarness(port: number): Promise<Harness> {
   const origin = `http://localhost:${port}`;
   const svc = createAuthServices({
     dataDir: mkdtempSync(join(tmpdir(), "eb-h-")), allowedOrigins: [origin], secureCookies: true,
-    roomCodes: Object.fromEntries(["play", "other", ...Array.from({ length: 40 }, (_, i) => `r${i}`)].map((c) => [c, "arena"])), buildId: "test", sessionsPerMinute: 10_000,
+    roomCodes: Object.fromEntries(["play", "other", ...Array.from({ length: 40 }, (_, i) => `r${i}`)].map((c) => [c, "arena"]).concat([["practice", "practice"]])), buildId: "test", sessionsPerMinute: 10_000,
   });
   const server = createGameServer(svc);
   await server.listen(port, undefined, undefined);

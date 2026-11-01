@@ -13,10 +13,16 @@ export class OwnerSchema extends Schema {
   evasiveEndTick = 0;
   chargeStartTick = 0;
   lethalCounterRemaining = 0;
+  /** Practice room only (T18d): number of server confirmed tutorial steps, skill bits seen, dummy toggles. */
+  tutorialStep = 0;
+  tutorialSkillMask = 0;
+  dummyGuard = false;
+  dummyRagdoll = false;
 }
 defineTypes(OwnerSchema, {
   ackSeq: "uint32", ackInputTick: "uint32", epoch: "uint32", pendingKit: "string",
   evasiveEndTick: "uint32", chargeStartTick: "uint32", lethalCounterRemaining: "uint16",
+  tutorialStep: "uint8", tutorialSkillMask: "uint8", dummyGuard: "boolean", dummyRagdoll: "boolean",
 });
 
 /**

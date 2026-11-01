@@ -8,7 +8,7 @@ const auth = createAuthServices({
   dataDir: process.env["EB_DATA_DIR"] ?? join(process.cwd(), "data"),
   allowedOrigins: (process.env["EB_ORIGINS"] ?? `https://localhost:${port}`).split(",").map((s) => s.trim()).filter(Boolean),
   secureCookies: process.env["EB_INSECURE_COOKIES"] !== "1",
-  roomCodes: { play: "arena" },
+  roomCodes: { play: "arena", practice: "practice" },
   buildId: process.env["EB_BUILD_ID"] ?? "dev",
 });
 const server = createGameServer(auth);

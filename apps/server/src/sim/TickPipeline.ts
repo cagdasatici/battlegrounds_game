@@ -36,6 +36,8 @@ export interface TickPipelineDeps {
   movement: () => MovementSystem | null;
   world: () => World | null;
   seats: () => ReadonlyMap<string, PipelineSeat>;
+  /** Seatless simulated entities (practice dummy): body and action are published, no owner record. */
+  extraBodies?: () => readonly number[];
   poseOf: (id: number) => M1Pose | undefined;
   /** T17: death bookkeeping, scoring and respawn deadlines. */
   respawn: RespawnSystem;
@@ -242,6 +244,7 @@ export class TickPipeline {
 
   private publish(tick: number): void {
     for (const seat of this.d.seats().values()) { this.publishBody(seat.entityId); this.publishAction(seat.entityId); this.publishOwner(seat, tick); }
+    for (const id of this.d.extraBodies?.() ?? []) { this.publishBody(id); this.publishAction(id); }
   }
 
   private reportHit(tick: number, r: HitResult): void {
