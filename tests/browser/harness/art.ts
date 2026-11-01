@@ -14,8 +14,13 @@ kits.forEach((k, i) => {
 });
 const route = new URLSearchParams(location.search).get("view");
 if (route === "route" || route === "reverse") kits.forEach((k, i) => gs.viewFor(k)?.setPose(32 + i * 1.5, 0.9, -1, Math.PI / 2));
+// QF01: rear view, all three kits facing away from the camera on one line, camera `dist` metres behind them.
+const rearDist = Number(new URLSearchParams(location.search).get("dist") ?? 8);
+if (route === "rear") kits.forEach((k, i) => gs.viewFor(k)?.setPose(-1.5 + i * 1.5, 0.9, 0, 0));
 const overview = new URLSearchParams(location.search).get("view") === "overview";
-gs.setCamera(route === "route"
+gs.setCamera(route === "rear"
+  ? { position: { x: 0, y: 1.9, z: rearDist }, pivot: { x: 0, y: 0.9, z: 0 }, yaw: 0, pitch: 0, distance: rearDist }
+  : route === "route"
   ? { position: { x: 40, y: 4, z: -4 }, pivot: { x: 25, y: 1, z: 0 }, yaw: 0, pitch: 0, distance: 15 }
   : route === "reverse" ? { position: { x: 24, y: 3, z: 2 }, pivot: { x: 34, y: 1, z: 0 }, yaw: 0, pitch: 0, distance: 10 }
   : overview
@@ -31,5 +36,6 @@ requestAnimationFrame(loop);
   clip: (kit: "sv" | "td" | "ea") => gs.viewFor(kit)?.currentClip ?? "",
   hide: (prefix: string) => gs.scene.traverse((o) => { if (o.name.startsWith(prefix)) o.visible = false; }),
   envState: () => gs.envStatus,
+  awaken: (kit: "sv" | "td" | "ea", on: boolean) => gs.viewFor(kit)?.setAwakened(on),
   quality: (q: "low" | "medium" | "high") => gs.setQuality(q),
 };

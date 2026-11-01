@@ -76,6 +76,8 @@ export class FighterView {
   }
   /** Swaps to the low-poly (<= 3k triangles) or medium (<= 8k) geometry in place. */
   setLod(lod: Lod): void { if (!this.disposed) this.rig.setLod(lod); }
+  /** QF01: shows the Awakened amber seams (replicated form === "Awakened"). Presentation only. */
+  setAwakened(on: boolean): void { if (!this.disposed) this.rig.setAwakened(on); }
   get meshCount(): number { return this.rig.meshes.length; }
   hasClip(id: string): boolean { return this.rig.clips.has(id); }
 

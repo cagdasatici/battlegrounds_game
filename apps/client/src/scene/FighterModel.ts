@@ -143,7 +143,7 @@ const ATLAS_GRID = 4;
  * every other part is bound 100% to its bone. userData.parts lists each part's vertex range for tests and tools.
  * The outline hull always uses the cheap level of detail.
  */
-export function buildFighterGeometry(kit: KitId, pass: Pass, lod: Lod = "medium"): BufferGeometry {
+export function buildFighterGeometry(kit: KitId, pass: Pass, lod: Lod = "medium", awakened = false): BufferGeometry {
   const design = FIGHTER_DESIGNS[kit];
   const detail = DETAIL[pass === "outline" ? "low" : lod];
   const boneIndex = new Map<BoneName, number>(BONE_NAMES.map((n, i) => [n, i]));
@@ -156,6 +156,7 @@ export function buildFighterGeometry(kit: KitId, pass: Pass, lod: Lod = "medium"
     if (pass === "body" && p.glow) continue;
     if (pass === "outline" && p.glow) continue;
     if (p.fine && !detail.fine) continue;
+    if (p.awakened && !awakened) continue; // QF01: awakened-only glow seams
     const g = partGeometry(p, pass === "outline" ? OUTLINE : 0, detail);
     const base = boneRestWorld(p.bone);
     e.set(p.rot?.[0] ?? 0, p.rot?.[1] ?? 0, p.rot?.[2] ?? 0);
@@ -264,6 +265,8 @@ export interface FighterRig {
   readonly clips: Map<string, AnimationClip>;
   /** Swaps every mesh to the geometry of another level of detail in place (same skeleton, no extra draw calls). */
   setLod(lod: Lod): void;
+  /** QF01: shows or hides the Awakened-only glow seams by rebuilding the glow geometry in place (still three passes). */
+  setAwakened(on: boolean): void;
   /** Geometry, materials and the atlas owned by this rig; dispose() releases every one once. */
   dispose(): void;
 }
@@ -279,10 +282,11 @@ export function buildFighterRig(kit: KitId, ramp: DataTexture, opts: { outline: 
   const atlas = makeKitAtlas(kit);
   const passOf = new Map<SkinnedMesh, Pass>();
   let lod: Lod = opts.lod ?? "medium";
+  let awakened = false;
   const mats: (MeshToonMaterial | MeshBasicMaterial)[] = [];
   const meshes: SkinnedMesh[] = [];
   const add = (name: string, pass: Pass, mat: MeshToonMaterial | MeshBasicMaterial, shadow: boolean): void => {
-    const g = buildFighterGeometry(kit, pass, lod);
+    const g = buildFighterGeometry(kit, pass, lod, awakened);
     if (g.getAttribute("position").count === 0) { g.dispose(); mat.dispose(); return; }
     mats.push(mat);
     const mesh = new SkinnedMesh(g, mat);
@@ -305,7 +309,12 @@ export function buildFighterRig(kit: KitId, ramp: DataTexture, opts: { outline: 
     setLod: (next) => {
       if (next === lod) return;
       lod = next;
-      for (const mesh of meshes) { const old = mesh.geometry; mesh.geometry = buildFighterGeometry(kit, passOf.get(mesh)!, lod); old.dispose(); }
+      for (const mesh of meshes) { const old = mesh.geometry; mesh.geometry = buildFighterGeometry(kit, passOf.get(mesh)!, lod, awakened); old.dispose(); }
+    },
+    setAwakened: (on) => {
+      if (on === awakened) return;
+      awakened = on;
+      for (const mesh of meshes) if (passOf.get(mesh) === "glow") { const old = mesh.geometry; mesh.geometry = buildFighterGeometry(kit, "glow", lod, awakened); old.dispose(); }
     },
     dispose: () => { for (const mesh of meshes) mesh.geometry.dispose(); for (const m of mats) m.dispose(); atlas.dispose(); skeleton.dispose(); },
   };

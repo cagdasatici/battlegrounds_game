@@ -80,3 +80,47 @@ test("fighters play move, guard and ability clips in a real render, and low qual
     expect(errors).toEqual([]);
   } finally { await ctx.close(); }
 });
+
+// QF01 evidence: same-scale grayscale rear poses at 8 m and 14 m (low and medium, base and awakened), plus Stone Vanguard
+// guard / windup / contact / recovery with no combat text. Harness-commanded tiers; clip times are wall-clock approximations.
+test("QF01 Stone Vanguard rear silhouette and Fault Strike phases", async () => {
+  const outQ = path.join(outDir, "QF01");
+  mkdirSync(outQ, { recursive: true });
+  const ctx = await browser.newContext({ viewport: { width: 1180, height: 820 } });
+  const page = await ctx.newPage();
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  const act = (kit: string, action: string, moveId: string) => page.evaluate(([k, a, m]) => (window as unknown as { __art: ArtApi }).__art.act(k as string, a as string, m as string), [kit, action, moveId]);
+  const clipOf = (kit: string) => page.evaluate((k) => (window as unknown as { __art: ArtApi }).__art.clip(k), kit);
+  try {
+    for (const dist of [8, 14]) {
+      await page.goto(`${base}/art.html?view=rear&dist=${dist}`);
+      await page.waitForFunction(() => ((window as unknown as { __art?: ArtApi }).__art?.frames() ?? 0) > 20, undefined, { timeout: 30_000 });
+      await page.addStyleTag({ content: "canvas{filter:grayscale(1)}" });
+      for (const q of ["medium", "low"]) {
+        for (const awakened of [false, true]) {
+          await page.evaluate(([qq, on]) => { const a = (window as unknown as { __art: ArtApi & { awaken(k: string, v: boolean): void } }).__art; a.quality(qq as string); a.awaken("sv", on as boolean); }, [q, awakened]);
+          await page.waitForTimeout(500);
+          await page.screenshot({ path: path.join(outQ, `rear-${dist}m-${q}${awakened ? "-awakened" : ""}.png`) });
+        }
+      }
+    }
+    await page.goto(`${base}/art.html`);
+    await page.waitForFunction(() => ((window as unknown as { __art?: ArtApi }).__art?.frames() ?? 0) > 20, undefined, { timeout: 30_000 });
+    await page.addStyleTag({ content: "canvas{filter:grayscale(1)}" });
+    await act("sv", "Guard", "");
+    await page.waitForTimeout(500);
+    expect(await clipOf("sv")).toBe("guard");
+    await page.screenshot({ path: path.join(outQ, "sv-guard.png") });
+    // Fault Strike is retimed to 30 ticks (0.5 s): shift ~0.08 s, windup ~0.17 s, contact ~0.24 s, recovery to 0.5 s.
+    await act("sv", "Windup", "sv.b1");
+    await page.waitForTimeout(100);
+    expect(await clipOf("sv")).toBe("sv.b1");
+    await page.screenshot({ path: path.join(outQ, "sv-b1-windup.png") });
+    await page.waitForTimeout(150);
+    await page.screenshot({ path: path.join(outQ, "sv-b1-contact.png") });
+    await page.waitForTimeout(250);
+    await page.screenshot({ path: path.join(outQ, "sv-b1-recovery.png") });
+    expect(errors).toEqual([]);
+  } finally { await ctx.close(); }
+});

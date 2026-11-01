@@ -179,6 +179,18 @@ export const KIT_STYLE: Readonly<Record<KitId, KitStyle>> = {
   ea: { weight: 1, tempo: 1, idle: { shoulderL: [0.6, 0, -0.2], elbowL: [-1.1, 0, 0], shoulderR: [0.6, 0, 0.2], elbowR: [-1.1, 0, 0], chest: [0.1, 0, 0], head: [-0.08, 0, 0], hipL: [-0.15, 0, -0.1], hipR: [0.15, 0, 0.1], kneeL: [0.28, 0, 0], kneeR: [0.28, 0, 0] } },
 };
 
+/**
+ * QF01 per-kit overlays (presentation only). The Stone Vanguard guards low and planted: wide feet, deep knees, extra
+ * hip drop. Its Fault Strike (sv.b1) gets a weight-shift anticipation key before the shared windup pose.
+ */
+const GUARD_OVERLAY: Partial<Record<KitId, { pose: Pose; extraDrop: number }>> = {
+  sv: { pose: { hipL: [-0.2, 0, -0.42], hipR: [0.2, 0, 0.42], kneeL: [0.8, 0, 0], kneeR: [0.8, 0, 0], ankleL: [-0.25, 0, 0], ankleR: [-0.25, 0, 0], spine: [0.22, 0, 0] }, extraDrop: 0.07 },
+};
+/** Time (unscaled seconds) of the sv.b1 weight-shift key; it must stay before the shared windup key at 0.3 s. */
+export const SV_B1_SHIFT_T = 0.14;
+const SV_B1_SHIFT: Pose = { hipL: [-0.2, 0, -0.35], hipR: [0.3, 0, 0.45], kneeL: [0.35, 0, 0], kneeR: [0.75, 0, 0], ankleR: [-0.2, 0, 0], spine: [0.12, -0.12, 0], chest: [0.08, 0.12, 0] };
+const SV_B1_SHIFT_HIPS: Vec3 = [0.05, -0.12, 0.04];
+
 // ---- move archetypes ----------------------------------------------------------------------------------------
 
 type Archetype = "strike" | "flurry" | "palm" | "launcher" | "slam" | "beam" | "counter" | "cast" | "throw" | "grab" | "spin" | "dashStrike" | "activate" | "kick";
@@ -346,6 +358,7 @@ function moveClip(id: string, kit: KitId): ClipData {
   const wk = merge(base, w), ak = merge(base, a);
   const keys: Key[] = [
     { t: 0, pose: base },
+    ...(id === "sv.b1" ? [{ t: sc(SV_B1_SHIFT_T), pose: merge(base, SV_B1_SHIFT), hips: SV_B1_SHIFT_HIPS } as Key] : []),
     { t: sc(0.3), pose: wk, hips: ph.windupHips ?? [0, 0, 0] },
     { t: sc(0.42), pose: ak, hips: ph.activeHips ?? [0, 0, 0] },
   ];
@@ -361,8 +374,10 @@ export function buildKitClips(kit: KitId): ClipData[] {
   const style = KIT_STYLE[kit];
   const idlePose = merge(STANCE, style.idle);
   const breathe = merge(idlePose, { chest: [(idlePose.chest?.[0] ?? 0) + 0.04, idlePose.chest?.[1] ?? 0, idlePose.chest?.[2] ?? 0], head: [-0.09, 0, 0], shoulderL: [(idlePose.shoulderL?.[0] ?? 0) + 0.04, idlePose.shoulderL?.[1] ?? 0, idlePose.shoulderL?.[2] ?? 0] } as Pose);
-  const lowHips: Vec3 = [0, -0.06 * style.weight, 0];
-  const guardPose = merge(STANCE, { spine: [0.15, 0, 0], chest: [0.12, 0, 0], head: [0.1, 0, 0], shoulderL: [1.3, 0.3, -0.25], shoulderR: [1.3, -0.3, 0.25], elbowL: [-2.0, 0, 0], elbowR: [-2.0, 0, 0], hipL: [-0.15, 0, -0.2], hipR: [0.15, 0, 0.2], kneeL: [0.45, 0, 0], kneeR: [0.45, 0, 0] } as Pose);
+  const gOver = GUARD_OVERLAY[kit];
+  const lowHips: Vec3 = [0, -0.06 * style.weight - (gOver?.extraDrop ?? 0), 0];
+  const guardBase = merge(STANCE, { spine: [0.15, 0, 0], chest: [0.12, 0, 0], head: [0.1, 0, 0], shoulderL: [1.3, 0.3, -0.25], shoulderR: [1.3, -0.3, 0.25], elbowL: [-2.0, 0, 0], elbowR: [-2.0, 0, 0], hipL: [-0.15, 0, -0.2], hipR: [0.15, 0, 0.2], kneeL: [0.45, 0, 0], kneeR: [0.45, 0, 0] } as Pose);
+  const guardPose = gOver ? merge(guardBase, gOver.pose) : guardBase;
   const hit = merge(STANCE, { spine: [-0.3, 0, 0.1], chest: [-0.25, 0.1, 0], head: [-0.4, 0, 0.15], shoulderL: [-0.4, 0, -0.5], shoulderR: [-0.3, 0, 0.5], elbowL: [-0.3, 0, 0], elbowR: [-0.3, 0, 0], hipL: [0.2, 0, -0.1], hipR: [0.3, 0, 0.1], kneeL: [0.3, 0, 0], kneeR: [0.4, 0, 0] } as Pose);
   const ragdoll = P({ hips: [0.2, 0, 0], spine: [0.4, 0, 0.2], chest: [0.3, 0.2, 0.1], neck: [0.2, 0, 0], head: [0.3, 0.3, 0], shoulderL: [-0.5, 0, -1.2], shoulderR: [1.0, 0, 0.9], elbowL: [-0.8, 0, 0], elbowR: [-0.4, 0, 0], hipL: [-1.0, 0, -0.5], kneeL: [0.9, 0, 0], hipR: [0.6, 0, 0.6], kneeR: [0.4, 0, 0], ankleL: [0.3, 0, 0], ankleR: [-0.3, 0, 0] });
   const down = P({ spine: [0.2, 0, 0], chest: [0.1, 0, 0], head: [0.1, 0.4, 0], shoulderL: [-0.2, 0, -0.9], shoulderR: [0.5, 0, 1.0], elbowL: [-0.3, 0, 0], elbowR: [-0.6, 0, 0], hipL: [-0.3, 0, -0.3], kneeL: [0.4, 0, 0], hipR: [0.2, 0, 0.3], kneeR: [0.2, 0, 0] });

@@ -180,3 +180,54 @@ describe("ART2 textures", () => {
     }
   });
 });
+
+// QF01: Stone Vanguard planted silhouette.
+describe("QF01 Stone Vanguard silhouette", () => {
+  const sv = FIGHTER_DESIGNS.sv, td = FIGHTER_DESIGNS.td;
+  const named = (d: typeof sv, n: string) => d.parts.find((p) => p.name === n)!;
+  it("has asymmetric heavy forearms and bracers (left larger than right)", () => {
+    expect(named(sv, "foreArmL").size[0]).toBeGreaterThan(named(sv, "foreArmR").size[0]! + 0.01);
+    expect(named(sv, "bracerSlabL").size[1]).toBeGreaterThan(named(sv, "bracerSlabR").size[1]!);
+    // Heavier than the Duelist's cloth forearms.
+    expect(named(sv, "foreArmL").size[0]).toBeGreaterThan(named(td, "foreArmL").size[0]!);
+  });
+  it("is broader across the shoulders than the Duelist (rear silhouette width at shoulder height)", () => {
+    const width = (k: (typeof KITS)[number]): number => {
+      const g = buildFighterGeometry(k, "body", "medium"), pos = g.getAttribute("position");
+      let lo = Infinity, hi = -Infinity;
+      for (let i = 0; i < pos.count; i++) if (pos.getY(i) > 0.35 && pos.getY(i) < 0.65) { lo = Math.min(lo, pos.getX(i)); hi = Math.max(hi, pos.getX(i)); }
+      g.dispose();
+      return hi - lo;
+    };
+    expect(width("sv")).toBeGreaterThan(width("td") + 0.1);
+  });
+  it("layers at least three offset stone slabs on the back", () => {
+    const slabs = sv.parts.filter((p) => /^backSlab|^skirtSlab/.test(p.name));
+    expect(slabs.length).toBeGreaterThanOrEqual(4);
+    expect(new Set(slabs.map((s) => s.pos[0])).size).toBeGreaterThanOrEqual(3);
+    expect(slabs.every((s) => s.pos[2] > 0.1 && s.color === "stone")).toBe(true);
+  });
+  it("shows amber seams only while Awakened, in the glow pass, within budgets and the capsule extent", () => {
+    const quads = (awakened: boolean): number => { const g = buildFighterGeometry("sv", "glow", "medium", awakened); const n = partsOf(g).length; g.dispose(); return n; };
+    expect(quads(true)).toBeGreaterThan(quads(false));
+    expect(sv.parts.filter((p) => p.awakened).every((p) => p.glow && p.color === "accent")).toBe(true);
+    for (const lod of ["medium", "low"] as const) {
+      const total = PASSES.reduce((n, p) => { const g = buildFighterGeometry("sv", p, lod, true); const t = g.getIndex()!.count / 3; const bb = g.boundingBox!; expect(Math.max(-bb.min.x, bb.max.x)).toBeLessThanOrEqual(CAPSULE_R + SLACK); expect(Math.max(-bb.min.z, bb.max.z)).toBeLessThanOrEqual(CAPSULE_R + SLACK); g.dispose(); return n + t; }, 0);
+      expect(total, `sv ${lod} awakened`).toBeLessThanOrEqual(lod === "medium" ? 8000 : 3000);
+    }
+    // Other kits are unchanged by the awakened flag.
+    for (const k of ["td", "ea"] as const) expect(partsOf(buildFighterGeometry(k, "glow", "medium", true)).length).toBe(partsOf(buildFighterGeometry(k, "glow", "medium", false)).length);
+  });
+  it("toggles seams in place through the rig and keeps three mesh passes", () => {
+    const ramp = makeToonRamp();
+    const rig = buildFighterRig("sv", ramp, { outline: true });
+    const glow = rig.meshes.find((m) => m.name === "sv.glow")!;
+    const before = glow.geometry.getIndex()!.count;
+    rig.setAwakened(true);
+    expect(glow.geometry.getIndex()!.count).toBeGreaterThan(before);
+    expect(rig.meshes.length).toBe(3);
+    rig.setAwakened(false);
+    expect(glow.geometry.getIndex()!.count).toBe(before);
+    rig.dispose(); ramp.dispose();
+  });
+});

@@ -78,3 +78,32 @@ describe("rig pose directions (fighters face -Z)", () => {
     });
   }
 });
+
+// QF01: Stone Vanguard planted guard and Fault Strike anticipation.
+describe("QF01 Stone Vanguard animation", () => {
+  const sv = buildKitClips("sv"), td = buildKitClips("td");
+  const reach = (c: ClipData, k: number): number => { const w = fk(c, k); return w.chest[2] - Math.min(w.handL[2], w.handR[2]); };
+  it("guards lower and wider than the Duelist", () => {
+    const g = sv.find((c) => c.id === "guard")!, t = td.find((c) => c.id === "guard")!;
+    const hipsY = (c: ClipData): number => c.tracks.find((x) => x.bone === "hips" && x.path === "translation")!.values[1]!;
+    expect(hipsY(g)).toBeLessThan(hipsY(t) - 0.03);
+    const spread = (c: ClipData): number => { const w = fk(c, 0); return Math.abs(w.ankleL[0] - w.ankleR[0]); };
+    expect(spread(g)).toBeGreaterThan(spread(t) + 0.1);
+  });
+  it("sv.b1 shifts weight before the windup and does not strike before the active key", () => {
+    const c = sv.find((x) => x.id === "sv.b1")!, times = c.tracks[0]!.times;
+    expect(times.length).toBeGreaterThanOrEqual(6);
+    // key 0 rest, key 1 weight shift, key 2 windup, key 3 active (timing unchanged: 0.3 s and 0.42 s times the kit tempo).
+    expect(times[1]!).toBeLessThan(times[2]!);
+    expect(times[2]!).toBeCloseTo(0.3 * 1.15, 5);
+    expect(times[3]!).toBeCloseTo(0.42 * 1.15, 5);
+    const hipsX = (k: number): number => c.tracks.find((x) => x.bone === "hips" && x.path === "translation")!.values[k * 3]!;
+    expect(hipsX(1) - hipsX(0)).toBeGreaterThan(0.03);
+    expect(reach(c, 1)).toBeLessThan(reach(c, 0) + 0.05);
+    expect(reach(c, 3)).toBeGreaterThan(reach(c, 1) + 0.1);
+  });
+  it("does not add a shift key to other moves or kits", () => {
+    expect(sv.find((x) => x.id === "sv.b2")!.tracks[0]!.times[1]!).toBeCloseTo(0.3 * 1.15, 5);
+    expect(td.find((x) => x.id === "td.b1")!.tracks[0]!.times[1]!).toBeCloseTo(0.3 * 0.95, 5);
+  });
+});

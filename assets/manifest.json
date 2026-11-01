@@ -6,8 +6,8 @@
       "id": "fighter.sv",
       "kind": "fighter",
       "path": "assets/fighters/sv.gltf",
-      "sha256": "7b9aab611de311945c9e6ed36b814efc0a407a7272f21581026f5a611910a4c8",
-      "byteSize": 525754,
+      "sha256": "d036b4f29fc2e35f8657b42523a48160d4856503ab818ad658e44458dfe3fb84",
+      "byteSize": 561843,
       "license": "Project-original work; no third-party material; rights held by the project owner",
       "author": "Elemental Battlegrounds project (code authored in repository by Claude Code under owner direction)",
       "source": "repo:ops/scripts/art-gltf.ts from packages/shared/src/rig.ts and fighterDesign.ts",
@@ -22,7 +22,7 @@
         "max": [
           0.34801,
           0.97,
-          0.205
+          0.23213
         ]
       },
       "kit": "sv",

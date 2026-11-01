@@ -27,6 +27,8 @@ export interface PartDef {
   readonly glow?: boolean;
   /** Box bevel radius in metres (default: a small share of the smallest side). */
   readonly bevel?: number;
+  /** QF01: a glow part that is only built while the fighter is Awakened (amber seams); ignored for non glow parts. */
+  readonly awakened?: boolean;
   /** Small detail (brows, mouth, thumb): only built at medium detail, skipped by the low-poly level of detail. */
   readonly fine?: boolean;
 }
@@ -40,8 +42,8 @@ export interface FighterDesign {
 }
 
 type P = PartDef;
-const part = (name: string, shape: PartShape, bone: BoneName, pos: Vec3, size: readonly number[], color: PaletteSlot, extra: { rot?: Vec3; glow?: boolean; bevel?: number; fine?: boolean } = {}): P =>
-  ({ name, shape, bone, pos, size, color, ...(extra.rot ? { rot: extra.rot } : {}), ...(extra.glow ? { glow: true } : {}), ...(extra.bevel !== undefined ? { bevel: extra.bevel } : {}), ...(extra.fine ? { fine: true } : {}) });
+const part = (name: string, shape: PartShape, bone: BoneName, pos: Vec3, size: readonly number[], color: PaletteSlot, extra: { rot?: Vec3; glow?: boolean; bevel?: number; fine?: boolean; awakened?: boolean } = {}): P =>
+  ({ name, shape, bone, pos, size, color, ...(extra.rot ? { rot: extra.rot } : {}), ...(extra.glow ? { glow: true } : {}), ...(extra.bevel !== undefined ? { bevel: extra.bevel } : {}), ...(extra.fine ? { fine: true } : {}), ...(extra.awakened ? { awakened: true } : {}) });
 
 /** Limb sizes [rTop, rBottom, length, bulge]; lengths match the rig bone spacing so joints sit on bone origins. */
 const ARM_UPPER = [0.075, 0.06, 0.28, 0.006] as const;
@@ -93,8 +95,12 @@ function stoneVanguard(): FighterDesign {
   parts = override(parts, "pelvis", { color: "primary" });
   parts = override(parts, "upperArmL", { color: "skin" });
   parts = override(parts, "upperArmR", { color: "skin" });
-  parts = override(parts, "foreArmL", { color: "stone" });
-  parts = override(parts, "foreArmR", { color: "stone" });
+  // QF01: heavy asymmetric forearms. The left (lead) arm is a thick stone pillar, the right a lighter bracer.
+  // Ring radii match across each elbow (upper arm bottom == forearm top) so the joint blend stays closed.
+  parts = override(parts, "upperArmL", { size: [0.09, 0.078, 0.28, 0.01] });
+  parts = override(parts, "foreArmL", { color: "stone", size: [0.078, 0.072, 0.26, 0.022] });
+  parts = override(parts, "foreArmR", { color: "stone", size: [0.06, 0.056, 0.26, 0.014] });
+  parts = override(parts, "chest", { size: [0.5, 0.36, 0.28] });
   parts = override(parts, "hair", { size: [0.27, 0.1, 0.26], pos: [0, 0.17, 0.025] });
   parts = override(parts, "thigh" + "L", { color: "primary" });
   parts = override(parts, "thigh" + "R", { color: "primary" });
@@ -119,6 +125,23 @@ function stoneVanguard(): FighterDesign {
     part("tassetL", "box", "hips", [-0.13, -0.14, -0.1], [0.14, 0.2, 0.04], "stone", { rot: [0.1, 0, 0.05], bevel: 0.015 }),
     part("tassetR", "box", "hips", [0.13, -0.14, -0.1], [0.14, 0.2, 0.04], "stone", { rot: [0.1, 0, -0.05], bevel: 0.015 }),
     part("backSlab", "box", "chest", [0, 0.1, 0.17], [0.34, 0.3, 0.07], "stone", { bevel: 0.025 }),
+    // QF01 broad trapezoid shoulders: two sloped trapezius wedges climb from the neck to the mantles.
+    part("trapL", "box", "chest", [-0.15, 0.3, 0.01], [0.3, 0.09, 0.32], "stone", { rot: [0, 0, 0.32], bevel: 0.03 }),
+    part("trapR", "box", "chest", [0.15, 0.3, 0.01], [0.3, 0.09, 0.32], "stone", { rot: [0, 0, -0.32], bevel: 0.03 }),
+    // QF01 layered stone slabs seen from behind: three offset plates step down the back, plus a skirt slab over the hips.
+    part("backSlab2", "box", "chest", [0.07, -0.02, 0.2], [0.28, 0.2, 0.06], "stone", { rot: [0, 0.06, -0.05], bevel: 0.02 }),
+    part("backSlab3", "box", "spine", [-0.06, 0.0, 0.18], [0.3, 0.18, 0.06], "stone", { rot: [0, -0.07, 0.04], bevel: 0.02 }),
+    part("skirtSlab", "box", "hips", [0.02, -0.12, 0.13], [0.3, 0.2, 0.05], "stone", { rot: [-0.08, 0, 0], bevel: 0.02 }),
+    // Heavy asymmetric bracer slabs: big on the left, shorter on the right.
+    part("bracerSlabL", "box", "elbowL", [0, -0.14, 0], [0.19, 0.2, 0.17], "stone", { bevel: 0.03 }),
+    part("bracerSlabR", "box", "elbowR", [0, -0.12, 0], [0.14, 0.14, 0.13], "stone", { bevel: 0.025 }),
+    // QF01 amber seams: glow strips that only exist while Awakened.
+    part("seamBackA", "box", "chest", [0, 0.1, 0.208], [0.03, 0.26, 0.01], "accent", { glow: true, awakened: true }),
+    part("seamBackB", "box", "spine", [-0.06, 0.0, 0.212], [0.22, 0.025, 0.01], "accent", { glow: true, awakened: true }),
+    part("seamShoulderL", "box", "chest", [-0.2, 0.345, 0.01], [0.2, 0.02, 0.2], "accent", { glow: true, awakened: true, rot: [0, 0, 0.32] }),
+    part("seamShoulderR", "box", "chest", [0.2, 0.345, 0.01], [0.2, 0.02, 0.2], "accent", { glow: true, awakened: true, rot: [0, 0, -0.32] }),
+    part("seamBracerL", "box", "elbowL", [0, -0.14, -0.088], [0.14, 0.025, 0.01], "accent", { glow: true, awakened: true }),
+    part("seamBracerR", "box", "elbowR", [0, -0.12, -0.068], [0.1, 0.025, 0.01], "accent", { glow: true, awakened: true }),
   );
   return {
     kit: "sv", label: "Stone Vanguard", glowColor: 0xffa63a,
