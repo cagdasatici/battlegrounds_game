@@ -18,8 +18,8 @@ export const HitFx = {
   current: null as { pool: EffectsPool; count: number } | null,
 
   attach(bus: CombatBus, deps: PresentationDeps): () => void {
-    // FX0's registerPresentation test passes null deps; with no scene or settings there is nothing to draw into.
-    if (!deps.scene || !deps.settings) return () => undefined;
+    // FX0's registerPresentation test passes empty stub deps; with no scene or settings there is nothing to draw into.
+    if (typeof deps.scene?.add !== "function" || typeof deps.settings?.get !== "function") return () => undefined;
     const pool = new EffectsPool();
     pool.init(deps.scene, deps.settings.get().quality);
     const state = { pool, count: 0 };

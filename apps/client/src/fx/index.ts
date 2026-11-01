@@ -1,5 +1,6 @@
 import type { Camera, Scene } from "three";
 import type { CombatBus } from "../app/CombatBus.js";
+import type { SettingsStore } from "../app/SettingsStore.js";
 import { CombatText } from "./CombatText.js";
 import { HitFx } from "./HitFx.js";
 import { Sfx } from "./Sfx.js";
@@ -8,7 +9,7 @@ export interface PresentationDeps {
   scene: Scene;
   camera: Camera;
   players: () => Map<string, unknown>;
-  settings: { get(): unknown };
+  settings: SettingsStore;
   localId: () => string | undefined;
   /** FX1: the fighter view for an entity id, if one exists (flash and freeze). */
   viewFor?: (id: string) => { flash(color: number, ms: number, level?: number): void; freeze(frames: number): void; readonly flashing: boolean } | undefined;

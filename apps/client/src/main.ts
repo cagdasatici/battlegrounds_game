@@ -10,6 +10,7 @@ import islandsUrl from "../../../assets/maps/islands.v1.json?url";
 import { AppFlow } from "./app/AppFlow.js";
 import { CombatBus } from "./app/CombatBus.js";
 import { registerPresentation } from "./fx/index.js";
+import { HitFx } from "./fx/HitFx.js";
 import { GameLoop, type LoopPlayer, type LoopState } from "./app/GameLoop.js";
 import { SettingsStore } from "./app/SettingsStore.js";
 import { computeLayout, type Layout } from "./input/ControlLayout.js";
