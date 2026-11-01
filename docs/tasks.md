@@ -135,7 +135,7 @@ Execute one row per session using [the Quality 90 instructions](quality-90-plan.
 
 | Task | Title | Depends on | Status | Commit | Test report |
 |---|---|---|---|---|---|
-| Q00 | Baseline and evidence inventory | FX4-align ORB2 WEB1 WEB2 WEB3 WEB4 WEB5 | TODO | | docs/test-results/Q00.md |
+| Q00 | Baseline and evidence inventory | FX4-align ORB2 WEB1 WEB2 WEB3 WEB4 WEB5 | DONE | PENDING | docs/test-results/Q00.md |
 | Q01 | Reproducible fight and load capture | Q00 | TODO | | docs/test-results/Q01.md |
 | QA01 | Reliable sparring and replay | Q01 BOT5 | TODO | | docs/test-results/QA01.md |
 | QC01 | Close-combat visibility | Q01 | TODO | | docs/test-results/QC01.md |

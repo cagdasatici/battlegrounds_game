@@ -1,0 +1,74 @@
+{
+  "viewports": [
+    "1024x768",
+    "1180x820"
+  ],
+  "fovDeg": 60,
+  "cameraDistance": 6.5,
+  "renderInfo": {
+    "center-medium-1024x768": {
+      "calls": 54,
+      "triangles": 118152
+    },
+    "center-low-1024x768": {
+      "calls": 34,
+      "triangles": 89304
+    },
+    "east-medium-1024x768": {
+      "calls": 46,
+      "triangles": 123948
+    },
+    "east-low-1024x768": {
+      "calls": 34,
+      "triangles": 96736
+    },
+    "west-medium-1024x768": {
+      "calls": 49,
+      "triangles": 116792
+    },
+    "west-low-1024x768": {
+      "calls": 33,
+      "triangles": 89056
+    },
+    "lineup-medium-1024x768": {
+      "calls": 55,
+      "triangles": 118024
+    },
+    "lineup-low-1024x768": {
+      "calls": 36,
+      "triangles": 89400
+    },
+    "center-medium-1180x820": {
+      "calls": 54,
+      "triangles": 118152
+    },
+    "center-low-1180x820": {
+      "calls": 34,
+      "triangles": 89304
+    },
+    "east-medium-1180x820": {
+      "calls": 46,
+      "triangles": 123948
+    },
+    "east-low-1180x820": {
+      "calls": 34,
+      "triangles": 96736
+    },
+    "west-medium-1180x820": {
+      "calls": 49,
+      "triangles": 116792
+    },
+    "west-low-1180x820": {
+      "calls": 33,
+      "triangles": 89056
+    },
+    "lineup-medium-1180x820": {
+      "calls": 55,
+      "triangles": 118024
+    },
+    "lineup-low-1180x820": {
+      "calls": 36,
+      "triangles": 89400
+    }
+  }
+}
