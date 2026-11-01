@@ -103,14 +103,14 @@ function makeRig(n = 3, hostOpts: {
 
 describe("td definitions match the spec 15 table", () => {
   test("slotted base moves carry the exact table numbers", () => {
-    expect(TD_DEFS.map((d) => d.id)).toEqual(["td.b1", "td.b2", "td.b3", "td.b4"]);
+    expect(TD_DEFS.filter((d) => d.form === "Base").map((d) => d.id)).toEqual(["td.b1", "td.b2", "td.b3", "td.b4"]);
     const table: Record<string, [number, number, number, number, number, number, string, string]> = {
       "td.b1": [10, 5, 18, 1020, 2400, 2.4, "U", "captureBarrage"],
       "td.b2": [14, 5, 24, 1200, 1900, 2.2, "B", "dragSlam"],
       "td.b3": [12, 4, 18, 900, 900, 2.2, "U", "throwCapture"],
       "td.b4": [0, 60, 30, 1020, 2200, 4, "U", "counter"],
     };
-    for (const d of TD_DEFS) {
+    for (const d of TD_DEFS.filter((x) => x.form === "Base")) {
       expect([d.startup, d.active, d.recovery, d.cooldown, d.damage100.reduce((a, b) => a + b, 0), d.range, d.block, d.handler]).toEqual(table[d.id]);
     }
   });
