@@ -22,6 +22,10 @@ export function mountSparringSetup(root: HTMLElement, actions: SparringSetupActi
     const option = doc.createElement("option"); option.value = value!; option.textContent = text!; fighter.append(option);
   }
   fighterLabel.append(fighter); controls.append(fighterLabel);
+  const listedLabel = doc.createElement("label");
+  const listedBox = doc.createElement("input"); listedBox.type = "checkbox"; listedBox.style.minHeight = "24px";
+  listedLabel.append(listedBox, "List this match for other players");
+  controls.append(listedLabel);
   const rows = doc.createElement("div"); controls.append(rows);
   const button = (text: string, parent: HTMLElement): HTMLButtonElement => {
     const b = doc.createElement("button"); b.type = "button"; b.textContent = text; parent.append(b); return b;
@@ -88,7 +92,7 @@ export function mountSparringSetup(root: HTMLElement, actions: SparringSetupActi
     pending = true; status.textContent = "Working…"; fallback.value = ""; fallbackLabel.hidden = true; refresh();
     try {
       if (kind === "start") {
-        await actions.start({ bots: [...bots] }, fighter.value === "td" ? "td" : "sv");
+        await actions.start({ bots: [...bots] }, fighter.value === "td" ? "td" : "sv", listedBox.checked);
         if (disposed) return;
         active = true; status.textContent = "Match started. Invite friends if a space remains.";
       } else if (kind === "end") {

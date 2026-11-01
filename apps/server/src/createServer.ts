@@ -1,6 +1,6 @@
 import { Server, matchMaker } from "colyseus";
 import { WebSocketTransport } from "@colyseus/ws-transport";
-import { ARENA_ROOM_NAME, PRACTICE_ROOM_NAME } from "@eb/shared/protocol";
+import { ARENA_ROOM_NAME, MAX_CLIENTS, PRACTICE_ROOM_NAME } from "@eb/shared/protocol";
 import { ArenaRoom, setArenaAuth } from "./rooms/ArenaRoom.js";
 import { SparringRoom } from "./rooms/SparringRoom.js";
 import { SPARRING_ROOM_NAME } from "@eb/shared/sparring";
@@ -16,6 +16,11 @@ export function createGameServer(auth: AuthServices, opts: { staticDir?: string 
   auth.ensureRoom = (name, code) => {
     if (name === SPARRING_ROOM_NAME && !auth.sparring.describe(code)) throw new Error("MATCH_CLOSED");
     return roomDirectory.ensure(name, code);
+  };
+  auth.occupancy = (_name, code) => {
+    const id = roomDirectory.get(code);
+    const room = id ? matchMaker.getLocalRoomById(id) : undefined;
+    return { players: room?.clients.length ?? 0, capacity: room?.maxClients ?? MAX_CLIENTS };
   };
   const closing = new Set<string>();
   auth.closeRoom = async (code) => {

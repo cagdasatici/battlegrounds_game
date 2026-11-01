@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { computeContentHash } from "@eb/shared/config/content";
 import { PROTOCOL_VERSION } from "@eb/shared/protocol";
 import { SPARRING_GUEST_COOKIE, SPARRING_ROOM_NAME, SparringCreateRequestSchema, SparringEndRequestSchema, SparringLinkRequestSchema, SparringRedeemRequestSchema } from "@eb/shared/sparring";
+import { SparringJoinRequestSchema } from "@eb/shared/rooms";
 import type { AuthServices } from "../auth/Services.js";
 import { SparringError, type SparringPrincipal } from "../auth/SparringDirectory.js";
 import { RateLimiter } from "../auth/RateLimiter.js";
@@ -48,7 +49,7 @@ export function registerSparringRoutes(app: HttpApp, svc: AuthServices): void {
   const mutations = new RateLimiter(20, 60_000, svc.now);
   const redemption = new RateLimiter(svc.config.sessionsPerMinute ?? 5, 60_000, svc.now);
   const global = new RateLimiter(svc.config.globalSessionsPerMinute ?? 30, 60_000, svc.now);
-  for (const operation of ["create", "link", "end", "redeem"] as const) {
+  for (const operation of ["create", "link", "end", "redeem", "join"] as const) {
     app.post(operation === "create" ? "/api/sparring" : `/api/sparring/${operation}`, async (req, res) => {
       if (!originAllowed(req, svc.config.allowedOrigins)) return send(res, 403, { error: "ORIGIN" });
       try {
@@ -59,7 +60,7 @@ export function registerSparringRoutes(app: HttpApp, svc: AuthServices): void {
         if (operation === "create") {
           const p = SparringCreateRequestSchema.safeParse(raw);
           if (!p.success) throw new SparringError(400, "BAD_REQUEST");
-          send(res, 201, svc.sparring.create(owner!, p.data));
+          send(res, 201, svc.sparring.create(owner!, { bots: p.data.bots }, p.data.listed === true));
         } else if (operation === "link") {
           const p = SparringLinkRequestSchema.safeParse(raw);
           if (!p.success) throw new SparringError(400, "BAD_REQUEST");
@@ -70,6 +71,14 @@ export function registerSparringRoutes(app: HttpApp, svc: AuthServices): void {
           svc.sparring.end(owner!, p.data.roomCode);
           await svc.closeRoom(p.data.roomCode);
           send(res, 204);
+        } else if (operation === "join") {
+          const p = SparringJoinRequestSchema.safeParse(raw);
+          if (!p.success) throw new SparringError(400, "BAD_REQUEST");
+          const session = svc.sessions.getById(owner!.id);
+          if (!session) throw new SparringError(401, "UNAUTHENTICATED");
+          const g = svc.sparring.joinListed(session.id, p.data.roomCode, session.displayName);
+          const cookie = `${SPARRING_GUEST_COOKIE}=${g.cookieToken}; ${svc.config.secureCookies ? "Secure; " : ""}HttpOnly; SameSite=Strict; Path=/; Max-Age=86400`;
+          send(res, 201, { roomCode: g.roomCode, csrfToken: g.csrfToken }, { "Set-Cookie": cookie });
         } else {
           const p = SparringRedeemRequestSchema.safeParse(raw);
           if (!p.success) throw new SparringError(400, "BAD_REQUEST");

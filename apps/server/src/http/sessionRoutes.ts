@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import {
-  JoinTicketRequestSchema, PRACTICE_ROOM_NAME, PROTOCOL_VERSION, SessionRequestSchema,
+  ARENA_ROOM_NAME, JoinTicketRequestSchema, PRACTICE_ROOM_NAME, PROTOCOL_VERSION, SessionRequestSchema,
   type JoinTicketResponse, type SessionResponse, type VersionResponse,
 } from "@eb/shared/protocol";
 import { computeContentHash } from "@eb/shared/config/content";
@@ -8,6 +8,7 @@ import type { AuthServices } from "../auth/Services.js";
 import { RateLimiter } from "../auth/RateLimiter.js";
 import { safeEqual } from "../auth/tokens.js";
 import { log } from "../ops/StructuredLog.js";
+import { registerRoomListRoutes } from "./roomListRoutes.js";
 import { sparringTicket } from "./sparringRoutes.js";
 import { securityHeaders } from "./securityHeaders.js";
 
@@ -122,6 +123,8 @@ export function registerSessionRoutes(app: HttpApp, svc: AuthServices, now: () =
     send(res, 200, { csrfToken: s.csrf });
   });
 
+  registerRoomListRoutes(app, svc, authed, ticketLimiter);
+
   app.post("/api/join-ticket", async (req, res) => {
     if (!originAllowed(req, config.allowedOrigins)) return send(res, 403, { error: "ORIGIN" });
     const raw = await readBody(req);
@@ -139,6 +142,10 @@ export function registerSessionRoutes(app: HttpApp, svc: AuthServices, now: () =
     const roomName = Object.hasOwn(config.roomCodes, parsed.data.roomCode) ? config.roomCodes[parsed.data.roomCode] : undefined;
     if (!roomName) return send(res, 409, { error: "UNKNOWN_ROOM" });
     if (!svc.ensureRoom) return send(res, 503, { error: "NOT_READY" });
+    if (roomName === ARENA_ROOM_NAME) {
+      const o = svc.occupancy(roomName, parsed.data.roomCode);
+      if (o.players >= o.capacity) return send(res, 409, { error: "ROOM_FULL" });
+    }
     // Practice is private to one session: the server derives the room code, so two children never share a dummy room.
     const roomCode = roomName === PRACTICE_ROOM_NAME ? `${parsed.data.roomCode}-${s.id.slice(0, 16)}` : parsed.data.roomCode;
     let roomId: string;

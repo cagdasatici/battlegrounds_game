@@ -13,7 +13,8 @@ const expiresAt = z.number().finite().int().nonnegative();
 
 export const SparringConfigSchema = z.strictObject({ bots: z.array(DifficultySchema).max(3) });
 export type SparringConfig = z.infer<typeof SparringConfigSchema>;
-export const SparringCreateRequestSchema = SparringConfigSchema;
+/** `listed` (default false) publishes the match in GET /api/rooms. It is not part of the frozen bot roster. */
+export const SparringCreateRequestSchema = z.strictObject({ bots: z.array(DifficultySchema).max(3), listed: z.boolean().optional() });
 export const SparringCreateResponseSchema = z.strictObject({ roomCode: SparringRoomCodeSchema });
 export const SparringLinkRequestSchema = z.strictObject({ roomCode: SparringRoomCodeSchema });
 export const SparringLinkResponseSchema = z.strictObject({ token: SparringTokenSchema, expiresAt });
@@ -58,7 +59,7 @@ export interface BotDecision {
   yaw: number;
 }
 export interface SparringSetupActions {
-  start(config: SparringConfig, kitId: "sv" | "td"): Promise<void>;
+  start(config: SparringConfig, kitId: "sv" | "td", listed?: boolean): Promise<void>;
   copyLink(): Promise<string>;
   end(): Promise<void>;
 }

@@ -20,6 +20,7 @@ interface Match {
   roomCode: string;
   hostId: string;
   bots: Difficulty[];
+  listed: boolean;
   seats: Map<string, Seat>;
   link: { hash: string; expiresAt: number } | null;
 }
@@ -42,14 +43,14 @@ export class SparringDirectory {
     private readonly now: () => number = Date.now,
   ) {}
 
-  create(host: SparringPrincipal, config: SparringConfig): { roomCode: string } {
+  create(host: SparringPrincipal, config: SparringConfig, listed = false): { roomCode: string } {
     this.requireHost(host);
     const parsed = SparringConfigSchema.safeParse(config);
     if (!parsed.success) throw new SparringError(400, "Invalid sparring config");
     if ([...this.matches.values()].some((m) => m.hostId === host.id)) throw new SparringError(409, "Already hosting");
     const roomCode = `sp-${randomBytes(16).toString("hex")}`;
     this.matches.set(roomCode, {
-      roomCode, hostId: host.id, bots: [...parsed.data.bots], link: null,
+      roomCode, hostId: host.id, bots: [...parsed.data.bots], listed: listed === true, link: null,
       seats: new Map([[key(host), { principal: { ...host }, displayName: "", csrfToken: "", connectionId: null, deadline: this.now() + SPARRING_RESERVATION_MS }]]),
     });
     return { roomCode };
@@ -74,11 +75,39 @@ export class SparringDirectory {
     if (!match || !this.live(match) || !match.link || match.link.expiresAt <= this.now()) throw new SparringError(401, "Invalid link");
     this.pruneGuests(match);
     if (match.bots.length + match.seats.size >= 4) throw new SparringError(409, "Match full");
+    return this.admit(match, parsed.data.displayName, true);
+  }
+
+  /** Listed matches only, with counts and no names or credentials. The host must be connected. */
+  listed(): { roomCode: string; humans: number; bots: number }[] {
+    const out: { roomCode: string; humans: number; bots: number }[] = [];
+    for (const match of this.matches.values()) {
+      if (!match.listed || !this.live(match)) continue;
+      if (!match.seats.get(key({ kind: "host", id: match.hostId }))?.connectionId) continue;
+      this.pruneGuests(match);
+      out.push({ roomCode: match.roomCode, humans: match.seats.size, bots: match.bots.length });
+    }
+    return out;
+  }
+
+  /** Admits a signed-in ordinary session as a guest of a listed match: one synchronous check-and-reserve. */
+  joinListed(sessionId: string, roomCode: string, displayName: string): SparringMembership & { cookieToken: string } {
+    if (!this.isHostLive(sessionId)) throw new SparringError(401, "Invalid session");
+    const match = this.matches.get(roomCode);
+    if (!match || !match.listed || !this.live(match)) throw new SparringError(409, "Match closed");
+    if (!match.seats.get(key({ kind: "host", id: match.hostId }))?.connectionId) throw new SparringError(409, "Match closed");
+    if (match.hostId === sessionId) throw new SparringError(409, "Already hosting");
+    this.pruneGuests(match);
+    if (match.bots.length + match.seats.size >= 4) throw new SparringError(409, "Match full");
+    return this.admit(match, displayName, false);
+  }
+
+  private admit(match: Match, displayName: string, consumeLink: boolean): SparringMembership & { cookieToken: string } {
     const cookieToken = newToken(32);
     const principal: SparringPrincipal = { kind: "guest", id: sha256(cookieToken) };
-    const seat: Seat = { principal, displayName: parsed.data.displayName, csrfToken: newToken(24), connectionId: null, deadline: this.now() + SPARRING_RESERVATION_MS };
+    const seat: Seat = { principal, displayName, csrfToken: newToken(24), connectionId: null, deadline: this.now() + SPARRING_RESERVATION_MS };
     // Synchronous consume + reserve, with no await or external resource creation.
-    match.link = null;
+    if (consumeLink) match.link = null;
     match.seats.set(key(principal), seat);
     return { ...this.membership(match, seat), cookieToken };
   }

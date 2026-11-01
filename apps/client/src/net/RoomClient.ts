@@ -3,6 +3,7 @@ import {
   SparringLinkResponseSchema, SparringRedeemRequestSchema, SparringRoomCodeSchema,
   type SparringConfig,
 } from "@eb/shared/sparring";
+import { RoomListResponseSchema, type RoomSummary } from "@eb/shared/rooms";
 import { Client, type Room } from "@colyseus/sdk";
 import {
   ClientMessage, PROTOCOL_VERSION, ServerMessage, checkCompatibility,
@@ -68,11 +69,30 @@ export class RoomClient {
     throw new ClientError("INVITE_INVALID", false);
   }
 
-  async createSparring(config: SparringConfig): Promise<string> {
+  /** Rooms other players can join. Needs the ordinary session cookie; a missing one reads as INVITE_INVALID. */
+  async listRooms(): Promise<RoomSummary[]> {
+    const r = await this.http("/api/rooms");
+    if (r.status !== 200) this.routeError(r);
+    return RoomListResponseSchema.parse(await r.json()).rooms;
+  }
+
+  /** Reserves a guest seat in a listed sparring match for this signed-in session. */
+  async joinListedSparring(roomCode: string): Promise<string> {
+    const csrf = await this.ensureCsrf();
+    const r = await this.http("/api/sparring/join", {
+      method: "POST", headers: { "content-type": "application/json", "x-csrf-token": csrf },
+      body: JSON.stringify({ roomCode: SparringRoomCodeSchema.parse(roomCode) }),
+    });
+    if (r.status !== 201) this.routeError(r);
+    this.guest = SparringGuestResponseSchema.parse(await r.json());
+    return this.guest.roomCode;
+  }
+
+  async createSparring(config: SparringConfig, listed = false): Promise<string> {
     const csrf = await this.ensureCsrf();
     const r = await this.http("/api/sparring", {
       method: "POST", headers: { "content-type": "application/json", "x-csrf-token": csrf },
-      body: JSON.stringify(SparringConfigSchema.parse(config)),
+      body: JSON.stringify(listed ? { ...SparringConfigSchema.parse(config), listed: true } : SparringConfigSchema.parse(config)),
     });
     if (r.status !== 201) this.routeError(r);
     return SparringCreateResponseSchema.parse(await r.json()).roomCode;

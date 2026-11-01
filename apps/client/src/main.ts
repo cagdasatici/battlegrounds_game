@@ -8,6 +8,7 @@ import {
   type ActionResult, type CombatEvent, type KitId, type PongMessage, type WelcomeMessage,
 } from "@eb/shared/protocol";
 import islandsUrl from "../../../assets/maps/islands.v1.json?url";
+import { mountRoomList } from "./ui/RoomList.js";
 import { mountSparringSetup } from "./ui/SparringSetup.js";
 import { registerServiceWorker } from "./app/registerSw.js";
 import { AppFlow } from "./app/AppFlow.js";
@@ -207,18 +208,19 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
         sparRoom = await rc.recoverSparringGuest();
         return sparRoom !== null;
       },
-      create: async (config) => {
+      create: async (config, listed) => {
         if (sparRoom && !hostRoom) throw new Error("Guest cannot host");
-        hostRoom ??= await rc.createSparring(config);
+        hostRoom ??= await rc.createSparring(config, listed === true);
         sparRoom = hostRoom;
       },
+      joinListed: async (code) => { sparRoom = await rc.joinListedSparring(code); },
       end: async () => {
         if (hostRoom) await rc.endSparring(hostRoom);
         hostRoom = null; sparRoom = null;
       },
     },
-    join: async (mode) => {
-      room = await rc.joinWithRetry(mode === "sparring" ? sparRoom! : mode === "practice" ? PRACTICE_ROOM_CODE : opts.roomCode, opts.auto ? 4 : 1);
+    join: async (mode, picked) => {
+      room = await rc.joinWithRetry(mode === "sparring" ? sparRoom! : mode === "practice" ? PRACTICE_ROOM_CODE : picked ?? opts.roomCode, opts.auto ? 4 : 1);
       await waitFor(() => rc.welcome, 5000, "welcome");
       clock = new ClockSync();
       if (mode === "sparring") {
@@ -257,11 +259,34 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     sparControls.style.display = "block";
   };
   app.append(sparControls, sparButton);
+  // WEB3: room list. The panel exists only while open; its timer and listeners go with it.
+  const roomsHost = document.createElement("div");
+  roomsHost.style.cssText = "position:fixed;inset:0;z-index:20;overflow:auto;background:#0b1118;display:none;padding:16px;box-sizing:border-box";
+  const closeRooms = document.createElement("button");
+  closeRooms.textContent = "Back to game";
+  closeRooms.style.cssText = "min-height:48px;font:inherit";
+  let disposeRooms: (() => void) | null = null;
+  const hideRooms = (): void => { disposeRooms?.(); disposeRooms = null; roomsHost.style.display = "none"; };
+  closeRooms.onclick = hideRooms;
+  roomsHost.append(closeRooms);
+  const roomsButton = document.createElement("button");
+  roomsButton.textContent = "Find a room";
+  roomsButton.style.cssText = "position:fixed;right:16px;top:76px;z-index:21;min-height:48px;font:600 17px system-ui";
+  roomsButton.onclick = () => {
+    if (disposeRooms || flow.state.screen !== "welcome") return;
+    roomsHost.style.display = "block";
+    disposeRooms = mountRoomList(roomsHost, {
+      list: async () => { await flow.signIn(); return rc.listRooms(); },
+      join: async (r) => { await flow.joinListed(r); hideRooms(); },
+    });
+  };
+  app.append(roomsHost, roomsButton);
+  cleanups.push(() => { hideRooms(); roomsHost.remove(); roomsButton.remove(); });
   const setupActions: import("@eb/shared/sparring").SparringSetupActions = {
-    start: async (config, kit) => {
+    start: async (config, kit, listed) => {
       setupPending = true;
       try {
-        await flow.hostSparring(config, kit);
+        await flow.hostSparring(config, kit, listed === true);
         sparControls.style.display = "none";
       } finally { setupPending = false; }
     },
@@ -282,6 +307,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     lobby.render(flow.state, v);
     guestLabel.hidden = flow.state.screen !== "welcome" || sparToken === null;
     sparButton.hidden = !(hostRoom || (flow.state.screen === "welcome" && sparToken === null && !sparRoom));
+    roomsButton.hidden = !(flow.state.screen === "welcome" && sparToken === null && !sparRoom);
+    if (flow.state.screen !== "welcome") hideRooms();
     sparButton.textContent = hostRoom ? "Sparring controls" : "Host sparring";
   };
   cleanups.push(flow.subscribe(() => { paintLobby(true); }));

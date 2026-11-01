@@ -5,6 +5,7 @@
  */
 import { ClientError } from "../net/RoomClient.js";
 import type { SparringConfig } from "@eb/shared/sparring";
+import type { RoomSummary } from "@eb/shared/rooms";
 import type { KitId } from "@eb/shared/protocol";
 
 export type Screen = "boot" | "welcome" | "lobby" | "match" | "error";
@@ -20,7 +21,7 @@ export interface FlowDeps {
   loadAssets(): Promise<void>;
   login(): Promise<void>;
   /** Joins the private FFA room, or the server derived practice room for `mode` "practice". */
-  join(mode: FlowMode): Promise<void>;
+  join(mode: FlowMode, roomCode?: string): Promise<void>;
   sendReady(kit: KitId): void;
   leave(): Promise<void>;
   sleep(ms: number): Promise<void>;
@@ -29,7 +30,8 @@ export interface FlowDeps {
   sparring?: {
     guest: boolean;
     recover(): Promise<boolean>;
-    create(config: SparringConfig): Promise<void>;
+    create(config: SparringConfig, listed?: boolean): Promise<void>;
+    joinListed(roomCode: string): Promise<void>;
     end(): Promise<void>;
   };
 }
@@ -48,6 +50,8 @@ export class AppFlow {
   private busy = false;
   private revision = 0;
   private retryPending = false;
+  /** Arena room picked from the room list; null means the boot-time room. */
+  private target: string | null = null;
 
   constructor(private readonly deps: FlowDeps) {}
 
@@ -95,7 +99,7 @@ export class AppFlow {
       }
       if (step === "login" && (!this.loggedIn || this.mode === "sparring")) { await this.deps.login(); this.loggedIn = true; }
       if (revision !== this.revision) return;
-      await this.deps.join(this.mode);
+      await this.deps.join(this.mode, this.target ?? undefined);
       if (revision !== this.revision) { await this.deps.leave(); return; }
       this.failed = null; this.retries = 0;
       this.set("lobby");
@@ -122,7 +126,47 @@ export class AppFlow {
     await this.run("login");
   }
 
-  async hostSparring(config: SparringConfig, kit: "sv" | "td"): Promise<void> {
+  /** Signs in (exchanging the invitation once) so the room list can be fetched. */
+  async signIn(): Promise<void> {
+    if (this.loggedIn || this.state.screen !== "welcome") return;
+    await this.deps.login();
+    this.loggedIn = true;
+  }
+
+  /** One tap join from the room list. Arena rooms use the normal ticket path; listed sparring reserves a guest seat first. */
+  async joinListed(room: RoomSummary): Promise<void> {
+    if (this.busy || this.state.screen !== "welcome") return;
+    if (room.kind === "arena") {
+      this.mode = "play"; this.target = room.roomCode;
+      await this.run("login");
+      return;
+    }
+    if (!this.deps.sparring) return;
+    this.busy = true;
+    const revision = this.revision;
+    try {
+      await this.deps.login();
+      this.loggedIn = true;
+      if (revision !== this.revision) return;
+      await this.deps.sparring.joinListed(room.roomCode);
+      this.mode = "sparring"; this.target = null;
+      await this.deps.join("sparring");
+      if (revision !== this.revision) { await this.deps.leave(); return; }
+      this.failed = null; this.retries = 0;
+      this.set("lobby");
+    } catch (e) {
+      this.mode = "play";
+      try { await this.deps.sparring.end(); } catch { /* nothing held yet */ }
+      if (revision === this.revision) {
+        const c = e instanceof ClientError ? e.code : null;
+        const code: FlowError = c === "ROOM_FULL" || c === "INVITE_INVALID" || c === "VERSION_MISMATCH" ? c : "SERVER_OFFLINE";
+        this.failed = null;
+        this.set("error", code, false);
+      }
+    } finally { this.busy = false; }
+  }
+
+  async hostSparring(config: SparringConfig, kit: "sv" | "td", listed = false): Promise<void> {
     if (this.busy || this.state.screen !== "welcome" || !this.deps.sparring) return;
     this.busy = true;
     const revision = this.revision;
@@ -131,7 +175,7 @@ export class AppFlow {
       this.loggedIn = true;
       if (revision !== this.revision) return;
       this.mode = "sparring";
-      await this.deps.sparring.create(config);
+      await this.deps.sparring.create(config, listed);
       if (revision !== this.revision) { await this.deps.sparring.end(); return; }
       await this.deps.join("sparring");
       if (revision !== this.revision) { await this.deps.sparring.end(); await this.deps.leave(); return; }
@@ -175,7 +219,7 @@ export class AppFlow {
     if (this.mode === "sparring") await this.deps.sparring?.end();
     try { await this.deps.leave(); } catch { /* the room may already be gone */ }
     this.failed = null; this.retries = 0;
-    this.mode = "play";
+    this.mode = "play"; this.target = null;
     this.set("welcome");
   }
 }

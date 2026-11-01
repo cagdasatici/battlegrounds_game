@@ -117,6 +117,6 @@ Plan and file ownership are in [the web plan](web-plan.md); hosting steps are in
 |---|---|---|---|---|---|
 | WEB1 | Installable app and offline shell | | IMPLEMENTED, DEVICE CHECK PENDING | 26e30db | docs/test-results/WEB1.md |
 | WEB2 | Update button | WEB1 | TODO | | |
-| WEB3 | Room list and one-tap join | BOT5 | TODO | | |
+| WEB3 | Room list and one-tap join | BOT5 | IMPLEMENTED, DEVICE CHECK PENDING | HASH | docs/test-results/WEB3.md |
 | WEB4 | Admin API and login | | TODO | | |
 | WEB5 | Admin app screens | WEB4 WEB3 | TODO | | |
