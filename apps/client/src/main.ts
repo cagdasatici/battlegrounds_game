@@ -2,7 +2,7 @@ import "./base.css";
 import { WebGLRenderer } from "three";
 import type { Room } from "@colyseus/sdk";
 import { meterFraction } from "@eb/shared/awakening";
-import { parseArenaMap, type ArenaMap } from "@eb/shared/config/arena";
+import { surfaceBelow, parseArenaMap, type ArenaMap } from "@eb/shared/config/arena";
 import {
   MAX_CLIENTS, P0_KITS, PRACTICE_ROOM_CODE, ServerMessage,
   type ActionResult, type CombatEvent, type KitId, type PongMessage, type WelcomeMessage,
@@ -409,6 +409,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     cam.reducedMotion = settings.get().reducedMotion;
     matchCleanups.push(registerPresentation(bus, {
       scene: g.scene, camera: g.camera, players, settings, localId: () => { const me = localOf(); return me ? String(me.entityId) : undefined; },
+      surfaceHeight: (x, z, fromY) => surfaceBelow(m.colliders, x, z, fromY),
       effects: g.effects, fighters: (id) => g.viewFor(id), shake: (a, ms) => { cam.shake(a, ms); },
     }));
     const captureCam = new CaptureCam(cam);

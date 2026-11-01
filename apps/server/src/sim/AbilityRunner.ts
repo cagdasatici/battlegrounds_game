@@ -1,7 +1,7 @@
 import { COMBAT } from "@eb/shared/config/combat";
 import type { AbilityDef, AbilityRegistry, Shape, TargetState } from "@eb/shared/abilities";
 import type { RejectReason } from "@eb/shared/protocol";
-import { rotateToward } from "@eb/shared/math";
+import { forwardOf, rotateToward } from "@eb/shared/math";
 import { beginCast, isAlive, type Fighter, type Reaction } from "./ActionMachine.js";
 import type { CombatSystem } from "./Combat.js";
 import type { HitCandidate, HitResult } from "./HitResolver.js";
@@ -156,7 +156,7 @@ export const reactionOfDef = (d: AbilityDef): Reaction =>
     : d.stunTicks > 0 ? { kind: "stun", ticks: d.stunTicks } : { kind: "none" };
 
 /** Facing vector for yaw 0 = -Z (shared convention with M1 and dashes). */
-export const forwardOf = (yaw: number): [number, number] => [-Math.sin(yaw), -Math.cos(yaw)];
+export { forwardOf } from "@eb/shared/math";
 
 /**
  * Exact overlap of an attack shape with a target's vertical capsule. Attacker local frame: forward along

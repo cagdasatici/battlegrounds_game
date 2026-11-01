@@ -154,6 +154,17 @@ function footprintContains(c: Collider, x: number, z: number, margin: number): b
   return Math.abs(x - c.centre[0]) <= c.halfExtents[0] - margin && Math.abs(z - c.centre[2]) <= c.halfExtents[2] - margin;
 }
 
+/** Highest map surface at a sample beneath the cast origin. A missing surface is open air. */
+export function surfaceBelow(colliders: readonly Collider[], x: number, z: number, fromY: number): number | null {
+  let height: number | null = null;
+  for (const c of colliders) {
+    if (!footprintContains(c, x, z, 0)) continue;
+    const y = top(c);
+    if (y <= fromY && (height === null || y > height)) height = y;
+  }
+  return height;
+}
+
 /** Shortest horizontal distance from point to collider footprint (0 inside). */
 function footprintDistance(c: Collider, x: number, z: number): number {
   if (c.shape === "cylinder") return Math.max(0, Math.hypot(x - c.centre[0], z - c.centre[2]) - c.radius);

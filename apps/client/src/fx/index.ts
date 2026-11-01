@@ -16,6 +16,7 @@ export interface PresentationDeps {
   settings: { get(): unknown };
   localId: () => string | undefined;
   /** FX1: shared particle pool, fighter lookup for flash and hitstop, and camera shake. Optional so other slices' tests need not supply them. */
+  surfaceHeight?: (x: number, z: number, fromY: number) => number | null;
   effects?: EffectsPool;
   fighters?: (id: string) => FighterView | undefined;
   shake?: (amplitude: number, ms: number) => void;

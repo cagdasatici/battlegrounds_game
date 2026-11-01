@@ -1,4 +1,6 @@
 /** Pure arithmetic shared by client and server. */
+export const forwardOf = (yaw: number): [number, number] => [-Math.sin(yaw), -Math.cos(yaw)];
+
 export const DEG = Math.PI / 180;
 
 export function clamp(v: number, lo: number, hi: number): number {

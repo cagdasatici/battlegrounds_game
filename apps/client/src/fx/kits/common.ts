@@ -1,3 +1,6 @@
+import { ARENA } from "@eb/shared/config/arena";
+import { forwardOf } from "@eb/shared/math";
+import { fromYaw } from "@eb/shared/schema";
 import type { CombatEvent } from "@eb/shared/protocol";
 import type { CombatBus } from "../../app/CombatBus.js";
 import type { EffectsPool } from "../../scene/EffectsPool.js";
@@ -33,22 +36,29 @@ export function decalRadiusFor(defs: readonly { id: string; shape: { kind: strin
 
 export type Pos = { x: number; y: number; z: number };
 
-export function playWindup(fx: EffectsPool, t: Recipe, at: Pos, yaw: number): void {
+type SurfaceHeight = NonNullable<PresentationDeps["surfaceHeight"]>;
+const flatAtFeet: SurfaceHeight = (_x, _z, y) => y - ARENA.capsule.centreAboveSurface;
+
+export function playWindup(fx: EffectsPool, t: Recipe, at: Pos, yaw: number, surface: SurfaceHeight = flatAtFeet): void {
   const R = t.windup.decalRadius;
   for (let i = 0; i < DECAL_PARTS; i++) {
     const a = (i / DECAL_PARTS) * Math.PI * 2;
-    fx.spawn({ x: at.x + Math.cos(a) * R, y: at.y + 0.05, z: at.z + Math.sin(a) * R, vx: 0, vy: 0, vz: 0, life: 0.5, size: 0.14, color: t.windup.color });
+    const x = at.x + Math.cos(a) * R, z = at.z + Math.sin(a) * R;
+    const y = surface(x, z, at.y);
+    if (y === null) continue;
+    fx.spawn({ x, y: y + 0.05, z, vx: 0, vy: 0, vz: 0, life: 0.5, size: 0.14, color: t.windup.color });
   }
   if (t.windup.glow) {
+    const [dx, dz] = forwardOf(yaw);
     for (let i = 0; i < GLOW_PARTS; i++) {
-      fx.spawn({ x: at.x + Math.sin(yaw) * 0.5, y: at.y + 1.1 + i * 0.03, z: at.z + Math.cos(yaw) * 0.5, vx: 0, vy: 0.2, vz: 0, life: 0.4, size: 0.18, color: t.windup.color });
+      fx.spawn({ x: at.x + dx * 0.5, y: at.y + 1.1 + i * 0.03, z: at.z + dz * 0.5, vx: 0, vy: 0.2, vz: 0, life: 0.4, size: 0.18, color: t.windup.color });
     }
   }
 }
 
-export function playActive(fx: EffectsPool, t: Recipe, at: Pos, yaw: number): void {
+export function playActive(fx: EffectsPool, t: Recipe, at: Pos, yaw: number, surface: SurfaceHeight = flatAtFeet): void {
   const { style, count, color, life, reach } = t.active;
-  const fx0 = Math.sin(yaw), fz0 = Math.cos(yaw);
+  const [fx0, fz0] = forwardOf(yaw);
   for (let i = 0; i < count; i++) {
     const k = i / count;
     if (style === "ring" || style === "heat") {
@@ -60,12 +70,16 @@ export function playActive(fx: EffectsPool, t: Recipe, at: Pos, yaw: number): vo
     } else if (style === "fan") {
       // Stone fan: a wedge of chips thrown forward.
       const a = yaw + (k - 0.5) * 1.2;
-      fx.spawn({ x: at.x, y: at.y + 0.6, z: at.z, vx: Math.sin(a) * reach / life, vy: 0.6, vz: Math.cos(a) * reach / life, life, size: 0.18, color, gravity: 4 });
+      const [dx, dz] = forwardOf(a);
+      fx.spawn({ x: at.x, y: at.y + 0.6, z: at.z, vx: dx * reach / life, vy: 0.6, vz: dz * reach / life, life, size: 0.18, color, gravity: 4 });
     } else if (style === "fracture") {
       // Circular fracture: 8 radial cracks on the ground, several chips per crack at increasing radius.
       const spoke = i % 8, ringIdx = Math.floor(i / 8), rings = Math.ceil(count / 8);
       const a = (spoke / 8) * Math.PI * 2, rad = (reach * (ringIdx + 1)) / rings;
-      fx.spawn({ x: at.x + Math.cos(a) * rad, y: at.y + 0.08, z: at.z + Math.sin(a) * rad, vx: 0, vy: 0.3, vz: 0, life, size: 0.2, color });
+      const x = at.x + Math.cos(a) * rad, z = at.z + Math.sin(a) * rad;
+      const y = surface(x, z, at.y);
+      if (y === null) continue;
+      fx.spawn({ x, y: y + 0.08, z, vx: 0, vy: 0.3, vz: 0, life, size: 0.2, color });
     } else {
       // ribbon: forward stream; arc: same stream bowed sideways.
       const side = style === "arc" ? Math.sin(k * Math.PI) * 0.8 : 0;
@@ -88,7 +102,7 @@ interface PlayerLike { x: number; y: number; z: number; facingYaw?: number; acti
  * Scans replicated players once and fires windup/active effects exactly once per action start. `seen` maps entity id to
  * the last triggered "<action>:<moveId>:<startTick>" key. Exported through each kit so tests can drive it without a frame loop.
  */
-export function scanPlayers(fx: EffectsPool, players: Map<string, unknown>, seen: Map<string, string>, recipeFor: (moveId: string | undefined) => Recipe | undefined): void {
+export function scanPlayers(fx: EffectsPool, players: Map<string, unknown>, seen: Map<string, string>, recipeFor: (moveId: string | undefined) => Recipe | undefined, surface?: SurfaceHeight): void {
   const live = new Set<string>();
   for (const [id, v] of players) {
     live.add(id);
@@ -100,8 +114,8 @@ export function scanPlayers(fx: EffectsPool, players: Map<string, unknown>, seen
     if (seen.get(id) === key) continue;
     seen.set(id, key);
     const at = { x: p.x / 100, y: p.y / 100, z: p.z / 100 };
-    const yaw = ((p.facingYaw ?? 0) / 1024) * Math.PI * 2;
-    if (p.action === "Windup") playWindup(fx, t, at, yaw); else playActive(fx, t, at, yaw);
+    const yaw = fromYaw(p.facingYaw ?? 0);
+    if (p.action === "Windup") playWindup(fx, t, at, yaw, surface); else playActive(fx, t, at, yaw, surface);
   }
   for (const id of [...seen.keys()]) if (!live.has(id)) seen.delete(id);
 }
@@ -128,7 +142,7 @@ export function makeKitFx(recipeFor: (moveId: string | undefined) => Recipe | un
       let raf = 0, alive = true;
       const frame = (): void => {
         if (!alive) return;
-        scanPlayers(fx, deps.players(), seen, recipeFor);
+        scanPlayers(fx, deps.players(), seen, recipeFor, deps.surfaceHeight);
         raf = requestAnimationFrame(frame);
       };
       if (typeof requestAnimationFrame === "function") raf = requestAnimationFrame(frame);
