@@ -22,7 +22,7 @@ import type { ProjectileSpawn } from "../sim/Projectiles.js";
 const SPAWN_FORWARD = 0.8; // metres in front of the capsule centre
 const SPAWN_UP = 0.2;
 
-function fire(c: CastContext, full: boolean): void {
+export function fire(c: CastContext, full: boolean): void {
   const d = c.cast.def;
   const proj = d.projectile!;
   const ap = c.host.pose(c.fighter.entityId);

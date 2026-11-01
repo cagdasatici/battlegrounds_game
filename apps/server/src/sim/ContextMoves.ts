@@ -1,0 +1,40 @@
+import { COMBAT } from "@eb/shared/config/combat";
+import type { AbilityDef } from "@eb/shared/abilities";
+import type { Fighter } from "./ActionMachine.js";
+import type { AbilityHost, AbilityRunner } from "./AbilityRunner.js";
+import type { ContextRequest, ContextStart } from "./M1.js";
+import type { UrnSystem } from "./Urns.js";
+
+/**
+ * T23 context selection (spec 15, 16). Called by M1System before each M1 commit. Priority: held urn -> pickup -> wall
+ * opportunity -> grounded mini uppercut (sv.x1). Awakened Vanguard with contextSpent false uses sv.x1 to sv.x3 and spends
+ * the one shared bit at commit; everyone else gets the shared `<kit>.wall`, `.pickup` and `.throw` moves. The wall branch is gated by `enabled`
+ * (P0 disables it, P1 enables it; rooms switch it on). Nothing here keeps timers or listeners.
+ */
+export class ContextSystem {
+  /** P1 switch (spec 13: "P0 disables this branch"). Off by default so bare M1 rigs keep the P0 behaviour. */
+  enabled = false;
+
+  constructor(private readonly runner: AbilityRunner, private readonly urns: UrnSystem, private readonly host: AbilityHost) {}
+
+  private def(id: string): AbilityDef {
+    const d = this.runner.registry.byId(id);
+    if (!d) throw new Error(`missing context definition ${id}`);
+    return d;
+  }
+
+  decide(f: Fighter, tick: number, req: ContextRequest): ContextStart | null {
+    if (!this.enabled) return null;
+    const start = (id: string, advance: boolean): ContextStart | null => {
+      const o = this.runner.startContext(f, tick, this.def(id));
+      return o.kind === "started" ? { accept: { ok: true, castCounter: o.castCounter }, advance } : null;
+    };
+    // 1. Held urn: the next Attack throws it (a fresh press only; a held button never chains pickup into a throw).
+    if (this.urns.heldBy(f.entityId)) return req.pressed ? start(`${f.kitId}.throw`, false) : null;
+    // 2. Pickup: standing still beside a free urn at the start of a chain.
+    const mag = Math.hypot(req.held.moveX ?? 0, req.held.moveZ ?? 0);
+    if (req.pressed && req.index === 0 && mag < COMBAT.props.pickupStickMax
+      && this.urns.nearest(req.pose.x, req.pose.y, req.pose.z)) return start(`${f.kitId}.pickup`, false);
+    return null;
+  }
+}

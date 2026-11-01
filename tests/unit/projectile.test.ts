@@ -49,7 +49,8 @@ describe("T19 definition: projectile block and holdRelease", () => {
     expect(() => r.step(T0, { press: [{ id: 1, slot: 3 }] })).toThrow(/projectile block/);
   });
   test("no shipped definition changed: ea stays empty until T20", () => {
-    expect(ALL_ABILITY_DEFS.filter((d) => d.id.startsWith("ea.")).length).toBe(0);
+    // T23 adds the generated shared ea.wall, ea.pickup and ea.throw; the Artificer kit proper (T20) is still empty.
+    expect(ALL_ABILITY_DEFS.filter((d) => d.id.startsWith("ea.") && !/^ea\.(wall|pickup|throw)$/.test(d.id)).length).toBe(0);
   });
 });
 

@@ -115,6 +115,43 @@ export class World {
     return hit ? Math.max(0, Math.min(1, hit.time_of_impact)) : null;
   }
 
+  /**
+   * T23 wall opportunity (spec 13): true when a vertical static face (obstacle or guardrail) is within `gap` metres of
+   * the capsule surface at `centre` and the capsule's vertical span overlaps it. Colliders are axis aligned boxes and
+   * upright cylinders, so every side face normal is exactly horizontal (inside the 15 degree limit); the top face and a
+   * capsule standing on top never count. Reads the loaded map only.
+   */
+  nearVerticalCollider(centre: MapVec3, capsuleRadius: number, halfHeight: number, gap: number): boolean {
+    return this.verticalFaceNear(centre, capsuleRadius, halfHeight, gap) !== null;
+  }
+
+  /** Horizontal unit normal pointing from the nearest qualifying face toward `centre`, or null (see nearVerticalCollider). */
+  verticalFaceNear(centre: MapVec3, capsuleRadius: number, halfHeight: number, gap: number): [number, number] | null {
+    let best: { d: number; nx: number; nz: number } | null = null;
+    for (const c of this.map.colliders) {
+      if (c.role !== "obstacle" && c.role !== "guardrail") continue;
+      const hy = c.shape === "cuboid" ? c.halfExtents[1] : c.halfHeight;
+      if (Math.abs(centre[1] - c.centre[1]) > hy + halfHeight) continue; // no vertical overlap
+      let nx: number, nz: number, d: number;
+      if (c.shape === "cuboid") {
+        const ox = centre[0] - c.centre[0], oz = centre[2] - c.centre[2];
+        const ex = Math.max(Math.abs(ox) - c.halfExtents[0], 0), ez = Math.max(Math.abs(oz) - c.halfExtents[2], 0);
+        d = Math.hypot(ex, ez);
+        if (d <= 1e-9) continue; // inside the footprint (on top): not a side face
+        nx = Math.sign(ox) * ex / d; nz = Math.sign(oz) * ez / d;
+      } else {
+        const ox = centre[0] - c.centre[0], oz = centre[2] - c.centre[2];
+        const r = Math.hypot(ox, oz);
+        d = r - c.radius;
+        if (d <= 1e-9 || r <= 1e-9) continue;
+        nx = ox / r; nz = oz / r;
+      }
+      if (d - capsuleRadius > gap) continue;
+      if (!best || d < best.d) best = { d, nx, nz };
+    }
+    return best ? [best.nx, best.nz] : null;
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;

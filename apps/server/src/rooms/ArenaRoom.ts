@@ -16,6 +16,8 @@ import { CombatSystem } from "../sim/Combat.js";
 import { OffensiveBuffer } from "../sim/OffensiveBuffer.js";
 import { M1System, type M1Pose } from "../sim/M1.js";
 import { ProjectileSystem } from "../sim/Projectiles.js";
+import { UrnSystem } from "../sim/Urns.js";
+import { ContextSystem } from "../sim/ContextMoves.js";
 import { AbilityRunner, type ReflectRequest, type AbilityHost, type SkillOutcome } from "../sim/AbilityRunner.js";
 import { AwakeningSystem } from "../sim/Awakening.js";
 import { RespawnSystem, pickSpawn, type Pt } from "../sim/RespawnSystem.js";
@@ -72,6 +74,9 @@ export class ArenaRoom extends Room {
   /** T19: detached projectiles (spec 13, 15); advanced only by the tick pipeline, cleared on dispose. */
   readonly projectiles: ProjectileSystem = new ProjectileSystem(this.abilityHost());
   readonly abilities: AbilityRunner = new AbilityRunner(buildKitRegistry(), ALL_HANDLERS, this.abilityHost(), this.offensiveBuffer);
+  /** T23: eight server owned urns and the context move selector (wall attack, pickup, throw, sv.x1 to sv.x3). */
+  readonly urns = new UrnSystem(ARENA.urnAnchors.map((a) => [a[0], a[1], a[2]] as MapVec3));
+  readonly contexts: ContextSystem = new ContextSystem(this.abilities, this.urns, this.abilityHost());
   private eventSeq = 0;
   /** Random uint32 chosen per room (spec 21 event ids). */
   roomEpoch = Math.floor(Math.random() * 0x100000000);
@@ -79,7 +84,7 @@ export class ArenaRoom extends Room {
   wallNow: () => number = () => performance.now();
   protected readonly pipeline: TickPipeline = new TickPipeline({
     state: this.state, combat: this.combat, m1: this.m1, abilities: this.abilities, awakening: this.awakening,
-    projectiles: this.projectiles, movement: () => this.movement, world: () => this.world, seats: () => this.seats, extraBodies: () => this.extraBodyIds(),
+    projectiles: this.projectiles, urns: this.urns, movement: () => this.movement, world: () => this.world, seats: () => this.seats, extraBodies: () => this.extraBodyIds(),
     poseOf: (id) => this.poseOf(id), respawn: this.respawns, nextLifeId: () => ++this.lifeSeq,
     sendActionResult: (sid, seat, edgeId, seq, tick, ok, reason, castId) => this.sendActionResult(sid, seat, edgeId, seq, tick, ok, reason, castId),
     broadcastEvent: (tick, kind, actor, target, lifeId, moveId, dmg) => this.broadcastEvent(tick, kind, actor, target, lifeId, moveId, dmg),
@@ -96,6 +101,8 @@ export class ArenaRoom extends Room {
       const victim = this.combat.get(rel.capture.victimId);
       this.broadcastEvent(tick, "release", rel.capture.captorId, rel.capture.victimId, victim?.lifeId ?? 0, rel.capture.moveId);
     };
+    this.contexts.enabled = true; // P1 context moves (spec 13: P0 disables the wall branch)
+    this.m1.contextHook = (f, tick, req) => this.contexts.decide(f, tick, req);
     this.world = await World.create();
     this.movement = new MovementSystem(this.world);
     this.lastTickMs = performance.now();
@@ -158,6 +165,7 @@ export class ArenaRoom extends Room {
     if (!seat || !p) return;
     p.connected = false;
     seat.input.neutralize();
+    this.urns.drop(seat.entityId); // a disconnected holder never keeps an urn (spec 15)
     try {
       await this.allowReconnection(client, roomTuning.reconnectSeconds);
     } catch {
@@ -183,6 +191,7 @@ export class ArenaRoom extends Room {
     this.combat.remove(seat.entityId, this.sim.tick);
     this.m1.remove(seat.entityId);
     this.abilities.remove(seat.entityId);
+    this.urns.drop(seat.entityId);
     this.awakening.remove(seat.entityId);
     this.respawns.forget(seat.entityId);
     this.movement?.remove(seat.entityId);
@@ -200,6 +209,7 @@ export class ArenaRoom extends Room {
     this.m1.dispose();
     this.abilities.dispose();
     this.projectiles.clear();
+    this.urns.clear();
     this.awakening.dispose();
     this.respawns.clear();
     this.movement?.dispose();
@@ -249,6 +259,8 @@ export class ArenaRoom extends Room {
     return {
       get projectiles() { return self.projectiles; },
       get projectileSpawner() { return self.projectiles; },
+      get urns() { return self.urns; },
+      nearWall: (x, y, z) => this.world?.nearVerticalCollider([x, y, z], COMBAT.capsule.radius, COMBAT.capsule.halfHeight, COMBAT.wall.targetGap) ?? false,
       get projectileReflector() { return { reflect: (req: ReflectRequest) => self.projectiles.reflectWith(req) }; },
       sweepSphere: (a, b, r) => this.world?.sweepSphere([a[0], a[1], a[2]], [b[0], b[1], b[2]], r) ?? null,
       hold: (id, slot, tick) => this.pipeline.holdOf(id, slot, tick),

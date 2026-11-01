@@ -41,6 +41,10 @@ export const COMBAT = {
   inputLeaseTicks: 15,
   bufferTicks: 6,
   meter: { svRequired100: 20000, otherRequired100: 35000 },
+  /** T23 urn rules (spec 10, 15). D values. Pickup channel, reach and stick limit are spec 15 numbers. */
+  props: { pickupTicks: 12, pickupRadius: 1.2, pickupStickMax: 0.1, returnTicks: 600, throwRecovery: 20 },
+  /** T23 wall opportunity (spec 13): enemy within 0.6 m of a vertical static collider, attacker within 2 m. */
+  wall: { targetGap: 0.6, attackerReach: 2, maxNormalYDeg: 15 },
 } as const;
 
 export type CombatConfig = typeof COMBAT;
