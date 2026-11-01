@@ -31,7 +31,7 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | T18d | Practice room and onboarding | T18c T17 | IMPLEMENTED (DEVICE CHECK PENDING) | 14ebb33 7563d46 3953a63 28239f4 | docs/test-results/T18d.md | decisions/0009. Playwright 10/10. Dummy can be KO'd by >60 HP hit |
 | T18e | P0 playable gate | T15 T16 T17 T18d R12 R13 | IMPLEMENTED (DEVICE CHECK PENDING) | 61b79ba 3f8d897 00e3469 | docs/test-results/T18e.md | 16 PASS 0 FAIL 13 NOT RUN. D01-D09 need both iPads (plan section 7) |
 | T19 | Charge and projectile system | T18e | IMPLEMENTED (DEVICE CHECK PENDING) | 107e90d 83feef4 | docs/test-results/T19.md | A10 A11 A19 pass on test-only ea.b3 (T20 ships it). D03 NOT RUN. Rules: decision 0010 |
-| T20 | Artificer base | T19 | TODO | | | |
+| T20 | Artificer base | T19 | IMPLEMENTED (DEVICE CHECK PENDING) | cef3142 eaff0cd | docs/test-results/T20.md | decisions/0014. Ember Orb ea.b3 now shipped, T19 tests repointed. Wire rows use a server kit fixture (Artificer not selectable). iPad NOT RUN. Browser suite flaky: see T20.md |
 | T21 | Artificer awakening | T20 | TODO | | | |
 | T22 | Passives | T21 | TODO | | | |
 | T23 | Props and wall context | T18e T19 | TODO | | | |
