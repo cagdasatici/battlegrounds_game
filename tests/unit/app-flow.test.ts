@@ -98,4 +98,36 @@ describe("AppFlow journey (spec section 6)", () => {
     await flow.play();
     expect(seen.length).toBe(n);
   });
+
+  test("Practice: same session exchange, joins in practice mode, lobby then match; Back resets to play mode", async () => {
+    const modes: string[] = [];
+    const { flow, log } = mk({ join: async (m) => { modes.push(m); } });
+    await flow.start();
+    await flow.practice();
+    expect(flow.mode).toBe("practice");
+    expect(flow.state.screen).toBe("lobby");
+    flow.ready("sv");
+    expect(flow.state.screen).toBe("match");
+    await flow.back();
+    expect(flow.mode).toBe("play");
+    await flow.play();
+    expect(modes).toEqual(["practice", "play"]);
+    expect(log.filter((l) => l === "login")).toHaveLength(1);
+  });
+  test("Practice without an invitation shows INVITE_INVALID and makes no request; Retry keeps practice mode", async () => {
+    const a = mk({ hasInvite: false });
+    await a.flow.start();
+    await a.flow.practice();
+    expect(a.flow.state).toMatchObject({ screen: "error", error: "INVITE_INVALID", canRetry: false });
+    expect(a.log).toEqual(["assets"]);
+    const modes: string[] = [];
+    let n = 0;
+    const b = mk({ join: async (m) => { modes.push(m); if (n++ === 0) throw new ClientError("ROOM_FULL", true); } });
+    await b.flow.start();
+    await b.flow.practice();
+    expect(b.flow.state.error).toBe("ROOM_FULL");
+    await b.flow.retry();
+    expect(b.flow.state.screen).toBe("lobby");
+    expect(modes).toEqual(["practice", "practice"]);
+  });
 });

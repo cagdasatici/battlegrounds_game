@@ -32,9 +32,12 @@ export interface LobbyView {
   seated: number;
   capacity: number;
   connection: "online" | "offline";
+  /** "practice" shows the training room text instead of the seat count. */
+  mode?: "play" | "practice";
 }
 export interface LobbyActions {
   play(): void;
+  practice(): void;
   retry(): void;
   back(): void;
   ready(kit: KitId): void;
@@ -59,6 +62,7 @@ export class Lobby {
       const b = (e.target as HTMLElement | null)?.closest?.("button[data-act]") as HTMLElement | null;
       const a = b?.dataset["act"];
       if (a === "play") this.act.play();
+      else if (a === "practice") this.act.practice();
       else if (a === "retry") this.act.retry();
       else if (a === "back") this.act.back();
       else if (a === "ready") this.act.ready(this.selected);
@@ -104,6 +108,7 @@ export class Lobby {
       this.root.append(names);
       this.add("p", "Your name is only a label. An invitation from a grown-up lets you in.", { "data-ui": "presets" });
       this.add("button", "Play", { "data-act": "play" });
+      this.add("button", "Practice", { "data-act": "practice" });
       return;
     }
     if (st.screen === "error" && st.error) {
@@ -114,8 +119,9 @@ export class Lobby {
       return;
     }
     // lobby
-    this.add("h2", "Private arena");
-    this.add("p", `Players seated: ${view.seated} of ${view.capacity}`, { "data-ui": "room-status" });
+    const practice = view.mode === "practice";
+    this.add("h2", practice ? "Practice room" : "Private arena");
+    this.add("p", practice ? "A training dummy waits for you. Nothing here counts in a real match." : `Players seated: ${view.seated} of ${view.capacity}`, { "data-ui": "room-status" });
     const row = this.doc.createElement("div");
     row.style.cssText = "display:flex;gap:12px;flex-wrap:wrap;justify-content:center";
     for (const k of lobbyKits()) {
@@ -128,7 +134,7 @@ export class Lobby {
     }
     this.root.append(row);
     this.add("p", `Moves: ${baseMoveLabels(this.selected).join(", ")}`, { "data-ui": "moves" });
-    this.add("p", "Awakening: land and take hits to fill the meter, then press Awaken.", { "data-ui": "awakening" });
+    this.add("p", practice ? "Awakening: finish the first steps and the practice room fills your meter." : "Awakening: land and take hits to fill the meter, then press Awaken.", { "data-ui": "awakening" });
     this.add("button", "Ready", { "data-act": "ready" });
     this.add("button", "Back", { "data-act": "back" });
   }

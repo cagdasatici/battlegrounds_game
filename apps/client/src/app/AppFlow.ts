@@ -10,6 +10,7 @@ export type Screen = "boot" | "welcome" | "lobby" | "match" | "error";
 export type FlowError = "ROOM_FULL" | "INVITE_INVALID" | "VERSION_MISMATCH" | "SERVER_OFFLINE" | "ASSET_FAILED" | "UNSUPPORTED";
 type Step = "assets" | "login" | "join";
 
+export type FlowMode = "play" | "practice";
 export interface FlowState { screen: Screen; error: FlowError | null; canRetry: boolean }
 
 export interface FlowDeps {
@@ -17,7 +18,8 @@ export interface FlowDeps {
   supported(): boolean;
   loadAssets(): Promise<void>;
   login(): Promise<void>;
-  join(): Promise<void>;
+  /** Joins the private FFA room, or the server derived practice room for `mode` "practice". */
+  join(mode: FlowMode): Promise<void>;
   sendReady(kit: KitId): void;
   leave(): Promise<void>;
   sleep(ms: number): Promise<void>;
@@ -30,6 +32,8 @@ export const retryDelayMs = (attempt: number): number => Math.min(8000, 500 * 2 
 
 export class AppFlow {
   state: FlowState = { screen: "boot", error: null, canRetry: false };
+  /** Which room the current journey targets. Set by play() and practice(); kept across Retry. */
+  mode: FlowMode = "play";
   private readonly subs = new Set<(s: FlowState) => void>();
   private loggedIn = false;
   private retries = 0;
@@ -78,7 +82,7 @@ export class AppFlow {
         return;
       }
       if (step === "login" && !this.loggedIn) { await this.deps.login(); this.loggedIn = true; }
-      await this.deps.join();
+      await this.deps.join(this.mode);
       this.failed = null; this.retries = 0;
       this.set("lobby");
     } catch (e) {
@@ -91,6 +95,15 @@ export class AppFlow {
   /** Play: exchange the invitation, join the private room, show the lobby. */
   async play(): Promise<void> {
     if (this.state.screen !== "welcome") return;
+    this.mode = "play";
+    if (!this.deps.hasInvite && !this.loggedIn) { this.failed = null; this.set("error", "INVITE_INVALID", false); return; }
+    await this.run("login");
+  }
+
+  /** Practice: the same session exchange, then a private room with one dummy (spec section 6). Never an FFA room. */
+  async practice(): Promise<void> {
+    if (this.state.screen !== "welcome") return;
+    this.mode = "practice";
     if (!this.deps.hasInvite && !this.loggedIn) { this.failed = null; this.set("error", "INVITE_INVALID", false); return; }
     await this.run("login");
   }
@@ -114,6 +127,7 @@ export class AppFlow {
   async back(): Promise<void> {
     try { await this.deps.leave(); } catch { /* the room may already be gone */ }
     this.failed = null; this.retries = 0;
+    this.mode = "play";
     this.set("welcome");
   }
 }

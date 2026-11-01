@@ -3,7 +3,7 @@ import type { Room } from "@colyseus/sdk";
 import { meterFraction } from "@eb/shared/awakening";
 import { parseArenaMap, type ArenaMap } from "@eb/shared/config/arena";
 import {
-  MAX_CLIENTS, P0_KITS, ServerMessage,
+  MAX_CLIENTS, P0_KITS, PRACTICE_ROOM_CODE, ServerMessage,
   type ActionResult, type CombatEvent, type KitId, type PongMessage, type WelcomeMessage,
 } from "@eb/shared/protocol";
 import islandsUrl from "../../../assets/maps/islands.v1.json?url";
@@ -22,7 +22,8 @@ import { Hud, readSafeRect } from "./ui/Hud.js";
 import {
   RejectionNotice, cooldownLabel, formTimerText, meterLabel, respawnSecondsLeft, scoreboardRows, stillpointText,
 } from "./ui/HudFormat.js";
-import { KIT_LABEL, Lobby } from "./ui/Lobby.js";
+import { KIT_LABEL, Lobby, type LobbyView } from "./ui/Lobby.js";
+import { PracticePanel } from "./ui/PracticePanel.js";
 
 export interface BootOptions {
   /** Invitation consumed from the URL fragment; without it Play shows INVITE_INVALID. */
@@ -42,7 +43,10 @@ export interface Session { scene: GameScene | null; dispose(): void }
 interface HudPlayer extends LoopPlayer {
   form: string; formEndTick: number; kills: number; deaths: number; assists: number;
   cooldownEndTicks: ArrayLike<number>;
-  owner?: { ackInputTick: number; epoch: number; pendingKit?: string; lethalCounterRemaining?: number } | undefined;
+  owner?: {
+    ackInputTick: number; epoch: number; pendingKit?: string; lethalCounterRemaining?: number;
+    tutorialStep?: number; tutorialSkillMask?: number; dummyGuard?: boolean; dummyRagdoll?: boolean;
+  } | undefined;
 }
 
 /** Boots the app flow (spec section 6): Welcome, lobby, Ready, then the match. Every resource has a cleanup. */
@@ -78,6 +82,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
 
   const lobby = new Lobby(app, {
     play: () => { void flowRef.current?.play(); },
+    practice: () => { void flowRef.current?.practice(); },
     retry: () => { void flowRef.current?.retry(); },
     back: () => { void flowRef.current?.back(); },
     ready: (k) => { flowRef.current?.ready(k); },
@@ -102,8 +107,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       rafId = requestAnimationFrame(idle);
     },
     login: async () => { await rc.login(opts.invite as string, lobby.displayName); },
-    join: async () => {
-      room = await rc.joinWithRetry(opts.roomCode, opts.auto ? 4 : 1);
+    join: async (mode) => {
+      room = await rc.joinWithRetry(mode === "practice" ? PRACTICE_ROOM_CODE : opts.roomCode, opts.auto ? 4 : 1);
       await waitFor(() => rc.welcome, 5000, "welcome");
       clock = new ClockSync();
     },
@@ -113,12 +118,12 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   });
   flowRef.current = flow;
 
-  const lobbyView = (): { seated: number; capacity: number; connection: "online" | "offline" } =>
-    ({ seated: players().size, capacity: MAX_CLIENTS, connection: room ? "online" : "offline" });
+  const lobbyView = (): LobbyView =>
+    ({ seated: players().size, capacity: MAX_CLIENTS, connection: room ? "online" : "offline", mode: flow.mode });
   let lobbyKey = "";
   const paintLobby = (force = false): void => {
     const v = lobbyView();
-    const key = `${flow.state.screen}|${flow.state.error}|${flow.state.canRetry}|${v.seated}|${v.connection}`;
+    const key = `${flow.state.screen}|${flow.state.error}|${flow.state.canRetry}|${v.seated}|${v.connection}|${flow.mode}`;
     if (!force && key === lobbyKey) return;
     lobbyKey = key;
     lobby.render(flow.state, v);
@@ -191,6 +196,16 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     });
     matchCleanups.push(() => loop.dispose());
 
+    if (flow.mode === "practice") {
+      const panel = new PracticePanel(document.body, (t) => { r.send("practice", t); });
+      matchCleanups.push(() => panel.dispose());
+      const panelTimer = window.setInterval(() => {
+        const o = localOf()?.owner;
+        panel.render({ step: o?.tutorialStep ?? 0, skillMask: o?.tutorialSkillMask ?? 0, dummyGuard: o?.dummyGuard ?? false, dummyRagdoll: o?.dummyRagdoll ?? false });
+      }, 100);
+      matchCleanups.push(() => window.clearInterval(panelTimer));
+    }
+
     const drawHud = (): void => {
       const me = localOf();
       const stateTick = (r.state as { serverTick?: number }).serverTick ?? 0;
@@ -236,7 +251,11 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
             entityId: p.entityId, name: p.displayName, kitId: p.kitId, hp100: p.hp100, action: p.action, moveId: p.moveId ?? "", ready: p.ready ?? false,
             x: p.x / 100, y: p.y / 100, z: p.z / 100, local: p.owner !== undefined,
             kills: p.kills, deaths: p.deaths, assists: p.assists, meter100: p.meter100 ?? 0, cooldownEndTicks: Array.from(p.cooldownEndTicks ?? []),
+            form: p.form,
           })),
+          practice: flow.mode === "practice"
+            ? { step: localOf()?.owner?.tutorialStep ?? 0, skillMask: localOf()?.owner?.tutorialSkillMask ?? 0, dummyGuard: localOf()?.owner?.dummyGuard ?? false, dummyRagdoll: localOf()?.owner?.dummyRagdoll ?? false }
+            : null,
         }),
       };
       matchCleanups.push(() => { delete (window as unknown as { __eb?: unknown }).__eb; });
