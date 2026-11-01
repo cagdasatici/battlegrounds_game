@@ -93,7 +93,7 @@ function makeRig(n = 3) {
 describe("sv awakened definitions match the spec 15 table", () => {
   test("slotted awakened moves carry the exact table numbers", () => {
     const ids = SV_DEFS.filter((d) => d.form === "Awakened").map((d) => d.id);
-    expect(ids).toEqual(["sv.a1", "sv.a2"]);
+    expect(ids).toEqual(["sv.a1", "sv.a2", "sv.a3"]);
     const a1 = def("sv.a1");
     expect([a1.slot, a1.form, a1.startup, a1.active, a1.recovery, a1.block, a1.counterable, a1.oncePerForm, a1.consumesForm])
       .toEqual([1, "Awakened", 0, 600, 18, "U", false, true, true]);
@@ -656,6 +656,241 @@ describe("sv.a2 Skybreak (groundWave)", () => {
     r.run(T0 + 42, T0 + 120);
     expect(r.hp(2)).toBe(HP);
     expect(r.runner.castOf(1)).toBeUndefined();
+  });
+});
+
+describe("sv.a3 Horizon Break (longBeam)", () => {
+  const cast3 = (r: ReturnType<typeof makeRig>): void => { r.step(T0, { press: [{ slot: 3 }] }); r.run(T0 + 1, T0 + 72); };
+
+  test("definition: 72/6/42, beam 32 m radius 3, max 4, U, armorBreak, noncounterable, R90 F22 U5, one use", () => {
+    const d = def("sv.a3");
+    expect([d.slot, d.form, d.startup, d.active, d.recovery, d.block, d.counterable, d.armorBreak, d.maxTargets, d.maxHitsPerTarget])
+      .toEqual([3, "Awakened", 72, 6, 42, "U", false, true, 4, 1]);
+    expect(d.shape).toEqual({ kind: "beam", length: 32, radius: 3 });
+    expect([d.ragdollTicks, d.launch, d.oncePerForm, d.consumesForm]).toEqual([90, { forward: 22, up: 5 }, true, true]);
+  });
+
+  test("near (<= 8 m) takes 100 HP, far takes 60 HP with R90 F22 U5; near heals to full", () => {
+    const r = makeRig(3);
+    r.awaken();
+    r.cs.get(1)!.hp100 = 2000;
+    put(r, 2, 8); // exactly 8 m: near
+    put(r, 3, 8.01); // just beyond: far
+    r.step(T0, { press: [{ slot: 3 }] });
+    expect(r.cs.get(1)!.form).toBe("Base");
+    r.run(T0 + 1, T0 + 71);
+    expect(r.hp(1)).toBe(2000);
+    const res = r.step(T0 + 72);
+    expect(r.dealt(1, 2)).toEqual([[T0 + 72, HP]]);
+    expect(r.dealt(1, 3)).toEqual([[T0 + 72, 6000]]);
+    expect(r.hp(3)).toBe(4000);
+    expect(r.hp(1)).toBe(HP); // a near target took damage: heal to full
+    const far = res.find((x) => x.candidate.targetId === 3)!;
+    expect(far.candidate.reaction).toEqual({ kind: "ragdoll", ticks: 90 });
+    expect(r.cs.get(3)!.action).toBe("Ragdolled");
+    expect(r.cs.get(3)!.actionEndTick).toBe(T0 + 72 + 90);
+    const l = r.runner.launches(T0 + 72, res);
+    expect(l.length).toBe(1);
+    expect(l[0]).toMatchObject({ targetId: 3, vy: 5 });
+    expect(l[0]!.vx).toBeCloseTo(0, 9);
+    expect(l[0]!.vz).toBeCloseTo(-22, 9);
+  });
+
+  test("far hits only heal 30 HP once, however many far targets take damage", () => {
+    const r = makeRig(4);
+    r.awaken();
+    r.cs.get(1)!.hp100 = 2000;
+    put(r, 2, 12); put(r, 3, 20); put(r, 4, 28);
+    cast3(r);
+    expect(r.dealt(1, 2).length + r.dealt(1, 3).length + r.dealt(1, 4).length).toBe(3);
+    expect(r.hp(1)).toBe(2000 + 3000);
+    r.run(T0 + 73, T0 + 120);
+    expect(r.hp(1)).toBe(5000);
+  });
+
+  test("far heal is capped at 100 HP and a near plus far beam heals to full, not 30 + full", () => {
+    const a = makeRig(2);
+    a.awaken();
+    a.cs.get(1)!.hp100 = 9000;
+    put(a, 2, 15);
+    cast3(a);
+    expect(a.hp(1)).toBe(HP);
+    const b = makeRig(3);
+    b.awaken();
+    b.cs.get(1)!.hp100 = 1000;
+    put(b, 2, 3); put(b, 3, 15);
+    cast3(b);
+    expect(b.hp(1)).toBe(HP);
+  });
+
+  test("lethal clamps: a near target with 0.5 HP loses 0.5 HP, a far target with 20 HP loses 20 HP; both count as damage", () => {
+    const r = makeRig(3);
+    r.awaken();
+    r.cs.get(1)!.hp100 = 2000;
+    put(r, 2, 4); put(r, 3, 20);
+    r.cs.get(2)!.hp100 = 50;
+    r.cs.get(3)!.hp100 = 2000;
+    cast3(r);
+    expect(r.dealt(1, 2)).toEqual([[T0 + 72, 50]]);
+    expect(r.dealt(1, 3)).toEqual([[T0 + 72, 2000]]);
+    expect(r.hp(2)).toBe(0);
+    expect(r.hp(3)).toBe(0);
+    const only = makeRig(2);
+    only.awaken();
+    only.cs.get(1)!.hp100 = 2000;
+    put(only, 2, 20);
+    only.cs.get(2)!.hp100 = 2000;
+    cast3(only);
+    expect(only.hp(1)).toBe(5000); // a lethal far hit still heals 30
+  });
+
+  test("beam range: 32 m hits, 32.2 m does not; radius 3 plus the capsule; nothing behind the caster", () => {
+    const hit = (fwd: number, side: number): boolean => {
+      const r = makeRig(2);
+      r.awaken();
+      put(r, 2, fwd, side);
+      cast3(r);
+      return r.dealt(1, 2).length === 1;
+    };
+    expect(hit(32, 0)).toBe(true);
+    expect(hit(32.2, 0)).toBe(false);
+    expect(hit(10, 3.3)).toBe(true);
+    expect(hit(10, 3.5)).toBe(false);
+    expect(hit(-1, 0)).toBe(false);
+  });
+
+  test("truncated at the first solid obstacle: victims beyond the wall are untouched, those before it are hit", () => {
+    const r = makeRig(4);
+    r.awaken();
+    put(r, 2, 9); put(r, 3, 11); put(r, 4, 25);
+    r.setWallZ(-10);
+    cast3(r);
+    expect(r.dealt(1, 2).length).toBe(1);
+    expect(r.dealt(1, 3).length).toBe(0);
+    expect(r.dealt(1, 4).length).toBe(0);
+    expect(r.hp(3)).toBe(HP);
+    expect(r.hp(4)).toBe(HP);
+  });
+
+  test("a wall right in front of the caster leaves a beam length of about zero", () => {
+    const r = makeRig(2);
+    r.awaken();
+    put(r, 2, 2);
+    r.setWallZ(-0.5);
+    cast3(r);
+    expect(r.dealt(1, 2).length).toBe(0);
+    expect(r.hp(1)).toBe(HP);
+  });
+
+  test("invulnerable from commit through tick +77; tick +78 (first recovery tick) is vulnerable", () => {
+    const r = makeRig(3);
+    r.awaken();
+    put(r, 2, 40); put(r, 3, 40, 3);
+    r.step(T0, { press: [{ slot: 3 }] });
+    expect(r.cs.get(1)!.invulnerableUntil).toBe(T0 + 78);
+    for (const t of [T0 + 1, T0 + 60, T0 + 71, T0 + 72, T0 + 77]) {
+      r.step(t, { extra: [r.strike(3, 1, { counterable: false, armorBreak: true })] });
+      expect(r.of("invulnerable", t).length).toBe(1);
+    }
+    expect(r.hp(1)).toBe(HP);
+    expect(r.cs.get(1)!.action).not.toBe("Stunned");
+    r.step(T0 + 78, { extra: [r.strike(3, 1, { counterable: false, armorBreak: true })] });
+    expect(r.of("hit", T0 + 78).length).toBe(1);
+    expect(r.cs.get(1)!.action).toBe("Stunned");
+  });
+
+  test("grounded only, and a miss still spends the form with the full 42 tick recovery", () => {
+    const air = makeRig(2);
+    air.awaken();
+    air.poses.get(1)!.grounded = false;
+    air.step(T0, { press: [{ slot: 3 }] });
+    expect(air.outcomes[0]!.o).toEqual({ kind: "rejected", reason: "STATE" });
+    expect(air.cs.get(1)!.form).toBe("Awakened");
+
+    const r = makeRig(2);
+    r.awaken();
+    r.cs.get(1)!.hp100 = 4000;
+    put(r, 2, 33);
+    r.step(T0, { press: [{ slot: 3 }] });
+    r.run(T0 + 1, T0 + 72 + 6 + 41);
+    expect(r.cs.get(1)!.action).toBe("Recovery");
+    expect(r.hp(1)).toBe(4000);
+    expect(r.cs.get(1)!.form).toBe("Base");
+    r.step(T0 + 72 + 6 + 42);
+    expect(r.cs.get(1)!.action).toBe("Idle");
+    r.step(T0 + 200, { press: [{ slot: 3 }] });
+    expect(r.outcomes[r.outcomes.length - 1]!.o).toMatchObject({ kind: "started", moveId: "sv.b3" }); // one use only
+  });
+
+  test("max 4 targets, nearest first, tie by id", () => {
+    const r = makeRig(6);
+    r.awaken();
+    put(r, 2, 6); put(r, 3, 12); put(r, 4, 18); put(r, 5, 24); put(r, 6, 30);
+    cast3(r);
+    expect([2, 3, 4, 5, 6].map((i) => r.dealt(1, i).length)).toEqual([1, 1, 1, 1, 0]);
+    const t = makeRig(5);
+    t.awaken();
+    put(t, 2, 5); put(t, 3, 6); put(t, 4, 12); put(t, 5, 12);
+    t.poses.get(3)!.x = 0; // distinct distances 5, 6, 12, 12
+    cast3(t);
+    expect([2, 3, 4, 5].map((i) => t.dealt(1, i).length)).toEqual([1, 1, 1, 1]);
+    const u = makeRig(6);
+    u.awaken();
+    put(u, 2, 5); put(u, 3, 6); put(u, 4, 7); put(u, 5, 12); put(u, 6, 12);
+    cast3(u);
+    expect(u.dealt(1, 5).length).toBe(1); // equal distance 12: the lower id takes the last slot
+    expect(u.dealt(1, 6).length).toBe(0);
+  });
+
+  test("block and counter are irrelevant", () => {
+    const r = makeRig(3);
+    r.awaken();
+    put(r, 2, 4); put(r, 3, 15);
+    r.cs.get(3)!.counterOpenUntil = T0 + 500;
+    r.step(T0, { press: [{ slot: 3 }], guard: [2] });
+    r.run(T0 + 1, T0 + 72, () => ({ guard: [2] }));
+    expect(r.of("blocked").length).toBe(0);
+    expect(r.of("countered").length).toBe(0);
+    expect(r.dealt(1, 2).length).toBe(1);
+    expect(r.dealt(1, 3)).toEqual([[T0 + 72, 6000]]);
+  });
+
+  test("duplicate hit on a surviving far target is refused and the beam queries only once", () => {
+    const r = makeRig(2);
+    r.awaken();
+    r.cs.get(1)!.hp100 = 2000;
+    put(r, 2, 20);
+    r.step(T0, { press: [{ slot: 3 }] });
+    r.run(T0 + 1, T0 + 71);
+    const cands = r.runner.collect(T0 + 72);
+    const res = r.cs.resolve(T0 + 72, [...cands, { ...cands[0]! }], (id) => { const q = r.poses.get(id); return q && { x: q.x, z: q.z, facingYaw: q.facingYaw, grounded: q.grounded }; });
+    r.runner.afterResolve(T0 + 72, res);
+    expect(res.map((x) => x.outcome)).toEqual(["hit", "duplicate"]);
+    expect(r.hp(2)).toBe(HP - 6000);
+    r.run(T0 + 73, T0 + 77);
+    expect(r.hp(2)).toBe(HP - 6000);
+    expect(r.hp(1)).toBe(5000);
+  });
+
+  test("a target that cannot take damage gives no heal; death of the caster in startup cancels everything", () => {
+    const r = makeRig(2);
+    r.awaken();
+    r.cs.get(1)!.hp100 = 3000;
+    put(r, 2, 4);
+    r.cs.get(2)!.invulnerableUntil = T0 + 500;
+    cast3(r);
+    expect(r.hp(2)).toBe(HP);
+    expect(r.hp(1)).toBe(3000);
+
+    const d = makeRig(2);
+    d.awaken();
+    put(d, 2, 4);
+    d.step(T0, { press: [{ slot: 3 }] });
+    d.run(T0 + 1, T0 + 30);
+    d.cs.kill(1, T0 + 31);
+    d.run(T0 + 32, T0 + 100);
+    expect(d.hp(2)).toBe(HP);
+    expect(d.runner.castOf(1)).toBeUndefined();
   });
 });
 

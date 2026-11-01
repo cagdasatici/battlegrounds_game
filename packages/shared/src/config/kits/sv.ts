@@ -43,4 +43,10 @@ export const SV_DEFS: AbilityDef[] = [
     damage100: [10000], range: 24, shape: { kind: "box", w: 20, h: 8, d: 24 }, block: "U", counterable: false, armorBreak: true,
     stunTicks: 0, ragdollTicks: 120, launch: { forward: 4, up: 20 }, maxTargets: 4, oncePerForm: true, consumesForm: true,
   }),
+  // Horizon Break (T15): grounded, same invulnerability, beam 32 m radius 3 truncated at the first obstacle, near (<= 8 m) 100 HP, far 60 HP (handler).
+  defineAbility({
+    id: "sv.a3", label: "Horizon Break", handler: "longBeam", startup: 72, active: 6, recovery: 42, cooldown: 0,
+    damage100: [10000], range: 32, shape: { kind: "beam", length: 32, radius: 3 }, block: "U", counterable: false, armorBreak: true,
+    stunTicks: 0, ragdollTicks: 90, launch: { forward: 22, up: 5 }, maxTargets: 4, oncePerForm: true, consumesForm: true,
+  }),
 ];
