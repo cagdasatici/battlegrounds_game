@@ -117,7 +117,8 @@ export function buildClip(id: string, loop: boolean, keys: readonly Key[]): Clip
       const e = k.pose[bone] ?? last;
       last = e;
       times.push(k.t);
-      values.push(...eulerToQuat(e[0], e[1], e[2]));
+      // Poses are authored with +X = limb swings back; the rig convention (decision 0019) is +X = forward (-Z).
+      values.push(...eulerToQuat(-e[0], e[1], e[2]));
     }
     tracks.push({ bone, path: "rotation", times, values });
   }
