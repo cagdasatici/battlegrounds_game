@@ -104,7 +104,7 @@ function makeRig(n = 3, hostOpts: {
 
 describe("td definitions match the spec 15 table", () => {
   test("slotted base moves carry the exact table numbers", () => {
-    expect(TD_DEFS.map((d) => d.id)).toEqual(["td.b1", "td.b2", "td.b3"]);
+    expect(TD_DEFS.map((d) => d.id)).toEqual(["td.b1", "td.b2", "td.b3", "td.b4"]);
     const table: Record<string, [number, number, number, number, number, number, string, string]> = {
       "td.b1": [10, 5, 18, 1020, 2400, 2.4, "U", "captureBarrage"],
       "td.b2": [14, 5, 24, 1200, 1900, 2.2, "B", "dragSlam"],
@@ -1041,6 +1041,321 @@ describe("td.b3 Tidal Cast (throwCapture)", () => {
 
   test("two clients see the same result", () => {
     const run = () => { const r = thrown(); r.poses.get(4)!.x = 0.5; r.poses.get(4)!.z = -1.5; r.run(rel + 1, rel + 20); return JSON.stringify([1, 2, 4].map((i) => [r.hp(i), r.cs.get(i)!.action, r.cs.get(i)!.actionEndTick])); };
+    expect(run()).toBe(run());
+  });
+});
+
+describe("td.b4 Mirror Current (counter)", () => {
+  /** Caster 1 at the origin, attacker 3 1.5 m ahead facing it, bystander 2 far away. */
+  const cRig = (hostOpts: Parameters<typeof makeRig>[1] = {}) => {
+    const r = makeRig(3, hostOpts);
+    r.poses.get(2)!.x = 8; r.poses.get(2)!.z = 0;
+    r.poses.get(3)!.x = 0; r.poses.get(3)!.z = -1.5; r.poses.get(3)!.facingYaw = Math.PI;
+    return r;
+  };
+  const OPEN = (r: Rig) => r.cs.get(1)!.counterOpenUntil;
+  const t = T0 + 11; // trigger tick in the real td.b1 scenario below
+
+  test("definition: window 60, startup 0, response [6,16] at [12,30], release R60 F8 U3, noncounterable response", () => {
+    const d = def("td.b4");
+    expect([d.startup, d.active, d.recovery, d.cooldown]).toEqual([0, 60, 30, 1020]);
+    expect(d.hitOffsets).toEqual([12, 30]);
+    expect(d.damage100).toEqual([600, 1600]);
+    expect(d.ragdollTicks).toBe(60);
+    expect(d.launch).toEqual({ forward: 8, up: 3 });
+    expect(d.block).toBe("U");
+    expect(d.counterable).toBe(false);
+  });
+
+  test("window is [commit, commit+60): counters at +0 and +59, not at +60; no armor in recovery", () => {
+    const a = cRig();
+    a.step(T0, { press: [{ slot: 4 }], extra: [a.strike(3, 1)] });
+    expect(a.results[0]!.r.outcome).toBe("countered"); // the commit tick itself is inside the window
+    expect(OPEN(a)).toBe(0); // the counter consumed the window
+
+    const b = cRig();
+    b.step(T0, { press: [{ slot: 4 }] });
+    expect(OPEN(b)).toBe(T0 + 60);
+    b.run(T0 + 1, T0 + 58);
+    b.step(T0 + 59, { extra: [b.strike(3, 1)] });
+    expect(b.results.at(-1)!.r.outcome).toBe("countered");
+
+    const c = cRig();
+    c.step(T0, { press: [{ slot: 4 }] });
+    c.run(T0 + 1, T0 + 59);
+    c.step(T0 + 60, { extra: [c.strike(3, 1)] });
+    expect(c.results.at(-1)!.r.outcome).toBe("hit");
+    expect(c.cs.get(1)!.action).toBe("Stunned"); // recovery: no armor, no counter
+    expect(c.hp(3)).toBe(HP);
+  });
+
+  test("hit: a real td.b1 into the stance is countered; attacker captured, 6 at +12 and 16 at +30, release at +31", () => {
+    const r = cRig();
+    r.step(T0, { press: [{ slot: 4 }] });
+    r.step(T0 + 1, { press: [{ slot: 1, who: 3 }] });
+    r.run(T0 + 2, t - 1);
+    expect(r.cs.get(3)!.action).toBe("Windup");
+    r.step(t);
+    expect(r.results.map((x) => [x.tick, x.r.candidate.attackerId, x.r.outcome])).toEqual([[t, 3, "countered"]]);
+    expect(r.hp(1)).toBe(HP);
+    expect(r.cs.get(3)!.action).toBe("Captured");
+    expect(r.cs.captures.captureOn(3)!.captorId).toBe(1);
+    expect(r.cs.get(1)!.armored).toBe(true);
+    r.run(t + 1, t + 30);
+    expect(r.dealt(1, 3)).toEqual([[t + 12, 600], [t + 30, 1600]]);
+    expect(r.hp(3)).toBe(HP - 2200);
+    expect(r.hp(1)).toBe(HP);
+    expect(r.cs.get(3)!.action).toBe("Captured");
+    r.step(t + 31);
+    const v = r.cs.get(3)!;
+    expect(v.action).toBe("Ragdolled");
+    expect(v.actionEndTick - v.actionStartTick).toBe(60);
+    expect(r.launches.map((l) => [l.id, l.vx + 0, l.vy, l.vz, l.tick])).toEqual([[3, 0, 3, -8, t + 31]]);
+    expect(r.cs.captures.size).toBe(0);
+    expect(r.cs.get(1)!.armored).toBe(false);
+    r.run(t + 32, t + 31 + 29);
+    expect(r.cs.get(1)!.action).toBe("Recovery");
+    r.step(t + 31 + 30);
+    expect(r.cs.get(1)!.action).toBe("Idle");
+    // The attacker's own b1 never captured anything and its remaining schedule is gone.
+    expect(r.dealt(3, 1)).toEqual([]);
+  });
+
+  test("response hits are noncounterable and U; a counter never recurses", () => {
+    const r = cRig();
+    r.step(T0, { press: [{ slot: 4 }] });
+    r.step(T0 + 5, { extra: [r.strike(3, 1)] });
+    r.cs.get(3)!.counterOpenUntil = T0 + 500; // even if the captured attacker had a counter open
+    r.run(T0 + 6, T0 + 5 + 30);
+    const resp = r.results.filter((x) => x.r.candidate.attackerId === 1);
+    expect(resp.map((x) => x.r.outcome)).toEqual(["hit", "hit"]);
+    expect(resp.every((x) => x.r.candidate.counterable === false && x.r.candidate.block === "U")).toBe(true);
+    expect(r.results.filter((x) => x.r.outcome === "countered").length).toBe(1);
+    expect(r.hp(3)).toBe(HP - 2200);
+  });
+
+  test("attacker beyond 4 m (or without line of sight) is absorbed: stance ends, no response damage", () => {
+    for (const [dist, occluded, captured] of [[3.99, false, true], [4.01, false, false], [2, true, false]] as const) {
+      const r = cRig();
+      r.poses.get(3)!.z = -dist;
+      r.step(T0, { press: [{ slot: 4 }] });
+      r.run(T0 + 1, T0 + 9);
+      r.setOccluded(occluded);
+      r.step(T0 + 10, { extra: [r.strike(3, 1)] });
+      expect(r.results.at(-1)!.r.outcome).toBe("countered");
+      expect(r.hp(1)).toBe(HP);
+      if (captured) { expect(r.cs.get(3)!.action).toBe("Captured"); continue; }
+      expect(r.cs.get(3)!.action).toBe("Idle");
+      expect(r.cs.captures.size).toBe(0);
+      expect(OPEN(r)).toBe(0);
+      r.step(T0 + 11);
+      expect(r.cs.get(1)!.action).toBe("Recovery"); // stance ended
+      expect(r.cs.get(1)!.armored).toBe(false);
+      r.run(T0 + 12, T0 + 60);
+      expect(r.hp(3)).toBe(HP);
+      expect(r.dealt(1, 3)).toEqual([]);
+      expect(r.cs.get(1)!.action).toBe("Idle"); // trigger + 1 + 30 recovery
+    }
+  });
+
+  test("reflectable projectile: shared reflection rule, stance ends, no automatic melee response; pending real T19", () => {
+    const calls: ReflectRequest[] = [];
+    const r = cRig({ projectiles: { reflect: (q) => { calls.push(q); return true; } } });
+    r.step(T0, { press: [{ slot: 4 }] });
+    r.run(T0 + 1, T0 + 9);
+    r.step(T0 + 10, { extra: [r.strike(3, 1, { projectile: { id: 7, reflectable: true }, damage100: 1500 })] });
+    expect(r.results.at(-1)!.r.outcome).toBe("countered");
+    expect(calls).toEqual([{ projectileId: 7, reflectorId: 1, tick: T0 + 10 }]);
+    expect(r.hp(1)).toBe(HP);
+    expect(r.cs.captures.size).toBe(0);
+    expect(OPEN(r)).toBe(0);
+    r.run(T0 + 11, T0 + 70);
+    expect(r.dealt(1, 3)).toEqual([]);
+    // Without a provider the stance still ends cleanly (T19 supplies the real reflection).
+    const n = cRig();
+    n.step(T0, { press: [{ slot: 4 }] });
+    n.step(T0 + 10, { extra: [n.strike(3, 1, { projectile: { id: 8, reflectable: true } })] });
+    expect(OPEN(n)).toBe(0);
+    n.run(T0 + 11, T0 + 60);
+    expect(n.hp(3)).toBe(HP);
+  });
+
+  test("a non reflectable projectile is not countered: armor takes the damage, the stance stays open", () => {
+    const calls: ReflectRequest[] = [];
+    const r = cRig({ projectiles: { reflect: (q) => { calls.push(q); return true; } } });
+    r.step(T0, { press: [{ slot: 4 }] });
+    r.step(T0 + 10, { extra: [r.strike(3, 1, { projectile: { id: 9, reflectable: false }, damage100: 500 })] });
+    expect(r.results.at(-1)!.r.outcome).toBe("hit");
+    expect(r.hp(1)).toBe(HP - 500);
+    expect(r.cs.get(1)!.action).toBe("Active"); // armor ignored the stun
+    expect(OPEN(r)).toBe(T0 + 60);
+    expect(calls).toEqual([]);
+    r.step(T0 + 11, { extra: [r.strike(3, 1)] });
+    expect(r.results.at(-1)!.r.outcome).toBe("countered"); // the stance still counters melee
+  });
+
+  test("whiff: the window closes at +60 and the 30 tick recovery is fully vulnerable; cooldown 1020 from the press", () => {
+    const r = cRig();
+    r.step(T0, { press: [{ slot: 4 }] });
+    r.run(T0 + 1, T0 + 59);
+    expect(r.cs.get(1)!.action).toBe("Active");
+    expect(r.cs.get(1)!.armored).toBe(true);
+    r.step(T0 + 60);
+    expect(r.cs.get(1)!.action).toBe("Recovery");
+    expect(r.cs.get(1)!.armored).toBe(false);
+    r.run(T0 + 61, T0 + 89);
+    expect(r.cs.get(1)!.action).toBe("Recovery");
+    r.step(T0 + 90);
+    expect(r.cs.get(1)!.action).toBe("Idle");
+    expect(r.results.length).toBe(0);
+    r.step(T0 + 1019, { press: [{ slot: 4 }] });
+    expect(r.outcomes.at(-1)!.o).toEqual({ kind: "rejected", reason: "COOLDOWN" });
+    r.step(T0 + 1020, { press: [{ slot: 4 }] });
+    expect(r.outcomes.at(-1)!.o).toMatchObject({ kind: "started", moveId: "td.b4" });
+  });
+
+  test("armor, not invulnerability: damage lands, stun does not; armorBreak interrupts and clears the window", () => {
+    const a = cRig();
+    a.step(T0, { press: [{ slot: 4 }] });
+    a.step(T0 + 10, { extra: [a.strike(3, 1, { counterable: false, damage100: 700 })] });
+    expect(a.hp(1)).toBe(HP - 700);
+    expect(a.cs.get(1)!.action).toBe("Active");
+    expect(OPEN(a)).toBe(T0 + 60);
+
+    const b = cRig();
+    b.step(T0, { press: [{ slot: 4 }] });
+    b.step(T0 + 10, { extra: [b.strike(3, 1, { counterable: false, armorBreak: true }), b.strike(3, 1)] });
+    expect(b.cs.get(1)!.action).toBe("Stunned");
+    expect(OPEN(b)).toBe(0);
+    expect(b.results.map((x) => x.r.outcome)).toEqual(["hit", "hit"]); // the second hit is not countered: the stance is gone
+    expect(b.cs.captures.size).toBe(0);
+    b.run(T0 + 11, T0 + 40);
+    expect(b.runner.castOf(1)).toBeUndefined();
+  });
+
+  test("no held button prolongs the window and the stance is never buffered", () => {
+    const r = cRig();
+    r.step(T0, { press: [{ slot: 4 }] });
+    for (let k = 1; k <= 59; k++) r.step(T0 + k, { press: [{ slot: 4 }] }); // mashing the button
+    expect(r.outcomes.slice(1).every((x) => x.o.kind === "rejected" && x.o.reason === "STATE")).toBe(true);
+    expect(r.runner.bufferedCount).toBe(0);
+    expect(OPEN(r)).toBe(T0 + 60);
+    r.step(T0 + 60);
+    expect(r.cs.get(1)!.action).toBe("Recovery");
+    r.step(T0 + 61, { press: [{ slot: 4 }] });
+    expect(r.outcomes.at(-1)!.o).toEqual({ kind: "rejected", reason: "STATE" }); // not buffered through recovery
+    r.run(T0 + 62, T0 + 100);
+    expect(r.cs.get(1)!.action).toBe("Idle");
+    expect(r.runner.bufferedCount).toBe(0);
+  });
+
+  test("duplicate hit: two phases of one swing in the same tick are countered once", () => {
+    const r = cRig();
+    r.step(T0, { press: [{ slot: 4 }] });
+    r.step(T0 + 5, { extra: [r.strike(3, 1, { castCounter: 777, hitIndex: 0 }), r.strike(3, 1, { castCounter: 777, hitIndex: 1 })] });
+    expect(r.results.map((x) => x.r.outcome)).toEqual(["countered", "duplicate"]);
+    expect(r.hp(1)).toBe(HP);
+    expect(r.cs.captures.size).toBe(1);
+    r.run(T0 + 6, T0 + 60);
+    expect(r.hp(3)).toBe(HP - 2200);
+    expect(r.results.filter((x) => x.r.outcome === "countered").length).toBe(1);
+  });
+
+  test("interruption of the response: armor ignores stun, armorBreak releases and stops the damage", () => {
+    const a = cRig();
+    a.step(T0, { press: [{ slot: 4 }] });
+    a.step(T0 + 5, { extra: [a.strike(3, 1)] });
+    a.step(T0 + 6, { extra: [a.strike(2, 1, { damage100: 100 })] });
+    expect(a.cs.get(1)!.action).toBe("Active");
+    a.run(T0 + 7, T0 + 36);
+    expect(a.hp(3)).toBe(HP - 2200);
+
+    const b = cRig();
+    b.step(T0, { press: [{ slot: 4 }] });
+    b.step(T0 + 5, { extra: [b.strike(3, 1)] });
+    b.run(T0 + 6, T0 + 16);
+    b.step(T0 + 17, { extra: [b.strike(2, 1, { armorBreak: true })] }); // trigger + 12: same tick as the first response hit
+    expect(b.cs.get(1)!.action).toBe("Stunned");
+    expect(b.cs.get(3)!.action).toBe("Idle");
+    expect(b.cs.captures.size).toBe(0);
+    b.run(T0 + 18, T0 + 60);
+    expect(b.dealt(1, 3)).toEqual([[T0 + 17, 600]]); // attacker id 1 resolves first on the shared tick; the +30 hit never comes
+    expect(b.hp(3)).toBe(HP - 600);
+  });
+
+  test("death of the caster and of the attacker during the response", () => {
+    const a = cRig();
+    a.step(T0, { press: [{ slot: 4 }] });
+    a.step(T0 + 5, { extra: [a.strike(3, 1)] });
+    a.run(T0 + 6, T0 + 15);
+    a.cs.kill(1, T0 + 16);
+    a.run(T0 + 16, T0 + 60);
+    expect(a.cs.get(3)!.action).toBe("Idle");
+    expect(a.cs.captures.size).toBe(0);
+    expect(a.hp(3)).toBe(HP);
+
+    const b = cRig();
+    b.step(T0, { press: [{ slot: 4 }] });
+    b.step(T0 + 5, { extra: [b.strike(3, 1)] });
+    b.run(T0 + 6, T0 + 15);
+    b.cs.get(3)!.hp100 = 50;
+    b.step(T0 + 16, { extra: [b.strike(2, 3, { damage100: 300 })] });
+    expect(b.cs.get(3)!.action).toBe("Dead");
+    expect(b.cs.get(1)!.action).toBe("Recovery");
+    expect(b.cs.get(1)!.actionEndTick).toBe(T0 + 16 + CAPTOR_RELEASE_RECOVERY);
+    b.run(T0 + 17, T0 + 70);
+    expect(b.dealt(1, 3).length).toBe(0);
+    expect(b.cs.captures.size).toBe(0);
+  });
+
+  test("disconnect: removing the caster or the attacker releases the capture", () => {
+    const a = cRig();
+    a.step(T0, { press: [{ slot: 4 }] });
+    a.step(T0 + 5, { extra: [a.strike(3, 1)] });
+    a.run(T0 + 6, T0 + 10);
+    a.runner.remove(1);
+    a.cs.remove(1, T0 + 11);
+    expect(a.cs.get(3)!.action).toBe("Idle");
+    expect(a.cs.captures.size).toBe(0);
+    const b = cRig();
+    b.step(T0, { press: [{ slot: 4 }] });
+    b.step(T0 + 5, { extra: [b.strike(3, 1)] });
+    b.run(T0 + 6, T0 + 10);
+    b.cs.remove(3, T0 + 11);
+    expect(b.cs.get(1)!.actionEndTick).toBe(T0 + 11 + CAPTOR_RELEASE_RECOVERY);
+    expect(b.cs.captures.size).toBe(0);
+    b.run(T0 + 11, T0 + 50);
+  });
+
+  test("arbitration: two stances countering the same attacker on the same tick leave one capture owner", () => {
+    const r = cRig();
+    r.poses.get(2)!.x = 0.3; r.poses.get(2)!.z = 0; // second caster beside the first, attacker in reach of both
+    r.step(T0, { press: [{ slot: 4, who: 1 }, { slot: 4, who: 2 }] });
+    r.step(T0 + 5, { extra: [r.strike(3, 1), r.strike(3, 2)] });
+    expect(r.results.filter((x) => x.r.outcome === "countered").length).toBe(2);
+    expect(r.cs.captures.size).toBe(1);
+    expect(r.cs.captures.captureOn(3)!.captorId).toBe(1);
+    expect(r.cs.get(2)!.counterOpenUntil).toBe(0);
+    r.step(T0 + 6);
+    expect(r.cs.get(2)!.action).toBe("Recovery"); // the loser was absorbed: stance ended
+    r.run(T0 + 7, T0 + 60);
+    expect(r.dealt(2, 3)).toEqual([]);
+    expect(r.hp(3)).toBe(HP - 2200);
+  });
+
+  test("cancel is idempotent: the window and any capture are cleared", () => {
+    const r = cRig();
+    r.step(T0, { press: [{ slot: 4 }] });
+    r.step(T0 + 5, { extra: [r.strike(3, 1)] });
+    r.runner.cancel(1);
+    r.runner.cancel(1);
+    expect(OPEN(r)).toBe(0);
+    expect(r.cs.captures.size).toBe(0);
+    expect(r.cs.get(3)!.action).toBe("Idle");
+  });
+
+  test("two clients see the same result", () => {
+    const run = () => { const r = cRig(); r.step(T0, { press: [{ slot: 4 }] }); r.step(T0 + 5, { extra: [r.strike(3, 1)] }); r.run(T0 + 6, T0 + 60); return JSON.stringify([1, 3].map((i) => [r.hp(i), r.cs.get(i)!.action, r.cs.get(i)!.actionEndTick, [...r.cs.get(i)!.cooldowns]])); };
     expect(run()).toBe(run());
   });
 });

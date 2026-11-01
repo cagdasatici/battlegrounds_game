@@ -78,6 +78,8 @@ export interface AbilityHandler {
   readonly name: string;
   /** Spec 14: attacks may activate in air unless a card says grounded. */
   readonly requiresGrounded?: boolean;
+  /** False for counter stances: a press while busy is rejected instead of buffered (spec 12). */
+  readonly bufferable?: boolean;
   /** Extra start condition (handler specific). Return a reject reason, or null to allow. */
   canStart?(c: { tick: number; fighter: Fighter; def: AbilityDef; pose: AbilityPose; host: AbilityHost }): RejectReason | null;
   onCommit?(c: CastContext): void;
@@ -272,6 +274,7 @@ export class AbilityRunner {
       return this.commit(f, tick, def);
     }
     if (f.action === "Stunned" || f.action === "Ragdolled" || f.action === "Awakening") return { kind: "rejected", reason: "STATE" };
+    if (this.handlers.get(def.handler)?.bufferable === false) return { kind: "rejected", reason: "STATE" };
     this.buffers.set(f.entityId, { edgeId, slot, tick }); // most recent edge replaces any older one
     return { kind: "buffered" };
   }

@@ -32,4 +32,12 @@ export const TD_DEFS: AbilityDef[] = [
     targetStates: ["standing", "air", "ragdoll"],
     stunTicks: 0, ragdollTicks: 60, launch: { forward: 10, up: 2 },
   }),
+  // Mirror Current: counter window [commit, commit+60); response [6,16] at trigger+[12,30], release +31 R60 F8 U3.
+  defineAbility({
+    id: "td.b4", label: "Mirror Current", handler: "counter",
+    startup: 0, active: 60, recovery: 30, cooldown: 1020, range: 4, block: "U",
+    hitOffsets: [12, 30], damage100: [600, 1600],
+    counterable: false, // the response is noncounterable (spec 13/15)
+    stunTicks: 0, ragdollTicks: 60, launch: { forward: 8, up: 3 },
+  }),
 ];
