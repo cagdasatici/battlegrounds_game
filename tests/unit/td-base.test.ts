@@ -636,11 +636,12 @@ describe("td.b2 Undertow Spiral (dragSlam)", () => {
     expect(r.cs.captures.size).toBe(0);
   });
 
-  test("P1 elevated branch is OFF by default; when enabled, final damage 24 once only if started >= 2 m up and landed before +48", () => {
-    expect(P1_ELEVATED_SLAM).toBe(false);
+  test("P1 elevated branch (T24, ON in the shipped handler); final damage 24 once only if started >= 2 m up and landed before +48", () => {
+    expect(P1_ELEVATED_SLAM).toBe(true);
     const withFlag = [...ALL_HANDLERS.filter((h) => h.name !== "dragSlam"), createDragSlam({ elevatedBranch: true })];
+    const noFlag = [...ALL_HANDLERS.filter((h) => h.name !== "dragSlam"), createDragSlam({ elevatedBranch: false })];
     const run = (flag: boolean, startY: number, landAt: number | null) => {
-      const r = makeRig(2, { surfaceHeight: () => 0, ...(flag ? { handlers: withFlag } : {}) });
+      const r = makeRig(2, { surfaceHeight: () => 0, handlers: flag ? withFlag : noFlag });
       for (const i of [1, 2]) { r.poses.get(i)!.y = startY; r.poses.get(i)!.grounded = false; }
       r.step(T0, { press: [{ slot: 2 }] });
       r.run(T0 + 1, c);
@@ -653,8 +654,39 @@ describe("td.b2 Undertow Spiral (dragSlam)", () => {
     expect(run(true, high, 48).dealt(1, 2).at(-1)).toEqual([c + 48, 1400]); // lands on +48: not before
     expect(run(true, high, null).dealt(1, 2).at(-1)).toEqual([c + 48, 1400]); // never lands
     expect(run(true, 0.9 + 1.9, 20).dealt(1, 2).at(-1)).toEqual([c + 48, 1400]); // started under 2 m
-    expect(run(false, high, 20).dealt(1, 2).at(-1)).toEqual([c + 48, 1400]); // flag off (the shipped P0 setting)
+    expect(run(false, high, 20).dealt(1, 2).at(-1)).toEqual([c + 48, 1400]); // branch disabled (the old P0 setting)
     expect(run(true, high, 20).dealt(1, 2).filter(([, d]) => d === 2400).length).toBe(1);
+  });
+
+  test("P1 elevated branch edge cases: interruption, caster death, victim death and a lethal 24 never double or leak", () => {
+    const withFlag = [...ALL_HANDLERS.filter((h) => h.name !== "dragSlam"), createDragSlam({ elevatedBranch: true })];
+    const up = (): ReturnType<typeof makeRig> => {
+      const r = makeRig(3, { surfaceHeight: () => 0, handlers: withFlag });
+      for (const i of [1, 2]) { r.poses.get(i)!.y = 0.9 + 2.5; r.poses.get(i)!.grounded = false; }
+      r.poses.get(3)!.x = 30;
+      r.step(T0, { press: [{ slot: 2 }] });
+      r.run(T0 + 1, c);
+      return r;
+    };
+    // landed, then the caster is killed before +48: no final hit at all
+    const a = up();
+    a.run(c + 1, c + 20, (t) => { if (t === c + 5) a.poses.get(1)!.grounded = true; return undefined; });
+    a.cs.kill(1, c + 21);
+    a.run(c + 22, c + 60);
+    expect(a.dealt(1, 2)).toEqual([[c, 500]]);
+    expect(a.cs.captures.size).toBe(0);
+    // armorBreak mid sequence: capture cancelled, the 24 never lands
+    const b = up();
+    b.run(c + 1, c + 9, (t) => { if (t === c + 5) b.poses.get(1)!.grounded = true; return undefined; });
+    b.step(c + 10, { extra: [b.strike(3, 1, { armorBreak: true })] });
+    b.run(c + 11, c + 60);
+    expect(b.dealt(1, 2)).toEqual([[c, 500]]);
+    // lethal 24: one KO, no negative HP
+    const d = up();
+    d.cs.get(2)!.hp100 = 1500;
+    d.run(c + 1, c + 60, (t) => { if (t === c + 5) d.poses.get(1)!.grounded = true; return undefined; });
+    expect(d.cs.get(2)!.hp100).toBe(0);
+    expect(d.cs.get(2)!.koCount).toBe(1);
   });
 });
 

@@ -1074,6 +1074,7 @@ describe("td.a4 Riptide Pursuit (riptidePursuit)", () => {
   test("duplicate hit: one capture and exactly the scheduled damage events for the whole cast", () => {
     const r = makeRig(3);
     r.awaken();
+    put(r, 3, 30, -2); // out of chain range (the chain has its own tests below)
     r.step(T0, { press: [{ slot: 4 }] });
     r.run(T0 + 1, A + 100);
     expect(r.results.filter((x) => x.r.outcome === "captured").length).toBe(1);
@@ -1222,6 +1223,259 @@ describe("td.a4 Riptide Pursuit (riptidePursuit)", () => {
     expect(r.cs.captures.size).toBe(0);
     r.run(A + 11, A + 80);
     expect(r.cs.get(1)!.action).toBe("Idle");
+  });
+});
+
+describe("td.a4 Riptide Pursuit P1 second target chain (T24)", () => {
+  const A = T0 + 12; // activeStart = first capture (close branch, victim 2 at 1.5 m)
+  const R = A + 37; // first release: the chain starts here
+  /** Caster 1, first victim 2 (1.5 m ahead), second target 3 (3 m ahead). */
+  const chainRig = (n = 3, hostOpts: Parameters<typeof makeRig>[1] = {}) => {
+    const r = makeRig(n, hostOpts);
+    r.awaken();
+    r.step(T0, { press: [{ slot: 4 }] });
+    return r;
+  };
+  const captureTickOf = (r: Rig, id: number): number | null =>
+    r.results.find((x) => x.r.candidate.targetId === id && x.r.outcome === "captured")?.tick ?? null;
+
+  test("hit: sweep after the first release, capture, 31 at capture+30, release +31 R72 F8 U5, recovery 30, cast under 150 ticks", () => {
+    const r = chainRig();
+    r.run(T0 + 1, R);
+    expect(r.dealt(1, 2)).toEqual([[A, 800], [A + 36, 2200]]);
+    expect(r.cs.get(1)!.action).toBe("Active"); // re-entered Active for the sweep
+    expect(r.cs.get(1)!.armored).toBe(false); // no armor during the sweep
+    expect(r.cs.get(3)!.action).toBe("Idle");
+    const zBefore = r.poses.get(1)!.z;
+    r.step(R + 1);
+    expect(r.poses.get(1)!.z).toBeCloseTo(zBefore - 0.5, 1); // 0.5 m per tick toward the target (x offset 0.3 over 3 m)
+    let C2 = -1;
+    for (let t = R + 2; t <= R + 12; t++) { r.step(t); const c = captureTickOf(r, 3); if (c !== null) { C2 = c; break; } }
+    expect(C2).toBeGreaterThan(R);
+    expect(C2).toBeLessThanOrEqual(R + 12);
+    expect(r.cs.get(3)!.action).toBe("Captured");
+    expect(r.cs.get(1)!.armored).toBe(true);
+    expect(r.hp(3)).toBe(HP); // the chain capture hit deals nothing
+    r.run(C2 + 1, C2 + 29);
+    expect(r.dealt(1, 3)).toEqual([]);
+    r.step(C2 + 30);
+    expect(r.dealt(1, 3)).toEqual([[C2 + 30, 3100]]);
+    r.step(C2 + 31);
+    const v = r.cs.get(3)!;
+    expect(v.action).toBe("Ragdolled");
+    expect(v.actionEndTick - v.actionStartTick).toBe(72);
+    expect(r.launches.at(-1)!.id).toBe(3);
+    expect(r.launches.at(-1)!.vy).toBe(5);
+    expect(r.releases.map((x) => [x.tick, x.rel.cause])).toEqual([[R, "final"], [C2 + 31, "final"]]);
+    expect(r.cs.get(1)!.armored).toBe(false);
+    expect(r.cs.get(1)!.actionEndTick).toBe(C2 + 31 + 30);
+    r.run(C2 + 32, C2 + 31 + 29);
+    expect(r.cs.get(1)!.action).toBe("Recovery");
+    r.step(C2 + 31 + 30);
+    expect(r.cs.get(1)!.action).toBe("Idle");
+    expect(C2 + 31 + 30 - T0).toBeLessThanOrEqual(150); // total cast cap
+    expect(r.hp(2)).toBe(HP - 3000);
+    expect(r.hp(3)).toBe(HP - 3100);
+    expect(r.cs.captures.size).toBe(0);
+  });
+
+  test("range and worst case timing: the latest chain capture still ends the cast within 150 ticks", () => {
+    const far = chainRig();
+    put(far, 3, 0, -6.9); // beyond the 6 m choice range
+    far.run(T0 + 1, R);
+    expect(far.cs.get(1)!.action).toBe("Recovery");
+    const w = chainRig();
+    put(w, 3, 0, -5.9); // inside 6 m; the sweep needs 5 m of travel plus reach
+    w.run(T0 + 1, R + 12);
+    const C2 = captureTickOf(w, 3);
+    expect(C2).not.toBeNull();
+    w.run(R + 13, C2! + 31 + 30);
+    expect(w.cs.get(1)!.action).toBe("Idle");
+    expect(C2! + 31 + 30 - T0).toBeLessThanOrEqual(150);
+  });
+
+  test("miss: no target within 6 m means no chain; a target that leaves the sweep is a miss and recovery follows", () => {
+    const none = chainRig();
+    put(none, 3, 0, -7.5);
+    none.run(T0 + 1, R);
+    expect(none.cs.get(1)!.action).toBe("Recovery");
+    none.run(R + 1, R + 80);
+    expect(none.dealt(1, 3)).toEqual([]);
+
+    const r = chainRig();
+    r.run(T0 + 1, R);
+    put(r, 3, 40, -2); // leaves before the first sweep step
+    r.run(R + 1, R + 13);
+    expect(r.cs.get(1)!.action).toBe("Recovery"); // sweep window over: recovery begins, no later capture
+    put(r, 3, 0, -3);
+    r.run(R + 14, R + 80);
+    expect(r.cs.get(3)!.action).toBe("Idle");
+    expect(r.hp(3)).toBe(HP);
+    expect(r.cs.get(1)!.action).toBe("Idle");
+  });
+
+  test("the chain only exists in the close branch: a ranged capture never chains", () => {
+    const r = makeRig(3);
+    r.awaken();
+    put(r, 2, 0, -5);
+    put(r, 3, 3, -5.2);
+    r.step(T0, { press: [{ slot: 4 }] });
+    r.run(T0 + 1, A + 130);
+    expect(r.dealt(1, 2).length).toBe(1);
+    expect(r.dealt(1, 3)).toEqual([]);
+    expect(r.cs.get(1)!.action).toBe("Idle");
+  });
+
+  test("never recaptures the first victim: with two players the chain does not start; with three the first victim is skipped", () => {
+    const two = chainRig(2);
+    two.run(T0 + 1, R);
+    expect(two.cs.get(1)!.action).toBe("Recovery");
+    two.run(R + 1, R + 60);
+    expect(two.results.filter((x) => x.r.outcome === "captured").length).toBe(1);
+
+    const three = chainRig(3);
+    three.run(T0 + 1, R + 120);
+    expect(three.results.filter((x) => x.r.outcome === "captured").map((x) => x.r.candidate.targetId)).toEqual([2, 3]);
+    expect(three.dealt(1, 2).length).toBe(2);
+    expect(three.dealt(1, 3).length).toBe(1);
+  });
+
+  test("block: the chain hits are U and ignore a frontal guard", () => {
+    const r = chainRig();
+    r.run(T0 + 1, R + 12, () => ({ guard: [3] }));
+    const C2 = captureTickOf(r, 3);
+    expect(C2).not.toBeNull();
+    r.run(R + 13, C2! + 30, () => ({ guard: [3] }));
+    expect(r.dealt(1, 3)).toEqual([[C2! + 30, 3100]]);
+  });
+
+  test("counter: the counterable chain capture is intercepted; nothing captured, no damage, the cast still recovers", () => {
+    const r = chainRig();
+    r.run(T0 + 1, R);
+    r.cs.get(3)!.counterOpenUntil = R + 100;
+    r.run(R + 1, R + 90);
+    expect(r.outs()).toContain("countered");
+    expect(r.cs.get(3)!.counterOpenUntil).toBe(0);
+    expect(r.hp(3)).toBe(HP);
+    expect(r.results.filter((x) => x.r.outcome === "captured").length).toBe(1);
+    expect(r.cs.captures.size).toBe(0);
+  });
+
+  test("duplicate hit: exactly one capture and one 31 on the second target for the whole cast", () => {
+    const r = chainRig();
+    r.run(T0 + 1, R + 150);
+    expect(r.results.filter((x) => x.r.candidate.targetId === 3 && x.r.outcome === "captured").length).toBe(1);
+    expect(r.dealt(1, 3).length).toBe(1);
+    expect(r.dealt(1, 2).length).toBe(2);
+  });
+
+  test("static occlusion: a wall between the caster and the second target prevents the choice", () => {
+    const r = chainRig();
+    r.run(T0 + 1, R - 1);
+    r.setWallZ(-2.2); // between 1/2 and 3
+    r.run(R, R + 60);
+    expect(r.dealt(1, 3)).toEqual([]);
+    expect(r.cs.get(3)!.action).toBe("Idle");
+  });
+
+  test("a wall stops the chain dash for good", () => {
+    let asks = 0;
+    const r = makeRig(3, { moveTogether: () => { asks += 1; return { dx: 0, dz: 0 }; } });
+    r.awaken();
+    r.step(T0, { press: [{ slot: 4 }] });
+    r.run(T0 + 1, R + 60);
+    expect(asks).toBe(1); // the first short step ends the sweep; later ticks do not ask again
+    expect(r.dealt(1, 3)).toEqual([]);
+  });
+
+  test("interruption: stun in the unarmored sweep cancels the cast; armor ignores stun during the chain capture; armorBreak releases", () => {
+    const a = chainRig(4);
+    a.run(T0 + 1, R + 1);
+    a.step(R + 2, { extra: [a.strike(4, 1, { damage100: 100 })] });
+    expect(a.cs.get(1)!.action).toBe("Stunned");
+    a.run(R + 3, R + 90);
+    expect(a.dealt(1, 3)).toEqual([]);
+    expect(a.cs.captures.size).toBe(0);
+
+    const b = chainRig(4);
+    b.run(T0 + 1, R + 12);
+    const C2 = captureTickOf(b, 3)!;
+    expect(C2).not.toBeNull();
+    b.step(C2 + 5, { extra: [b.strike(4, 1, { damage100: 100 })] });
+    expect(b.cs.get(1)!.action).toBe("Active"); // armor ignores the stun
+    b.run(C2 + 6, C2 + 30);
+    expect(b.dealt(1, 3)).toEqual([[C2 + 30, 3100]]);
+
+    const c = chainRig(4);
+    c.run(T0 + 1, R + 12);
+    const C3 = captureTickOf(c, 3)!;
+    c.step(C3 + 5, { extra: [c.strike(4, 1, { armorBreak: true })] });
+    expect(c.cs.get(1)!.action).toBe("Stunned");
+    expect(c.cs.get(3)!.action).toBe("Idle");
+    expect(c.releases.at(-1)!.rel.cause).toBe("cancelled");
+    c.run(C3 + 6, C3 + 80);
+    expect(c.dealt(1, 3)).toEqual([]);
+  });
+
+  test("death: captor or second victim dying mid chain capture leaves no orphan capture; lethal 31 is one KO", () => {
+    const a = chainRig();
+    a.run(T0 + 1, R + 12);
+    const C2 = captureTickOf(a, 3)!;
+    a.run(R + 13, C2 + 10);
+    a.cs.kill(1, C2 + 11);
+    expect(a.cs.get(3)!.action).toBe("Idle");
+    a.run(C2 + 11, C2 + 90);
+    expect(a.dealt(1, 3)).toEqual([]);
+    expect(a.cs.captures.size).toBe(0);
+
+    const b = chainRig();
+    b.run(T0 + 1, R + 12);
+    const C3 = captureTickOf(b, 3)!;
+    b.run(R + 13, C3 + 10);
+    b.cs.kill(3, C3 + 11);
+    expect(b.cs.get(1)!.action).toBe("Recovery");
+    b.run(C3 + 11, C3 + 90);
+    expect(b.dealt(1, 3)).toEqual([]);
+    expect(b.cs.captures.size).toBe(0);
+
+    const l = chainRig();
+    l.cs.get(3)!.hp100 = 2000;
+    l.run(T0 + 1, R + 12 + 31 + 30);
+    expect(l.hp(3)).toBe(0);
+    expect(l.cs.get(3)!.koCount).toBe(1);
+    expect(l.cs.captures.size).toBe(0);
+  });
+
+  test("expiry: the form expiring mid chain never cancels the cast; the cast ends on its own", () => {
+    const r = chainRig();
+    const aw = new AwakeningSystem(r.host);
+    const f = r.cs.get(1)!;
+    f.formEndTick = R + 5;
+    for (let t = T0 + 1; t <= R + 12 + 31 + 40; t++) { aw.update(t); r.step(t); }
+    expect(f.form).toBe("Base");
+    expect(r.dealt(1, 3)).toEqual([[captureTickOf(r, 3)! + 30, 3100]]);
+    expect(r.cs.captures.size).toBe(0);
+    expect(f.armored).toBe(false);
+  });
+
+  test("cleanup: a disconnect of the second victim removes the capture at once", () => {
+    const r = chainRig();
+    r.run(T0 + 1, R + 12);
+    const C2 = captureTickOf(r, 3)!;
+    r.run(R + 13, C2 + 5);
+    r.cs.remove(3);
+    expect(r.cs.captures.size).toBe(0);
+    r.run(C2 + 6, C2 + 80);
+    expect(r.cs.get(1)!.action).toBe("Idle");
+  });
+
+  test("cooldown is not reset by the chain: the next td.a4 is rejected until 570 ticks after the press", () => {
+    const r = chainRig();
+    r.run(T0 + 1, T0 + 568);
+    r.step(T0 + 569, { press: [{ slot: 4 }] });
+    expect(r.outcomes.at(-1)!.o.kind).not.toBe("started");
+    r.step(T0 + 570, { press: [{ slot: 4 }] });
+    expect(r.outcomes.at(-1)!.o).toMatchObject({ kind: "started", moveId: "td.a4" });
   });
 });
 

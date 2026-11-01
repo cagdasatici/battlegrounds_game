@@ -2,8 +2,8 @@ import { ARENA } from "@eb/shared/config/arena";
 import { forwardOf, type AbilityHandler } from "../../sim/AbilityRunner.js";
 import { makeSequenceHandler, type SeqState } from "./sequence.js";
 
-/** P1 elevated branch (spec 15): OFF in P0. Flip only together with the P1 acceptance tests. */
-export const P1_ELEVATED_SLAM = false;
+/** P1 elevated branch (spec 15, T24): ON, covered by tests/unit/td-base.test.ts. */
+export const P1_ELEVATED_SLAM = true;
 /** D values from the spec 15 dragSlam card. */
 export const DRAG_DISTANCE_M = 3;
 export const DRAG_TICKS = 36;
