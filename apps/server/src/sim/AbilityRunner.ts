@@ -6,6 +6,7 @@ import { beginCast, isAlive, type Fighter, type Reaction } from "./ActionMachine
 import type { CombatSystem } from "./Combat.js";
 import type { HitCandidate, HitResult } from "./HitResolver.js";
 import { LandingBonusBook } from "./LandingBonus.js";
+import { launchVector } from "./Knockback.js";
 import { OffensiveBuffer } from "./OffensiveBuffer.js";
 import type { ReflectableProjectiles } from "./Reflect.js";
 
@@ -516,8 +517,8 @@ export class AbilityRunner {
       if (launch.forward === 0 && launch.up === 0) continue;
       const cast = this.casts.get(c.attackerId);
       const yaw = cast && cast.castCounter === c.castCounter ? cast.aimYaw : ap.facingYaw;
-      const [fx, fz] = forwardOf(yaw);
-      out.push({ targetId: c.targetId, vx: fx * launch.forward, vy: launch.up, vz: fz * launch.forward });
+      const vp = this.host.pose(c.targetId) ?? ap;
+      out.push({ targetId: c.targetId, ...launchVector(c.originX, c.originZ, vp.x, vp.z, yaw, launch.forward, launch.up) });
     }
     return out;
   }

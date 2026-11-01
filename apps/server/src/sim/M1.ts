@@ -1,5 +1,6 @@
 import { COMBAT } from "@eb/shared/config/combat";
 import { beginCast, type Accept, type Fighter, type Reaction } from "./ActionMachine.js";
+import { launchVector } from "./Knockback.js";
 import { OffensiveBuffer } from "./OffensiveBuffer.js";
 import type { HitCandidate, HitResult } from "./HitResolver.js";
 
@@ -194,7 +195,10 @@ export class M1System {
       const ap = poseOf(c.attackerId);
       if (!v || !ap || v.action !== "Ragdolled" || v.actionStartTick !== tick) continue; // armor: no launch
       const variant = c.moveId.slice("m1.4.".length) as FourthVariant;
-      out.push({ targetId: c.targetId, ...launchOf(variant, ap.facingYaw) });
+      const vp = poseOf(c.targetId);
+      out.push({ targetId: c.targetId, ...(variant === "finisher" && vp
+        ? launchVector(c.originX, c.originZ, vp.x, vp.z, ap.facingYaw, M.finisherLaunch.forward, M.finisherLaunch.up)
+        : launchOf(variant, ap.facingYaw)) });
     }
     return out;
   }

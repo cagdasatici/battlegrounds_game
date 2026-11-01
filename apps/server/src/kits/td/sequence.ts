@@ -1,6 +1,7 @@
+import { launchVector } from "../../sim/Knockback.js";
 import { applyReaction, enterCaptured, isAlive, type Fighter } from "../../sim/ActionMachine.js";
 import {
-  buildCandidate, forwardOf, queryTargets,
+  buildCandidate, queryTargets,
   type AbilityHandler, type AbilityPose, type CastContext, type EndReason,
 } from "../../sim/AbilityRunner.js";
 import type { HitCandidate, HitResult } from "../../sim/HitResolver.js";
@@ -71,8 +72,10 @@ export function releaseVictim(c: CastContext, victimId: number, victimLife: numb
   if (!v || !isAlive(v) || v.lifeId !== victimLife) return null;
   const vp = host.pose(victimId);
   if (d.ragdollTicks > 0) applyReaction(v, c.tick, { kind: "ragdoll", ticks: d.ragdollTicks }, vp ? !vp.grounded : false);
-  const [fx, fz] = forwardOf(c.cast.aimYaw);
-  host.launch?.(victimId, fx * d.launch.forward, d.launch.up, fz * d.launch.forward);
+  // Origin of a capture release is the captor (spec 21); zero distance falls back to the cast aim.
+  const op = host.pose(c.fighter.entityId) ?? vp;
+  const l = launchVector(op?.x ?? 0, op?.z ?? 0, vp?.x ?? op?.x ?? 0, vp?.z ?? op?.z ?? 0, c.cast.aimYaw, d.launch.forward, d.launch.up);
+  host.launch?.(victimId, l.vx, l.vy, l.vz);
   return v;
 }
 
