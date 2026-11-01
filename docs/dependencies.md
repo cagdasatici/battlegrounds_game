@@ -22,7 +22,7 @@ Transitive resolutions (including @colyseus/core) are recorded in `pnpm-lock.yam
 
 ## Deviations (T01)
 
-- **Node**: `.node-version` pins 24.22.2 (current Node 24 LTS per nodejs.org index). The development sandbox runs Node 22.23.4, so `engines` is `>=22.12`. Verified on 22 only.
+- **Node**: `.node-version` pins 24.22.2 (current Node 24 LTS per nodejs.org index). The development sandbox runs Node 22.23.4, so `engines` was `>=22.12`. Verified on 22 only (superseded by R15 below).
 - **pnpm**: pinned 10.28.0 (installed in the sandbox). The spec asks to check official release metadata; the registry shows a newer major. Not upgraded.
 - **@types/node 24.0.0**: chosen to match Node 24; not verified against peers.
 - **@colyseus/ws-transport 0.18.4** and **tsx 4.23.15** are additions not listed in section 17.
@@ -34,3 +34,9 @@ Transitive resolutions (including @colyseus/core) are recorded in `pnpm-lock.yam
 - Colyseus 0.18 API as installed: `onDrop` plus `allowReconnection(client, seconds)` reserves the seat, `onReconnect` restores it, and Colyseus calls `onLeave` when the reservation expires. A consented close (code 4000) skips `onDrop`.
 - `express` is not a direct dependency. Routes are registered through the server `express` option using plain Node request/response APIs.
 - Rooms are created by the server (`RoomDirectory` plus `matchMaker.createRoom`). Clients receive a `roomId` with their ticket and use `joinById`, so a full room yields ROOM_FULL instead of a silent second room.
+
+## Node 24 run (R15)
+
+Node v24.22.2 (official linux-x64 tarball from nodejs.org) with pnpm 10.28.0: `pnpm install --frozen-lockfile` then `pnpm verify` exited 0
+(456 tests in 23 files passed, client build ok, content ok). Report: docs/test-results/R15.md. `engines.node` is now `"24.22.2"`.
+Not run: physical iPad checks, Node 22 on this commit.

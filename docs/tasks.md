@@ -63,6 +63,6 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | R12 | Two-client matrix for every move, A15 | R02 R03 R04 R05 R06 | TODO | | | |
 | R13 | Browser layout evidence | R01 | TODO | | | |
 | R14 | Prediction on the real collider | R08 | TODO | | | |
-| R15 | Node 24 run and decision records | R01 | TODO | | | |
+| R15 | Node 24 run and decision records | R01 | DONE | see git log R15: | docs/test-results/R15.md | Decisions numbered 0003-0006 (0002 taken by R01) |
 | R17 | Tick pipeline extraction | R01 | TODO | | | Wave 1 |
 | R18 | Latency matrix on loopback | R12 | TODO | | | Wave 3b |
