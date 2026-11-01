@@ -13,6 +13,7 @@
     "dev:server": "pnpm --filter @eb/server run dev",
     "dev:client": "pnpm --filter @eb/client run dev",
     "content:validate": "pnpm --filter @eb/server exec tsx ../../ops/scripts/content-validate.ts",
+    "play": "pnpm --filter @eb/server exec tsx ../../ops/scripts/play.ts",
     "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm content:validate",
     "test:browser": "playwright test",
     "start:prod": "NODE_ENV=production pnpm --filter @eb/server run start",

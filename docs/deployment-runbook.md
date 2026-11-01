@@ -2,6 +2,16 @@
 
 Nothing here has been run against a real host. Everything marked HOST STEP needs a machine, a hostname and accounts that the owner chooses. Nothing in the repository deploys, buys or sends anything.
 
+## One-command start (T33a)
+
+`pnpm play` is the owner shortcut on one machine: it checks Node 24 (warns with the PATH fix), runs `pnpm build` (skip with `--no-build`), creates an invitation (`--uses`, default 4; `--hours`, default 24) before the server starts, prints the link and a terminal QR code, then runs the production server and waits for `/healthz`. Modes (decision 0018):
+
+- default / `--lan`: home-network HTTP. Detects the private IPv4 (prefers `en0`; `--host-ip <ip>` overrides), binds `0.0.0.0`, `PUBLIC_ORIGIN=http://<ip>:2567`, sets `EB_ALLOW_NONLOOPBACK=1`, `EB_ALLOW_HTTP_ORIGIN=1`, `EB_LAN_HTTP=1`. On the iPad: open the link in Safari, then Share > Add to Home Screen. If macOS asks to allow incoming connections for node, click Allow. Do not use on shared or public Wi-Fi.
+- `--local`: loopback only (this computer).
+- `--tailscale`: opt-in HTTPS through `tailscale serve --bg` (never Funnel); fails if Tailscale is not running with a DNS name.
+
+`EB_LAN_HTTP=1` only drops the `Secure` cookie attribute and is refused unless HOST is non-loopback and `PUBLIC_ORIGIN` is `http://` with an RFC1918 IPv4. Defaults: `DATA_DIR=~/eb-data` (mode 700), `PORT=2567`, `BUILD_ID` = git short hash; override through the environment. Ctrl-C stops the server. The token appears only in the printed link. The Tailscale path is unit-tested with injected command output only; the LAN mode has not been run on a physical iPad.
+
 ## What ships
 
 | File | Purpose |
@@ -14,7 +24,7 @@ Nothing here has been run against a real host. Everything marked HOST STEP needs
 | `ops/deploy/com.elementalbattlegrounds.server.plist` | launchd template (restart on failure, logs). |
 | `ops/deploy/Caddyfile.public-profile` | Optional public HTTPS profile. |
 
-Environment keys (spec section 24): `NODE_ENV`, `HOST`, `PORT`, `PUBLIC_ORIGIN`, `ROOM_CAPACITY` (must be 4), `DATA_DIR`, `LOG_LEVEL`, plus `BUILD_ID` and optional `STATIC_DIR`. Local-only escape hatches: `EB_ALLOW_HTTP_ORIGIN=1`, `EB_ALLOW_NONLOOPBACK=1`. The old `EB_DATA_DIR`, `EB_ORIGINS`, `EB_BUILD_ID`, `EB_INSECURE_COOKIES` names are gone. `LOG_LEVEL` is validated but the logger does not filter by level yet. Health: `GET /healthz` returns `{"ok":true}` with no player data; `GET /api/version` returns protocol version, content hash and build id.
+Environment keys (spec section 24): `NODE_ENV`, `HOST`, `PORT`, `PUBLIC_ORIGIN`, `ROOM_CAPACITY` (must be 4), `DATA_DIR`, `LOG_LEVEL`, plus `BUILD_ID` and optional `STATIC_DIR`. Local-only escape hatches: `EB_ALLOW_HTTP_ORIGIN=1`, `EB_ALLOW_NONLOOPBACK=1`, `EB_LAN_HTTP=1` (home network, see below). The old `EB_DATA_DIR`, `EB_ORIGINS`, `EB_BUILD_ID`, `EB_INSECURE_COOKIES` names are gone. `LOG_LEVEL` is validated but the logger does not filter by level yet. Health: `GET /healthz` returns `{"ok":true}` with no player data; `GET /api/version` returns protocol version, content hash and build id.
 
 ## Install caveat: uWebSockets.js SSH URL
 

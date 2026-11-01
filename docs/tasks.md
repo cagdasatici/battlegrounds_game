@@ -43,6 +43,7 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | T29 | Security hardening | T22 T28 | TODO | | | |
 | T30 | Performance pass | T24 T26 T27 | TODO | | | |
 | T31 | Fidelity calibration | T18e T27 | IMPLEMENTED (DEVICE CHECK PENDING) | 779475b | docs/test-results/T31.md | decisions/0017. Layout JSON + ledger done; all O01-O08 NOT RUN. test:browser: 1 intermittent T27 flow test failure |
+| T33a | Owner ops kit: one-command start | T28 | IMPLEMENTED (DEVICE CHECK PENDING) | pending | docs/test-results/T33a.md | `pnpm play`; QR encoder + origin logic unit-tested; Tailscale path and iPad scan NOT RUN |
 | T32 | Release candidate | T29 T30 T31 | TODO | | | |
 
 ## Review fix packets (docs/implementation-plan.md section 4)

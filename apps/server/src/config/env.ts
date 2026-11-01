@@ -14,6 +14,8 @@ export interface ServerEnv {
   buildId: string;
   /** Absolute directory of the Vite build, or null to serve API only. */
   staticDir: string | null;
+  /** EB_LAN_HTTP=1: home-network HTTP mode. Only drops the Secure cookie attribute; requires a non-loopback HOST and an RFC1918 http origin. */
+  lanHttp: boolean;
 }
 
 export class ConfigError extends Error {
@@ -23,6 +25,14 @@ export class ConfigError extends Error {
 }
 
 type Env = Record<string, string | undefined>;
+/** True for dotted-quad IPv4 in 10/8, 172.16/12 or 192.168/16 (never a name, never a public address). */
+export function isRfc1918Host(host: string): boolean {
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (!m) return false;
+  const o = m.slice(1).map(Number);
+  if (o.some((n) => n > 255)) return false;
+  return o[0] === 10 || (o[0] === 172 && o[1]! >= 16 && o[1]! <= 31) || (o[0] === 192 && o[1] === 168);
+}
 const LOOPBACK = new Set(["127.0.0.1", "::1", "localhost"]);
 
 /** `cwd` and `repoRoot` are injected so the parser stays pure and testable. */
@@ -77,6 +87,14 @@ export function parseServerEnv(env: Env, cwd: string, repoRoot: string): ServerE
   if (!/^[A-Za-z0-9._-]{1,64}$/.test(buildId)) problems.push("BUILD_ID must be 1 to 64 characters of letters, digits, dot, dash or underscore");
   if (prod && buildId === "dev") problems.push("BUILD_ID is required in production (use the tagged commit)");
 
+  const lanHttp = get("EB_LAN_HTTP") === "1";
+  if (lanHttp) {
+    if (LOOPBACK.has(host)) problems.push("EB_LAN_HTTP requires a non-loopback HOST");
+    let ok = false;
+    try { const u = new URL(originRaw ?? ""); ok = u.protocol === "http:" && isRfc1918Host(u.hostname); } catch { /* not a URL */ }
+    if (!ok) problems.push("EB_LAN_HTTP requires PUBLIC_ORIGIN to be http://<private IPv4> (10.x, 172.16-31.x or 192.168.x); public IPs and domain names are refused");
+  }
+
   if (problems.length > 0) throw new ConfigError(problems);
-  return { nodeEnv, host, port, publicOrigin, roomCapacity: 4, dataDir, logLevel: logLevel as ServerEnv["logLevel"], buildId, staticDir };
+  return { nodeEnv, host, port, publicOrigin, roomCapacity: 4, dataDir, logLevel: logLevel as ServerEnv["logLevel"], buildId, staticDir, lanHttp };
 }

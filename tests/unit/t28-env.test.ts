@@ -44,3 +44,22 @@ describe("T28 static path resolution", () => {
     expect(resolveStaticPath("/r", "/%E0%A4%A")).toBeNull();
   });
 });
+
+describe("EB_LAN_HTTP home-network mode", () => {
+  const lan = { NODE_ENV: "production", DATA_DIR: "/var/eb", BUILD_ID: "v1", HOST: "0.0.0.0", EB_ALLOW_NONLOOPBACK: "1", EB_ALLOW_HTTP_ORIGIN: "1", EB_LAN_HTTP: "1", PUBLIC_ORIGIN: "http://192.168.1.20:2567" };
+  test("accepted for RFC1918 http origin on a non-loopback host", () => {
+    expect(parse(lan)).toMatchObject({ lanHttp: true, host: "0.0.0.0" });
+    expect(parse({ ...lan, PUBLIC_ORIGIN: "http://10.1.2.3:2567" }).lanHttp).toBe(true);
+    expect(parse({ ...lan, PUBLIC_ORIGIN: "http://172.31.0.9:2567" }).lanHttp).toBe(true);
+  });
+  test("refused for public IPs, domains, https, 172.32 and loopback host", () => {
+    for (const o of ["http://8.8.8.8:2567", "http://example.com:2567", "http://172.32.0.1:2567", "http://100.64.0.1:2567", "https://192.168.1.20:2567", "http://localhost:2567"]) {
+      expect(problems({ ...lan, PUBLIC_ORIGIN: o }).join(), o).toMatch(/EB_LAN_HTTP/);
+    }
+    expect(problems({ ...lan, HOST: "127.0.0.1" }).join()).toMatch(/EB_LAN_HTTP requires a non-loopback HOST/);
+    expect(problems({ ...lan, PUBLIC_ORIGIN: "" }).join()).toMatch(/EB_LAN_HTTP/);
+  });
+  test("lanHttp is false by default", () => {
+    expect(parse(ok).lanHttp).toBe(false);
+  });
+});

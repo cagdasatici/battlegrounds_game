@@ -15,7 +15,7 @@ try {
 const auth = createAuthServices({
   dataDir: env.dataDir,
   allowedOrigins: [env.publicOrigin],
-  secureCookies: env.publicOrigin.startsWith("https:"),
+  secureCookies: !env.lanHttp && env.publicOrigin.startsWith("https:"),
   roomCodes: { play: "arena", practice: "practice" },
   buildId: env.buildId,
 });

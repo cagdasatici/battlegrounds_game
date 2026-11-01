@@ -1,1 +1,3 @@
 # battlegrounds_game
+
+**Quick start: `pnpm play`** builds the game, creates an invitation, prints the link and a QR code, and starts the server for your home Wi-Fi (plain HTTP on this computer's private IP; Ctrl-C stops it). Flags: `--local` (this computer only), `--tailscale` (HTTPS via Tailscale Serve, opt-in), `--host-ip <ip>`, `--no-build`, `--uses N` (default 4), `--hours N` (default 24). On the iPad: open the link in Safari, then Share > Add to Home Screen. Needs Node 24: `export PATH="$HOME/.local/node24/bin:$PATH"`. See `docs/deployment-runbook.md` and `docs/decisions/0018-home-lan-http-default.md`.
