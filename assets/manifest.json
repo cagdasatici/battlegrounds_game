@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 1,
+  "generator": "ops/scripts/build-art.ts",
+  "assets": [
+    {
+      "id": "fighter.sv",
+      "kind": "fighter",
+      "path": "assets/fighters/sv.gltf",
+      "sha256": "70a46aa0382da7fe64ae443d1c0ae8e2cdcc0b37ddb6132ca482f7e0ded1fa55",
+      "byteSize": 343275,
+      "license": "Project-original work; no third-party material; rights held by the project owner",
+      "author": "Elemental Battlegrounds project (code authored in repository by Claude Code under owner direction)",
+      "source": "repo:ops/scripts/art-gltf.ts from packages/shared/src/rig.ts and fighterDesign.ts",
+      "creationMethod": "procedural-code",
+      "rigVersion": "eb-rig-1",
+      "bounds": {
+        "min": [
+          -0.49791,
+          -0.915,
+          -0.23
+        ],
+        "max": [
+          0.35794,
+          0.97,
+          0.2044
+        ]
+      },
+      "kit": "sv",
+      "clips": [
+        "idle",
+        "walk",
+        "run",
+        "jump",
+        "fall",
+        "land",
+        "guard",
+        "dashFront",
+        "dashSide",
+        "dashBack",
+        "hitLight",
+        "ragdollPose",
+        "getup",
+        "death",
+        "m1.1",
+        "m1.2",
+        "m1.3",
+        "m1.4",
+        "sv.b1",
+        "sv.b2",
+        "sv.b3",
+        "sv.b4",
+        "sv.a1",
+        "sv.a2",
+        "sv.a3",
+        "sv.a4",
+        "sv.activate",
+        "sv.x1",
+        "sv.x2",
+        "sv.x3"
+      ],
+      "notes": "Stone Vanguard: skinned vertex-coloured model with 30 clips"
+    },
+    {
+      "id": "fighter.td",
+      "kind": "fighter",
+      "path": "assets/fighters/td.gltf",
+      "sha256": "731ad949105d7203850a4f148552e3a623090589c514557bc44b257f607fee49",
+      "byteSize": 360802,
+      "license": "Project-original work; no third-party material; rights held by the project owner",
+      "author": "Elemental Battlegrounds project (code authored in repository by Claude Code under owner direction)",
+      "source": "repo:ops/scripts/art-gltf.ts from packages/shared/src/rig.ts and fighterDesign.ts",
+      "creationMethod": "procedural-code",
+      "rigVersion": "eb-rig-1",
+      "bounds": {
+        "min": [
+          -0.325,
+          -0.91,
+          -0.185
+        ],
+        "max": [
+          0.385,
+          0.98,
+          0.29293
+        ]
+      },
+      "kit": "td",
+      "clips": [
+        "idle",
+        "walk",
+        "run",
+        "jump",
+        "fall",
+        "land",
+        "guard",
+        "dashFront",
+        "dashSide",
+        "dashBack",
+        "hitLight",
+        "ragdollPose",
+        "getup",
+        "death",
+        "m1.1",
+        "m1.2",
+        "m1.3",
+        "m1.4",
+        "td.b1",
+        "td.b2",
+        "td.b3",
+        "td.b4",
+        "td.a1",
+        "td.a2",
+        "td.a3",
+        "td.a4",
+        "td.activate"
+      ],
+      "notes": "Tide Duelist: skinned vertex-coloured model with 27 clips"
+    },
+    {
+      "id": "fighter.ea",
+      "kind": "fighter",
+      "path": "assets/fighters/ea.gltf",
+      "sha256": "9492bebd196281ac2599dd91e438d9439f1ac531a4595568f2ace90af55308ab",
+      "byteSize": 408216,
+      "license": "Project-original work; no third-party material; rights held by the project owner",
+      "author": "Elemental Battlegrounds project (code authored in repository by Claude Code under owner direction)",
+      "source": "repo:ops/scripts/art-gltf.ts from packages/shared/src/rig.ts and fighterDesign.ts",
+      "creationMethod": "procedural-code",
+      "rigVersion": "eb-rig-1",
+      "bounds": {
+        "min": [
+          -0.352,
+          -0.91,
+          -0.185
+        ],
+        "max": [
+          0.352,
+          0.97,
+          0.72238
+        ]
+      },
+      "kit": "ea",
+      "clips": [
+        "idle",
+        "walk",
+        "run",
+        "jump",
+        "fall",
+        "land",
+        "guard",
+        "dashFront",
+        "dashSide",
+        "dashBack",
+        "hitLight",
+        "ragdollPose",
+        "getup",
+        "death",
+        "m1.1",
+        "m1.2",
+        "m1.3",
+        "m1.4",
+        "ea.b1",
+        "ea.b2",
+        "ea.b3",
+        "ea.b4",
+        "ea.a1",
+        "ea.a2",
+        "ea.a3",
+        "ea.a4",
+        "ea.activate"
+      ],
+      "notes": "Ember Artificer: skinned vertex-coloured model with 27 clips"
+    },
+    {
+      "id": "map.islands.v1",
+      "kind": "map",
+      "path": "assets/maps/islands.v1.json",
+      "sha256": "aa5448877b874f57356d459caa4591ee33908c89642f0dc173898ed43f103224",
+      "byteSize": 6374,
+      "license": "Project-original work; no third-party material; rights held by the project owner",
+      "author": "Elemental Battlegrounds project (code authored in repository by Claude Code under owner direction)",
+      "source": "repo:packages/shared/src/config/arena.ts buildIslandsMap()",
+      "creationMethod": "procedural-code",
+      "notes": "Collision map; regenerated by content:validate --write"
+    },
+    {
+      "id": "code.arena-view",
+      "kind": "code",
+      "path": "apps/client/src/scene/ArenaView.ts",
+      "sha256": "2ada012c84f20f0bef01a7b505c27d2c5095ad40f9fbc3fdc15112c73afbb84e",
+      "byteSize": 17041,
+      "license": "Project-original work; no third-party material; rights held by the project owner",
+      "author": "Elemental Battlegrounds project (code authored in repository by Claude Code under owner direction)",
+      "source": "repo:apps/client/src/scene/ArenaView.ts",
+      "creationMethod": "hand-authored-code",
+      "notes": "Arena, sky, clouds and islet visuals are built at runtime from this file; hashed so a change must be re-recorded here"
+    }
+  ]
+}

@@ -29,8 +29,10 @@ describe("T18a GameScene", () => {
     const gs = new GameScene(fakeRenderer(), colliders, fakeWindow());
     const names = new Set<string>();
     gs.scene.traverse((o) => { if ((o as Mesh).isMesh) names.add(o.name); });
-    expect(names.size).toBe(colliders.length);
-    for (const c of colliders) expect(names.has(c.id)).toBe(true);
+    // T25: one mesh per collider id, plus merged decoration meshes named "deco.*" (sky, clouds, cover, islets).
+    const ids = new Set(colliders.map((c) => c.id));
+    expect([...names].filter((n) => ids.has(n)).length).toBe(colliders.length);
+    for (const n of names) expect(ids.has(n) || n.startsWith("deco.")).toBe(true);
     gs.dispose();
   });
 

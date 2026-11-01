@@ -1,0 +1,81 @@
+// T25 visual checks: the real GameScene over the islands map with all three fighters, in real Chromium (SwiftShader WebGL).
+// Screenshot name comes from EB_ART_SHOT (default T25-after.png) so the same spec captures the before and after images.
+import { test, expect, chromium, type Browser } from "@playwright/test";
+import { createRequire } from "node:module";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const root = path.resolve(here, "../..");
+const outDir = path.join(root, "docs/test-results");
+const req = createRequire(path.join(root, "apps/client/package.json"));
+const CHROMIUM = process.env["EB_CHROMIUM"] ?? "/opt/pw-browsers/chromium";
+const GL_ARGS = ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"];
+
+interface Dev { close(): Promise<void>; listen(): Promise<unknown>; resolvedUrls: { local: string[] } | null }
+interface ArtApi { frames(): number; info(): { calls: number; triangles: number }; act(kit: string, action: string, moveId: string): void; clip(kit: string): string; quality(q: string): void }
+let server: Dev;
+let browser: Browser;
+let base = "";
+
+test.beforeAll(async () => {
+  const vite = req("vite") as { createServer(c: unknown): Promise<Dev> };
+  server = await vite.createServer({ root: path.join(here, "harness"), configFile: false, server: { port: 0, host: "127.0.0.1", fs: { strict: false } }, logLevel: "error" });
+  await server.listen();
+  base = server.resolvedUrls!.local[0]!;
+  browser = await chromium.launch({ executablePath: CHROMIUM, args: GL_ARGS });
+});
+test.afterAll(async () => { await browser?.close(); await server?.close(); });
+
+test("arena and three fighters render without errors and stay inside the draw budget", async () => {
+  const ctx = await browser.newContext({ viewport: { width: 1180, height: 820 } });
+  const page = await ctx.newPage();
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  // The only expected console error is the favicon 404.
+  page.on("console", (m) => { if (m.type() === "error" && !m.text().includes("404")) errors.push(m.text()); });
+  try {
+    await page.goto(`${base}/art.html${process.env["EB_ART_VIEW"] ? `?view=${process.env["EB_ART_VIEW"]}` : ""}`);
+    await page.waitForFunction(() => ((window as unknown as { __art?: ArtApi }).__art?.frames() ?? 0) > 30, undefined, { timeout: 30_000 });
+    mkdirSync(outDir, { recursive: true });
+    await page.screenshot({ path: path.join(outDir, process.env["EB_ART_SHOT"] ?? "T25-after.png") });
+    const info = await page.evaluate(() => (window as unknown as { __art: ArtApi }).__art.info());
+    // Software (SwiftShader) frame rate per quality: not a device measurement, only a relative CPU cost signal.
+    const fps: Record<string, number> = {};
+    for (const q of ["medium", "low"]) {
+      await page.evaluate((v) => (window as unknown as { __art: ArtApi }).__art.quality(v), q);
+      const f0 = await page.evaluate(() => (window as unknown as { __art: ArtApi }).__art.frames());
+      await page.waitForTimeout(2000);
+      const f1 = await page.evaluate(() => (window as unknown as { __art: ArtApi }).__art.frames());
+      fps[q] = (f1 - f0) / 2;
+    }
+    writeFileSync(path.join(outDir, "T25-render-info.json"), JSON.stringify({ ...info, swiftShaderFps1180x820: fps }, null, 2) + "\n");
+    expect(info.calls).toBeLessThanOrEqual(120);
+    expect(info.triangles).toBeLessThanOrEqual(150_000);
+    expect(errors).toEqual([]);
+  } finally { await ctx.close(); }
+});
+
+test("fighters play move, guard and ability clips in a real render, and low quality still renders", async () => {
+  const ctx = await browser.newContext({ viewport: { width: 1180, height: 820 } });
+  const page = await ctx.newPage();
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  try {
+    await page.goto(`${base}/art.html`);
+    await page.waitForFunction(() => ((window as unknown as { __art?: ArtApi }).__art?.frames() ?? 0) > 10, undefined, { timeout: 30_000 });
+    await page.evaluate(() => {
+      const a = (window as unknown as { __art: ArtApi }).__art;
+      a.act("sv", "Active", "sv.a2"); a.act("td", "Guard", ""); a.act("ea", "Windup", "ea.a3");
+    });
+    await page.waitForTimeout(450);
+    const clips = await page.evaluate(() => { const a = (window as unknown as { __art: ArtApi }).__art; return [a.clip("sv"), a.clip("td"), a.clip("ea")]; });
+    expect(clips).toEqual(["sv.a2", "guard", "ea.a3"]);
+    await page.screenshot({ path: path.join(outDir, "T25-after-poses.png") });
+    await page.evaluate(() => (window as unknown as { __art: ArtApi }).__art.quality("low"));
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: path.join(outDir, "T25-after-low.png") });
+    expect(errors).toEqual([]);
+  } finally { await ctx.close(); }
+});
