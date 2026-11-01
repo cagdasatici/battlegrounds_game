@@ -241,6 +241,28 @@ the cited section.
 2. Run `pnpm verify` once on Node 24.22.2 (`.node-version`), record the result in `docs/dependencies.md`, then set
    `engines.node` to `24.22.2`. If Node 24 is not available, record NOT RUN; do not claim it.
 
+### R16 Plan gap: the client renders nothing, and no task owns the scene before T18
+
+- Fact: `apps/client/src/main.ts` is 21 lines and only prints "Preparing arena". `GameScene`, `FighterView`,
+  `EffectsPool`, `Lobby`, `AppFlow`, `KeyboardRouter` and `SettingsStore` (spec §18 tree) do not exist. `Hud`,
+  `Prediction`, `SnapshotBuffer` and `CameraRig` exist but are not connected to anything.
+- Spec §27 gives T18 only "AppFlow, PracticeRoom, onboarding, tests". In practice T18 would carry the whole client:
+  scene, lobby, fighter selection, HUD wiring, prediction loop and practice room. That is several thousand lines,
+  far above the 500-line task limit, and it is the first point where a person can play.
+- Product consequence: after 15 tasks nobody can see or play anything. Control spacing, the reason §27 schedules an
+  early playtest, cannot be judged yet.
+- Do (a scope decision for the owner, then a ledger change): split T18 before starting it:
+  - T18a `GameScene` + `FighterView` with original geometric placeholders, interpolating remote players from
+    `SnapshotBuffer`.
+  - T18b input loop: `PointerRouter` → `IntentSampler` → `RoomClient`, plus `Prediction` on the local player and
+    `CameraRig`.
+  - T18c `AppFlow` + `Lobby` (Welcome, invite exchange, fighter select, Ready, the §6 error states) and the `Hud`
+    wired to replicated fields.
+  - T18d `PracticeRoom` + onboarding.
+  - T18e the P0 gate (two clients complete all moves; D02, D04, D08 recorded as NOT RUN until done on the iPads).
+- Recommended order: run T18a and T18b right after R01 to R06, before T16 and T17. The first visual playtest then
+  happens with eight moves instead of sixteen, which is what §27 intends.
+
 ## 6. Spec conflicts to record as decision records (`docs/decisions/`)
 
 Do not silently change code for these; write the record, then follow it.
@@ -266,4 +288,248 @@ Base: claude/busy-faraday-hqbvp3 at <hash>. Prerequisites merged: <ids>.
 Allowed files: <from the packet>. Excluded: everything else; no package upgrades.
 Done: packet tests pass; pnpm verify exit 0 (paste output); docs/test-results/R0x.md; ledger updated.
 Report: changed behavior, executed checks, actual limitations, NOT RUN items.
+```
+
+## 9. Quality assessment (score out of 100)
+
+Scored at `f0c1ac9` against the spec's own definition of done. Each line comes from evidence in this review.
+
+| Dimension | Weight | Score | Evidence |
+|---|---|---|---|
+| Architecture and authority model | 20 | 17 | Fixed tick, generation tokens, serial resolver, capture registry, pure shared modules, no client damage path. Minus: kit stored in three places (R10); `ArenaRoom.stepTick` is becoming the place where every system is wired in by hand. |
+| Spec fidelity of implemented scope | 25 | 18 | 12 moves match their tables. Minus: captured-victim eligibility (R02), two buffers (R03), shape anchors and Ocean Surge through walls (R05), forward-dash hit missing (R06), turnRate (R07), missing replicated fields (R08). |
+| Test rigor | 20 | 14 | 456 deterministic tests, exact tick boundaries, damage sums asserted, fuzz with invariants. Minus: 7 of 12 moves have no two-client test, A15 missing, no browser tests, one "third party" test bypasses the path it claims to test. |
+| Verification honesty and process | 15 | 10 | NOT RUN items recorded honestly, limitations listed. Minus: every report claims a typecheck that fails on a fresh clone, ledger lacks hashes and uses invalid statuses, parallel worktrees merged by hand. |
+| Build and repo hygiene | 10 | 4 | Exact pins and lockfile present. Minus: fresh-clone typecheck fails, build output committed, lint is not a linter, pinned Node 24 never run, `main` 11 tasks behind. |
+| Delivery progress toward a playable P0 | 10 | 5 | 15 of 18 P0 tasks done in about 2 hours. Minus: nothing renders and nobody can play yet; T18 as written is too large (R16). |
+| **Total** | **100** | **68** | |
+
+How to read 68: the foundation is good, and it is better than typical agent output on the hard part (authoritative
+combat). The score is held down by fixable defects and gaps in verification evidence, not by architecture. After R01
+to R06 and R15, the expected score is about 78. After R08, R12 to R14 and a split T18 that renders a playable
+build, about 85. Above 90 needs the physical iPad checks, which no agent can run.
+
+## 10. Code-level implementation details
+
+These snippets match the code at `f0c1ac9`. They are the intended shape, not paste-ready patches. Names in
+backticks exist today unless marked NEW.
+
+### R02 `queryTargets` (apps/server/src/sim/AbilityRunner.ts)
+
+```ts
+export interface QueryOptions {
+  filter?: (target: Fighter, pose: AbilityPose) => boolean;
+  maxLength?: number;
+  excludeCaptured?: boolean;          // NEW, replaces allowCaptured
+  shape?: Shape; range?: number; targetStates?: readonly TargetState[];
+  boxCentreY?: number;                // NEW (R05), default 0.2
+  beamOrigin?: { forward: number; up: number }; // NEW (R05), default { forward: 0.6, up: 0.4 }
+}
+
+// inside the loop, replace
+//   if (t.action === "Captured" && !opts.allowCaptured) continue;
+// with
+if (opts.excludeCaptured && host.combat.captures.isCaptured(t.entityId)) continue;
+// A cinematic capture is still refused later by HitResolver (outcome "shielded"); do not duplicate that rule here.
+```
+
+Callers that must pass `excludeCaptured: true`: the probe branch in `kits/td/sequence.ts makeSequenceHandler`,
+`kits/sv/cinematicGrab.ts`, and `kits/sv/launcher.ts` (it currently uses the default `meleeCandidates`, so give it a
+`candidates(c)` that calls `queryTargets(c, { excludeCaptured: true })`).
+
+Note: `targetStateOf()` returns "standing" or "air" for a Captured fighter. That is correct here; do not add a fourth
+state.
+
+### R03 single offensive buffer (NEW apps/server/src/sim/OffensiveBuffer.ts)
+
+```ts
+export type Buffered =
+  | { kind: "m1"; tick: number }
+  | { kind: "skill"; slot: 1 | 2 | 3 | 4; edgeId: number; tick: number };
+
+/** Lower number = higher priority (spec 12): skill slot 1..4 rank 2..5, M1 rank 7. */
+const rank = (b: Buffered): number => (b.kind === "skill" ? 1 + b.slot : 7);
+
+export class OffensiveBuffer {
+  private readonly byEntity = new Map<number, Buffered>();
+  /** Returns the replaced skill edge (so the room can answer it STATE), or null. */
+  set(entityId: number, next: Buffered): Buffered | null {
+    const cur = this.byEntity.get(entityId);
+    if (cur && cur.tick === next.tick && rank(cur) <= rank(next)) return next.kind === "skill" ? next : null;
+    this.byEntity.set(entityId, next);
+    return cur && cur.kind === "skill" ? cur : null;
+  }
+  take(entityId: number, tick: number, window: number): Buffered | null {
+    const b = this.byEntity.get(entityId);
+    if (!b) return null;
+    this.byEntity.delete(entityId);
+    return tick - b.tick > window ? null : b;   // window = COMBAT.bufferTicks (6)
+  }
+  peek(entityId: number): Buffered | undefined { return this.byEntity.get(entityId); }
+  drop(entityId: number): void { this.byEntity.delete(entityId); }
+  clear(): void { this.byEntity.clear(); }
+}
+```
+
+Wiring:
+- Construct one instance in `ArenaRoom` and pass it to both `M1System` and `AbilityRunner`.
+- `M1System.update`: on a rising edge while not Idle, call `buffer.set(id, { kind: "m1", tick })`. Delete
+  `ChainState.pressTick`. A held attack while Idle still commits directly. Only presses are buffered.
+- `AbilityRunner.skillDown`: replace `this.buffers.set(...)` with `buffer.set(...)`. Answer a returned replaced edge
+  with `rejected / STATE`.
+- At the Recovery to Idle boundary (top of the per-seat input step in `stepTick`), call `buffer.take(...)` once and
+  dispatch to M1 or the skill. Remove `AbilityRunner.consumeBuffer` and `buffers`.
+- Clear the entity's entry on death, respawn and leave. This is where `AbilityRunner.reset` and `M1System.reset` are
+  called today.
+
+### R04 `armorOf` (apps/server/src/sim/AbilityRunner.ts)
+
+```ts
+private armorOf(cast: ActiveCast, tick: number): boolean {
+  if (tick < cast.armorUntil) return true;
+  switch (cast.def.armor) {
+    case "startup": return tick < cast.activeStart;
+    case "onHit": return cast.data.firstHitTick !== undefined && tick < cast.activeEnd;
+    default: return false;
+  }
+}
+// in afterResolve, before calling the handler's onResults:
+for (const r of list) {
+  if ((r.outcome === "hit" && r.damage100 > 0) || r.outcome === "captured") {
+    cast.data.firstHitTick ??= tick;
+  }
+}
+```
+
+The tick on which the first hit lands is not armored (the hit resolved before armor existed). From the next tick it
+is. Test exactly that boundary.
+
+### R05 shape anchors (apps/server/src/sim/AbilityRunner.ts shapeOverlaps)
+
+Add two trailing parameters, `boxCentreY = 0.2` and `beamOrigin = { forward: 0.6, up: 0.4 }`.
+- Box: `const cy = a.y + boxCentreY;`
+- Beam: shift the attacker reference before measuring.
+  `const ox = a.x + fx * beamOrigin.forward, oz = a.z + fz * beamOrigin.forward, oy = a.y + beamOrigin.up;`
+  Measure `fwd`, `right` and the vertical gap from `(ox, oy, oz)`.
+- `queryTargets` passes `opts.boxCentreY` and `opts.beamOrigin` through.
+- `longBeam.beamLengthOf` starts its bisection ray at the same origin.
+- Line-of-sight checks stay centre to centre.
+
+Ocean Surge (`apps/server/src/sim/Awakening.ts`):
+
+```ts
+export interface AwakeningHost {
+  readonly combat: CombatSystem;
+  pose(id: number): { x: number; y: number; z: number; facingYaw: number; grounded: boolean } | undefined;
+  blocked(a: readonly [number, number, number], b: readonly [number, number, number]): boolean; // NEW
+}
+// in collect(), before near.push(...):
+if (this.host.blocked([ap.x, ap.y, ap.z], [tp.x, tp.y, tp.z])) continue;
+```
+
+`ArenaRoom.abilityHost()` already provides `blocked`, so the same object satisfies both interfaces.
+
+### R06 forward-dash attack (NEW apps/server/src/sim/DashAttack.ts)
+
+```ts
+const D = COMBAT.dash.forward;               // ticks 18, hitTicks 3, damage 4, stunTicks 24
+export function dashCandidates(tick: number, fighters: readonly Fighter[],
+  poseOf: (id: number) => M1Pose | undefined, occluded: (a: M1Pose, t: M1Pose) => boolean): HitCandidate[] {
+  const out: HitCandidate[] = [];
+  for (const a of fighters) {
+    if (a.action !== "Dash" || a.dash?.kind !== "forward") continue;
+    if (tick < a.actionStartTick + D.ticks - D.hitTicks || tick >= a.actionEndTick) continue;
+    const ap = poseOf(a.entityId); if (!ap) continue;
+    for (const t of fighters) {
+      if (t.entityId === a.entityId || t.action === "Dead") continue;
+      const tp = poseOf(t.entityId);
+      if (!tp || !m1Overlaps(ap, tp, null) || occluded(ap, tp)) continue;
+      out.push({ attackerId: a.entityId, attackerGeneration: a.generation, castCounter: a.castCounter,
+        hitIndex: 0, toi: 0, targetId: t.entityId, moveId: "dash.forward", originX: ap.x, originZ: ap.z,
+        block: "B", counterable: true, armorBreak: false, damage100: D.damage * 100,
+        reaction: { kind: "stun", ticks: D.stunTicks }, maxHitsPerTarget: 1 });
+    }
+  }
+  return out;
+}
+```
+
+Also:
+- `CombatSystem.pruneLedger` already keeps the entry while `f.dash !== null`, so deduplication across the 3 ticks
+  works.
+- `m1Overlaps` uses `facingYaw`. During a dash that equals the dash direction only when the dash was forward, which
+  is the only kind that hits.
+
+### R07 turnRate (AbilityRunner.collect and Movement)
+
+```ts
+// ActiveCast: aimYaw becomes mutable.
+const maxStep = (cast.def.turnRate * Math.PI / 180) / 60;      // radians per tick
+const want = this.host.requestedYaw?.(id) ?? cast.aimYaw;      // NEW host hook: Movement's desired facing this tick
+cast.aimYaw = rotateToward(cast.aimYaw, want, maxStep);        // NEW shared math: shortest arc, clamp to maxStep
+```
+
+- Movement: add `facingOverrideOf(id)`, used exactly like `dashOverride`. While a cast is live it returns
+  `cast.aimYaw`, so the body never turns faster than the hitbox.
+- Put `rotateToward` in `packages/shared/src/math.ts` and unit test the wrap-around at ±π.
+
+### R08 owner-only state (apps/server/src/state/PlayerSchema.ts)
+
+```ts
+import { Schema, ArraySchema, defineTypes, view } from "@colyseus/schema";
+export class OwnerSchema extends Schema {
+  ackSeq = 0; ackInputTick = 0; epoch = 1; pendingKit = ""; evasiveEndTick = 0; chargeStartTick = 0;
+  lethalCounterRemaining = 0;
+}
+// PlayerSchema gains:  cooldownEndTicks = new ArraySchema<number>(0, 0, 0, 0);  (uint32)
+//                      owner = new OwnerSchema();  tagged with view() so only clients whose view contains it receive it
+// ArenaRoom.onJoin / onReconnect:  client.view ??= new StateView(); client.view.add(player.owner);
+```
+
+- Check the exact decorator form and `client.view` property against the installed 0.18.10 / 5.0.43 typings before
+  writing code. AGENTS.md forbids assuming an API from documentation.
+- Publish `cooldownEndTicks[i]` from `fighter.cooldowns.get(registry.slotted(kit, fighter.form, i+1)?.id)` in
+  `publishAction`.
+
+### R09.1 edge seq (apps/server/src/net/ValidateInput.ts)
+
+```ts
+export interface QueuedEdge { edge: Edge; arrivalTick: number; seq: number }
+// accept(): this.queue.push({ edge: e, arrivalTick: tick, seq: p.seq });
+// ArenaRoom.sendActionResult gains a `seq` parameter; every caller passes q.seq.
+```
+
+### R10 one kit owner
+
+```ts
+// ActionMachine.Fighter: kitId: KitId;   createFighter(entityId, lifeId, tick, kitId)
+// CombatSystem.add(entityId, lifeId, tick, kitId)
+// AbilityRunner: delete kits map; defFor(f, slot) uses this.registry.slotted(f.kitId, f.form, slot); kitOf(id) reads combat.get(id)?.kitId
+// AwakeningSystem: delete kits map and setKit; request() reads f.kitId; gain() uses a.kitId
+// ArenaRoom.onReady: combat.add(..., m.data.kitId); remove abilities.setKit and awakening.setKit
+```
+
+### R11 knockback vector (NEW apps/server/src/sim/Knockback.ts)
+
+```ts
+export function launchVector(ox: number, oz: number, tx: number, tz: number, attackerYaw: number,
+  forward: number, up: number): { vx: number; vy: number; vz: number } {
+  let dx = tx - ox, dz = tz - oz;
+  const len = Math.hypot(dx, dz);
+  if (len < 1e-6) { dx = -Math.sin(attackerYaw); dz = -Math.cos(attackerYaw); } else { dx /= len; dz /= len; }
+  return { vx: dx * forward, vy: up, vz: dz * forward };
+}
+```
+
+Downslam and the uppercut keep their pure vertical vectors (forward 0), so A03 is unchanged.
+
+### R12 wire matrix fixture shape (tests/integration/kit-matrix.test.ts)
+
+```ts
+interface Row { move: MoveId; kit: KitId; setup: (h: Harness) => Promise<void>;
+  edge: { kind: "skillDown"; slot: 1 | 2 | 3 | 4 } | { kind: "awaken" };
+  expectVictimHp100: number; expectVictimAction: Action; waitTicks: number }
+// for each row: two real RoomClient connections (tests/fixtures/harness.ts), place bodies via the server body API,
+// send the edge through PointerRouter + IntentSampler, wait waitTicks of serverTick, then assert on BOTH clients'
+// replicated state at the same serverTick. Never read server memory for the assertion.
 ```
