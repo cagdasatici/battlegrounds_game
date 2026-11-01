@@ -10,6 +10,7 @@ import islandsUrl from "../../../assets/maps/islands.v1.json?url";
 import { AppFlow } from "./app/AppFlow.js";
 import { CombatBus } from "./app/CombatBus.js";
 import { registerPresentation } from "./fx/index.js";
+import { CaptureCam } from "./fx/CaptureCam.js";
 import { GameLoop, type LoopPlayer, type LoopState } from "./app/GameLoop.js";
 import { SettingsStore } from "./app/SettingsStore.js";
 import { computeLayout, type Layout } from "./input/ControlLayout.js";
@@ -264,6 +265,15 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       scene: g.scene, camera: g.camera, players, settings, localId: () => { const me = localOf(); return me ? String(me.entityId) : undefined; },
       effects: g.effects, fighters: (id) => g.viewFor(id), shake: (a, ms) => { cam.shake(a, ms); },
     }));
+    const captureCam = new CaptureCam(cam);
+    let capRaf = 0;
+    const capFrame = (): void => {
+      const me = localOf() as { action?: string; lifeId?: number; connected?: boolean } | undefined;
+      captureCam.update({ action: me?.action, lifeId: me?.lifeId, connected: me !== undefined && me.connected !== false, menuOpen, reducedMotion: settings.get().reducedMotion });
+      capRaf = requestAnimationFrame(capFrame);
+    };
+    capRaf = requestAnimationFrame(capFrame);
+    matchCleanups.push(() => { cancelAnimationFrame(capRaf); captureCam.dispose(); });
     const loop = new GameLoop({
       scene: g, camera: cam, collide: kitHandle.collide, router, sampler, clock,
       readState: (): LoopState => ({ serverTick: (r.state as { serverTick?: number }).serverTick ?? 0, players: players().entries() }),

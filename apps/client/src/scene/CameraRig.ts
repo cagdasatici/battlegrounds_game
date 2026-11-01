@@ -90,6 +90,10 @@ export function sphereCast(colliders: readonly Collider[], from: V3, dir: V3, ma
   return best;
 }
 
+/** A capture camera track: orbit in radians at the peak, target distance in metres at the peak, total length in render ms. */
+export interface CameraTrack { ms: number; orbitRad: number; distance: number }
+export const CAMERA_TRACK_MAX_MS = 1200;
+
 export interface CameraPose { position: V3; pivot: V3; yaw: number; pitch: number; distance: number }
 
 /**
@@ -108,6 +112,8 @@ export class CameraRig {
   private shakeLeft = 0;
   private shakeTotal = 0;
   private shakeClock = 0;
+  private track: CameraTrack | null = null;
+  private trackT = 0;
   pose: CameraPose = { position: { x: 0, y: 0, z: 0 }, pivot: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0, distance: CAMERA.defaultDistance };
 
   constructor(private colliders: readonly Collider[]) {}
@@ -119,6 +125,16 @@ export class CameraRig {
     if (this.shakeLeft > 0 && a < this.shakeAmp * (this.shakeLeft / this.shakeTotal)) return;
     this.shakeAmp = a; this.shakeLeft = ms / 1000; this.shakeTotal = ms / 1000;
   }
+  /** Capture camera (FX5): a short orbit plus distance ease that returns to the normal view by its end. No-op under Reduced Motion. */
+  playTrack(track: CameraTrack): void {
+    if (this.reducedMotion || !(track.ms > 0)) return;
+    this.track = { ...track, ms: Math.min(track.ms, CAMERA_TRACK_MAX_MS) };
+    this.trackT = 0;
+  }
+  /** Drops the track at once; the next update uses the normal camera. */
+  cancelTrack(): void { this.track = null; this.trackT = 0; }
+  get tracking(): boolean { return this.track !== null; }
+
   get shaking(): boolean { return this.shakeLeft > 0; }
 
   setColliders(colliders: readonly Collider[]): void { this.colliders = colliders; }
@@ -133,11 +149,23 @@ export class CameraRig {
   update(centre: V3, yaw: number, pitch: number, dtSeconds: number): CameraPose {
     const pivot = { x: centre.x, y: centre.y + CAMERA.pivotHeight, z: centre.z };
     // Camera sits behind the facing direction: back = -forward = (sin yaw, cos yaw), raised by pitch.
-    const cp = Math.cos(pitch);
-    const dir = { x: Math.sin(yaw) * cp, y: -Math.sin(pitch), z: Math.cos(yaw) * cp };
-    const hit = sphereCast(this.colliders, pivot, dir, this.desired, CAMERA.castRadius);
-    const allowed = hit < this.desired ? Math.max(0, hit - CAMERA.clearance) : this.desired;
     const dt = Number.isFinite(dtSeconds) && dtSeconds > 0 ? dtSeconds : 0;
+    let camYaw = yaw, want: number = this.desired;
+    if (this.reducedMotion) this.cancelTrack();
+    if (this.track) {
+      this.trackT += dt * 1000;
+      const p = this.trackT / this.track.ms;
+      if (p >= 1) this.cancelTrack();
+      else {
+        const bell = Math.sin(Math.PI * p); // 0 at both ends, so start and finish never snap
+        camYaw = yaw + this.track.orbitRad * bell;
+        want = this.desired + (this.track.distance - this.desired) * bell;
+      }
+    }
+    const cp = Math.cos(pitch);
+    const dir = { x: Math.sin(camYaw) * cp, y: -Math.sin(pitch), z: Math.cos(camYaw) * cp };
+    const hit = sphereCast(this.colliders, pivot, dir, want, CAMERA.castRadius);
+    const allowed = hit < want ? Math.max(0, hit - CAMERA.clearance) : want;
     if (allowed <= this.current) {
       this.current = allowed; // pull inward immediately
       this.easeFrom = allowed;
