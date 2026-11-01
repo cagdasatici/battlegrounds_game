@@ -65,7 +65,7 @@ describe("T12 Stone Vanguard base moves over a real Colyseus connection", () => 
     };
 
     // No client path for damage: the message vocabulary has no hit/damage type, and forged messages are ignored.
-    expect(Object.keys(ClientMessage).sort()).toEqual(["changeKit", "input", "leave", "ping", "ready"]);
+    expect(Object.keys(ClientMessage).sort()).toEqual(["changeKit", "input", "leave", "ping", "practice", "ready"]);
     ra.send("hit", { targetId: bId, damage100: 9999 });
     ra.send("input", { ...sampler.sample(++tick)!, damage100: 9999, targetId: bId });
     await sleep(120);

@@ -21,13 +21,13 @@
     "seenByB": 5600
   },
   "correctionsA": {
-    "none": 190,
-    "small": 178,
-    "medium": 53,
+    "none": 108,
+    "small": 201,
+    "medium": 71,
     "snap": 1,
     "suspended": 0
   },
-  "reconcilesA": 422,
+  "reconcilesA": 381,
   "consoleErrorsA": [],
   "consoleErrorsB": []
 }
