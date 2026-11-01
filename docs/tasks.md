@@ -140,7 +140,7 @@ Execute one row per session using [the Quality 90 instructions](quality-90-plan.
 | QA01 | Reliable sparring and replay | Q01 BOT5 | DONE | 577f9bc | docs/test-results/QA01.md |
 | QC01 | Close-combat visibility | Q01 | IN PROGRESS | 1c9190b | docs/test-results/QC01.md |
 | QE01 | East bridge MegaKit art pass | Q01 ART1 | IMPLEMENTED (DEVICE CHECK PENDING) | de8cf2a | docs/test-results/QE01.md |
-| QF01 | Stone Vanguard silhouette and animation | Q01 ART2 | IMPLEMENTED (DEVICE CHECK PENDING) | pending | docs/test-results/QF01.md |
+| QF01 | Stone Vanguard silhouette and animation | Q01 ART2 | IMPLEMENTED (DEVICE CHECK PENDING) | c8e12ad | docs/test-results/QF01.md |
 | QV01 | Visible urn lifecycle | Q01 T23 ORB2 | TODO | | docs/test-results/QV01.md |
 | QV02 | Durable attack telegraphs | Q01 FX4-align | TODO | | docs/test-results/QV02.md |
 | QV03 | Fault Strike signature | QV02 QF01 | TODO | | docs/test-results/QV03.md |
