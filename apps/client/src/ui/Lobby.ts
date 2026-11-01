@@ -33,6 +33,8 @@ export interface LobbyView {
   connection: "online" | "offline";
   /** "practice" shows the training room text instead of the seat count. */
   mode?: "play" | "practice";
+  /** WEB2: an update is ready and no match is running. */
+  updateVisible?: boolean;
 }
 export interface LobbyActions {
   play(): void;
@@ -44,6 +46,8 @@ export interface LobbyActions {
   ready(kit: KitId): void;
   /** Opens the settings panel (T27). Optional so older callers keep working. */
   settings?(): void;
+  /** WEB2: user tapped Update; the caller activates the waiting worker and reloads. */
+  update?(): void;
 }
 
 export class Lobby {
@@ -70,6 +74,7 @@ export class Lobby {
       else if (a === "retry") this.act.retry();
       else if (a === "back") this.act.back();
       else if (a === "settings") this.act.settings?.();
+      else if (a === "update") this.act.update?.();
       else if (a === "ready") this.act.ready(this.selected);
       else if (a === "name" && b?.dataset["name"]) { this.name = b.dataset["name"]; if (this.last) this.render(this.last.st, this.last.view); }
       else if (a === "kit" && b?.dataset["kit"]) { this.selected = b.dataset["kit"] as KitId; if (this.last) this.render(this.last.st, this.last.view); }
@@ -116,12 +121,14 @@ export class Lobby {
       this.add("button", "How to play", { "data-act": "guide" });
       this.add("button", "Practice", { "data-act": "practice" });
       this.add("button", "Settings", { "data-act": "settings" });
+      if (view.updateVisible) this.add("button", "Update", { "data-act": "update" });
       return;
     }
     if (st.screen === "error" && st.error) {
       this.add("h2", "Something went wrong");
       this.add("p", ERROR_TEXT[st.error], { "data-ui": "error", "data-code": st.error });
       if (st.canRetry) this.add("button", "Retry", { "data-act": "retry" });
+      if (st.error === "VERSION_MISMATCH") this.add("button", "Update", { "data-act": "update" });
       this.add("button", "Back", { "data-act": "back" });
       return;
     }

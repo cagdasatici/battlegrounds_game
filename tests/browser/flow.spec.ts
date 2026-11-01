@@ -141,7 +141,7 @@ test.describe("five error states, each with plain text and Retry or Back", () =>
     const b = await open("&name=Arel", false);
     try {
       const calls: string[] = [];
-      b.page.on("request", (r) => { if (r.url().includes("/api/")) calls.push(r.url()); });
+      b.page.on("request", (r) => { if (r.url().includes("/api/") && !r.url().endsWith("/api/version")) calls.push(r.url()); }); // WEB2: public update check is allowed
       await b.page.waitForSelector("[data-act=play]");
       await b.page.click("[data-act=play]");
       await expect(errorBox(b.page)).toHaveAttribute("data-code", "INVITE_INVALID");

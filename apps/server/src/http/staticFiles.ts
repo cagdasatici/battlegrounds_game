@@ -30,7 +30,9 @@ export function registerStaticRoutes(app: HttpApp, rootDir: string, publicOrigin
   const serve = (req: IncomingMessage, res: ServerResponse): void => {
     const url = req.url ?? "/";
     if (url.startsWith("/api/") || url.startsWith("/matchmake")) { res.statusCode = 404; res.end(); return; }
-    let file = resolveStaticPath(root, url);
+    const pathOnly = url.split("?")[0] ?? "/";
+    const isAdmin = pathOnly === "/admin" || pathOnly === "/admin/" || pathOnly === "/admin.html";
+    let file = isAdmin ? join(root, "admin.html") : resolveStaticPath(root, url);
     if (file === null) { res.statusCode = 400; res.end(); return; }
     if (existsSync(file) && statSync(file).isDirectory()) file = join(file, "index.html");
     if (!existsSync(file)) {
@@ -40,7 +42,7 @@ export function registerStaticRoutes(app: HttpApp, rootDir: string, publicOrigin
     const hashed = file.includes(`${sep}assets${sep}`);
     res.statusCode = 200;
     res.setHeader("Content-Type", TYPES[extname(file)] ?? "application/octet-stream");
-    res.setHeader("Cache-Control", hashed ? "public, max-age=31536000, immutable" : "no-cache");
+    res.setHeader("Cache-Control", isAdmin ? "no-store" : hashed ? "public, max-age=31536000, immutable" : "no-cache");
     if (file === join(root, "sw.js")) res.setHeader("Service-Worker-Allowed", "/");
     for (const [k, v] of Object.entries(secure)) res.setHeader(k, v);
     const stream = createReadStream(file);

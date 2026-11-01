@@ -10,7 +10,8 @@ import {
 import islandsUrl from "../../../assets/maps/islands.v1.json?url";
 import { mountRoomList } from "./ui/RoomList.js";
 import { mountSparringSetup } from "./ui/SparringSetup.js";
-import { registerServiceWorker } from "./app/registerSw.js";
+import { swRegistration } from "./app/registerSw.js";
+import { UpdateWatcher, browserUpdateDeps } from "./app/UpdateWatcher.js";
 import { AppFlow } from "./app/AppFlow.js";
 import { CombatBus } from "./app/CombatBus.js";
 import { registerPresentation } from "./fx/index.js";
@@ -102,10 +103,17 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     if (r) await rc.leave().catch(() => undefined);
   };
 
+  // WEB2: update button. Hidden while a room is joined; checks run only on the welcome/lobby screens.
+  const updater = new UpdateWatcher(browserUpdateDeps({
+    inMatch: () => room !== null,
+    onLobbyScreen: () => flowRef.current?.state.screen !== "match",
+    reg: swRegistration,
+  }));
   const lobby = new Lobby(app, {
     play: () => { void flowRef.current?.play(); },
     practice: () => { void flowRef.current?.practice(); },
     guide: () => { openGuide(); },
+    update: () => { void updater.apply(); },
     retry: () => { void flowRef.current?.retry(); },
     back: () => { void flowRef.current?.back(); },
     ready: (k) => { flowRef.current?.ready(k); },
@@ -241,7 +249,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   flowRef.current = flow;
 
   const lobbyView = (): LobbyView =>
-    ({ seated: players().size, capacity: MAX_CLIENTS, connection: room ? "online" : "offline", mode: flow.mode === "practice" ? "practice" : "play" });
+    ({ updateVisible: updater.state.visible, seated: players().size, capacity: MAX_CLIENTS, connection: room ? "online" : "offline", mode: flow.mode === "practice" ? "practice" : "play" });
   let setupPending = false;
   const sparControls = document.createElement("div");
   sparControls.style.cssText = "position:fixed;inset:0;z-index:20;overflow:auto;background:#0b1118;display:none;padding:16px;box-sizing:border-box";
@@ -301,7 +309,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   let lobbyKey = "";
   const paintLobby = (force = false): void => {
     const v = lobbyView();
-    const key = `${flow.state.screen}|${flow.state.error}|${flow.state.canRetry}|${v.seated}|${v.connection}|${flow.mode}`;
+    const key = `${updater.state.visible}|${flow.state.screen}|${flow.state.error}|${flow.state.canRetry}|${v.seated}|${v.connection}|${flow.mode}`;
     if (!force && key === lobbyKey) return;
     lobbyKey = key;
     lobby.render(flow.state, v);
@@ -311,7 +319,10 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     if (flow.state.screen !== "welcome") hideRooms();
     sparButton.textContent = hostRoom ? "Sparring controls" : "Host sparring";
   };
-  cleanups.push(flow.subscribe(() => { paintLobby(true); }));
+  cleanups.push(flow.subscribe(() => { paintLobby(true); updater.refresh(); }));
+  cleanups.push(updater.subscribe(() => { paintLobby(true); }));
+  updater.start();
+  cleanups.push(() => { updater.dispose(); });
   const lobbyTimer = window.setInterval(() => { paintLobby(); }, 250);
   cleanups.push(() => window.clearInterval(lobbyTimer));
 
@@ -532,7 +543,7 @@ export function readBootOptions(loc: Location = location, hist: History = histor
 
 const app = document.getElementById("app");
 if (app) void boot(app);
-void registerServiceWorker();
+void swRegistration();
 
 /** Reads the invitation from the URL fragment and removes it before any request (spec section 20). */
 export function consumeInviteFragment(loc: Location = location, hist: History = history): string | null {

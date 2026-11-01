@@ -11,7 +11,7 @@ function routeRequest(rawUrl, method, selfOrigin) {
   if (u.protocol !== "http:" && u.protocol !== "https:") return "bypass";
   if (u.origin !== selfOrigin) return "bypass";
   const p = u.pathname;
-  if (p.startsWith("/api/") || p.startsWith("/matchmake") || p === "/healthz" || p === "/sw.js" || p === "/asset-manifest.json") return "bypass";
+  if (p.startsWith("/api/") || p.startsWith("/matchmake") || p === "/healthz" || p === "/admin" || p.startsWith("/admin/") || p === "/admin.html" || p === "/sw.js" || p === "/asset-manifest.json") return "bypass";
   if (p.startsWith("/assets/") || p.startsWith("/icons/")) return "cache-first";
   return "network-first";
 }

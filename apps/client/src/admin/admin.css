@@ -1,0 +1,14 @@
+:root { color-scheme: dark; }
+body { margin: 0; background: #0b1118; color: #fff; font: 16px system-ui, sans-serif; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+.adm { box-sizing: border-box; max-width: 760px; margin: 0 auto; padding: 16px; }
+.adm h1, .adm h2 { margin: 8px 0 12px; }
+.adm nav { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.adm button, .adm input, .adm select { min-height: 48px; font: inherit; padding: 8px 16px; border-radius: 8px; border: 2px solid #9fd3ff; background: #1d2b3a; color: #fff; box-sizing: border-box; }
+.adm button[aria-current="page"] { background: #2f4b68; }
+.adm button:disabled { opacity: .5; }
+.adm label { display: block; margin: 8px 0; }
+.adm ul { list-style: none; padding: 0; margin: 12px 0; }
+.adm li { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin: 8px 0; padding: 8px 0; border-bottom: 1px solid #243447; }
+.adm .err { color: #ffb4b4; }
+.adm pre { white-space: pre-wrap; word-break: break-all; font-size: 12px; max-height: 240px; overflow: auto; background: #101a24; padding: 8px; border-radius: 8px; }
+.adm .link { user-select: all; word-break: break-all; background: #101a24; padding: 8px; border-radius: 8px; }

@@ -41,7 +41,7 @@ Run it: `cloudflared tunnel run battlegrounds`. To keep it running after reboot:
 - SSL/TLS > Edge Certificates: Always Use HTTPS **on**. Minimum TLS 1.2.
 - Network: WebSockets **on** (default).
 - Caching: leave defaults. The game sends `Cache-Control: no-store` for API calls; the service worker (WEB1) handles file caching, so do not enable Rocket Loader, Auto Minify or any "Email obfuscation"/JS rewriting for this hostname.
-- Optional but recommended for the future admin page (WEB4): Zero Trust > Access > Applications > add `battle.cagdasatici.com/admin*` with an email one-time-PIN policy limited to your address. That puts a second login in front of the admin app.
+- Optional but recommended for the admin app (WEB4/WEB5, served at `/admin`): Zero Trust > Access > Applications > add `battle.cagdasatici.com/admin*` and `battle.cagdasatici.com/api/admin*` with an email one-time-PIN policy limited to your address. That puts a second login in front of the admin app and its API. Enable the admin by setting `ADMIN_PASSWORD_HASH` (print one with `ops/scripts/admin-hash.ts`).
 
 ## 4. Verify
 1. `curl https://battle.cagdasatici.com/healthz` returns `{"ok":true}`.
