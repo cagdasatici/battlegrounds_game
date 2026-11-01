@@ -35,7 +35,7 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | T21 | Artificer awakening | T20 | TODO | | | |
 | T22 | Passives | T21 | TODO | | | |
 | T23 | Props and wall context | T18e T19 | TODO | | | |
-| T24 | Duelist P1 variants | T16 | TODO | | | |
+| T24 | Duelist P1 variants | T16 | IMPLEMENTED (DEVICE CHECK PENDING) | COMMIT | docs/test-results/T24.md | decisions/t24-duelist-p1-variants. Unit only for chain/elevated; no wire row |
 | T25 | Original art pipeline | T18e | TODO | | | |
 | T26 | Effects audio and camera | T21 T23 T25 | TODO | | | |
 | T27 | Settings and layout editor | T07 T18e | TODO | | | |
