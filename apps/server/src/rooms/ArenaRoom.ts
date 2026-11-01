@@ -14,7 +14,8 @@ import { MovementSystem, type HorizontalOverride } from "../sim/Movement.js";
 import { CombatSystem } from "../sim/Combat.js";
 import { M1System, type M1Pose } from "../sim/M1.js";
 import { AbilityRunner, type AbilityHost, type SkillOutcome } from "../sim/AbilityRunner.js";
-import { AwakeningSystem, type AwakenOutcome } from "../sim/Awakening.js";
+import { AwakeningSystem } from "../sim/Awakening.js";
+import { TickPipeline, type PipelineSeat } from "../sim/TickPipeline.js";
 import { ALL_HANDLERS, buildKitRegistry } from "../kits/index.js";
 import type { HitResult } from "../sim/HitResolver.js";
 import { locomotionLocked, intentsSuppressed } from "../sim/ActionMachine.js";
@@ -63,6 +64,13 @@ export class ArenaRoom extends Room {
   readonly awakening: AwakeningSystem = new AwakeningSystem(this.abilityHost());
   readonly abilities: AbilityRunner = new AbilityRunner(buildKitRegistry(), ALL_HANDLERS, this.abilityHost());
   private eventSeq = 0;
+  private readonly pipeline: TickPipeline = new TickPipeline({
+    state: this.state, combat: this.combat, m1: this.m1, abilities: this.abilities, awakening: this.awakening,
+    movement: () => this.movement, world: () => this.world, seats: () => this.seats,
+    poseOf: (id) => this.poseOf(id),
+    sendActionResult: (sid, seat, edgeId, tick, ok, reason, castId) => this.sendActionResult(sid, seat, edgeId, tick, ok, reason, castId),
+    broadcastEvent: (tick, kind, actor, target, lifeId, moveId, dmg) => this.broadcastEvent(tick, kind, actor, target, lifeId, moveId, dmg),
+  });
 
   override async onCreate(options: { roomCode?: string }): Promise<void> {
     this.roomCode = typeof options?.roomCode === "string" ? options.roomCode : "";
@@ -199,67 +207,9 @@ export class ArenaRoom extends Room {
     this.sim.advance(elapsed, (tick) => this.stepTick(tick), now);
   }
 
-  /** One logical 60 Hz tick (spec sections 12 and 21 order, subset implemented so far). */
+  /** One logical 60 Hz tick (spec sections 12 and 21 order lives in TickPipeline). */
   stepTick(tick: number): void {
-    const mv = this.movement;
-    const grounded = (id: number): boolean => mv?.get(id)?.state.grounded ?? false;
-    // Expiries before input intents.
-    this.combat.expire(tick, grounded);
-    this.awakening.update(tick);
-    const intents = new Map<number, MoveIntent>();
-    for (const [sessionId, seat] of this.seats) {
-      seat.input.expireLease(tick, COMBAT.inputLeaseTicks);
-      const edges = seat.input.drain();
-      const h = seat.input.held;
-      const f = this.combat.get(seat.entityId);
-      const body = mv?.get(seat.entityId);
-      let jumpPressed = false;
-      // Input priority (spec 12): evasive -> awakening -> skill lowest slot -> dash -> M1 -> jump -> guard -> movement.
-      // An illegal higher priority request never suppresses a legal lower one.
-      const ordered = [...edges].sort((a, b) => this.edgeRank(f, a.edge) - this.edgeRank(f, b.edge));
-      if (f) {
-        const buffered = this.abilities.consumeBuffer(f, tick);
-        if (buffered) this.reportSkill(sessionId, seat, f, buffered.edgeId, tick, buffered.outcome);
-      }
-      for (const q of ordered) {
-        if (q.edge.kind === "dash") {
-          const r = f && body ? this.combat.requestDash(seat.entityId, tick, body.state.facingYaw, h.moveX, h.moveZ)
-            : { ok: false as const, reason: "STATE" as const };
-          this.sendActionResult(sessionId, seat, q.edge.id, tick, r.ok, r.ok ? undefined : r.reason);
-        } else if (q.edge.kind === "skillDown") {
-          const o: SkillOutcome = f ? this.abilities.skillDown(f, tick, q.edge.slot, q.edge.id) : { kind: "rejected", reason: "STATE" };
-          if (f) this.reportSkill(sessionId, seat, f, q.edge.id, tick, o);
-        } else if (q.edge.kind === "awaken") {
-          // Never buffered. Rejections are METER, FORM or STATE and are answered immediately.
-          const o: AwakenOutcome = f ? this.awakening.request(f, tick, this.abilities.kitOf(seat.entityId)) : { kind: "rejected", reason: "STATE" };
-          if (f) this.reportSkill(sessionId, seat, f, q.edge.id, tick, o);
-        } else if (q.edge.kind === "jump") jumpPressed = true;
-        // skillUp: press moves ignore the release; holdRelease moves arrive with T19. awaken: T14.
-      }
-      if (f) {
-        // M1 has no edge: the server derives presses and legal repeats from the held attack state.
-        const started = this.m1.update(f, tick, h, this.poseOf(seat.entityId));
-        if (started?.ok) this.broadcastEvent(tick, "cast", f.entityId, undefined, f.lifeId, f.moveId);
-        // During an active combo, holding Jump suppresses the ordinary jump (fourth hit uppercut gesture).
-        if (h.jumpHeld && this.m1.comboActive(f, tick)) jumpPressed = false;
-        this.combat.updateGuard(seat.entityId, tick, h.blockHeld, grounded(seat.entityId));
-        if (intentsSuppressed(f) || locomotionLocked(f) || f.action === "Dash") jumpPressed = false;
-      }
-      const castScale = this.abilities.moveScaleOf(seat.entityId);
-      const locked = !!f && (locomotionLocked(f) || f.action === "Dash" || (castScale === 0 && f.action !== "Idle"));
-      // moveScale (spec 14): during an ability cast with 0 < scale < 1 the player's movement intent is scaled and
-      // running is suppressed (T12, sv.b2 moveScale 0.15). turnRate facing lock is not enforced yet.
-      const scaled = castScale !== null && castScale > 0 && castScale < 1 && f !== undefined && f.action !== "Idle";
-      const mScale = scaled ? castScale : 1;
-      intents.set(seat.entityId, locked ? NEUTRAL_MOVE
-        : { moveX: h.moveX * mScale, moveZ: h.moveZ * mScale, run: scaled ? false : h.runHeld, guard: f?.action === "Guard" || h.blockHeld, jumpPressed });
-    }
-    if (mv) {
-      mv.step(tick, (id) => intents.get(id) ?? NEUTRAL_MOVE, (id) => this.dashOverride(id));
-      this.resolveM1(tick);
-      for (const seat of this.seats.values()) { this.publishBody(seat.entityId); this.publishAction(seat.entityId); }
-    }
-    this.state.serverTick = tick;
+    this.pipeline.step(tick);
   }
 
   private abilityHost(): AbilityHost {
@@ -274,71 +224,10 @@ export class ArenaRoom extends Room {
     };
   }
 
-  /** evasive (dash while ragdolled) 0, awaken 1, skillDown by slot 2.., dash 6, jump 7, others last. */
-  private edgeRank(f: { action: string } | undefined, e: { kind: string; slot?: number }): number {
-    if (e.kind === "dash") return f?.action === "Ragdolled" ? 0 : 6;
-    if (e.kind === "awaken") return 1;
-    if (e.kind === "skillDown") return 1 + (e.slot ?? 4);
-    if (e.kind === "jump") return 7;
-    return 8;
-  }
-
-  private reportSkill(sessionId: string, seat: Seat, f: { entityId: number; lifeId: number }, edgeId: number, tick: number, o: SkillOutcome | AwakenOutcome): void {
-    if (o.kind === "buffered") return; // answered when the buffered edge is consumed or expires
-    if (o.kind === "started") {
-      this.sendActionResult(sessionId, seat, edgeId, tick, true, undefined, `${f.entityId}.${o.castCounter}`);
-      this.broadcastEvent(tick, "cast", f.entityId, undefined, f.lifeId, o.moveId);
-    } else this.sendActionResult(sessionId, seat, edgeId, tick, false, o.reason);
-  }
-
   private poseOf(id: number): M1Pose | undefined {
     const b = this.movement?.get(id);
     const p = this.movement?.position(id);
     return b && p ? { x: p[0], y: p[1], z: p[2], facingYaw: b.state.facingYaw, grounded: b.state.grounded } : undefined;
-  }
-
-  /** Collision queries and hit resolution for M1 swings at the current server poses (spec 12/13). */
-  private resolveM1(tick: number): void {
-    const w = this.world;
-    const pose = (id: number): M1Pose | undefined => this.poseOf(id);
-    const cands = [
-      ...this.m1.candidates(tick, this.combat.all(), pose,
-        (a, t) => !!w && w.segmentBlocked([a.x, a.y, a.z], [t.x, t.y, t.z])),
-      ...this.abilities.collect(tick),
-      ...this.awakening.collect(tick),
-    ];
-    if (cands.length === 0) return;
-    const results = this.combat.resolve(tick, cands, (id) => {
-      const q = pose(id);
-      return q && { x: q.x, z: q.z, facingYaw: q.facingYaw, grounded: q.grounded };
-    });
-    this.abilities.afterResolve(tick, results);
-    this.awakening.gain(results);
-    const launches = [...this.m1.launches(tick, results, (id) => this.combat.get(id), pose), ...this.abilities.launches(tick, results)];
-    for (const l of launches) {
-      const b = this.movement?.get(l.targetId);
-      if (!b) continue;
-      b.state.vx = l.vx; b.state.vz = l.vz; b.state.vy = l.vy;
-      if (l.vy > 0) b.state.grounded = false;
-    }
-    for (const r of results) this.reportHit(tick, r);
-  }
-
-  private reportHit(tick: number, r: HitResult): void {
-    const c = r.candidate;
-    const victim = this.combat.get(c.targetId);
-    const kind: CombatEvent["kind"] | null = r.outcome === "hit" ? "hit" : r.outcome === "blocked" ? "block"
-      : r.outcome === "countered" ? "counter" : null;
-    if (kind && victim) this.broadcastEvent(tick, kind, c.attackerId, c.targetId, victim.lifeId, c.moveId, r.damage100);
-    else if (r.outcome === "captured" && victim) this.broadcastEvent(tick, "capture", c.attackerId, c.targetId, victim.lifeId, c.moveId, r.damage100);
-    if (r.killed && victim) {
-      this.m1.reset(c.targetId);
-      this.abilities.reset(c.targetId);
-      this.awakening.reset(c.targetId);
-      // Death resets held inputs (spec 11): neutralize the victim's input channel.
-      for (const seat of this.seats.values()) if (seat.entityId === c.targetId) seat.input.neutralize();
-      this.broadcastEvent(tick, "ko", c.attackerId, c.targetId, victim.lifeId, c.moveId);
-    }
   }
 
   private broadcastEvent(tick: number, kind: CombatEvent["kind"], actor: number, target: number | undefined,
@@ -350,46 +239,13 @@ export class ArenaRoom extends Room {
     this.broadcast(ServerMessage.combatEvent, e);
   }
 
-  private dashOverride(id: number): HorizontalOverride | null {
-    const d = this.combat.get(id)?.dash;
-    return d ? { vx: d.dirX * d.speed, vz: d.dirZ * d.speed } : null;
-  }
-
-  private publishAction(entityId: number): void {
-    const p = this.state.players.get(String(entityId));
-    const f = this.combat.get(entityId);
-    if (!p || !f) return;
-    p.action = f.action;
-    p.actionStartTick = f.actionStartTick;
-    p.actionEndTick = Math.min(f.actionEndTick, 0xffffffff);
-    p.moveId = f.moveId;
-    p.hp100 = f.hp100;
-    p.protectedUntilTick = f.protectedUntilTick;
-    p.form = f.form;
-    p.formEndTick = Math.min(f.formEndTick, 0xffffffff);
-    p.meter100 = f.meter100;
-    p.awakenedUsedMask = f.awakenedUsedMask;
-    p.contextSpent = f.contextSpent;
-  }
-
-  private sendActionResult(sessionId: string, seat: Seat, edgeId: number, tick: number, accepted: boolean, reason?: ActionResult["reason"], castId?: string): void {
+  private sendActionResult(sessionId: string, seat: PipelineSeat, edgeId: number, tick: number, accepted: boolean, reason?: ActionResult["reason"], castId?: string): void {
     const client = this.clients.find((c) => c.sessionId === sessionId);
     if (!client) return;
     const msg: ActionResult = { epoch: seat.input.epoch, seq: seat.input.lastReceivedSeq, edgeId, accepted, tick };
     if (reason) msg.reason = reason;
     if (castId) msg.castId = castId;
     client.send(ServerMessage.actionResult, msg);
-  }
-
-  private publishBody(entityId: number): void {
-    const p = this.state.players.get(String(entityId));
-    const b = this.movement?.get(entityId);
-    const pos = this.movement?.position(entityId);
-    if (!p || !b || !pos) return;
-    const i16 = (v: number): number => Math.max(-32768, Math.min(32767, quantizeCm(v)));
-    p.x = quantizeCm(pos[0]); p.y = quantizeCm(pos[1]); p.z = quantizeCm(pos[2]);
-    p.vx = i16(b.state.vx); p.vy = i16(b.state.vy); p.vz = i16(b.state.vz);
-    p.facingYaw = quantizeYaw(b.state.facingYaw);
   }
 
   /** First spawn anchor whose capsule is at least 2 m from every occupied capsule (spec section 10). */
@@ -425,7 +281,7 @@ export class ArenaRoom extends Room {
     this.combat.add(seat.entityId, p.lifeId, this.sim.tick);
     if (this.movement) {
       this.movement.add(seat.entityId, this.chooseSpawn());
-      this.publishBody(seat.entityId);
+      this.pipeline.publishBody(seat.entityId);
     }
     this.state.phase = "playing";
   }
