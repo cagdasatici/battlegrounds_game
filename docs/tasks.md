@@ -39,7 +39,7 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | T25 | Original art pipeline | T18e | TODO | | | |
 | T26 | Effects audio and camera | T21 T23 T25 | TODO | | | |
 | T27 | Settings and layout editor | T07 T18e | TODO | | | |
-| T28 | Production hosting | T04 T18e | TODO | | | |
+| T28 | Production hosting | T04 T18e | IMPLEMENTED, DEVICE CHECK PENDING | 3778216 | docs/test-results/T28.md | Local build/serve/health/two-client verified; TLS, host, iPad remote checks NOT RUN (no host chosen) |
 | T29 | Security hardening | T22 T28 | TODO | | | |
 | T30 | Performance pass | T24 T26 T27 | TODO | | | |
 | T31 | Fidelity calibration | T18e T27 | TODO | | | |

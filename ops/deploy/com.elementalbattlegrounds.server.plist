@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- TEMPLATE, not installed by any script. Replace every CHANGE-ME path, then see docs/deployment-runbook.md.
+     Secrets are not placed here: the plist only names the env file that the wrapper sources. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.elementalbattlegrounds.server</string>
+  <key>UserName</key><string>CHANGE-ME-service-account</string>
+  <key>WorkingDirectory</key><string>/CHANGE-ME/release/current</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string>
+    <string>/CHANGE-ME/release/current/ops/deploy/run-prod.sh</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>EB_ENV_FILE</key><string>/CHANGE-ME/eb.env</string>
+    <key>PATH</key><string>/CHANGE-ME/node/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
+  <key>ThrottleInterval</key><integer>10</integer>
+  <key>StandardOutPath</key><string>/CHANGE-ME/logs/server.log</string>
+  <key>StandardErrorPath</key><string>/CHANGE-ME/logs/server.err.log</string>
+</dict>
+</plist>
