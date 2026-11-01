@@ -8,7 +8,7 @@ let rig: ContextRig;
 afterEach(() => rig?.dispose());
 
 describe("wall definitions", () => {
-  test("sv.wall, td.wall and ea.wall are generated from one template; none takes a slot; the Artificer kit keeps exactly its four T20 base moves", () => {
+  test("sv.wall, td.wall and ea.wall are generated from one template; none takes a slot; no Artificer kit move is added", () => {
     const get = (id: string) => ALL_ABILITY_DEFS.find((d) => d.id === id)!;
     for (const k of ["sv", "td", "ea"]) {
       const d = get(`${k}.wall`);
@@ -19,6 +19,7 @@ describe("wall definitions", () => {
       expect(d.hitOffsets).toEqual([0, 12, 30]);
       expect(d.cooldown).toBe(360);
     }
+    // The shared template adds no Artificer kit move: apart from it, ea.* is exactly T20's base set.
     expect(ALL_ABILITY_DEFS.filter((d) => d.id.startsWith("ea.") && !/^ea\.(wall|pickup|throw)$/.test(d.id)).map((d) => d.id)).toEqual(["ea.b1", "ea.b2", "ea.b3", "ea.b4"]);
   });
 });
