@@ -33,6 +33,8 @@ export class CombatSystem {
 
   get(entityId: number): Fighter | undefined { return this.fighters.get(entityId); }
   get size(): number { return this.fighters.size; }
+  /** Fighters in stable entity order (deterministic query order). */
+  all(): Fighter[] { return this.ids().map((id) => this.fighters.get(id)!); }
 
   /** HP zero or void rule. Cancels casts and captures; one KO per life. */
   kill(entityId: number, tick: number): boolean {

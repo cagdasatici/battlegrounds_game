@@ -93,6 +93,15 @@ export class World {
     return hit ? fromY - hit.timeOfImpact : null;
   }
 
+  /** True when static geometry blocks the straight segment a->b (player capsules are ignored). */
+  segmentBlocked(a: MapVec3, b: MapVec3): boolean {
+    const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
+    const len = Math.hypot(dx, dy, dz);
+    if (!(len > 1e-6)) return false;
+    const ray = new RAPIER.Ray({ x: a[0], y: a[1], z: a[2] }, { x: dx / len, y: dy / len, z: dz / len });
+    return this.rapier.castRay(ray, len, true, RAPIER.QueryFilterFlags.EXCLUDE_KINEMATIC) !== null;
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;

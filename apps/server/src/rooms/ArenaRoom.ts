@@ -2,7 +2,7 @@ import { Room, type Client } from "colyseus";
 import {
   ChangeKitMessageSchema, ClientMessage, JoinOptionsSchema, MAX_CLIENTS, P0_KITS, PATCH_RATE_MS,
   PROTOCOL_VERSION, PingMessageSchema, RECONNECT_SECONDS, ReadyMessageSchema, ServerMessage, TICK_RATE,
-  type ActionResult, type KitId, type WelcomeMessage,
+  type ActionResult, type CombatEvent, type KitId, type WelcomeMessage,
 } from "@eb/shared/protocol";
 import { COMBAT } from "@eb/shared/config/combat";
 import { computeContentHash } from "@eb/shared/config/content";
@@ -12,6 +12,8 @@ import { FixedClock } from "../sim/FixedClock.js";
 import { World } from "../sim/World.js";
 import { MovementSystem, type HorizontalOverride } from "../sim/Movement.js";
 import { CombatSystem } from "../sim/Combat.js";
+import { M1System, type M1Pose } from "../sim/M1.js";
+import type { HitResult } from "../sim/HitResolver.js";
 import { locomotionLocked, intentsSuppressed } from "../sim/ActionMachine.js";
 import { NEUTRAL_MOVE, type MoveIntent } from "@eb/shared/movement";
 import { ARENA, type MapVec3 } from "@eb/shared/config/arena";
@@ -54,6 +56,8 @@ export class ArenaRoom extends Room {
   world: World | null = null;
   movement: MovementSystem | null = null;
   readonly combat = new CombatSystem();
+  readonly m1 = new M1System();
+  private eventSeq = 0;
 
   override async onCreate(options: { roomCode?: string }): Promise<void> {
     this.roomCode = typeof options?.roomCode === "string" ? options.roomCode : "";
@@ -141,6 +145,7 @@ export class ArenaRoom extends Room {
     if (!seat) return;
     // Releases every capture held by or on this player (captor gets 18 ticks recovery).
     this.combat.remove(seat.entityId, this.sim.tick);
+    this.m1.remove(seat.entityId);
     this.movement?.remove(seat.entityId);
     this.state.players.delete(String(seat.entityId));
     this.seatByAuth.delete(seat.sessionAuthId);
@@ -153,6 +158,7 @@ export class ArenaRoom extends Room {
     this.seats.clear();
     this.seatByAuth.clear();
     this.combat.dispose();
+    this.m1.dispose();
     this.movement?.dispose();
     this.world?.dispose();
     this.movement = null;
@@ -194,7 +200,7 @@ export class ArenaRoom extends Room {
       const f = this.combat.get(seat.entityId);
       const body = mv?.get(seat.entityId);
       let jumpPressed = false;
-      // Input priority: evasive/dash before jump (spec 12). Skills and M1 arrive with T10/T11.
+      // Input priority: evasive/dash, then M1, then jump, guard, movement (spec 12). Skills arrive with T11.
       for (const q of edges) {
         if (q.edge.kind === "dash") {
           const r = f && body ? this.combat.requestDash(seat.entityId, tick, body.state.facingYaw, h.moveX, h.moveZ)
@@ -203,6 +209,11 @@ export class ArenaRoom extends Room {
         } else if (q.edge.kind === "jump") jumpPressed = true;
       }
       if (f) {
+        // M1 has no edge: the server derives presses and legal repeats from the held attack state.
+        const started = this.m1.update(f, tick, h, this.poseOf(seat.entityId));
+        if (started?.ok) this.broadcastEvent(tick, "cast", f.entityId, undefined, f.lifeId, f.moveId);
+        // During an active combo, holding Jump suppresses the ordinary jump (fourth hit uppercut gesture).
+        if (h.jumpHeld && this.m1.comboActive(f, tick)) jumpPressed = false;
         this.combat.updateGuard(seat.entityId, tick, h.blockHeld, grounded(seat.entityId));
         if (intentsSuppressed(f) || locomotionLocked(f) || f.action === "Dash") jumpPressed = false;
       }
@@ -212,9 +223,59 @@ export class ArenaRoom extends Room {
     }
     if (mv) {
       mv.step(tick, (id) => intents.get(id) ?? NEUTRAL_MOVE, (id) => this.dashOverride(id));
+      this.resolveM1(tick);
       for (const seat of this.seats.values()) { this.publishBody(seat.entityId); this.publishAction(seat.entityId); }
     }
     this.state.serverTick = tick;
+  }
+
+  private poseOf(id: number): M1Pose | undefined {
+    const b = this.movement?.get(id);
+    const p = this.movement?.position(id);
+    return b && p ? { x: p[0], y: p[1], z: p[2], facingYaw: b.state.facingYaw, grounded: b.state.grounded } : undefined;
+  }
+
+  /** Collision queries and hit resolution for M1 swings at the current server poses (spec 12/13). */
+  private resolveM1(tick: number): void {
+    const w = this.world;
+    const pose = (id: number): M1Pose | undefined => this.poseOf(id);
+    const cands = this.m1.candidates(tick, this.combat.all(), pose,
+      (a, t) => !!w && w.segmentBlocked([a.x, a.y, a.z], [t.x, t.y, t.z]));
+    if (cands.length === 0) return;
+    const results = this.combat.resolve(tick, cands, (id) => {
+      const q = pose(id);
+      return q && { x: q.x, z: q.z, facingYaw: q.facingYaw, grounded: q.grounded };
+    });
+    for (const l of this.m1.launches(tick, results, (id) => this.combat.get(id), pose)) {
+      const b = this.movement?.get(l.targetId);
+      if (!b) continue;
+      b.state.vx = l.vx; b.state.vz = l.vz; b.state.vy = l.vy;
+      if (l.vy > 0) b.state.grounded = false;
+    }
+    for (const r of results) this.reportHit(tick, r);
+  }
+
+  private reportHit(tick: number, r: HitResult): void {
+    const c = r.candidate;
+    const victim = this.combat.get(c.targetId);
+    const kind: CombatEvent["kind"] | null = r.outcome === "hit" ? "hit" : r.outcome === "blocked" ? "block"
+      : r.outcome === "countered" ? "counter" : null;
+    if (kind && victim) this.broadcastEvent(tick, kind, c.attackerId, c.targetId, victim.lifeId, c.moveId, r.damage100);
+    if (r.killed && victim) {
+      this.m1.reset(c.targetId);
+      // Death resets held inputs (spec 11): neutralize the victim's input channel.
+      for (const seat of this.seats.values()) if (seat.entityId === c.targetId) seat.input.neutralize();
+      this.broadcastEvent(tick, "ko", c.attackerId, c.targetId, victim.lifeId, c.moveId);
+    }
+  }
+
+  private broadcastEvent(tick: number, kind: CombatEvent["kind"], actor: number, target: number | undefined,
+    lifeId: number, moveId?: string, damage100?: number): void {
+    const e: CombatEvent = { eventId: `${tick}.${++this.eventSeq}`, tick, kind, actorId: String(actor), lifeId };
+    if (target !== undefined) e.targetId = String(target);
+    if (moveId) e.moveId = moveId;
+    if (damage100 !== undefined) e.damage100 = damage100;
+    this.broadcast(ServerMessage.combatEvent, e);
   }
 
   private dashOverride(id: number): HorizontalOverride | null {
