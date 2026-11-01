@@ -136,6 +136,7 @@ export class GameScene {
   }
 
   bufferFor(id: string): SnapshotBuffer | undefined { return this.fighters.get(id)?.buffer; }
+  kitOf(id: string): KitId | undefined { return this.fighters.get(id)?.view.kitId; }
   viewFor(id: string): FighterView | undefined { return this.fighters.get(id)?.view; }
 
   /** Moves every buffered fighter to its interpolated pose for estimated server tick `nowTick`. */
