@@ -29,7 +29,7 @@ export interface TickPipelineDeps {
   world: () => World | null;
   seats: () => ReadonlyMap<string, PipelineSeat>;
   poseOf: (id: number) => M1Pose | undefined;
-  sendActionResult: (sessionId: string, seat: PipelineSeat, edgeId: number, tick: number, accepted: boolean,
+  sendActionResult: (sessionId: string, seat: PipelineSeat, edgeId: number, seq: number, tick: number, accepted: boolean,
     reason?: ActionResult["reason"], castId?: string) => void;
   broadcastEvent: (tick: number, kind: CombatEvent["kind"], actor: number, target: number | undefined,
     lifeId: number, moveId?: string, damage100?: number) => void;
@@ -123,20 +123,20 @@ export class TickPipeline {
       const ordered = [...sc.edges].sort((a, b) => this.edgeRank(f, a.edge) - this.edgeRank(f, b.edge));
       if (f) {
         const buffered = abilities.consumeBuffer(f, tick);
-        if (buffered) this.reportSkill(sessionId, seat, f, buffered.edgeId, tick, buffered.outcome);
+        if (buffered) this.reportSkill(sessionId, seat, f, buffered.edgeId, seat.input.seqOfEdge(buffered.edgeId), tick, buffered.outcome);
       }
       for (const q of ordered) {
         if (q.edge.kind === "dash") {
           const r = f && body ? combat.requestDash(seat.entityId, tick, body.state.facingYaw, h.moveX, h.moveZ)
             : { ok: false as const, reason: "STATE" as const };
-          this.d.sendActionResult(sessionId, seat, q.edge.id, tick, r.ok, r.ok ? undefined : r.reason);
+          this.d.sendActionResult(sessionId, seat, q.edge.id, q.seq, tick, r.ok, r.ok ? undefined : r.reason);
         } else if (q.edge.kind === "skillDown") {
           const o: SkillOutcome = f ? abilities.skillDown(f, tick, q.edge.slot, q.edge.id) : { kind: "rejected", reason: "STATE" };
-          if (f) this.reportSkill(sessionId, seat, f, q.edge.id, tick, o);
+          if (f) this.reportSkill(sessionId, seat, f, q.edge.id, q.seq, tick, o);
         } else if (q.edge.kind === "awaken") {
           // Never buffered. Rejections are METER, FORM or STATE and are answered immediately.
           const o: AwakenOutcome = f ? awakening.request(f, tick) : { kind: "rejected", reason: "STATE" };
-          if (f) this.reportSkill(sessionId, seat, f, q.edge.id, tick, o);
+          if (f) this.reportSkill(sessionId, seat, f, q.edge.id, q.seq, tick, o);
         } else if (q.edge.kind === "jump") jumpPressed = true;
         // skillUp: press moves ignore the release; holdRelease moves arrive with T19. awaken: T14.
       }
@@ -241,12 +241,12 @@ export class TickPipeline {
     return 8;
   }
 
-  private reportSkill(sessionId: string, seat: PipelineSeat, f: { entityId: number; lifeId: number }, edgeId: number, tick: number, o: SkillOutcome | AwakenOutcome): void {
+  private reportSkill(sessionId: string, seat: PipelineSeat, f: { entityId: number; lifeId: number }, edgeId: number, seq: number, tick: number, o: SkillOutcome | AwakenOutcome): void {
     if (o.kind === "buffered") return; // answered when the buffered edge is consumed or expires
     if (o.kind === "started") {
-      this.d.sendActionResult(sessionId, seat, edgeId, tick, true, undefined, `${f.entityId}.${o.castCounter}`);
+      this.d.sendActionResult(sessionId, seat, edgeId, seq, tick, true, undefined, `${f.entityId}.${o.castCounter}`);
       this.d.broadcastEvent(tick, "cast", f.entityId, undefined, f.lifeId, o.moveId);
-    } else this.d.sendActionResult(sessionId, seat, edgeId, tick, false, o.reason);
+    } else this.d.sendActionResult(sessionId, seat, edgeId, seq, tick, false, o.reason);
   }
 
   private dashOverride(id: number): HorizontalOverride | null {

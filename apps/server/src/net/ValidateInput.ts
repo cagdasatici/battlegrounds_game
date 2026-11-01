@@ -7,7 +7,7 @@ export interface HeldIntent {
   attackHeld: boolean; blockHeld: boolean; jumpHeld: boolean; runHeld: boolean;
   chargeHeldSlot: 0 | 1 | 2 | 3 | 4;
 }
-export interface QueuedEdge { edge: Edge; arrivalTick: number }
+export interface QueuedEdge { edge: Edge; arrivalTick: number; seq: number }
 
 /** Per-player input channel state. Identity comes from the authenticated client, never from the packet. */
 export class InputChannel {
@@ -17,6 +17,8 @@ export class InputChannel {
   lastInputTick = 0;
   held: HeldIntent = neutralIntent();
   queue: QueuedEdge[] = [];
+  /** edge id -> seq of the carrying packet, bounded; lets buffered edges be answered with the right seq. */
+  private edgeSeqs = new Map<number, number>();
   private packets: TokenBucket;
   private edges: TokenBucket;
 
@@ -31,6 +33,7 @@ export class InputChannel {
     this.lastReceivedSeq = 0;
     this.lastEdgeId = 0;
     this.queue = [];
+    this.edgeSeqs.clear();
     this.held = neutralIntent();
     this.packets = new TokenBucket(RATE_LIMITS.inputPerSecond, RATE_LIMITS.inputBurst, nowMs);
     this.edges = new TokenBucket(RATE_LIMITS.edgesPerSecond, RATE_LIMITS.edgeBurst, nowMs);
@@ -52,7 +55,9 @@ export class InputChannel {
     for (const e of p.edges) {
       if (e.id > this.lastEdgeId) {
         if (!this.edges.take(nowMs)) break; // excess edges are dropped, not queued
-        this.queue.push({ edge: e, arrivalTick: tick });
+        this.queue.push({ edge: e, arrivalTick: tick, seq: p.seq });
+        this.edgeSeqs.set(e.id, p.seq);
+        if (this.edgeSeqs.size > 256) this.edgeSeqs.delete(this.edgeSeqs.keys().next().value as number);
         this.lastEdgeId = e.id;
       }
     }
@@ -71,6 +76,11 @@ export class InputChannel {
   /** Clears holds when no fresh packet arrived within `leaseTicks` (spec: 15). */
   expireLease(tick: number, leaseTicks: number): void {
     if (tick - this.lastInputTick > leaseTicks) this.held = neutralIntent();
+  }
+
+  /** Seq of the packet that carried this edge; falls back to the latest seq if it aged out. */
+  seqOfEdge(edgeId: number): number {
+    return this.edgeSeqs.get(edgeId) ?? this.lastReceivedSeq;
   }
 
   drain(): QueuedEdge[] {

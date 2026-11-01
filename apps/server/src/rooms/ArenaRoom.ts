@@ -64,11 +64,15 @@ export class ArenaRoom extends Room {
   readonly awakening: AwakeningSystem = new AwakeningSystem(this.abilityHost());
   readonly abilities: AbilityRunner = new AbilityRunner(buildKitRegistry(), ALL_HANDLERS, this.abilityHost());
   private eventSeq = 0;
+  /** Random uint32 chosen per room (spec 21 event ids). */
+  roomEpoch = Math.floor(Math.random() * 0x100000000);
+  /** Wall clock for overload checks; tests inject a fake. */
+  wallNow: () => number = () => performance.now();
   private readonly pipeline: TickPipeline = new TickPipeline({
     state: this.state, combat: this.combat, m1: this.m1, abilities: this.abilities, awakening: this.awakening,
     movement: () => this.movement, world: () => this.world, seats: () => this.seats,
     poseOf: (id) => this.poseOf(id),
-    sendActionResult: (sid, seat, edgeId, tick, ok, reason, castId) => this.sendActionResult(sid, seat, edgeId, tick, ok, reason, castId),
+    sendActionResult: (sid, seat, edgeId, seq, tick, ok, reason, castId) => this.sendActionResult(sid, seat, edgeId, seq, tick, ok, reason, castId),
     broadcastEvent: (tick, kind, actor, target, lifeId, moveId, dmg) => this.broadcastEvent(tick, kind, actor, target, lifeId, moveId, dmg),
   });
 
@@ -98,6 +102,10 @@ export class ArenaRoom extends Room {
   }
 
   override async onAuth(_client: Client, options: unknown): Promise<{ authId: string; displayName: string }> {
+    if (this.sim.isOverloaded(this.wallNow())) {
+      log("warn", "room overloaded: refusing new player", { room: this.roomId, overloads: this.sim.overloads });
+      throw new Error("ROOM_FULL");
+    }
     const auth = authServices;
     const parsed = JoinOptionsSchema.safeParse(options);
     if (!auth || !parsed.success) throw new Error("AUTH_FAILED");
@@ -232,17 +240,17 @@ export class ArenaRoom extends Room {
 
   private broadcastEvent(tick: number, kind: CombatEvent["kind"], actor: number, target: number | undefined,
     lifeId: number, moveId?: string, damage100?: number): void {
-    const e: CombatEvent = { eventId: `${tick}.${++this.eventSeq}`, tick, kind, actorId: String(actor), lifeId };
+    const e: CombatEvent = { eventId: `${this.roomEpoch}:${tick}:${++this.eventSeq}`, tick, kind, actorId: String(actor), lifeId };
     if (target !== undefined) e.targetId = String(target);
     if (moveId) e.moveId = moveId;
     if (damage100 !== undefined) e.damage100 = damage100;
     this.broadcast(ServerMessage.combatEvent, e);
   }
 
-  private sendActionResult(sessionId: string, seat: PipelineSeat, edgeId: number, tick: number, accepted: boolean, reason?: ActionResult["reason"], castId?: string): void {
+  private sendActionResult(sessionId: string, seat: PipelineSeat, edgeId: number, seq: number, tick: number, accepted: boolean, reason?: ActionResult["reason"], castId?: string): void {
     const client = this.clients.find((c) => c.sessionId === sessionId);
     if (!client) return;
-    const msg: ActionResult = { epoch: seat.input.epoch, seq: seat.input.lastReceivedSeq, edgeId, accepted, tick };
+    const msg: ActionResult = { epoch: seat.input.epoch, seq, edgeId, accepted, tick };
     if (reason) msg.reason = reason;
     if (castId) msg.castId = castId;
     client.send(ServerMessage.actionResult, msg);
