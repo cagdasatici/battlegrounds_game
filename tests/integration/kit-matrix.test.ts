@@ -268,7 +268,8 @@ describe("A15 victim disconnects while captured by td.b1", () => {
       await waitFor(() => players(p.ra).size === 1, 5000, "seat released after reservation");
       expect(p.room.combat.captures.size).toBe(0); // no stuck capture
       const arel = () => p.find(p.ra, "Arel");
-      expect(["Recovery", "Idle"]).toContain(arel().action);
+      // The captor state patch can trail the seat removal patch by a tick on a loaded machine: wait instead of sampling once.
+      await waitFor(() => ["Recovery", "Idle"].includes(arel().action), 1000, "captor leaves Active");
       await waitFor(() => arel().action === "Idle", 3000, "captor back to Idle");
       expect(p.room.combat.invariantViolations()).toEqual([]);
       // The captor can act again (no stuck state): a later tap is not rejected as busy and the room still ticks.
