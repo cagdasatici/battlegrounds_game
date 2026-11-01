@@ -151,6 +151,12 @@ export class TickPipeline {
       }
       sc.jumpPressed = jumpPressed;
     }
+    // A skill edge replaced in the shared offensive buffer is answered so the client clears its outline.
+    for (const lost of abilities.buffer.drainRejected()) {
+      for (const [sessionId, seat] of this.d.seats()) {
+        if (seat.entityId === lost.entityId) this.d.sendActionResult(sessionId, seat, lost.edgeId, tick, false, "STATE");
+      }
+    }
   }
 
   private locomotion(tick: number): void {

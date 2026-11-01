@@ -6,6 +6,7 @@ import { beginCast, isAlive, type Fighter, type Reaction } from "./ActionMachine
 import type { CombatSystem } from "./Combat.js";
 import type { HitCandidate, HitResult } from "./HitResolver.js";
 import { LandingBonusBook } from "./LandingBonus.js";
+import { OffensiveBuffer } from "./OffensiveBuffer.js";
 import type { ReflectableProjectiles } from "./Reflect.js";
 
 /**
@@ -116,7 +117,6 @@ export type SkillOutcome =
 
 export interface BufferedOutcome { edgeId: number; outcome: SkillOutcome }
 
-interface Buffered { edgeId: number; slot: 1 | 2 | 3 | 4; tick: number }
 
 export interface Launch { targetId: number; vx: number; vy: number; vz: number }
 
@@ -269,7 +269,6 @@ export const MELEE_HANDLER: AbilityHandler = { name: "melee", candidates: meleeC
 
 export class AbilityRunner {
   private readonly casts = new Map<number, ActiveCast>();
-  private readonly buffers = new Map<number, Buffered>();
   private readonly handlers = new Map<string, AbilityHandler>();
   /** Delayed landing damage that outlives the casting action (Fault Strike). Cleaned on reset/remove/dispose. */
   readonly landing = new LandingBonusBook();
@@ -277,7 +276,8 @@ export class AbilityRunner {
   /** Most recent tick seen by the runner; gives onEnd a usable tick even for out-of-band cancels. */
   private nowTick = 0;
 
-  constructor(readonly registry: AbilityRegistry, handlers: Iterable<AbilityHandler>, private readonly host: AbilityHost) {
+  constructor(readonly registry: AbilityRegistry, handlers: Iterable<AbilityHandler>, private readonly host: AbilityHost,
+    /** Shared with M1System: one offensive buffer per room (spec 12, R03). */ readonly buffer: OffensiveBuffer = new OffensiveBuffer()) {
     for (const h of handlers) {
       if (this.handlers.has(h.name)) throw new Error(`duplicate handler ${h.name}`);
       this.handlers.set(h.name, h);
@@ -294,7 +294,7 @@ export class AbilityRunner {
   kitOf(entityId: number): string | undefined { return this.host.combat.get(entityId)?.kitId; }
   castOf(entityId: number): ActiveCast | undefined { return this.casts.get(entityId); }
   get activeCount(): number { return this.casts.size; }
-  get bufferedCount(): number { return this.buffers.size; }
+  get bufferedCount(): number { return this.buffer.size; }
 
   /**
    * Skill press edge (priority: after evasive and awakening, lowest slot first - the caller orders edges).
@@ -311,25 +311,26 @@ export class AbilityRunner {
     }
     if (f.action === "Stunned" || f.action === "Ragdolled" || f.action === "Awakening") return { kind: "rejected", reason: "STATE" };
     if (this.handlers.get(def.handler)?.bufferable === false) return { kind: "rejected", reason: "STATE" };
-    this.buffers.set(f.entityId, { edgeId, slot, tick }); // most recent edge replaces any older one
-    return { kind: "buffered" };
+    // One shared offensive buffer: the most recent edge replaces any older one (tie: lower action number).
+    const lost = this.buffer.set(f.entityId, { kind: "skill", slot, edgeId, tick });
+    return lost && lost.kind === "skill" && lost.edgeId === edgeId ? { kind: "rejected", reason: "STATE" } : { kind: "buffered" };
   }
 
   /** Recovery -> Idle boundary: consume one still valid buffered edge; drop expired ones. */
   consumeBuffer(f: Fighter, tick: number): BufferedOutcome | null {
     this.nowTick = Math.max(this.nowTick, tick);
-    const b = this.buffers.get(f.entityId);
-    if (!b) return null;
-    if (!isAlive(f)) { this.buffers.delete(f.entityId); return null; }
+    const b = this.buffer.peek(f.entityId);
+    if (!b || b.kind !== "skill") return null; // an M1 entry is consumed by M1System.update
+    if (!isAlive(f)) { this.buffer.drop(f.entityId); return null; }
     if (tick - b.tick > COMBAT.bufferTicks) {
-      this.buffers.delete(f.entityId);
+      this.buffer.drop(f.entityId);
       return { edgeId: b.edgeId, outcome: { kind: "rejected", reason: "STATE" } };
     }
     if (f.action !== "Idle") {
-      if (f.action === "Stunned" || f.action === "Ragdolled" || f.action === "Captured") { this.buffers.delete(f.entityId); return { edgeId: b.edgeId, outcome: { kind: "rejected", reason: "STATE" } }; }
+      if (f.action === "Stunned" || f.action === "Ragdolled" || f.action === "Captured") { this.buffer.drop(f.entityId); return { edgeId: b.edgeId, outcome: { kind: "rejected", reason: "STATE" } }; }
       return null; // still busy: keep waiting inside the 6 tick window
     }
-    this.buffers.delete(f.entityId);
+    this.buffer.drop(f.entityId);
     const def = this.defFor(f, b.slot);
     if (!def) return { edgeId: b.edgeId, outcome: { kind: "rejected", reason: "INVALID" } };
     return { edgeId: b.edgeId, outcome: this.commit(f, tick, def) };
@@ -550,7 +551,7 @@ export class AbilityRunner {
   /** Death, respawn or kit change: drops cast, buffered edge and armor. */
   reset(entityId: number): void {
     this.endCast(entityId, "died");
-    this.buffers.delete(entityId);
+    this.buffer.drop(entityId);
     this.landing.dropEntity(entityId);
   }
 
@@ -561,7 +562,7 @@ export class AbilityRunner {
   dispose(): void {
     for (const id of [...this.casts.keys()]) this.endCast(id, "cancelled");
     this.casts.clear();
-    this.buffers.clear();
+    this.buffer.clear();
     this.landing.clear();
     this.scratchStore.clear();
   }

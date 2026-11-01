@@ -13,6 +13,7 @@ import { FixedClock } from "../sim/FixedClock.js";
 import { World } from "../sim/World.js";
 import { MovementSystem, type HorizontalOverride } from "../sim/Movement.js";
 import { CombatSystem } from "../sim/Combat.js";
+import { OffensiveBuffer } from "../sim/OffensiveBuffer.js";
 import { M1System, type M1Pose } from "../sim/M1.js";
 import { AbilityRunner, type AbilityHost, type SkillOutcome } from "../sim/AbilityRunner.js";
 import { AwakeningSystem } from "../sim/Awakening.js";
@@ -61,9 +62,11 @@ export class ArenaRoom extends Room {
   world: World | null = null;
   movement: MovementSystem | null = null;
   readonly combat = new CombatSystem();
-  readonly m1 = new M1System();
+  /** One offensive buffer per room, shared by M1 and skills (spec 12). */
+  private readonly offensiveBuffer = new OffensiveBuffer();
+  readonly m1 = new M1System(this.offensiveBuffer);
   readonly awakening: AwakeningSystem = new AwakeningSystem(this.abilityHost());
-  readonly abilities: AbilityRunner = new AbilityRunner(buildKitRegistry(), ALL_HANDLERS, this.abilityHost());
+  readonly abilities: AbilityRunner = new AbilityRunner(buildKitRegistry(), ALL_HANDLERS, this.abilityHost(), this.offensiveBuffer);
   private eventSeq = 0;
   /** Random uint32 chosen per room (spec 21 event ids). */
   roomEpoch = Math.floor(Math.random() * 0x100000000);

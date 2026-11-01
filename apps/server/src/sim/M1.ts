@@ -1,5 +1,6 @@
 import { COMBAT } from "@eb/shared/config/combat";
 import { beginCast, type Accept, type Fighter, type Reaction } from "./ActionMachine.js";
+import { OffensiveBuffer } from "./OffensiveBuffer.js";
 import type { HitCandidate, HitResult } from "./HitResolver.js";
 
 /**
@@ -26,8 +27,6 @@ interface ChainState {
   /** Exclusive end tick of the last committed M1 cast; -1 if none. */
   lastEndTick: number;
   prevHeld: boolean;
-  /** Tick of the latest server-observed press, or -1. Buffered for COMBAT.bufferTicks. */
-  pressTick: number;
   swing: ActiveSwing | null;
 }
 
@@ -98,10 +97,13 @@ export function m1Overlaps(a: M1Pose, t: M1Pose, variant: FourthVariant | null):
 export class M1System {
   private readonly chains = new Map<number, ChainState>();
 
+  /** `buffer` is the room wide single offensive buffer shared with AbilityRunner (spec 12, R03). */
+  constructor(readonly buffer: OffensiveBuffer = new OffensiveBuffer()) {}
+
   private chain(f: Fighter): ChainState {
     let s = this.chains.get(f.entityId);
     if (!s || s.lifeId !== f.lifeId) {
-      s = { lifeId: f.lifeId, next: 0, lastEndTick: -1, prevHeld: false, pressTick: -1, swing: null };
+      s = { lifeId: f.lifeId, next: 0, lastEndTick: -1, prevHeld: false, swing: null };
       this.chains.set(f.entityId, s);
     }
     return s;
@@ -116,9 +118,11 @@ export class M1System {
     if (f.action === "Dead") { this.reset(f.entityId); return null; }
     const rising = held.attackHeld && !s.prevHeld;
     s.prevHeld = held.attackHeld;
-    if (rising) s.pressTick = tick;
-    if (s.pressTick >= 0 && tick - s.pressTick > COMBAT.bufferTicks) s.pressTick = -1;
-    const wanted = held.attackHeld || s.pressTick >= 0;
+    if (rising) this.buffer.set(f.entityId, { kind: "m1", tick }); // only presses are buffered
+    const b = this.buffer.peek(f.entityId);
+    if (b?.kind === "m1" && tick - b.tick > COMBAT.bufferTicks) this.buffer.drop(f.entityId);
+    const pending = this.buffer.peek(f.entityId)?.kind === "m1";
+    const wanted = held.attackHeld || pending;
     // Cannot attack and guard simultaneously: a held guard wins the hold conflict.
     if (!wanted || held.blockHeld || !pose || f.action !== "Idle") return null;
     if (s.lastEndTick >= 0 && tick - s.lastEndTick > M.chainResetGap) s.next = 0;
@@ -129,7 +133,7 @@ export class M1System {
     // Chain progress advances at commit; a missed or interrupted swing still advances (D).
     s.next = ((index + 1) % 4) as 0 | 1 | 2 | 3;
     s.lastEndTick = f.cast!.endTick;
-    s.pressTick = -1;
+    if (pending) this.buffer.drop(f.entityId);
     s.swing = { castCounter: f.castCounter, index, variant };
     return r;
   }
@@ -198,10 +202,11 @@ export class M1System {
   /** Death or respawn: combo and buffered press are cleared (spec 11). */
   reset(entityId: number): void {
     const s = this.chains.get(entityId);
-    if (s) { s.next = 0; s.lastEndTick = -1; s.pressTick = -1; s.prevHeld = false; s.swing = null; }
+    this.buffer.drop(entityId);
+    if (s) { s.next = 0; s.lastEndTick = -1; s.prevHeld = false; s.swing = null; }
   }
 
-  remove(entityId: number): void { this.chains.delete(entityId); }
+  remove(entityId: number): void { this.chains.delete(entityId); this.buffer.drop(entityId); }
   get size(): number { return this.chains.size; }
   dispose(): void { this.chains.clear(); }
 }
