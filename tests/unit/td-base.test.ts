@@ -1362,7 +1362,7 @@ describe("td.b4 Mirror Current (counter)", () => {
 describe("R02 captured victims stay hit-eligible for third parties (real handlers)", () => {
   test("td.b1 captures B; C casts sv.b2 on B: B takes the flurry, capture continues, release at +43", () => {
     const r = makeRig(3);
-    r.runner.setKit(3, "sv");
+    r.cs.get(3)!.kitId = "sv";
     r.step(T0, { press: [{ slot: 1 }] });
     r.run(T0 + 1, T0 + 9);
     const c = T0 + 10;
@@ -1384,8 +1384,8 @@ describe("R02 captured victims stay hit-eligible for third parties (real handler
 
   test("sv.a4 captures B (cinematic); C casts sv.b2: B takes 0 (shielded)", () => {
     const r = makeRig(3);
-    r.runner.setKit(1, "sv");
-    r.runner.setKit(3, "sv");
+    r.cs.get(1)!.kitId = "sv";
+    r.cs.get(3)!.kitId = "sv";
     const f = r.cs.get(1)!; f.form = "Awakened"; f.awakenedUsedMask = 0;
     r.step(T0, { press: [{ slot: 4 }] });
     r.run(T0 + 1, T0 + 24);
@@ -1400,7 +1400,7 @@ describe("R02 captured victims stay hit-eligible for third parties (real handler
 
   test("sv.b4 against a captured target: no hit, cooldown still spent", () => {
     const r = makeRig(3);
-    r.runner.setKit(3, "sv");
+    r.cs.get(3)!.kitId = "sv";
     r.step(T0, { press: [{ slot: 1 }] });
     r.run(T0 + 1, T0 + 10);
     expect(r.cs.get(2)!.action).toBe("Captured");
