@@ -9,6 +9,11 @@ import { computeContentHash } from "@eb/shared/config/content";
 import { ArenaState } from "../state/ArenaSchema.js";
 import { PlayerSchema } from "../state/PlayerSchema.js";
 import { FixedClock } from "../sim/FixedClock.js";
+import { World } from "../sim/World.js";
+import { MovementSystem } from "../sim/Movement.js";
+import { NEUTRAL_MOVE, type MoveIntent } from "@eb/shared/movement";
+import { ARENA, type MapVec3 } from "@eb/shared/config/arena";
+import { quantizeCm, quantizeYaw } from "@eb/shared/schema";
 import { InputChannel } from "../net/ValidateInput.js";
 import { TokenBucket } from "../net/RateLimits.js";
 import type { AuthServices } from "../auth/Services.js";
@@ -44,14 +49,18 @@ export class ArenaRoom extends Room {
   private nextEntityId = 1;
   private lifeSeq = 0;
   private lastTickMs = 0;
+  world: World | null = null;
+  movement: MovementSystem | null = null;
 
-  override onCreate(options: { roomCode?: string }): void {
+  override async onCreate(options: { roomCode?: string }): Promise<void> {
     this.roomCode = typeof options?.roomCode === "string" ? options.roomCode : "";
     if (this.roomCode === "") throw new Error("ROOM_CODE_REQUIRED");
     roomDirectory.register(this.roomCode, this.roomId);
     this.patchRate = PATCH_RATE_MS;
     this.state.protocolVersion = PROTOCOL_VERSION;
     this.state.contentHash = this.contentHash;
+    this.world = await World.create();
+    this.movement = new MovementSystem(this.world);
     this.lastTickMs = performance.now();
     this.setSimulationInterval(() => this.onSchedulerTick(), 1000 / TICK_RATE);
 
@@ -128,6 +137,7 @@ export class ArenaRoom extends Room {
     const seat = this.seats.get(client.sessionId);
     if (!seat) return;
     // Captures held by or on this player are released here once combat exists (T09).
+    this.movement?.remove(seat.entityId);
     this.state.players.delete(String(seat.entityId));
     this.seatByAuth.delete(seat.sessionAuthId);
     this.seats.delete(client.sessionId);
@@ -138,6 +148,10 @@ export class ArenaRoom extends Room {
     roomDirectory.unregister(this.roomId);
     this.seats.clear();
     this.seatByAuth.clear();
+    this.movement?.dispose();
+    this.world?.dispose();
+    this.movement = null;
+    this.world = null;
   }
 
   // ---- internals ----
@@ -158,10 +172,46 @@ export class ArenaRoom extends Room {
     const now = performance.now();
     const elapsed = now - this.lastTickMs;
     this.lastTickMs = now;
-    this.sim.advance(elapsed, (tick) => {
-      for (const seat of this.seats.values()) seat.input.expireLease(tick, COMBAT.inputLeaseTicks);
-      this.state.serverTick = tick;
-    }, now);
+    this.sim.advance(elapsed, (tick) => this.stepTick(tick), now);
+  }
+
+  /** One logical 60 Hz tick (spec section 21 order, subset implemented so far). */
+  stepTick(tick: number): void {
+    const intents = new Map<number, MoveIntent>();
+    for (const seat of this.seats.values()) {
+      seat.input.expireLease(tick, COMBAT.inputLeaseTicks);
+      // T06 consumes only jump edges; other edge kinds are dropped until the action machine (T09) exists.
+      const jumpPressed = seat.input.drain().some((q) => q.edge.kind === "jump");
+      const h = seat.input.held;
+      intents.set(seat.entityId, { moveX: h.moveX, moveZ: h.moveZ, run: h.runHeld, guard: h.blockHeld, jumpPressed });
+    }
+    const mv = this.movement;
+    if (mv) {
+      mv.step(tick, (id) => intents.get(id) ?? NEUTRAL_MOVE);
+      for (const seat of this.seats.values()) this.publishBody(seat.entityId);
+    }
+    this.state.serverTick = tick;
+  }
+
+  private publishBody(entityId: number): void {
+    const p = this.state.players.get(String(entityId));
+    const b = this.movement?.get(entityId);
+    const pos = this.movement?.position(entityId);
+    if (!p || !b || !pos) return;
+    const i16 = (v: number): number => Math.max(-32768, Math.min(32767, quantizeCm(v)));
+    p.x = quantizeCm(pos[0]); p.y = quantizeCm(pos[1]); p.z = quantizeCm(pos[2]);
+    p.vx = i16(b.state.vx); p.vy = i16(b.state.vy); p.vz = i16(b.state.vz);
+    p.facingYaw = quantizeYaw(b.state.facingYaw);
+  }
+
+  /** First spawn anchor whose capsule is at least 2 m from every occupied capsule (spec section 10). */
+  private chooseSpawn(): MapVec3 {
+    const w = this.world!;
+    const occupied = [...this.seats.values()].map((s) => this.movement?.position(s.entityId)).filter((p): p is MapVec3 => !!p);
+    const anchors = w.map.spawnAnchors.map((a) => a.position);
+    const pick = anchors.find((a) => occupied.every((o) => Math.hypot(o[0] - a[0], o[2] - a[2]) >= 2)) ?? anchors[0]!;
+    const surface = w.groundHeight(pick[0], pick[2]) ?? pick[1];
+    return [pick[0], surface + ARENA.capsule.centreAboveSurface, pick[2]];
   }
 
   private onInput(client: Client, raw: unknown): void {
@@ -182,6 +232,10 @@ export class ArenaRoom extends Room {
     p.ready = true;
     p.lifeId = ++this.lifeSeq; // room-unique so events can identify a victim life
     p.hp100 = COMBAT.hp100Max;
+    if (this.movement) {
+      this.movement.add(seat.entityId, this.chooseSpawn());
+      this.publishBody(seat.entityId);
+    }
     this.state.phase = "playing";
   }
 

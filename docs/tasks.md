@@ -10,7 +10,7 @@ Source: docs/spec.md section 27.
 | T03 | Authentication | T02 | DONE | commit "T03:" in git log | docs/test-results/T03.md |
 | T04 | Room lifecycle | T03 | DONE | commit "T04:" in git log | docs/test-results/T04.md |
 | T05 | Arena colliders | T02 | DONE | commit "T05:" in git log | docs/test-results/T05.md |
-| T06 | Movement | T04 T05 | TODO | | |
+| T06 | Movement | T04 T05 | DONE | commit "T06:" in git log | docs/test-results/T06.md |
 | T07 | Touch shell | T02 | IMPLEMENTED (DEVICE CHECK PENDING) | commit "T07:" in git log | docs/test-results/T07.md |
 | T08 | Camera and prediction | T06 T07 | TODO | | |
 | T09 | Combat states | T06 | TODO | | |
