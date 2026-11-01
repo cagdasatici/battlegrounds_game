@@ -39,7 +39,7 @@ function makeRig(n = 3, hostOpts: {
   poses.set(1, { x: 0, y: 1, z: 0, facingYaw: 0, grounded: true });
   poses.set(2, { x: 0, y: 1, z: -1.5, facingYaw: Math.PI, grounded: true });
   poses.set(3, { x: 0.3, y: 1, z: -3, facingYaw: Math.PI, grounded: true });
-  if (n >= 4) poses.set(4, { x: 0.6, y: 1, z: -1.6, facingYaw: Math.PI, grounded: true });
+  if (n >= 4) poses.set(4, { x: 6, y: 1, z: -1.6, facingYaw: Math.PI, grounded: true }); // bystander, far away
   let occluded = false;
   const walls = new Set<number>();
   const launches: { id: number; vx: number; vy: number; vz: number; tick: number }[] = [];
@@ -104,7 +104,7 @@ function makeRig(n = 3, hostOpts: {
 
 describe("td definitions match the spec 15 table", () => {
   test("slotted base moves carry the exact table numbers", () => {
-    expect(TD_DEFS.map((d) => d.id)).toEqual(["td.b1", "td.b2"]);
+    expect(TD_DEFS.map((d) => d.id)).toEqual(["td.b1", "td.b2", "td.b3"]);
     const table: Record<string, [number, number, number, number, number, number, string, string]> = {
       "td.b1": [10, 5, 18, 1020, 2400, 2.4, "U", "captureBarrage"],
       "td.b2": [14, 5, 24, 1200, 1900, 2.2, "B", "dragSlam"],
@@ -713,6 +713,335 @@ describe("td.b2 with the real collision world (swept movement)", () => {
       expect(s.r.cs.get(2)!.action).toBe("Ragdolled"); // released at +49 as scheduled
       expect(s.r.cs.captures.size).toBe(0);
     } finally { s.done(); }
+  });
+});
+
+describe("td.b3 Tidal Cast (throwCapture)", () => {
+  const c = T0 + 12; // activeStart: capture tick
+  const rel = c + 19; // release tick
+  const BONUS = 300;
+  /** Throws victim 2 (airborne so the ragdoll lasts) and returns after the release tick. */
+  const thrown = (n = 4, airborne = true) => {
+    const r = makeRig(n);
+    r.poses.get(2)!.grounded = !airborne;
+    r.step(T0, { press: [{ slot: 3 }] });
+    r.run(T0 + 1, rel);
+    return r;
+  };
+
+  test("definition: capture without damage, 9 at +18, release R60 F10 U2, U, all three target states", () => {
+    const d = def("td.b3");
+    expect(d.hitOffsets).toEqual([0, 18]);
+    expect(d.damage100).toEqual([0, 900]);
+    expect(d.ragdollTicks).toBe(60);
+    expect(d.launch).toEqual({ forward: 10, up: 2 });
+    expect(d.block).toBe("U");
+    expect(d.targetStates).toEqual(["standing", "air", "ragdoll"]);
+  });
+
+  test("hit: capture at activeStart, 9 HP at +18, release at +19 (R60 F10 U2), armor only during the capture", () => {
+    const r = makeRig(2);
+    r.step(T0, { press: [{ slot: 3 }] });
+    r.run(T0 + 1, c - 1);
+    r.step(c);
+    expect(r.results[0]!.r.outcome).toBe("captured");
+    expect(r.results[0]!.r.damage100).toBe(0);
+    expect(r.cs.get(2)!.action).toBe("Captured");
+    expect(r.cs.get(1)!.armored).toBe(true);
+    r.run(c + 1, c + 18);
+    expect(r.dealt(1, 2)).toEqual([[c + 18, 900]]);
+    expect(r.cs.get(2)!.action).toBe("Captured");
+    r.step(rel);
+    const v = r.cs.get(2)!;
+    expect(v.action).toBe("Ragdolled");
+    expect(v.actionEndTick - v.actionStartTick).toBe(60);
+    expect(r.hp(2)).toBe(HP - 900);
+    expect(r.launches.map((l) => [l.id, l.vx + 0, l.vy, l.vz, l.tick])).toEqual([[2, 0, 2, -10, rel]]);
+    expect(r.releases.map((x) => [x.tick, x.rel.cause])).toEqual([[rel, "final"]]);
+    expect(r.cs.get(1)!.armored).toBe(false);
+    r.run(rel + 1, rel + 17);
+    expect(r.cs.get(1)!.action).toBe("Recovery");
+    r.step(rel + 18);
+    expect(r.cs.get(1)!.action).toBe("Idle");
+  });
+
+  test("capture supports standing, air and ragdoll (grounded or airborne) targets", () => {
+    for (const [ragdoll, grounded] of [[false, true], [false, false], [true, false], [true, true]] as const) {
+      const r = makeRig(2);
+      if (ragdoll) applyReaction(r.cs.get(2)!, T0 - 5, { kind: "ragdoll", ticks: 300 }, !grounded);
+      r.poses.get(2)!.grounded = grounded;
+      r.step(T0, { press: [{ slot: 3 }] });
+      r.run(T0 + 1, c + 2);
+      expect(r.cs.get(2)!.action).toBe("Captured");
+    }
+  });
+
+  test("miss and acceptance: nothing attaches after the probe window; cooldown 900 spent", () => {
+    const r = makeRig(2);
+    r.poses.get(2)!.z = -5;
+    r.step(T0, { press: [{ slot: 3 }] });
+    r.run(T0 + 1, c + 3);
+    r.poses.get(2)!.z = -1.5;
+    r.run(c + 4, c + 60);
+    expect(r.cs.get(2)!.action).toBe("Idle");
+    expect(r.results.length).toBe(0);
+    r.step(T0 + 899, { press: [{ slot: 3 }] });
+    expect(r.outcomes.at(-1)!.o).toEqual({ kind: "rejected", reason: "COOLDOWN" });
+    r.step(T0 + 900, { press: [{ slot: 3 }] });
+    expect(r.outcomes.at(-1)!.o).toMatchObject({ kind: "started", moveId: "td.b3" });
+  });
+
+  test("guard bypass (U), counter of the initial hit, static occlusion, duplicate hit", () => {
+    const g = makeRig(2);
+    g.run(T0 - 10, T0 - 1, () => ({ guard: [2] }));
+    g.step(T0, { press: [{ slot: 3 }], guard: [2] });
+    g.run(T0 + 1, c + 2, () => ({ guard: [2] }));
+    expect(g.cs.get(2)!.action).toBe("Captured");
+    expect(g.results.some((x) => x.r.outcome === "blocked")).toBe(false);
+
+    const k = makeRig(2);
+    k.cs.get(2)!.counterOpenUntil = T0 + 100;
+    k.step(T0, { press: [{ slot: 3 }] });
+    k.run(T0 + 1, c + 30);
+    expect(k.results[0]!.r.outcome).toBe("countered");
+    expect(k.results.slice(1).every((x) => x.r.outcome === "duplicate")).toBe(true);
+    expect(k.hp(2)).toBe(HP);
+    expect(k.cs.captures.size).toBe(0);
+
+    const o = makeRig(2);
+    o.setOccluded(true);
+    o.step(T0, { press: [{ slot: 3 }] });
+    o.run(T0 + 1, c + 30);
+    expect(o.results.length).toBe(0);
+
+    const d = makeRig(2);
+    d.step(T0, { press: [{ slot: 3 }] });
+    d.run(T0 + 1, rel + 60);
+    expect(d.dealt(1, 2)).toEqual([[c + 18, 900]]);
+    expect(d.results.filter((x) => x.r.outcome === "captured").length).toBe(1);
+  });
+
+  test("interruption: startup stun cancels; mid capture armor ignores stun; armorBreak releases without the 9", () => {
+    const a = makeRig(3);
+    a.poses.get(3)!.z = 5;
+    a.step(T0, { press: [{ slot: 3 }] });
+    a.run(T0 + 1, T0 + 4);
+    a.step(T0 + 5, { extra: [a.strike(3, 1)] });
+    a.run(T0 + 6, c + 40);
+    expect(a.cs.get(2)!.action).toBe("Idle");
+    expect(a.hp(2)).toBe(HP);
+
+    const b = makeRig(3);
+    b.poses.get(3)!.z = 5;
+    b.step(T0, { press: [{ slot: 3 }] });
+    b.run(T0 + 1, c + 4);
+    b.step(c + 5, { extra: [b.strike(3, 1, { damage100: 200 }), b.strike(3, 1, { damage100: 100, reaction: { kind: "ragdoll", ticks: 60 } })] });
+    expect(b.hp(1)).toBe(HP - 300);
+    b.run(c + 6, rel);
+    expect(b.hp(2)).toBe(HP - 900);
+    expect(b.cs.get(2)!.action).toBe("Ragdolled");
+
+    const d = makeRig(3);
+    d.poses.get(3)!.z = 5;
+    d.step(T0, { press: [{ slot: 3 }] });
+    d.run(T0 + 1, c + 4);
+    d.step(c + 5, { extra: [d.strike(3, 1, { armorBreak: true })] });
+    expect(d.cs.get(1)!.action).toBe("Stunned");
+    expect(d.cs.get(2)!.action).toBe("Idle");
+    d.run(c + 6, rel + 80);
+    expect(d.hp(2)).toBe(HP);
+    expect(d.launches.length).toBe(0);
+    expect(d.cs.captures.size).toBe(0);
+  });
+
+  test("death of the captor and of the victim", () => {
+    const a = makeRig(2);
+    a.step(T0, { press: [{ slot: 3 }] });
+    a.run(T0 + 1, c + 10);
+    a.cs.kill(1, c + 11);
+    a.run(c + 11, rel + 5);
+    expect(a.cs.get(2)!.action).toBe("Idle");
+    expect(a.hp(2)).toBe(HP);
+
+    const b = makeRig(3);
+    b.poses.get(3)!.z = 5;
+    b.step(T0, { press: [{ slot: 3 }] });
+    b.run(T0 + 1, c + 10);
+    b.cs.get(2)!.hp100 = 50;
+    b.step(c + 11, { extra: [b.strike(3, 2, { damage100: 900 })] });
+    expect(b.cs.get(2)!.action).toBe("Dead");
+    expect(b.cs.get(1)!.action).toBe("Recovery");
+    expect(b.cs.get(1)!.actionEndTick).toBe(c + 11 + CAPTOR_RELEASE_RECOVERY);
+    b.run(c + 12, rel + 100);
+    expect(b.launches.length).toBe(0);
+    expect(b.runner.scratch<unknown[]>("td.thrown", () => []).length).toBe(0);
+  });
+
+  test("capture arbitration and removal", () => {
+    const r = makeRig(3);
+    r.step(T0, { press: [{ slot: 3, who: 1 }, { slot: 3, who: 3 }] });
+    r.run(T0 + 1, rel + 5);
+    expect(r.results.filter((x) => x.r.outcome === "captured").map((x) => x.r.candidate.attackerId)).toEqual([1]);
+    expect(r.results.filter((x) => x.r.outcome === "captureLost").map((x) => x.r.candidate.attackerId)).toEqual([3]);
+    expect(r.dealt(3, 2)).toEqual([]);
+
+    const b = makeRig(2);
+    b.step(T0, { press: [{ slot: 3 }] });
+    b.run(T0 + 1, c + 5);
+    b.cs.remove(2, c + 6);
+    expect(b.cs.get(1)!.actionEndTick).toBe(c + 6 + CAPTOR_RELEASE_RECOVERY);
+    expect(b.cs.captures.size).toBe(0);
+    b.run(c + 6, rel + 50);
+  });
+
+  test("collision bonus 3: a wall after the release deals it once; continuous contact and a second wall never repeat it", () => {
+    const r = thrown();
+    expect(r.hp(2)).toBe(HP - 900);
+    r.walls.add(2);
+    r.run(rel + 1, rel + 6); // sustained wall contact (and, in the real world, two nearby walls)
+    r.walls.delete(2);
+    r.run(rel + 7, rel + 8); // a floor-only stretch: wallContact is false
+    r.walls.add(2); // a second wall
+    r.run(rel + 9, rel + 12);
+    expect(r.dealt(1, 2).filter(([, d]) => d === BONUS)).toEqual([[rel + 1, BONUS]]);
+    expect(r.hp(2)).toBe(HP - 900 - BONUS);
+    const b = r.results.find((x) => x.r.candidate.hitIndex === 90)!;
+    expect(b.r.candidate).toMatchObject({ attackerId: 1, targetId: 2, moveId: "td.b3", counterable: false });
+  });
+
+  test("acceptance: two nearby walls in the same tick cannot multiply the 3 damage bonus", () => {
+    const r = thrown();
+    r.walls.add(2); // two wall contacts reported together still make one contact flag per body and tick
+    r.step(rel + 1);
+    r.step(rel + 2);
+    expect(r.hp(2)).toBe(HP - 900 - BONUS);
+    expect(r.results.filter((x) => x.r.candidate.hitIndex === 90).length).toBe(1);
+  });
+
+  test("no bonus on the floor, none while still captured, none on the release tick", () => {
+    const f = thrown();
+    f.run(rel + 1, rel + 30); // walls never set: floor contact only
+    expect(f.hp(2)).toBe(HP - 900);
+    const r = makeRig(4);
+    r.poses.get(2)!.grounded = false;
+    r.walls.add(2); // touching a wall for the whole cast, including capture and the release tick
+    r.step(T0, { press: [{ slot: 3 }] });
+    r.run(T0 + 1, rel);
+    expect(r.hp(2)).toBe(HP - 900);
+    r.step(rel + 1);
+    expect(r.hp(2)).toBe(HP - 900 - BONUS);
+  });
+
+  test("marker lasts 90 ticks: wall at release+89 counts, release+90 does not", () => {
+    for (const [at, expectBonus] of [[89, true], [90, false]] as const) {
+      const r = thrown();
+      r.run(rel + 1, rel + at - 1);
+      r.walls.add(2);
+      r.step(rel + at);
+      expect(r.hp(2)).toBe(expectBonus ? HP - 900 - BONUS : HP - 900);
+    }
+  });
+
+  test("a thrown body that lands, is hit again or dies loses the marker", () => {
+    const landed = thrown(4, false); // grounded: ragdoll ends after 60 ticks
+    landed.run(rel + 1, rel + 70);
+    landed.walls.add(2);
+    landed.step(rel + 71);
+    expect(landed.hp(2)).toBe(HP - 900);
+
+    const hit = thrown();
+    hit.step(rel + 2, { extra: [hit.strike(3, 2, { damage100: 100 })] });
+    hit.walls.add(2);
+    hit.run(rel + 3, rel + 8);
+    expect(hit.hp(2)).toBe(HP - 900 - 100);
+
+    const dead = thrown();
+    dead.cs.kill(2, rel + 1);
+    dead.walls.add(2);
+    dead.run(rel + 2, rel + 8);
+    expect(dead.results.filter((x) => x.r.candidate.hitIndex === 90).length).toBe(0);
+
+    const captorGone = thrown();
+    captorGone.cs.kill(1, rel + 1);
+    captorGone.walls.add(2);
+    captorGone.run(rel + 2, rel + 8);
+    expect(captorGone.hp(2)).toBe(HP - 900);
+  });
+
+  test("thrown victim hits one other living player for 5 (B, stun 18, noncounterable) and takes the bonus once", () => {
+    const r = thrown();
+    r.poses.get(4)!.x = 0.5; r.poses.get(4)!.z = -1.5; // in contact with the thrown body
+    r.cs.get(4)!.counterOpenUntil = rel + 100; // an open counter cannot intercept it
+    r.step(rel + 3);
+    const ofThrow = r.results.filter((x) => x.tick === rel + 3);
+    expect(ofThrow.map((x) => [x.r.candidate.attackerId, x.r.candidate.targetId, x.r.outcome, x.r.damage100])).toEqual([[1, 2, "hit", 300], [2, 4, "hit", 500]]);
+    expect(r.hp(4)).toBe(HP - 500);
+    expect(r.hp(2)).toBe(HP - 900 - BONUS);
+    expect(r.cs.get(4)!.action).toBe("Stunned");
+    expect(r.cs.get(4)!.actionEndTick - r.cs.get(4)!.actionStartTick).toBe(18);
+    // Marker spent: further player contact and a later wall deal nothing more.
+    r.poses.get(3)!.x = 0.4; r.poses.get(3)!.z = -1.5;
+    r.walls.add(2);
+    r.run(rel + 4, rel + 30);
+    expect(r.hp(4)).toBe(HP - 500);
+    expect(r.hp(3)).toBe(HP);
+    expect(r.hp(2)).toBe(HP - 900 - BONUS);
+    expect(r.runner.scratch<unknown[]>("td.thrown", () => []).length).toBe(0);
+  });
+
+  test("a thrown-body player hit is blockable; the first player collision also costs the thrown victim 3", () => {
+    const r = thrown();
+    r.poses.get(4)!.facingYaw = Math.PI / 2; // faces -X, toward the thrown body once it stands next to it
+    r.run(rel + 1, rel + 4, () => ({ guard: [4] })); // guard is up (3 tick startup) before the contact
+    r.poses.get(4)!.x = 0.5; r.poses.get(4)!.z = -1.5;
+    r.run(rel + 5, rel + 9, () => ({ guard: [4] }));
+    const mine = r.results.filter((x) => x.r.candidate.attackerId === 2);
+    expect(mine.map((x) => x.r.outcome)).toEqual(["blocked"]);
+    expect(r.hp(4)).toBe(HP);
+    expect(r.hp(2)).toBe(HP - 900 - BONUS);
+  });
+
+  test("the captor and dead players are never collision targets; player first then wall gives the bonus once", () => {
+    const a = thrown();
+    a.poses.get(1)!.x = 0.4; a.poses.get(1)!.z = -1.5;
+    a.run(rel + 1, rel + 5);
+    expect(a.hp(1)).toBe(HP);
+    expect(a.hp(2)).toBe(HP - 900);
+    a.cs.kill(4, rel + 6);
+    a.poses.get(4)!.x = 0.4; a.poses.get(4)!.z = -1.5;
+    a.run(rel + 6, rel + 10);
+    expect(a.cs.get(4)!.hp100).toBe(0);
+    expect(a.results.filter((x) => x.r.candidate.attackerId === 2).length).toBe(0);
+
+    const b = thrown();
+    b.poses.get(3)!.x = 0.5; b.poses.get(3)!.z = -1.5;
+    b.step(rel + 1);
+    b.walls.add(2);
+    b.run(rel + 2, rel + 10);
+    expect(b.hp(2)).toBe(HP - 900 - BONUS);
+    expect(b.results.filter((x) => x.r.candidate.hitIndex === 90).length).toBe(1);
+  });
+
+  test("real world: MovementSystem reports wall contact for a wall but never for the floor", async () => {
+    const world = await World.create();
+    const sys = new MovementSystem(world);
+    try {
+      sys.add(1, [10, 0.92, -3]); // walks into wall.1 (z -0.3..0.3)
+      sys.add(2, [0, 0.92, 8]); // stays on open floor
+      let wallTick = -1;
+      for (let t = 1; t <= 200; t++) {
+        sys.step(t, (id) => (id === 1 ? { ...NEUTRAL_MOVE, moveZ: 1 } : NEUTRAL_MOVE));
+        if (wallTick < 0 && sys.get(1)!.wallHitTick === t) wallTick = t;
+      }
+      expect(wallTick).toBeGreaterThan(0);
+      expect(sys.get(1)!.wallHitTick).toBe(200); // still pressing into it
+      expect(sys.get(2)!.wallHitTick).toBe(-1); // floor contact is not a wall
+    } finally { sys.dispose(); world.dispose(); }
+  });
+
+  test("two clients see the same result", () => {
+    const run = () => { const r = thrown(); r.poses.get(4)!.x = 0.5; r.poses.get(4)!.z = -1.5; r.run(rel + 1, rel + 20); return JSON.stringify([1, 2, 4].map((i) => [r.hp(i), r.cs.get(i)!.action, r.cs.get(i)!.actionEndTick])); };
+    expect(run()).toBe(run());
   });
 });
 

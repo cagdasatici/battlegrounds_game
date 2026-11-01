@@ -24,4 +24,12 @@ export const TD_DEFS: AbilityDef[] = [
     targetStates: ["standing", "air", "ragdoll"],
     stunTicks: 0, ragdollTicks: 72, launch: { forward: 3, up: 8 },
   }),
+  // Tidal Cast: capture (no damage), 9 at +18, release +19 R60 F10 U2; the collision bonus is handler data.
+  defineAbility({
+    id: "td.b3", label: "Tidal Cast", handler: "throwCapture",
+    startup: 12, active: 4, recovery: 18, cooldown: 900, range: 2.2, block: "U",
+    hitOffsets: [0, 18], damage100: [0, 900],
+    targetStates: ["standing", "air", "ragdoll"],
+    stunTicks: 0, ragdollTicks: 60, launch: { forward: 10, up: 2 },
+  }),
 ];
