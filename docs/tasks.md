@@ -42,7 +42,7 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | T26 | Effects audio and camera | T21 T23 T25 | RETIRED (decision 0021) | | | Split into FX0-FX5 |
 | T27 | Settings and layout editor | T07 T18e | IMPLEMENTED (DEVICE CHECK PENDING) | 2281bc6 | docs/test-results/T27.md | decisions/0013. Playwright 34/34. D05 D06 NOT RUN. Several settings stored, not yet consumed |
 | T28 | Production hosting | T04 T18e | IMPLEMENTED (DEVICE CHECK PENDING) | 3778216 | docs/test-results/T28.md | decisions/0011. Local build/serve/health/two-client verified; TLS, host, iPad remote checks NOT RUN (no host chosen) |
-| T29 | Security hardening | T22 T28 | TODO | | | |
+| T29 | Security hardening | T22 T28 | IMPLEMENTED (DEVICE CHECK PENDING) | 1b980e1 | docs/test-results/T29.md | decisions/0030. CSP, 5/30 per min, WS origin, invalid-message drop. Safari/iPad, TLS NOT RUN |
 | T30 | Performance pass | T24 T26 T27 | TODO | | | |
 | T31 | Fidelity calibration | T18e T27 | IMPLEMENTED (DEVICE CHECK PENDING) | 779475b | docs/test-results/T31.md | decisions/0017. Layout JSON + ledger done; all O01-O08 NOT RUN. test:browser: 1 intermittent T27 flow test failure |
 | T33a | Owner ops kit: one-command start | T28 | IMPLEMENTED (DEVICE CHECK PENDING) | d3c3333 | docs/test-results/T33a.md | `pnpm play`; QR encoder + origin logic unit-tested; Tailscale path and iPad scan NOT RUN |
@@ -79,6 +79,8 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | FX0 | Combat event contract and presentation bus | M0 | DONE | 20028c9 | docs/test-results/FX0.md | decisions/0021 |
 | FX3 | Audio bus and original synthesized sounds | FX0 | IMPLEMENTED (DEVICE CHECK PENDING) | 914b6f7 | docs/test-results/FX3.md | decisions/0026. audibility and iPad unlock NOT RUN |
 | FX2 | Combat text: damage numbers, power callouts, KO feed | FX0 | IMPLEMENTED (DEVICE CHECK PENDING) | 89e125a | docs/test-results/FX2.md | decisions/0025. settings schema v2; iPad NOT RUN |
+| FX4-td | Tide Duelist ability effects | FX1 | IMPLEMENTED (DEVICE CHECK PENDING) | d41b63b | docs/test-results/FX4-td.md | recipes for 8 td abilities; iPad NOT RUN |
+| FX5 | Capture camera and reduced motion | FX1 | IMPLEMENTED (DEVICE CHECK PENDING) | ab5030b | docs/test-results/FX5.md | decisions/0029. iPad NOT RUN |
 | FX1 | Hit impact effects: sparks, flash, hitstop, shake | FX0 | IMPLEMENTED (DEVICE CHECK PENDING) | 53e03bc | docs/test-results/FX1.md | decisions/0024. shake scale constant 0.25; iPad NOT RUN |
 
 ## Hosted sparring (documentation only)
