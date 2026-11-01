@@ -1,7 +1,7 @@
 # BOT5 — End-to-end sparring journeys
 
 Date: 1 November 2026. Prerequisites: BOT4 57ac46d; BOT4C b0c2383.
-Status: IMPLEMENTED (DEVICE CHECK PENDING).
+Status: IMPLEMENTED (DEVICE CHECK PENDING). Implementation commit: 8e863b8.
 
 ## Browser acceptance
 

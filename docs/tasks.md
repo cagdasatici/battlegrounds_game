@@ -97,7 +97,7 @@ Execution details, ownership and acceptance gates are in [the sparring plan](spa
 | BOT3 | Host setup controls | BOT0 | IMPLEMENTED (DEVICE CHECK PENDING) | 99e5722 | docs/test-results/BOT3.md |
 | BOT4 | Authoritative room integration | BOT1 BOT2 | IMPLEMENTED (DEVICE CHECK PENDING) | 57ac46d | docs/test-results/BOT4.md |
 | BOT4C | Client journey integration | BOT3 | IMPLEMENTED (DEVICE CHECK PENDING) | b0c2383 | docs/test-results/BOT4C.md |
-| BOT5 | End-to-end sparring journeys | BOT4 BOT4C | IN PROGRESS | | docs/test-results/BOT5.md |
+| BOT5 | End-to-end sparring journeys | BOT4 BOT4C | IMPLEMENTED (DEVICE CHECK PENDING) | 8e863b8 | docs/test-results/BOT5.md |
 
 ## Player onboarding and instructions
 
