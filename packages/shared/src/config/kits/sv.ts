@@ -37,4 +37,10 @@ export const SV_DEFS: AbilityDef[] = [
     hitOffsets: [60], damage100: [10000], range: 40, block: "U", counterable: false, stunTicks: 0, ragdollTicks: 0,
     oncePerForm: true, consumesForm: true,
   }),
+  // Skybreak (T15): grounded, invulnerable commit..last active tick, box 20 x 8 x 24 queried at activeStart, max 4, 100 HP, R120 F4 U20.
+  defineAbility({
+    id: "sv.a2", label: "Skybreak", handler: "groundWave", startup: 90, active: 6, recovery: 45, cooldown: 0,
+    damage100: [10000], range: 24, shape: { kind: "box", w: 20, h: 8, d: 24 }, block: "U", counterable: false, armorBreak: true,
+    stunTicks: 0, ragdollTicks: 120, launch: { forward: 4, up: 20 }, maxTargets: 4, oncePerForm: true, consumesForm: true,
+  }),
 ];
