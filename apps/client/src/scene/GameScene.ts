@@ -132,6 +132,7 @@ export class GameScene {
   /** Quality tiers (spec section 23): one shadow casting light at 1024 on medium and high, no shadows on low. */
   setQuality(q: Quality): void {
     this.quality = q;
+    this.effects.configure(this.scene, q);
     const shadows = q !== "low";
     this.sun.castShadow = shadows;
     if (this.renderer.shadowMap && this.renderer.shadowMap.enabled !== shadows) {
@@ -197,6 +198,7 @@ export class GameScene {
   /** Draws one frame. `dtSec` advances fighter animation and drifting clouds; it never schedules gameplay. */
   render(dtSec = 0): void {
     for (const { view } of this.fighters.values()) view.update(dtSec);
+    this.effects.update(dtSec);
     this.arena.sky.position.copy(this.camera.position);
     this.arena.clouds.rotation.y += dtSec * 0.003;
     this.renderer.render(this.scene, this.camera);

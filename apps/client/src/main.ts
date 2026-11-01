@@ -243,6 +243,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     const onSettingsChange = (): void => {
       router.sensitivity = settings.get().sensitivity;
       cam.setDistance(settings.get().cameraDistance);
+      cam.reducedMotion = settings.get().reducedMotion;
       g.setQuality(tier(settings.get().quality));
       relayout();
     };
@@ -258,8 +259,10 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
 
     const cam = new CameraRig(m.colliders);
     cam.setDistance(settings.get().cameraDistance);
+    cam.reducedMotion = settings.get().reducedMotion;
     matchCleanups.push(registerPresentation(bus, {
       scene: g.scene, camera: g.camera, players, settings, localId: () => { const me = localOf(); return me ? String(me.entityId) : undefined; },
+      effects: g.effects, fighters: (id) => g.viewFor(id), shake: (a, ms) => { cam.shake(a, ms); },
     }));
     const loop = new GameLoop({
       scene: g, camera: cam, collide: kitHandle.collide, router, sampler, clock,
@@ -319,6 +322,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
           serverTick: (r.state as { serverTick?: number }).serverTick ?? 0,
           reconciles: loop.reconcileCount,
           hitMoveIds: [...debugHitMoves],
+          fx: { active: g.effects.activeCount, capacity: g.effects.capacity, flashing: [...players().keys()].filter((id) => g.viewFor(id)?.flashing), shaking: cam.shaking },
           corrections: { ...loop.correctionCounts },
           predicted: loop.prediction ? { ...loop.prediction.pos } : null,
           players: [...players().values()].map((p) => ({

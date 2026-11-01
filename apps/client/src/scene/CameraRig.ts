@@ -101,9 +101,25 @@ export class CameraRig {
   private current: number = CAMERA.defaultDistance;
   private easeFrom: number = CAMERA.defaultDistance;
   private easeT = 1;
+  /** Camera-shake scale (spec default 0.25); `reducedMotion` zeroes it. */
+  static readonly SHAKE_SCALE = 0.25;
+  reducedMotion = false;
+  private shakeAmp = 0;
+  private shakeLeft = 0;
+  private shakeTotal = 0;
+  private shakeClock = 0;
   pose: CameraPose = { position: { x: 0, y: 0, z: 0 }, pivot: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0, distance: CAMERA.defaultDistance };
 
   constructor(private colliders: readonly Collider[]) {}
+
+  /** Impact shake (FX1): amplitude in metres before scaling, duration in render ms. A stronger shake replaces a weaker one. */
+  shake(amplitude: number, ms: number): void {
+    if (this.reducedMotion || !(amplitude > 0) || !(ms > 0)) return;
+    const a = amplitude * CameraRig.SHAKE_SCALE;
+    if (this.shakeLeft > 0 && a < this.shakeAmp * (this.shakeLeft / this.shakeTotal)) return;
+    this.shakeAmp = a; this.shakeLeft = ms / 1000; this.shakeTotal = ms / 1000;
+  }
+  get shaking(): boolean { return this.shakeLeft > 0; }
 
   setColliders(colliders: readonly Collider[]): void { this.colliders = colliders; }
 
@@ -132,8 +148,15 @@ export class CameraRig {
       this.current = Math.min(allowed, this.easeFrom + (allowed - this.easeFrom) * this.easeT);
     }
     const d = this.current;
+    let ox = 0, oy = 0, oz = 0;
+    if (this.shakeLeft > 0) {
+      this.shakeClock += dt;
+      const k = this.shakeAmp * (this.shakeLeft / this.shakeTotal);
+      ox = Math.sin(this.shakeClock * 71) * k; oy = Math.sin(this.shakeClock * 93 + 1) * k; oz = Math.sin(this.shakeClock * 57 + 2) * k;
+      this.shakeLeft = Math.max(0, this.shakeLeft - dt);
+    }
     this.pose = {
-      position: { x: pivot.x + dir.x * d, y: pivot.y + dir.y * d, z: pivot.z + dir.z * d },
+      position: { x: pivot.x + dir.x * d + ox, y: pivot.y + dir.y * d + oy, z: pivot.z + dir.z * d + oz },
       pivot, yaw, pitch, distance: d,
     };
     return this.pose;

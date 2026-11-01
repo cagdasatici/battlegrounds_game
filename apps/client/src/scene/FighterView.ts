@@ -2,7 +2,7 @@
  * Rigged original fighter (task T25). A skinned, toon shaded model built from the shared rig and design data,
  * animated with clips chosen from replicated state. Presentation only: nothing here decides hits, HP or positions.
  */
-import { AnimationAction, AnimationMixer, Group, LoopOnce, LoopRepeat, type DataTexture } from "three";
+import { AnimationAction, AnimationMixer, Group, LoopOnce, LoopRepeat, type DataTexture, type MeshToonMaterial } from "three";
 import type { KitId } from "@eb/shared/protocol";
 import { TICK_RATE } from "@eb/shared/protocol";
 import { FIGHTER_DESIGNS } from "@eb/shared/fighterDesign";
@@ -28,12 +28,44 @@ export class FighterView {
   private last: { x: number; y: number; z: number; yaw: number } | null = null;
   private vel = { speed: 0, vy: 0, forward: 0, right: 0 };
   private disposed = false;
+  private flashColor = 0;
+  private flashLevel = 0;
+  private flashLeftMs = 0;
+  private flashTotalMs = 0;
+  private frozenFrames = 0;
 
   constructor(readonly kitId: KitId, ramp: DataTexture, opts: { outline?: boolean } = {}) {
     this.rig = buildFighterRig(kitId, ramp, { outline: opts.outline ?? true });
     this.group.add(this.rig.root, ...this.rig.meshes);
     this.mixer = new AnimationMixer(this.group);
     this.play("idle", true);
+  }
+
+  /**
+   * Hit flash (FX1): tints the body material's emissive toward `color` for `ms` of render time, scaled by `level`
+   * (the player's flash setting, 0..1) and fading out. `flashing` stays true for the whole window even at level 0.
+   */
+  flash(color: number, ms: number, level = 1): void {
+    if (this.disposed || !(ms > 0)) return;
+    this.flashColor = color; this.flashLevel = Math.min(1, Math.max(0, level));
+    this.flashLeftMs = ms; this.flashTotalMs = ms;
+    this.applyFlash();
+  }
+  get flashing(): boolean { return this.flashLeftMs > 0; }
+  /** Emissive multiplier currently applied (0 when idle). */
+  get flashAmount(): number { return this.flashLeftMs > 0 ? this.flashLevel * (this.flashLeftMs / this.flashTotalMs) : 0; }
+
+  /** Hitstop (FX1): pauses the animation mixer for N render frames. Visual only; never touches positions or ticks. */
+  freeze(frames: number): void { if (!this.disposed && frames > 0) this.frozenFrames = Math.max(this.frozenFrames, Math.floor(frames)); }
+  get frozen(): boolean { return this.frozenFrames > 0; }
+
+  private applyFlash(): void {
+    const k = this.flashAmount;
+    for (const m of this.rig.meshes) {
+      if (!m.name.endsWith(".body")) continue;
+      const mat = m.material as MeshToonMaterial;
+      mat.emissive.set(this.flashColor).multiplyScalar(k);
+    }
   }
 
   /** Meshes that should cast shadows are flagged on creation; this lets the scene toggle them by quality. */
@@ -77,7 +109,13 @@ export class FighterView {
     else if (this.currentClip === "fall" && locomotion) { next = "land"; loop = false; }
     else if ((this.currentClip === "getup" || this.currentClip === "land") && locomotion && this.active !== null && this.active.time < this.active.getClip().duration - 0.02) next = this.currentClip;
     if (next !== this.currentClip) this.play(next, loop);
+    this.mixer.timeScale = this.frozenFrames > 0 ? 0 : 1;
     this.mixer.update(dtSec);
+    if (this.frozenFrames > 0) this.frozenFrames -= 1;
+    if (this.flashLeftMs > 0) {
+      this.flashLeftMs = Math.max(0, this.flashLeftMs - dtSec * 1000);
+      this.applyFlash();
+    }
   }
 
   private play(id: string, loop: boolean): void {
