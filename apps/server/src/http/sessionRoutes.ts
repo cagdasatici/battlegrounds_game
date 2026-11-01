@@ -77,7 +77,7 @@ export function clientKey(req: IncomingMessage): string {
 export function registerSessionRoutes(app: HttpApp, svc: AuthServices, now: () => number = Date.now): void {
   const { config } = svc;
   const contentHash = computeContentHash();
-  const sessionLimiter = new RateLimiter(10, 60_000, now);
+  const sessionLimiter = new RateLimiter(config.sessionsPerMinute ?? 10, 60_000, now);
   const ticketLimiter = new RateLimiter(20, 60_000, now);
 
   app.get("/healthz", (_req, res) => send(res, 200, { ok: true }));
@@ -127,8 +127,11 @@ export function registerSessionRoutes(app: HttpApp, svc: AuthServices, now: () =
     if (!parsed.success) return send(res, 403, { error: "BAD_REQUEST" });
     const roomName = Object.hasOwn(config.roomCodes, parsed.data.roomCode) ? config.roomCodes[parsed.data.roomCode] : undefined;
     if (!roomName) return send(res, 409, { error: "UNKNOWN_ROOM" });
+    if (!svc.ensureRoom) return send(res, 503, { error: "NOT_READY" });
+    let roomId: string;
+    try { roomId = await svc.ensureRoom(roomName, parsed.data.roomCode); } catch { return send(res, 503, { error: "NOT_READY" }); }
     const t = svc.tickets.issue({ sessionId: s.id, roomName, roomCode: parsed.data.roomCode, contentHash, protocolVersion: PROTOCOL_VERSION });
-    const body: JoinTicketResponse = { ticket: t.ticket, expiresAt: t.expiresAt, roomName };
+    const body: JoinTicketResponse = { ticket: t.ticket, expiresAt: t.expiresAt, roomName, roomId };
     send(res, 200, body);
   });
 

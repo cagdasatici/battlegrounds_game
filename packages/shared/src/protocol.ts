@@ -145,8 +145,9 @@ export const JoinTicketRequestSchema = z.strictObject({
 });
 export interface VersionResponse { protocolVersion: number; contentHash: string; buildId: string }
 export interface SessionResponse { expiresAt: number }
-export interface JoinTicketResponse { ticket: string; expiresAt: number; roomName: string }
+export interface JoinTicketResponse { ticket: string; expiresAt: number; roomName: string; roomId: string }
 export const JoinOptionsSchema = z.strictObject({
+  roomCode: z.string().min(1).max(64),
   ticket: z.string().regex(/^[0-9a-f]{64}$/),
   protocolVersion: z.literal(PROTOCOL_VERSION),
   contentHash: hashStr,

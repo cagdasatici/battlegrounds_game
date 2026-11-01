@@ -65,7 +65,7 @@ describe("HTTP contracts", () => {
     expect(graphemeCount("👨‍👩‍👧‍👦")).toBe(1);
   });
   test("join options require a 64 hex ticket and matching version", () => {
-    const base = { ticket: "a".repeat(64), protocolVersion: PROTOCOL_VERSION, contentHash: "0".repeat(16) };
+    const base = { roomCode: "play", ticket: "a".repeat(64), protocolVersion: PROTOCOL_VERSION, contentHash: "0".repeat(16) };
     expect(JoinOptionsSchema.safeParse(base).success).toBe(true);
     expect(JoinOptionsSchema.safeParse({ ...base, ticket: "zz" }).success).toBe(false);
     expect(JoinOptionsSchema.safeParse({ ...base, protocolVersion: 2 }).success).toBe(false);

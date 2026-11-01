@@ -7,8 +7,8 @@ Source: docs/spec.md section 27.
 |------|-------|-----------|--------|--------|-------------|
 | T01 | Bootstrap | none | DONE | see git log | docs/test-results/T01.md |
 | T02 | Shared contracts | T01 | DONE | commit "T02:" in git log | docs/test-results/T02.md |
-| T03 | Authentication | T02 | DONE (A17 room-level part in T04) | commit "T03:" in git log | docs/test-results/T03.md |
-| T04 | Room lifecycle | T03 | TODO | | |
+| T03 | Authentication | T02 | DONE | commit "T03:" in git log | docs/test-results/T03.md |
+| T04 | Room lifecycle | T03 | DONE | commit "T04:" in git log | docs/test-results/T04.md |
 | T05 | Arena colliders | T02 | TODO | | |
 | T06 | Movement | T04 T05 | TODO | | |
 | T07 | Touch shell | T02 | TODO | | |

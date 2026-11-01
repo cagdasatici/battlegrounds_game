@@ -28,3 +28,9 @@ Transitive resolutions (including @colyseus/core) are recorded in `pnpm-lock.yam
 - **@colyseus/ws-transport 0.18.4** and **tsx 4.23.15** are additions not listed in section 17.
 - **Ignored build scripts** (esbuild, msgpackr-extract): not approved; the smoke test and build pass without them.
 - **Lint**: `pnpm lint` is an import-boundary script, not ESLint, until a full linter is justified.
+
+## Notes (T04)
+
+- Colyseus 0.18 API as installed: `onDrop` plus `allowReconnection(client, seconds)` reserves the seat, `onReconnect` restores it, and Colyseus calls `onLeave` when the reservation expires. A consented close (code 4000) skips `onDrop`.
+- `express` is not a direct dependency. Routes are registered through the server `express` option using plain Node request/response APIs.
+- Rooms are created by the server (`RoomDirectory` plus `matchMaker.createRoom`). Clients receive a `roomId` with their ticket and use `joinById`, so a full room yields ROOM_FULL instead of a silent second room.
