@@ -27,9 +27,13 @@ export interface SeqState {
 export interface SequenceSpec {
   name: string;
   /** Extra target eligibility (e.g. no grounded ragdoll). */
-  eligible?(target: Fighter, pose: AbilityPose): boolean;
+  eligible?(target: Fighter, pose: AbilityPose, c: CastContext): boolean;
   /** Damage in hundredths for scheduled hit `index` (default: def.damage100). */
   damageOf?(c: CastContext, st: SeqState, index: number): number;
+  /** T15: exact offset (ticks after the capture) at which the victim is released; default last hit offset + 1. */
+  releaseOffset?: number;
+  /** T15: the capture shields both participants from third parties (CaptureRegistry.shieldsFrom). */
+  cinematic?: boolean;
   onCommit?(c: CastContext, st: SeqState): void;
   onCaptured?(c: CastContext, st: SeqState): void;
   /** Runs every tick of the sequence after the release check (movement, tracking). */
@@ -84,6 +88,7 @@ export function scheduledCandidate(c: CastContext, victimId: number, index: numb
 }
 
 export function makeSequenceHandler(spec: SequenceSpec): AbilityHandler {
+  const releaseOf = (c: CastContext): number => spec.releaseOffset ?? releaseOffsetOf(c);
   return {
     name: spec.name,
     onCommit(c) {
@@ -99,13 +104,13 @@ export function makeSequenceHandler(spec: SequenceSpec): AbilityHandler {
         // Probe: only inside the original active window. After it, nothing can attach (recovery is inert).
         if (c.tick < c.cast.activeStart || c.tick >= st.probeEnd) return [];
         const out: HitCandidate[] = [];
-        for (const id of queryTargets(c, spec.eligible ? { filter: spec.eligible } : {})) {
+        for (const id of queryTargets(c, spec.eligible ? { filter: (t: Fighter, p: AbilityPose) => spec.eligible!(t, p, c) } : {})) {
           const cand = buildCandidate(c, id, 0, ap.x, ap.z);
           cand.reaction = { kind: "none" };
           cand.damage100 = spec.damageOf?.(c, st, 0) ?? d.damage100[0]!;
           cand.maxHitsPerTarget = 1; // the probe is one hit across the whole window
           // Safety deadline sits one tick after the handler release so the release (not expiry) ends it.
-          cand.capture = { cinematic: false, maxTicks: releaseOffsetOf(c) + 1 };
+          cand.capture = { cinematic: spec.cinematic === true, maxTicks: releaseOf(c) + 1 };
           out.push(cand);
         }
         return out;
@@ -130,7 +135,7 @@ export function makeSequenceHandler(spec: SequenceSpec): AbilityHandler {
         st.victimId = victim.entityId;
         st.victimLife = victim.lifeId;
         st.captureTick = c.tick;
-        const releaseTick = c.tick + releaseOffsetOf(c);
+        const releaseTick = c.tick + releaseOf(c);
         // A successful hit extends the active window through the last scheduled offset, then recovery follows.
         c.runner.extendCast(c.fighter, c.cast, releaseTick, releaseTick + c.cast.def.recovery);
         c.cast.armorUntil = releaseTick; // caster armor during the capture only
@@ -144,7 +149,7 @@ export function makeSequenceHandler(spec: SequenceSpec): AbilityHandler {
       if (st.victimId === null || st.released) return;
       if (!holdsCapture(c, st)) return;
       const rel = c.tick - st.captureTick;
-      if (rel >= releaseOffsetOf(c)) {
+      if (rel >= releaseOf(c)) {
         st.released = true;
         const v = releaseVictim(c, st.victimId, st.victimLife);
         if (v) spec.onReleased?.(c, st, v);
@@ -162,12 +167,12 @@ export function makeSequenceHandler(spec: SequenceSpec): AbilityHandler {
 }
 
 /** Direct capture used by the counter response (the incoming hit was consumed, so there is no candidate). */
-export function captureNow(c: CastContext, victim: Fighter, tick: number, maxTicks: number): boolean {
+export function captureNow(c: CastContext, victim: Fighter, tick: number, maxTicks: number, cinematic = false): boolean {
   const me = c.fighter;
   if (!isAlive(me) || !isAlive(victim) || victim.action === "Captured" || me.action === "Captured") return false;
   const won = c.host.combat.captures.tryCapture({
     victimId: victim.entityId, captorId: me.entityId, captorGeneration: me.generation, castCounter: c.cast.castCounter,
-    moveId: c.cast.def.id, cinematic: false, startTick: tick, endTick: tick + maxTicks,
+    moveId: c.cast.def.id, cinematic, startTick: tick, endTick: tick + maxTicks,
   });
   if (!won) return false;
   enterCaptured(victim, tick, c.cast.def.id);

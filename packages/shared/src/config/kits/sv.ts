@@ -30,4 +30,11 @@ export const SV_DEFS: AbilityDef[] = [
     damage100: [1500], range: 2, block: "U", targetStates: ["standing", "air", "ragdoll"],
     stunTicks: 0, ragdollTicks: 84, launch: { forward: 1, up: 11 },
   }),
+  // Stillpoint Reversal (T15): commit spends the form; a private counter status stays open for 600 ticks (def.active).
+  // Response: 100 HP (lethal cap, never Infinity) at trigger + 60, release at +72, then recovery 18. Range 40 m is the trigger reach.
+  defineAbility({
+    id: "sv.a1", label: "Stillpoint Reversal", handler: "lethalCounter", startup: 0, active: 600, recovery: 18, cooldown: 0,
+    hitOffsets: [60], damage100: [10000], range: 40, block: "U", counterable: false, stunTicks: 0, ragdollTicks: 0,
+    oncePerForm: true, consumesForm: true,
+  }),
 ];

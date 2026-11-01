@@ -40,6 +40,11 @@ export interface Fighter {
   invulnerableUntil: number;
   /** Counter interval [counterOpenFrom, counterOpenUntil), set by counter handlers (T13). */
   counterOpenUntil: number;
+  /**
+   * T15: private lethal counter status end tick (exclusive; 0 = none). Unlike counterOpenUntil it is NOT cleared by a
+   * new action, because base actions are allowed while sv.a1 Stillpoint Reversal is open. Death and respawn clear it.
+   */
+  lethalCounterUntil: number;
   armored: boolean;
   koCount: number; // KOs suffered this life; must stay <= 1
   /** Form state (spec 14/15). Awakened bits and contextSpent reset on a new awakening (T14). */
@@ -63,7 +68,7 @@ export function createFighter(entityId: number, lifeId: number, tick: number): F
     entityId, lifeId, hp100: COMBAT.hp100Max, action: "Idle", actionStartTick: tick, actionEndTick: OPEN, moveId: "",
     generation: 0, castCounter: 0, cast: null, dash: null, ragdollStartTick: -1, landingBonus: false,
     cooldowns: new Map(), blockstunUntil: 0, protectedUntilTick: tick + COMBAT.spawnProtectionTicks,
-    invulnerableUntil: 0, counterOpenUntil: 0, armored: false, koCount: 0,
+    invulnerableUntil: 0, counterOpenUntil: 0, lethalCounterUntil: 0, armored: false, koCount: 0,
     form: "Base", formEndTick: 0, awakenedUsedMask: 0, contextSpent: false, meter100: 0,
   };
 }
@@ -204,6 +209,13 @@ export function leaveCaptured(f: Fighter, tick: number): void {
   if (f.action === "Captured") setAction(f, "Idle", tick, OPEN);
 }
 
+/** Ends the current action at once and returns to Idle (T15: sv.a1 frees the caster while its counter status stays open). */
+export function releaseToIdle(f: Fighter, tick: number): void {
+  if (!isAlive(f)) return;
+  cancelCurrent(f);
+  setAction(f, "Idle", tick, OPEN);
+}
+
 export function enterRecovery(f: Fighter, tick: number, ticks: number): void {
   if (!isAlive(f)) return;
   cancelCurrent(f);
@@ -218,6 +230,7 @@ export function kill(f: Fighter, tick: number): boolean {
   f.koCount += 1;
   f.landingBonus = false;
   f.counterOpenUntil = 0;
+  f.lethalCounterUntil = 0;
   // Death resets meter and consumes any awakening (spec 11, 15).
   f.meter100 = 0; f.form = "Base"; f.formEndTick = 0; f.awakenedUsedMask = 0; f.contextSpent = false;
   f.armored = false;
@@ -238,6 +251,7 @@ export function respawn(f: Fighter, tick: number, lifeId: number): void {
   f.ragdollStartTick = -1;
   f.armored = false;
   f.counterOpenUntil = 0;
+  f.lethalCounterUntil = 0;
   f.form = "Base"; f.formEndTick = 0; f.awakenedUsedMask = 0; f.contextSpent = false; f.meter100 = 0;
   f.protectedUntilTick = tick + COMBAT.spawnProtectionTicks;
   setAction(f, "Idle", tick, OPEN);

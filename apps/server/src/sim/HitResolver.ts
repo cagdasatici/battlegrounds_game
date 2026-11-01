@@ -123,9 +123,10 @@ export function resolveHits(tick: number, candidates: readonly HitCandidate[], c
     if (isProtected(atk, tick) || isProtected(tgt, tick)) { res(c, "protected"); continue; }
     if (isInvulnerable(tgt, tick)) { res(c, "invulnerable"); continue; }
     if (ctx.captures.shieldsFrom(c.targetId, c.attackerId)) { res(c, "shielded"); continue; }
-    if (c.counterable && tick < tgt.counterOpenUntil && (!c.projectile || c.projectile.reflectable)) {
+    if (c.counterable && (tick < tgt.counterOpenUntil || tick < tgt.lethalCounterUntil) && (!c.projectile || c.projectile.reflectable)) {
       ctx.ledger.record(c.attackerId, c.castCounter, c.targetId, tgt.lifeId);
       tgt.counterOpenUntil = 0; // the counter consumes the incoming hit; response is T13 handler work
+      tgt.lethalCounterUntil = 0; // T15: the sv.a1 status is consumed the same way; its handler reads "countered" next
       res(c, "countered");
       continue;
     }

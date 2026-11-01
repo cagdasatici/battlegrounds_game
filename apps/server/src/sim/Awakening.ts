@@ -37,6 +37,9 @@ export const ACTIVATIONS: Readonly<Record<string, ActivationConfig>> = {
   },
 };
 
+/** Slotted awakened move ids (sv.a1 to ea.a4). Their damage resolves after the form returned to Base. */
+const AWAKENED_MOVE_RE = /^(sv|td|ea)\.a[1-4]$/;
+
 interface Activation { kit: string; startTick: number; endTick: number; generation: number; castCounter: number }
 
 export type AwakenOutcome =
@@ -79,6 +82,7 @@ export class AwakeningSystem {
       if ((r.outcome !== "hit" && r.outcome !== "captured") || r.damage100 <= 0) continue;
       const c = r.candidate;
       if (c.attackerId === c.targetId) continue;
+      if (AWAKENED_MOVE_RE.test(c.moveId)) continue; // D (T15): damage of a consumed awakened move never feeds the next meter
       const a = this.host.combat.get(c.attackerId);
       if (!a || !isAlive(a) || a.form !== "Base" || a.action === "Awakening") continue;
       const kit = this.kitOf(a);

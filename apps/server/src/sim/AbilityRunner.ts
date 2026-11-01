@@ -352,6 +352,26 @@ export class AbilityRunner {
     return { kind: "started", castCounter: f.castCounter, moveId: def.id };
   }
 
+  /**
+   * T15: starts a cast for a handler driven response (sv.a1 after its trigger) without form, once per form or cooldown
+   * checks and without calling onCommit. The fighter must be Idle. The cast is Active for `active` ticks (no startup),
+   * then Recovery for `recovery` ticks. Returns null when the fighter cannot start it.
+   */
+  beginDetachedCast(f: Fighter, tick: number, def: AbilityDef, active: number, recovery: number, data: Record<string, unknown>): ActiveCast | null {
+    const pose = this.host.pose(f.entityId);
+    if (!pose || !isAlive(f) || f.action !== "Idle") return null;
+    const r = beginCast(f, tick, def.id, 0, active, recovery, 0);
+    if (!r.ok) return null;
+    const cc = f.cast!;
+    this.endCast(f.entityId, "cancelled");
+    const cast: ActiveCast = {
+      def, entityId: f.entityId, castCounter: f.castCounter, generation: f.generation, startTick: tick,
+      activeStart: cc.activeStart, activeEnd: cc.activeEnd, endTick: cc.endTick, aimYaw: pose.facingYaw, armorUntil: 0, data,
+    };
+    this.casts.set(f.entityId, cast);
+    return cast;
+  }
+
   /** Extends the active window and/or the end of a running cast (capture sequences). Keeps the fighter consistent. */
   extendCast(f: Fighter, cast: ActiveCast, activeEnd: number, endTick: number): void {
     if (f.generation !== cast.generation || !f.cast || f.cast.castCounter !== cast.castCounter) return;
