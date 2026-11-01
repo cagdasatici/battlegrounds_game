@@ -234,6 +234,7 @@ export class ArenaRoom extends Room {
       combat: this.combat,
       pose: (id) => this.poseOf(id),
       blocked: (a, b) => !!this.world && this.world.segmentBlocked([a[0], a[1], a[2]], [b[0], b[1], b[2]]),
+      requestedYaw: (id) => this.pipeline.requestedYawOf(id),
       launch: (id, vx, vy, vz) => this.movement?.setVelocity(id, vx, vy, vz),
       moveTogether: (ids, dx, dz) => this.movement?.moveTogether(ids, dx, dz) ?? { dx: 0, dz: 0 },
       wallContact: (id, tick) => this.movement?.get(id)?.wallHitTick === tick,

@@ -11,6 +11,7 @@ import {
   AbilityRunner, MELEE_HANDLER, shapeOverlaps, type AbilityHandler, type AbilityHost, type AbilityPose,
   type EndReason, type SkillOutcome,
 } from "../../apps/server/src/sim/AbilityRunner.js";
+import { rotateToward } from "../../packages/shared/src/math.js";
 import type { HitResult } from "../../apps/server/src/sim/HitResolver.js";
 
 const T0 = 1000;
@@ -62,7 +63,7 @@ function rig(specs: AbilitySpec[], n = 2) {
     runner.afterResolve(tick, res);
     for (const r of res) results.push({ tick, r });
   };
-  return { cs, runner, poses, results, outcomes, step, probe, setOccluded: (v: boolean) => { occluded = v; } };
+  return { cs, runner, poses, host, results, outcomes, step, probe, setOccluded: (v: boolean) => { occluded = v; } };
 }
 
 describe("ability schema and registry validator (spec 14)", () => {
@@ -389,6 +390,43 @@ describe("R04 armor semantics for startup and onHit", () => {
 
   test("onHit: a miss never grants armor", () => {
     expect(armoredAt("onHit", false).every((x) => !x)).toBe(true);
+  });
+});
+
+describe("R07 turnRate during casts", () => {
+  const withYaw = (specs: AbilitySpec[], want: number) => {
+    const r = rig(specs);
+    r.host.requestedYaw = () => want;
+    return r;
+  };
+
+  test("rotateToward takes the shortest arc, clamps to maxStep and wraps at +-pi", () => {
+    expect(rotateToward(0, 1, 0.25)).toBeCloseTo(0.25, 12);
+    expect(rotateToward(0, 0.1, 0.25)).toBeCloseTo(0.1, 12);
+    expect(rotateToward(Math.PI - 0.1, -Math.PI + 0.1, 0.05)).toBeCloseTo(Math.PI - 0.05, 12); // crosses +pi going up
+    expect(rotateToward(-Math.PI + 0.1, Math.PI - 0.1, 0.05)).toBeCloseTo(-Math.PI + 0.05, 12); // crosses -pi going down
+    expect(rotateToward(1, 1, 0.5)).toBe(1);
+    expect(rotateToward(0, 2, 0)).toBe(0);
+  });
+
+  test("sv.b2 style cast (turnRate 90) with a constant request 180 deg away rotates exactly 90 deg after 60 ticks", () => {
+    const r = withYaw([base("sv.b1", { startup: 100, active: 10, turnRate: 90 })], Math.PI);
+    r.step(T0, { slot: 1 });
+    const start = r.runner.facingOverrideOf(1)!;
+    for (let t = T0 + 1; t <= T0 + 60; t++) r.step(t);
+    expect(Math.abs(r.runner.facingOverrideOf(1)! - start)).toBeCloseTo(Math.PI / 2, 9);
+  });
+
+  test("sv.b1 style cast (turnRate 0) does not rotate at all and still locks the body facing", () => {
+    const r = withYaw([base("sv.b1", { startup: 100, active: 10 })], Math.PI);
+    r.step(T0, { slot: 1 });
+    for (let t = T0 + 1; t <= T0 + 60; t++) r.step(t);
+    expect(r.runner.facingOverrideOf(1)).toBe(0);
+  });
+
+  test("no override without a live cast", () => {
+    const r = withYaw([base("sv.b1")], Math.PI);
+    expect(r.runner.facingOverrideOf(1)).toBeNull();
   });
 });
 

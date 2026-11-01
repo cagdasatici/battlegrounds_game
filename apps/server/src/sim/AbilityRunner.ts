@@ -1,6 +1,7 @@
 import { COMBAT } from "@eb/shared/config/combat";
 import type { AbilityDef, AbilityRegistry, Shape, TargetState } from "@eb/shared/abilities";
 import type { RejectReason } from "@eb/shared/protocol";
+import { rotateToward } from "@eb/shared/math";
 import { beginCast, isAlive, type Fighter, type Reaction } from "./ActionMachine.js";
 import type { CombatSystem } from "./Combat.js";
 import type { HitCandidate, HitResult } from "./HitResolver.js";
@@ -26,6 +27,8 @@ export interface AbilityHost {
   pose(entityId: number): AbilityPose | undefined;
   /** True when static geometry blocks the straight segment a -> b. */
   blocked(a: readonly [number, number, number], b: readonly [number, number, number]): boolean;
+  /** Optional (R07): the facing Movement would choose this tick (movement direction), or undefined when none is requested. */
+  requestedYaw?(entityId: number): number | undefined;
   /** Optional (T13): sets a body's velocity, used by handler driven releases (launch). */
   launch?(entityId: number, vx: number, vy: number, vz: number): void;
   /**
@@ -63,8 +66,8 @@ export interface ActiveCast {
   /** Mutable so a handler can extend the active window (capture sequences); use extendCast(). */
   activeEnd: number;
   endTick: number;
-  /** Aim snapshot taken at commit (spec 14: turnRate 0 after commit). */
-  readonly aimYaw: number;
+  /** Aim at commit, then turned toward the requested facing by at most def.turnRate (spec 14, R07). */
+  aimYaw: number;
   /** Armor granted by the handler until this tick (exclusive), in addition to def.armor. */
   armorUntil: number;
   /** Handler private state. Never shared between casts. */
@@ -440,6 +443,8 @@ export class AbilityRunner {
       if (f.generation !== cast.generation || f.castCounter !== cast.castCounter) { this.endCast(id, "cancelled"); this.syncArmor(f, undefined, tick); continue; }
       if (tick >= cast.endTick) { this.endCast(id, "completed"); this.syncArmor(f, undefined, tick); continue; }
       this.syncArmor(f, cast, tick);
+      const want = cast.def.turnRate > 0 ? this.host.requestedYaw?.(id) : undefined;
+      if (want !== undefined && Number.isFinite(want)) cast.aimYaw = rotateToward(cast.aimYaw, want, (cast.def.turnRate * Math.PI / 180) / 60);
       const ctx: CastContext = { tick, fighter: f, cast, host: this.host, runner: this };
       const handler = this.handlers.get(cast.def.handler)!;
       handler.onTick?.(ctx);
@@ -517,6 +522,12 @@ export class AbilityRunner {
   }
 
   /** Movement scale for the running ability cast, or null when no ability cast is running (spec 14). */
+  /** Body facing while a cast is live (R07): the body never turns faster than the hitbox. Null without a cast. */
+  facingOverrideOf(entityId: number): number | null {
+    const c = this.casts.get(entityId);
+    return c ? c.aimYaw : null;
+  }
+
   moveScaleOf(entityId: number): number | null {
     const c = this.casts.get(entityId);
     return c ? c.def.moveScale : null;

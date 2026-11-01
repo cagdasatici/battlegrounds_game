@@ -78,12 +78,15 @@ export class MovementSystem {
    * `intentOf` returns the validated intent for this tick. `overrideOf` (combat, T09) may force a horizontal
    * velocity for this tick, e.g. a dash; gravity and collision still apply.
    */
-  step(tick: number, intentOf: (entityId: number) => MoveIntent, overrideOf?: (entityId: number) => HorizontalOverride | null): void {
+  step(tick: number, intentOf: (entityId: number) => MoveIntent, overrideOf?: (entityId: number) => HorizontalOverride | null,
+    facingOverrideOf?: (entityId: number) => number | null): void {
     if (this.disposed) throw new Error("movement disposed");
     const ids = [...this.bodies.keys()].sort((a, b) => a - b);
     for (const id of ids) {
       const b = this.bodies.get(id)!;
       const desired = integrateMovement(b.state, intentOf(id), tick);
+      const fo = facingOverrideOf?.(id);
+      if (fo !== null && fo !== undefined && Number.isFinite(fo)) b.state.facingYaw = fo; // cast aim owns the body facing (R07)
       const o = overrideOf?.(id);
       if (o && Number.isFinite(o.vx) && Number.isFinite(o.vz)) {
         b.state.vx = o.vx; b.state.vz = o.vz;

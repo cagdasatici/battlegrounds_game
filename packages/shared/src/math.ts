@@ -5,6 +5,13 @@ export function clamp(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v;
 }
 
+/** Rotates `from` toward `to` along the shortest arc by at most `maxStep` radians. Result is not re-wrapped. */
+export function rotateToward(from: number, to: number, maxStep: number): number {
+  const d = Math.atan2(Math.sin(to - from), Math.cos(to - from));
+  if (Math.abs(d) <= maxStep) return from + d;
+  return from + Math.sign(d) * maxStep;
+}
+
 /** Integer hundredths of HP. */
 export const hp100 = (hp: number): number => Math.round(hp * 100);
 

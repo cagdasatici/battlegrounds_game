@@ -162,13 +162,14 @@ export class TickPipeline {
       const castScale = abilities.moveScaleOf(seat.entityId);
       const locked = !!f && (locomotionLocked(f) || f.action === "Dash" || (castScale === 0 && f.action !== "Idle"));
       // moveScale (spec 14): during an ability cast with 0 < scale < 1 the player's movement intent is scaled and
-      // running is suppressed (T12, sv.b2 moveScale 0.15). turnRate facing lock is not enforced yet.
+      // running is suppressed (T12, sv.b2 moveScale 0.15). turnRate is enforced in AbilityRunner.collect (R07).
       const scaled = castScale !== null && castScale > 0 && castScale < 1 && f !== undefined && f.action !== "Idle";
       const mScale = scaled ? castScale : 1;
       this.intents.set(seat.entityId, locked ? NEUTRAL_MOVE
         : { moveX: h.moveX * mScale, moveZ: h.moveZ * mScale, run: scaled ? false : h.runHeld, guard: f?.action === "Guard" || h.blockHeld, jumpPressed: sc.jumpPressed });
     }
-    this.d.movement()?.step(tick, (id) => this.intents.get(id) ?? NEUTRAL_MOVE, (id) => this.dashOverride(id));
+    this.d.movement()?.step(tick, (id) => this.intents.get(id) ?? NEUTRAL_MOVE, (id) => this.dashOverride(id),
+      (id) => this.d.abilities.facingOverrideOf(id));
   }
 
   /** Collision queries for M1 swings, abilities and awakening at the current server poses (spec 12/13). */
@@ -247,6 +248,12 @@ export class TickPipeline {
       this.d.sendActionResult(sessionId, seat, edgeId, seq, tick, true, undefined, `${f.entityId}.${o.castCounter}`);
       this.d.broadcastEvent(tick, "cast", f.entityId, undefined, f.lifeId, o.moveId);
     } else this.d.sendActionResult(sessionId, seat, edgeId, seq, tick, false, o.reason);
+  }
+
+  /** Facing Movement would pick from this tick's intent (R07 host hook for AbilityRunner turnRate). */
+  requestedYawOf(id: number): number | undefined {
+    const i = this.intents.get(id);
+    return i && (i.moveX !== 0 || i.moveZ !== 0) ? Math.atan2(-i.moveX, -i.moveZ) : undefined;
   }
 
   private dashOverride(id: number): HorizontalOverride | null {
