@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { startHarness, loginClient, waitFor, players, freshCode, type Harness } from "../fixtures/harness.js";
-import type { ActionResult } from "../../packages/shared/src/protocol.js";
+import { matchMaker } from "colyseus";
+import type { ActionResult, CombatEvent } from "../../packages/shared/src/protocol.js";
+import type { ArenaRoom } from "../../apps/server/src/rooms/ArenaRoom.js";
 
 let h: Harness;
 beforeAll(async () => { h = await startHarness(25677); });
@@ -64,6 +66,46 @@ describe("T09 combat states over a real Colyseus connection", () => {
     // Departure removes the fighter (captures, if any, are released by CombatSystem.remove).
     await a.leave();
     await waitFor(() => players(rb).size === 1, 2000, "A removed");
+    await b.leave();
+  });
+});
+
+describe("R06 forward dash hits over a real Colyseus connection", () => {
+  test("a forward dash toward a standing target hits once for 4 HP on the server", async () => {
+    const code = freshCode();
+    const a = await loginClient(h, "Arel");
+    const b = await loginClient(h, "Nora");
+    const ra = await a.join(code);
+    const rb = await b.join(code);
+    const events: CombatEvent[] = [];
+    rb.onMessage("combatEvent", (e: CombatEvent) => { events.push(e); });
+    await waitFor(() => a.welcome !== null && players(ra).size === 2 && players(rb).size === 2, 3000, "joined");
+    a.send("ready", { kitId: "sv", contentHash: a.localContentHash });
+    b.send("ready", { kitId: "td", contentHash: b.localContentHash });
+    const byName = (n: string) => [...players(rb).values()].find((p) => p.displayName === n);
+    await waitFor(() => byName("Arel")?.ready && byName("Nora")?.ready && byName("Arel").action === "Idle", 3000, "ready");
+    const room = matchMaker.getLocalRoomById(ra.roomId) as unknown as ArenaRoom;
+    const aId = byName("Arel").entityId as number, bId = byName("Nora").entityId as number;
+    await waitFor(() => room.sim.tick > room.combat.get(bId)!.protectedUntilTick + 2
+      && room.sim.tick > room.combat.get(aId)!.protectedUntilTick + 2 && room.movement!.get(bId)!.state.grounded, 4000, "settled");
+    // Test fixture only: place A 6.5 m in front of B (the dash covers about 5.5 m by its first hit tick), facing B. The dash itself is real client input.
+    const mv = room.movement!;
+    const bp = mv.position(bId)!;
+    const body = mv.get(aId)!;
+    const p = { x: bp[0], y: bp[1], z: bp[2] + 6.5 };
+    body.rb.setTranslation(p, true);
+    body.rb.setNextKinematicTranslation(p);
+    body.state.facingYaw = 0; body.state.vx = 0; body.state.vz = 0;
+    await sleep(60);
+    const epoch = a.welcome!.epoch;
+    a.send("input", pkt(epoch, 1, { moveZ: -1, edges: [{ id: 1, kind: "dash" }] }));
+    await waitFor(() => events.some((e) => e.kind === "hit" && e.actorId === String(aId)), 2000, "dash hit");
+    await sleep(300);
+    const hits = events.filter((e) => e.kind === "hit" && e.actorId === String(aId));
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toMatchObject({ moveId: "dash.forward", damage100: 400 });
+    await waitFor(() => byName("Nora").hp100 === 9600, 1000, "hp replicated");
+    await a.leave();
     await b.leave();
   });
 });

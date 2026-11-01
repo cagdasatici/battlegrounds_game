@@ -11,6 +11,7 @@ import type { AwakeningSystem, AwakenOutcome } from "./Awakening.js";
 import type { MovementSystem, HorizontalOverride } from "./Movement.js";
 import type { World } from "./World.js";
 import type { HitCandidate, HitResult } from "./HitResolver.js";
+import { dashCandidates } from "./DashAttack.js";
 import { locomotionLocked, intentsSuppressed } from "./ActionMachine.js";
 
 /** The part of a room seat the pipeline needs. */
@@ -185,6 +186,7 @@ export class TickPipeline {
     this.candidates = [
       ...this.d.m1.candidates(tick, this.d.combat.all(), pose,
         (a, t) => !!w && w.segmentBlocked([a.x, a.y, a.z], [t.x, t.y, t.z])),
+      ...dashCandidates(tick, this.d.combat.all(), pose, (a, t) => !!w && w.segmentBlocked([a.x, a.y, a.z], [t.x, t.y, t.z])),
       ...this.d.abilities.collect(tick),
       ...this.d.awakening.collect(tick),
     ];
