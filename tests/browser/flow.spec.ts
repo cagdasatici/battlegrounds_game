@@ -211,8 +211,9 @@ test("happy path to Ready, then HUD: meter, cooldown, rejection, scoreboard, kit
     const s3 = await centre(page, "skill3");
     await page.touchscreen.tap(s3.x, s3.y);
     const cd = await until(async () => {
-      const t = (await page.locator("[data-control=skill3]").textContent()) ?? "";
-      const m = /^3 (\d+(?:\.\d)?)$/.exec(t);
+      // QU01 (decision 0034): the button is a name span plus a status span ("Ready" or the cooldown).
+      const t = (await page.locator("[data-control=skill3] span").last().textContent()) ?? "";
+      const m = /^(\d+(?:\.\d)?)$/.exec(t.replace(/s$/, ""));
       return m ? m[1]! : null;
     }, 5000, "skill 3 cooldown text");
     expect(Number(cd)).toBeGreaterThan(5);
