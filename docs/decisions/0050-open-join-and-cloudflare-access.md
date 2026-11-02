@@ -10,5 +10,5 @@ Date: 2026-11-02. Status: accepted (owner request, delegated detail).
 - Rationale versus the Atlas paired-device gate: same one-time-per-device onboarding, but no Caddy or custom pairing service; Cloudflare already fronts this hostname.
 
 ## Limits
-- Cloudflare dashboard steps are owner-run (`docs/cloudflare-hosting.md`). NOT RUN: a real Access login from a phone on mobile data.
+- Access application created 2026-11-02 (Zero Trust Free, self-hosted app on `battle.cagdasatici.com`, email allow policy, 1 month session); production runs with `OPEN_JOIN=1`. NOT RUN: a real Access login from a phone on mobile data.
 - Display names are limited to Arel and Nora in open mode; two people may pick the same name.
