@@ -142,7 +142,7 @@ Execute one row per session using [the Quality 90 instructions](quality-90-plan.
 | QE01 | East bridge MegaKit art pass | Q01 ART1 | IMPLEMENTED (DEVICE CHECK PENDING) | de8cf2a | docs/test-results/QE01.md |
 | QF01 | Stone Vanguard silhouette and animation | Q01 ART2 | IMPLEMENTED (DEVICE CHECK PENDING) | c8e12ad | docs/test-results/QF01.md |
 | QV01 | Visible urn lifecycle | Q01 T23 ORB2 | IMPLEMENTED (DEVICE CHECK PENDING) | 57f849f | docs/test-results/QV01.md |
-| QV02 | Durable attack telegraphs | Q01 FX4-align | TODO | | docs/test-results/QV02.md |
+| QV02 | Durable attack telegraphs | Q01 FX4-align | IMPLEMENTED (DEVICE CHECK PENDING) | pending | docs/test-results/QV02.md |
 | QV03 | Fault Strike signature | QV02 QF01 | TODO | | docs/test-results/QV03.md |
 | QV04 | Undertow Spiral signature | QV02 | TODO | | docs/test-results/QV04.md |
 | QV05 | Furnace Ray signature | QV02 | TODO | | docs/test-results/QV05.md |

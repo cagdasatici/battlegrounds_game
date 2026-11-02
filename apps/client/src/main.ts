@@ -15,6 +15,7 @@ import { UpdateWatcher, browserUpdateDeps } from "./app/UpdateWatcher.js";
 import { AppFlow } from "./app/AppFlow.js";
 import { CombatBus } from "./app/CombatBus.js";
 import { registerPresentation } from "./fx/index.js";
+import { rayCoverLength, type AttackTelegraphs } from "./fx/AttackTelegraphs.js";
 import { CaptureCam } from "./fx/CaptureCam.js";
 import { AdaptiveQuality } from "./app/AdaptiveQuality.js";
 import { GameLoop, type LoopPlayer, type LoopState } from "./app/GameLoop.js";
@@ -421,6 +422,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     matchCleanups.push(attachPointerRouter(router, canvas, window, document));
     matchCleanups.push(attachKeyboardRouter(router, window, canvas));
 
+    let telegraphs: AttackTelegraphs | null = null;
     const cam = new CameraRig(m.colliders);
     cam.setDistance(settings.get().cameraDistance);
     cam.reducedMotion = settings.get().reducedMotion;
@@ -428,6 +430,9 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       scene: g.scene, camera: g.camera, players, settings, localId: () => { const me = localOf(); return me ? String(me.entityId) : undefined; },
       surfaceHeight: (x, z, fromY) => surfaceBelow(m.colliders, x, z, fromY),
       effects: g.effects, fighters: (id) => g.viewFor(id), shake: (a, ms) => { cam.shake(a, ms); },
+      serverTick: () => Math.floor(clock.serverTick(performance.now()) ?? ((r.state as { serverTick?: number }).serverTick ?? 0)),
+      cover: (ox, oy, oz, fx, fz, max) => rayCoverLength(m.colliders, ox, oy, oz, fx, fz, max),
+      onTelegraphs: (t) => { telegraphs = t; },
     }));
     const captureCam = new CaptureCam(cam);
     let capRaf = 0;
@@ -494,6 +499,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       (window as unknown as { __eb: unknown }).__eb = {
         /** Test-only: sets the player-controlled camera yaw so both fighters can face each other. */
         setCameraYaw: (y: number) => { router.yaw = y; },
+        /** Test-only: saturates the pooled particle buffer so telegraph retention can be checked. */
+        floodFx: (n: number) => { for (let i = 0; i < n; i++) g.effects.spawn({ x: 0, y: 3, z: 0, vx: 0, vy: 0, vz: 0, life: 30, size: 0.1, color: 0xffffff }); },
         snapshot: () => ({
           localEntityId: loop.localEntityId,
           serverTick: (r.state as { serverTick?: number }).serverTick ?? 0,
@@ -502,7 +509,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
           reconciles: loop.reconcileCount,
           hitMoveIds: [...debugHitMoves],
           eventCounts: { ...debugEventCounts },
-          render: glRenderer ? { calls: glRenderer.info.render.calls, triangles: glRenderer.info.render.triangles, tier: adaptive.level } : null,
+          render: glRenderer ? { geometries: glRenderer.info.memory.geometries, calls: glRenderer.info.render.calls, triangles: glRenderer.info.render.triangles, tier: adaptive.level } : null,
+          telegraphs: telegraphs?.snapshot() ?? null,
           fx: { active: g.effects.activeCount, capacity: g.effects.capacity, flashing: [...players().keys()].filter((id) => g.viewFor(id)?.flashing), shaking: cam.shaking },
           corrections: { ...loop.correctionCounts },
           camera: (() => {
