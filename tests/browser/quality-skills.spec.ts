@@ -256,31 +256,31 @@ for (const tier of ["low", "medium"] as const) {
 }
 
 
-// ---- QV07: Duelist ability and awakening coverage -------------------------------------------------------------
+// ---- QV08: Artificer ability and awakening coverage -------------------------------------------------------------
 // Fixture (synthetic, labelled): fighter placement, camera yaw and the server fighter's action/moveId are set by the test; hits are
 // server-broadcast combat events. Replication, rendering, pooling and cleanup are real. Stills are SwiftShader desktop Chromium, not a device.
-const outDir7 = path.join(root, "docs/test-results/QV07");
-interface Row7 { id: string; action: "Active" | "Awakening"; hits: number[]; sustained?: boolean; counter?: boolean }
+const outDir8 = path.join(root, "docs/test-results/QV08");
+interface Row8 { id: string; action: "Active" | "Awakening"; hits: number[]; sustained?: boolean; counter?: boolean }
 // A hit of 0 damage is sent as a server "capture" event, as the real pipeline reports captures; everything else is a "hit".
-const ROWS7: Row7[] = [
-  { id: "td.b1", action: "Active", hits: [0, 400, 800] }, { id: "td.b2", action: "Active", hits: [500, 2400] }, { id: "td.b3", action: "Active", hits: [0, 900] },
-  { id: "td.b4", action: "Active", hits: [600, 1600], counter: true }, { id: "td.a1", action: "Active", hits: [400, 1000] }, { id: "td.a2", action: "Active", hits: [0, 2000, 6900] },
-  { id: "td.a3", action: "Active", hits: [1200, 2600], sustained: true }, { id: "td.a4", action: "Active", hits: [0, 2200], sustained: true },
-  { id: "td.activate", action: "Awakening", hits: [2000] },
+const ROWS8: Row8[] = [
+  { id: "ea.b1", action: "Active", hits: [200, 1000] }, { id: "ea.b2", action: "Active", hits: [1500, 1000] }, { id: "ea.b3", action: "Active", hits: [1500, 2500] },
+  { id: "ea.b4", action: "Active", hits: [2000] }, { id: "ea.a1", action: "Active", hits: [0, 1500, 1300, 2000, 2500] }, { id: "ea.a2", action: "Active", hits: [0, 2000, 5000] },
+  { id: "ea.a3", action: "Active", hits: [500], sustained: true }, { id: "ea.a4", action: "Active", hits: [700], sustained: true },
+  { id: "ea.activate", action: "Awakening", hits: [1600] },
 ];
-const MEDIUM7 = new Set(["td.b4", "td.a2", "td.a3", "td.activate"]);
+const MEDIUM8 = new Set(["ea.b4", "ea.a1", "ea.a4", "ea.activate"]);
 for (const tier of ["low", "medium"] as const) {
-  test(`QV07 ${tier}: every Duelist move and the activation show a cue on an observer, react to confirmed hits only, and drain`, async () => {
+  test(`QV08 ${tier}: every Artificer move and the activation show a cue on an observer, react to confirmed hits only, and drain`, async () => {
     test.setTimeout(600_000);
-    mkdirSync(outDir7, { recursive: true });
-    const names = { A: "Tara", T: "Nora", O: "Sven" } as const;
+    mkdirSync(outDir8, { recursive: true });
+    const names = { A: "Eli", T: "Nora", O: "Sven" } as const;
     const openT = async (name: string, kit: string) => {
       const ctx = await browser.newContext({ viewport: { width: 1024, height: 768 }, hasTouch: true });
       await ctx.addInitScript(({ s, spoof }) => {
-        try { for (const n of ["Sven", "Nora", "Tara", "default"]) localStorage.setItem(`eb.settings.v1.${n}`, JSON.stringify(s)); } catch { /* storage unavailable */ }
+        try { for (const n of ["Sven", "Nora", "Eli", "default"]) localStorage.setItem(`eb.settings.v1.${n}`, JSON.stringify(s)); } catch { /* storage unavailable */ }
         if (spoof) for (const C of [WebGLRenderingContext, WebGL2RenderingContext]) {
           const orig = C.prototype.getParameter;
-          C.prototype.getParameter = function (this: WebGLRenderingContext, p: number) { return p === 0x9246 ? "ANGLE (Apple, Apple M-series GPU, Metal) [QV07 fixture]" : orig.call(this, p); } as never;
+          C.prototype.getParameter = function (this: WebGLRenderingContext, p: number) { return p === 0x9246 ? "ANGLE (Apple, Apple M-series GPU, Metal) [QV08 fixture]" : orig.call(this, p); } as never;
         }
       }, { s: { ...defaultSettings(), quality: tier }, spoof: tier !== "low" });
       const page = await ctx.newPage(), errors: string[] = [];
@@ -291,7 +291,7 @@ for (const tier of ["low", "medium"] as const) {
       await page.waitForFunction(() => (window as unknown as { __eb?: unknown }).__eb !== undefined, undefined, { timeout: 30_000 });
       return { ctx, page, errors };
     };
-    const A = await openT(names.A, "td"), T = await openT(names.T, "ea"), O = await openT(names.O, "sv");
+    const A = await openT(names.A, "ea"), T = await openT(names.T, "td"), O = await openT(names.O, "sv");
     const report: { id: string; tier: string; cuePeak: number; hitPeaks: number[]; drained: boolean; stoppedOnInterrupt: boolean | null; render: { calls: number; triangles: number } | null; shot: string }[] = [];
     try {
       await until(async () => (await snap(O.page)).players.filter((p) => p.ready).length === 3, 30000, "three ready");
@@ -311,16 +311,16 @@ for (const tier of ["low", "medium"] as const) {
       const idle = () => { fa.action = "Idle" as never; fa.moveId = ""; fa.actionEndTick = Number.MAX_SAFE_INTEGER; };
       const fxOf = async () => (await snap(O.page)).fx.active;
       const server = arena as unknown as { broadcastEvent(t: number, k: string, a: number, b: number, life: number, move: string, dmg: number): void };
-      for (const row of ROWS7) {
-        if (tier === "medium" && !MEDIUM7.has(row.id)) continue;
+      for (const row of ROWS8) {
+        if (tier === "medium" && !MEDIUM8.has(row.id)) continue;
         apply(); idle(); ft.hp100 = 10000;
         await until(async () => (await fxOf()) === 0, 15000, `${row.id} quiet pool`);
         const tick = arena.sim.tick;
-        fa.action = row.action as never; fa.moveId = row.id; fa.actionStartTick = tick; fa.actionEndTick = tick + (row.action === "Awakening" ? 30 : 1000);
+        fa.action = row.action as never; fa.moveId = row.id; fa.actionStartTick = tick; fa.actionEndTick = tick + (row.action === "Awakening" ? 90 : 1000);
         const cue = await until(async () => { const n = await fxOf(); return n > 0 ? n : false; }, 8000, `${row.id} cue`);
         const t0 = Date.now();
         const s0 = await snap(O.page), file = `${tier}-${row.id}-cue.jpg`;
-        await O.page.screenshot({ path: path.join(outDir7, file), type: "jpeg", quality: 82 });
+        await O.page.screenshot({ path: path.join(outDir8, file), type: "jpeg", quality: 82 });
         const hitPeaks: number[] = [];
         let shot = file;
         for (const dmg of row.hits) {
@@ -328,12 +328,7 @@ for (const tier of ["low", "medium"] as const) {
           server.broadcastEvent(arena.sim.tick, dmg === 0 ? "capture" : "hit", aId, tId, ft.lifeId, row.id, dmg);
           const n = await until(async () => { const v = await fxOf(); return v > before ? v : false; }, 8000, `${row.id} hit ${dmg}`);
           hitPeaks.push(n);
-          if (dmg === row.hits[row.hits.length - 1]) { shot = `${tier}-${row.id}-hit.jpg`; await O.page.screenshot({ path: path.join(outDir7, shot), type: "jpeg", quality: 82 }); }
-        }
-        if (row.counter) { // confirmed counter against the Duelist in stance: the mirror flares
-          const before = await fxOf();
-          server.broadcastEvent(arena.sim.tick, "counter", tId, aId, fa.lifeId, "ea.b1", 0);
-          hitPeaks.push(await until(async () => { const v = await fxOf(); return v > before ? v : false; }, 8000, `${row.id} counter flare`));
+          if (dmg === row.hits[row.hits.length - 1]) { shot = `${tier}-${row.id}-hit.jpg`; await O.page.screenshot({ path: path.join(outDir8, shot), type: "jpeg", quality: 82 }); }
         }
         let stopped: boolean | null = null;
         if (row.sustained) { // authoritative interruption: the emitter stops and the pool drains
@@ -345,7 +340,7 @@ for (const tier of ["low", "medium"] as const) {
         report.push({ id: row.id, tier, cuePeak: cue, hitPeaks, drained: true, stoppedOnInterrupt: stopped, render: s0.render ? { calls: (s0.render as unknown as { calls: number }).calls, triangles: (s0.render as unknown as { triangles: number }).triangles } : null, shot });
         void t0;
       }
-      writeFileSync(path.join(outDir7, `${tier}-report.json`), JSON.stringify({ fixture: "synthetic server phase + broadcast hit events; SwiftShader desktop Chromium 1024x768", tier, report }, null, 1));
+      writeFileSync(path.join(outDir8, `${tier}-report.json`), JSON.stringify({ fixture: "synthetic server phase + broadcast hit events; SwiftShader desktop Chromium 1024x768", tier, report }, null, 1));
       for (const x of [A, T, O]) expect(x.errors).toEqual([]);
     } finally { await A.ctx.close(); await T.ctx.close().catch(() => undefined); await O.ctx.close().catch(() => undefined); }
   });

@@ -1,0 +1,70 @@
+{
+ "fixture": "synthetic server phase + broadcast hit events; SwiftShader desktop Chromium 1024x768",
+ "tier": "medium",
+ "report": [
+  {
+   "id": "ea.b4",
+   "tier": "medium",
+   "cuePeak": 14,
+   "hitPeaks": [
+    56
+   ],
+   "drained": true,
+   "stoppedOnInterrupt": null,
+   "render": {
+    "calls": 86,
+    "triangles": 96840
+   },
+   "shot": "medium-ea.b4-hit.jpg"
+  },
+  {
+   "id": "ea.a1",
+   "tier": "medium",
+   "cuePeak": 16,
+   "hitPeaks": [
+    24,
+    42,
+    62,
+    96,
+    124
+   ],
+   "drained": true,
+   "stoppedOnInterrupt": null,
+   "render": {
+    "calls": 86,
+    "triangles": 96840
+   },
+   "shot": "medium-ea.a1-hit.jpg"
+  },
+  {
+   "id": "ea.a4",
+   "tier": "medium",
+   "cuePeak": 28,
+   "hitPeaks": [
+    82
+   ],
+   "drained": true,
+   "stoppedOnInterrupt": true,
+   "render": {
+    "calls": 88,
+    "triangles": 96842
+   },
+   "shot": "medium-ea.a4-hit.jpg"
+  },
+  {
+   "id": "ea.activate",
+   "tier": "medium",
+   "cuePeak": 34,
+   "hitPeaks": [
+    54
+   ],
+   "drained": true,
+   "stoppedOnInterrupt": null,
+   "render": {
+    "calls": 86,
+    "triangles": 96840
+   },
+   "shot": "medium-ea.activate-hit.jpg"
+  }
+ ]
+}
