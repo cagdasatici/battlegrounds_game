@@ -10,3 +10,12 @@ The owner told the orchestrator to proceed without asking and to use its own jud
 - Medium tier uses a test-only spoofed WebGL renderer string (the ordinary client pins SwiftShader to low).
 - Stills only. No full-speed clips were kept; screenshot latency under three SwiftShader clients means "windup/impact/settle" are triggers, and the metrics file records the actual replicated action at capture time.
 - Placement, camera yaw, HP/cooldown resets and awakening meter are synthetic fixtures; skills are held real keys and hits come from the server.
+
+## Orchestrator verdict after rework (2026-11-02)
+
+Owner delegated this call to the orchestrator; this is not a human sign-off.
+Environment PASS, Silhouette PASS (Vanguard scope), Warning/impact accepted as PASS with one carried issue:
+the Fault Strike impact flash is asserted in particle data (fx-sv unit tests) but not visible in any still
+capture. It moves to QV06 (Vanguard ability coverage), which must show it in a full-speed clip or redesign it.
+Rationale: windup, Furnace Ray and tag fixes are visibly confirmed; one impact frame does not justify
+holding every downstream slice. Physical iPad and two-player review remain NOT RUN (QD01).
