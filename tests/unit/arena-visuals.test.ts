@@ -43,13 +43,18 @@ describe("ART1 dressing placement", () => {
     expect(plan.length).toBeGreaterThan(30);
     for (const p of plan) expect(ENV_MODELS).toContain(p.model);
   });
-  it("keeps landmark crowns outside walkable ground and gives the opposite deck a pine skyline", () => {
-    const landmarks = plan.filter((p) => ["CommonTree_1", "Pine_1"].includes(p.model) && Math.abs(p.x) < 45 && Math.abs(p.z) < 20);
-    expect(landmarks.filter((p) => p.x > 0).map((p) => p.model)).toEqual(["CommonTree_1", "CommonTree_1"]);
-    expect(landmarks.filter((p) => p.x < 0).map((p) => p.model)).toEqual(["Pine_1", "Pine_1"]);
+  const TREES = ["CommonTree_1", "Pine_1", "TwistedTree_2"];
+  const landmarks = plan.filter((p) => TREES.includes(p.model) && /^[nsew]$/.test(p.region ?? ""));
+  it("QE02: every approach has its own landmark species and keeps crowns outside walkable ground", () => {
+    const by = (r: string): string[] => landmarks.filter((p) => p.region === r).map((p) => p.model);
+    expect(by("e")).toEqual(["CommonTree_1", "CommonTree_1"]);
+    expect(by("n")).toEqual(["Pine_1", "Pine_1", "Pine_1", "Pine_1"]);
+    expect(by("w")).toEqual(["CommonTree_1", "CommonTree_1"]);
+    expect(by("s")).toEqual(["TwistedTree_2", "TwistedTree_2"]);
+    expect(plan.filter((p) => p.model === "TwistedTree_2").every((p) => p.region === "s")).toBe(true); // species is unique to the south
     for (const p of landmarks) {
       // Conservative radial bounds enclose the source glTF crowns at any yaw.
-      const r = (p.model === "Pine_1" ? 3.52 : 3.22) * p.scale;
+      const r = (p.model === "Pine_1" ? 3.52 : p.model === "CommonTree_1" ? 3.22 : 5.28) * p.scale;
       for (const c of ground) {
         const gap = c.shape === "cuboid"
           ? Math.hypot(Math.max(0, Math.abs(p.x - c.centre[0]) - c.halfExtents[0]), Math.max(0, Math.abs(p.z - c.centre[2]) - c.halfExtents[2]))
@@ -59,16 +64,18 @@ describe("ART1 dressing placement", () => {
     }
   });
   it("QE01: east gate trees are asymmetric and flanked by flowers, grass, fern and flush stone", () => {
-    const trees = plan.filter((p) => p.model === "CommonTree_1" && p.x > 0 && Math.abs(p.x) < 45);
+    const trees = plan.filter((p) => p.model === "CommonTree_1" && p.region === "e");
     expect(trees).toHaveLength(2);
     const [a, b] = trees as [typeof trees[0], typeof trees[0]];
     expect(Math.abs(a!.z + b!.z)).toBeGreaterThan(0.3); // not mirrored across the lane
     expect(a!.scale).not.toBeCloseTo(b!.scale, 1);
     expect(a!.x).not.toBeCloseTo(b!.x, 1);
     for (const m of ["Bush_Common_Flowers", "Grass_Common_Short", "Fern_1", "RockPath_Round_Thin"] as const)
-      expect(plan.filter((p) => p.model === m && p.x > 30 && p.x < 45).length, m).toBeGreaterThanOrEqual(2);
+      expect(plan.filter((p) => p.model === m && p.region === "e").length, m).toBeGreaterThanOrEqual(2);
     // Both flanks (north and south of the lane) carry flowering clusters.
-    const flowers = plan.filter((p) => p.model === "Bush_Common_Flowers");
+    const flowers = plan.filter((p) => p.model === "Bush_Common_Flowers" && p.y > 0);
+    // QE02: three solid flowering bushes behind the far east rail, outside the satellite footprint.
+    expect(plan.filter((p) => p.model === "Bush_Common_Flowers" && p.y < 0 && p.x > 43)).toHaveLength(3);
     expect(flowers.some((p) => p.z > 0) && flowers.some((p) => p.z < 0)).toBe(true);
   });
   it("QE01: landmark crowns never cover a fighter at either east spawn view", () => {
@@ -87,7 +94,7 @@ describe("ART1 dressing placement", () => {
         const d = sub([x, y, z], v.pos), depth = dot(d, fwd);
         return { x: dot(d, right) / (depth * tanH * aspect), y: dot(d, up) / (depth * tanH), depth };
       };
-      for (const t of plan.filter((p) => p.model === "CommonTree_1" && Math.abs(p.x) < 45 && p.x > 0)) {
+      for (const t of plan.filter((p) => p.model === "CommonTree_1" && p.region === "e")) {
         const c = ndc(t.x, t.y + 3 * t.scale, t.z);
         if (c.depth <= 0) continue; // behind the camera
         const rs = (3.22 * t.scale) / (c.depth * tanH); // crown radius in vertical NDC
@@ -103,15 +110,62 @@ describe("ART1 dressing placement", () => {
     for (const p of plan) {
       if (!inFootprint(p.x, p.z)) continue;
       if (["Fern_1", "Bush_Common_Flowers", "Grass_Common_Short", "RockPath_Round_Thin"].includes(p.model)) {
-        expect(p.x).toBeGreaterThanOrEqual(30.5);
-        expect(Math.abs(p.z)).toBeGreaterThanOrEqual(3.8);
-        expect(Math.abs(p.z)).toBeLessThan(5.6);
+        // Flush cover never enters a bridge lane (half width 2 m plus 0.4 m of clear margin) at either mouth.
+        for (const b of colliders.filter((c) => c.role === "bridge" && c.shape === "cuboid")) {
+          if (b.shape !== "cuboid") continue;
+          const nearX = Math.abs(p.x - b.centre[0]) <= b.halfExtents[0] + 3, nearZ = Math.abs(p.z - b.centre[2]) <= b.halfExtents[2] + 3;
+          if (nearX && nearZ) expect(Math.min(Math.abs(p.x - b.centre[0]) - b.halfExtents[0], Math.abs(p.z - b.centre[2]) - b.halfExtents[2]), `${p.model} ${p.x},${p.z} in lane of ${b.id}`).toBeGreaterThanOrEqual(0.4);
+        }
         expect(p.y + p.scale * (p.model === "Fern_1" ? 2.442 : p.model === "Bush_Common_Flowers" ? 1.348 : p.model === "Grass_Common_Short" ? 1.334 : 0.102)).toBeLessThan(0.15);
         continue;
       }
       const on = obstacles.some((o) => o.shape === "cuboid" && Math.abs(p.x - o.centre[0]) <= o.halfExtents[0] && Math.abs(p.z - o.centre[2]) <= o.halfExtents[2] && Math.abs(p.y - (o.centre[1] + o.halfExtents[1])) < 1e-6);
       expect(on, `${p.model} at ${p.x},${p.z}`).toBe(true);
     }
+  });
+});
+
+describe("QE02 full arena coverage", () => {
+  const plan = planDressing(colliders);
+  const arena = buildArena(colliders, makeToonRamp());
+  const bridges = colliders.filter((c) => c.role === "bridge" && c.shape === "cuboid");
+  it("keeps the arena centre quiet: no landmark, rock or accent within the 12 m clear circle", () => {
+    for (const p of plan) if (p.region || p.model.startsWith("Rock_Medium")) expect(Math.hypot(p.x, p.z), `${p.model} ${p.x},${p.z}`).toBeGreaterThan(6.5);
+  });
+  it("crowns the four pillars with different boulders so the ring is not four copies", () => {
+    const tops = plan.filter((p) => p.tint !== undefined && !p.region && Math.abs(p.y - 2) < 1e-6);
+    expect(tops).toHaveLength(4);
+    expect(new Set(tops.map((p) => `${p.model}|${p.scale}|${p.tint}`)).size).toBe(4);
+  });
+  it("marks all four bridge mouths with flush slabs and keeps the boundary band out of every lane", () => {
+    const slabs = (arena.group.getObjectByName("deco.slabs") as Mesh).geometry;
+    slabs.computeBoundingBox();
+    expect(slabs.boundingBox!.max.y).toBeLessThan(0.15);
+    expect(slabs.getAttribute("position").count).toBeGreaterThan(4 * 2 * 4 * 8);
+    const edge = (arena.group.getObjectByName("deco.edge") as Mesh).geometry;
+    const pos = edge.getAttribute("position");
+    expect(pos.count).toBeGreaterThan(100);
+    for (const b of bridges) {
+      if (b.shape !== "cuboid") continue;
+      const alongX = b.halfExtents[0] >= b.halfExtents[2];
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i), z = pos.getZ(i);
+        const lat = alongX ? Math.abs(z - b.centre[2]) : Math.abs(x - b.centre[0]);
+        const ax = alongX ? x - b.centre[0] : z - b.centre[2], half = alongX ? b.halfExtents[0] : b.halfExtents[2];
+        if (Math.abs(Math.abs(ax) - half) < 0.55) expect(lat, `${b.id} lane crossed by edge band`).toBeGreaterThan(2.0);
+      }
+    }
+  });
+  it("keeps sparse ground cover on the low tier (separate from the dense medium cover) and flags supporting props", () => {
+    const low = arena.group.getObjectByName("deco.coverLow") as Mesh, dense = arena.group.getObjectByName("deco.cover") as Mesh;
+    expect(low).toBeDefined();
+    expect(low.geometry.getIndex()!.count / 3).toBeGreaterThan(300);
+    expect(low.geometry.getIndex()!.count).toBeLessThan(dense.geometry.getIndex()!.count);
+    for (const r of ["n", "w", "s"]) expect(plan.some((p) => p.region === r && p.extra), r).toBe(true);
+    expect(plan.some((p) => p.region === "e" && p.extra)).toBe(false); // the approved east grove is core
+  });
+  it("only supporting props are gated: each approach keeps a core landmark pair", () => {
+    for (const r of ["n", "e", "w", "s"]) expect(plan.filter((p) => p.region === r && !p.extra && ["CommonTree_1", "Pine_1", "TwistedTree_2"].includes(p.model)).length, r).toBeGreaterThanOrEqual(2);
   });
 });
 

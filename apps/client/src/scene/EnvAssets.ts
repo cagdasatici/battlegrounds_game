@@ -4,7 +4,7 @@
  * materials that share the scene ramp. Static meshes only: no rigging, no animation, presentation only.
  */
 import {
-  InstancedMesh, LoadingManager, Matrix4, MeshToonMaterial, DoubleSide,
+  Color, InstancedMesh, LoadingManager, Matrix4, MeshToonMaterial, DoubleSide,
   type BufferGeometry, type DataTexture, type Material, type Mesh, type MeshStandardMaterial, type Texture,
 } from "three";
 import { SimplifyModifier } from "three/examples/jsm/modifiers/SimplifyModifier.js";
@@ -23,7 +23,15 @@ export interface EnvKit {
 }
 
 /** One placed model: position, yaw and uniform scale. */
-export interface EnvPlacement { readonly model: EnvModelId; readonly x: number; readonly y: number; readonly z: number; readonly yaw: number; readonly scale: number }
+export interface EnvPlacement {
+  readonly model: EnvModelId; readonly x: number; readonly y: number; readonly z: number; readonly yaw: number; readonly scale: number;
+  /** QE02: optional colour multiplier (instance colour) so one rock model can read slate or warm. */
+  readonly tint?: number;
+  /** QE02: approach label; each (model, region) pair is its own InstancedMesh so the frustum can cull distant approaches. */
+  readonly region?: string;
+  /** QE02: supporting prop that only shows at medium and above; core landmarks always show. */
+  readonly extra?: boolean;
+}
 
 // Vite turns each vendored file into a hashed URL; the glTF loader asks for sibling files by name, so map by basename.
 const FILE_URLS = import.meta.glob("../../../../assets/vendor/quaternius-stylized-nature/*.{gltf,bin,png}", { query: "?url", import: "default", eager: true }) as Record<string, string>;
@@ -60,10 +68,10 @@ export async function loadEnvKit(ramp: DataTexture, fileUrl: (name: string) => s
     });
     // Dense source foliage and path stones are oversized for distant landmarks and ankle-height cover.
     // Simplify once at load, retaining UVs; all instances share the reduced geometry.
-    if (["CommonTree_1", "Pine_1", "RockPath_Round_Thin"].includes(id)) {
+    if (["CommonTree_1", "Pine_1", "RockPath_Round_Thin", "TwistedTree_2"].includes(id)) {
       const modifier = new SimplifyModifier();
       for (const [i, part] of list.entries()) {
-        const geometry = await modifier.modify(part.geometry, Math.floor(part.geometry.getAttribute("position").count * 0.65));
+        const geometry = await modifier.modify(part.geometry, Math.floor(part.geometry.getAttribute("position").count * (id === "TwistedTree_2" ? 0.4 : id === "RockPath_Round_Thin" ? 0.2 : 0.55)));
         geometry.computeBoundingSphere();
         geometries[geometries.indexOf(part.geometry)] = geometry;
         part.geometry.dispose();
@@ -79,21 +87,25 @@ export async function loadEnvKit(ramp: DataTexture, fileUrl: (name: string) => s
 /** Builds one InstancedMesh per kit part for the placements of each model. Returned meshes share the kit's geometry. */
 export function instancePlacements(kit: EnvKit, placements: readonly EnvPlacement[], shadows: { cast: boolean; receive: boolean }): InstancedMesh[] {
   const out: InstancedMesh[] = [];
-  const m = new Matrix4();
+  const m = new Matrix4(), tint = new Color();
   for (const id of ENV_MODELS) {
-    const mine = placements.filter((p) => p.model === id);
-    if (mine.length === 0) continue;
+    const all = placements.filter((p) => p.model === id);
+    for (const region of [...new Set(all.map((p) => p.region ?? ""))]) {
+    const mine = all.filter((p) => (p.region ?? "") === region);
     for (const [i, part] of kit.parts[id].entries()) {
       const im = new InstancedMesh(part.geometry, part.material, mine.length);
-      im.name = `env.${id}.${i}`;
+      im.name = region ? `env.${id}.${i}.${region}` : `env.${id}.${i}`;
       im.castShadow = shadows.cast; im.receiveShadow = shadows.receive;
       mine.forEach((p, k) => {
         m.makeRotationY(p.yaw).multiplyScalar(p.scale).setPosition(p.x, p.y, p.z);m.elements[15] = 1;
         im.setMatrixAt(k, m);
+        if (mine.some((q) => q.tint !== undefined)) im.setColorAt(k, tint.set(p.tint ?? 0xffffff));
       });
       im.instanceMatrix.needsUpdate = true;
+      if (im.instanceColor) im.instanceColor.needsUpdate = true;
       im.computeBoundingSphere();
       out.push(im);
+    }
     }
   }
   return out;

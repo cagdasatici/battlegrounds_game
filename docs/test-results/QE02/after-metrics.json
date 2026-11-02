@@ -1,0 +1,230 @@
+{
+  "peak": {
+    "medium": {
+      "calls": 97,
+      "triangles": 142368
+    },
+    "low": {
+      "calls": 82,
+      "triangles": 107908
+    }
+  },
+  "rows": [
+    {
+      "id": "spawn-0",
+      "tier": "medium",
+      "calls": 83,
+      "triangles": 117117
+    },
+    {
+      "id": "spawn-0",
+      "tier": "low",
+      "calls": 64,
+      "triangles": 82503
+    },
+    {
+      "id": "spawn-1",
+      "tier": "medium",
+      "calls": 85,
+      "triangles": 119415
+    },
+    {
+      "id": "spawn-1",
+      "tier": "low",
+      "calls": 65,
+      "triangles": 84279
+    },
+    {
+      "id": "spawn-2",
+      "tier": "medium",
+      "calls": 89,
+      "triangles": 115907
+    },
+    {
+      "id": "spawn-2",
+      "tier": "low",
+      "calls": 70,
+      "triangles": 81293
+    },
+    {
+      "id": "spawn-3",
+      "tier": "medium",
+      "calls": 87,
+      "triangles": 111094
+    },
+    {
+      "id": "spawn-3",
+      "tier": "low",
+      "calls": 66,
+      "triangles": 75626
+    },
+    {
+      "id": "spawn-4",
+      "tier": "medium",
+      "calls": 96,
+      "triangles": 135302
+    },
+    {
+      "id": "spawn-4",
+      "tier": "low",
+      "calls": 81,
+      "triangles": 101364
+    },
+    {
+      "id": "spawn-5",
+      "tier": "medium",
+      "calls": 96,
+      "triangles": 138406
+    },
+    {
+      "id": "spawn-5",
+      "tier": "low",
+      "calls": 80,
+      "triangles": 103946
+    },
+    {
+      "id": "spawn-6",
+      "tier": "medium",
+      "calls": 93,
+      "triangles": 122979
+    },
+    {
+      "id": "spawn-6",
+      "tier": "low",
+      "calls": 78,
+      "triangles": 89041
+    },
+    {
+      "id": "spawn-7",
+      "tier": "medium",
+      "calls": 97,
+      "triangles": 130712
+    },
+    {
+      "id": "spawn-7",
+      "tier": "low",
+      "calls": 81,
+      "triangles": 96252
+    },
+    {
+      "id": "bridge-north",
+      "tier": "medium",
+      "calls": 54,
+      "triangles": 75332
+    },
+    {
+      "id": "bridge-north",
+      "tier": "low",
+      "calls": 38,
+      "triangles": 42426
+    },
+    {
+      "id": "bridge-south",
+      "tier": "medium",
+      "calls": 51,
+      "triangles": 78087
+    },
+    {
+      "id": "bridge-south",
+      "tier": "low",
+      "calls": 36,
+      "triangles": 50803
+    },
+    {
+      "id": "bridge-east",
+      "tier": "medium",
+      "calls": 53,
+      "triangles": 80981
+    },
+    {
+      "id": "bridge-east",
+      "tier": "low",
+      "calls": 39,
+      "triangles": 54589
+    },
+    {
+      "id": "bridge-west",
+      "tier": "medium",
+      "calls": 50,
+      "triangles": 73512
+    },
+    {
+      "id": "bridge-west",
+      "tier": "low",
+      "calls": 36,
+      "triangles": 46930
+    },
+    {
+      "id": "sat-north",
+      "tier": "medium",
+      "calls": 92,
+      "triangles": 127196
+    },
+    {
+      "id": "sat-north",
+      "tier": "low",
+      "calls": 77,
+      "triangles": 93258
+    },
+    {
+      "id": "sat-south",
+      "tier": "medium",
+      "calls": 94,
+      "triangles": 130932
+    },
+    {
+      "id": "sat-south",
+      "tier": "low",
+      "calls": 78,
+      "triangles": 96472
+    },
+    {
+      "id": "sat-east",
+      "tier": "medium",
+      "calls": 97,
+      "triangles": 142368
+    },
+    {
+      "id": "sat-east",
+      "tier": "low",
+      "calls": 81,
+      "triangles": 107908
+    },
+    {
+      "id": "sat-west",
+      "tier": "medium",
+      "calls": 97,
+      "triangles": 139264
+    },
+    {
+      "id": "sat-west",
+      "tier": "low",
+      "calls": 82,
+      "triangles": 105326
+    },
+    {
+      "id": "wall-0",
+      "tier": "medium",
+      "calls": 60,
+      "triangles": 80965
+    },
+    {
+      "id": "wall-0",
+      "tier": "low",
+      "calls": 42,
+      "triangles": 52945
+    },
+    {
+      "id": "wall-1",
+      "tier": "medium",
+      "calls": 68,
+      "triangles": 96902
+    },
+    {
+      "id": "wall-1",
+      "tier": "low",
+      "calls": 49,
+      "triangles": 68658
+    }
+  ]
+}

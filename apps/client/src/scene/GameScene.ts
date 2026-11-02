@@ -116,9 +116,10 @@ export class GameScene {
     try {
       const kit = await loadEnvKit(this.ramp);
       if (this.disposed) { for (const g of kit.geometries) g.dispose(); for (const m of kit.materials) m.dispose(); for (const t of kit.textures) t.dispose(); return; }
-      const { group, meshes } = buildDressing(this.colliders, kit);
+      const { group, meshes, extra } = buildDressing(this.colliders, kit);
       this.env = { kit, meshes };
       this.scene.add(group);
+      extra.visible = this.quality !== "low";
       const trees = this.arena.group.getObjectByName("deco.isletTrees");
       if (trees) trees.visible = false;
       this.envState = "ready";
@@ -150,6 +151,9 @@ export class GameScene {
     // Low tier also drops the purely decorative ground cover; collision, telegraphs and fighters are unaffected.
     const cover = this.arena.group.getObjectByName("deco.cover");
     if (cover) cover.visible = q !== "low";
+    // QE02: supporting approach props follow the same rule; core landmarks and the sparse low-tier tufts stay.
+    const extra = this.scene.getObjectByName("env.dressing.extra");
+    if (extra) extra.visible = q !== "low";
     if (!this.disposed) this.resize();
   }
 

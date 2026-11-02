@@ -1,0 +1,230 @@
+{
+  "peak": {
+    "medium": {
+      "calls": 67,
+      "triangles": 146096
+    },
+    "low": {
+      "calls": 55,
+      "triangles": 118800
+    }
+  },
+  "rows": [
+    {
+      "id": "spawn-0",
+      "tier": "medium",
+      "calls": 63,
+      "triangles": 127220
+    },
+    {
+      "id": "spawn-0",
+      "tier": "low",
+      "calls": 47,
+      "triangles": 99248
+    },
+    {
+      "id": "spawn-1",
+      "tier": "medium",
+      "calls": 60,
+      "triangles": 136472
+    },
+    {
+      "id": "spawn-1",
+      "tier": "low",
+      "calls": 44,
+      "triangles": 108500
+    },
+    {
+      "id": "spawn-2",
+      "tier": "medium",
+      "calls": 63,
+      "triangles": 127220
+    },
+    {
+      "id": "spawn-2",
+      "tier": "low",
+      "calls": 47,
+      "triangles": 99248
+    },
+    {
+      "id": "spawn-3",
+      "tier": "medium",
+      "calls": 59,
+      "triangles": 118536
+    },
+    {
+      "id": "spawn-3",
+      "tier": "low",
+      "calls": 42,
+      "triangles": 90232
+    },
+    {
+      "id": "spawn-4",
+      "tier": "medium",
+      "calls": 65,
+      "triangles": 127828
+    },
+    {
+      "id": "spawn-4",
+      "tier": "low",
+      "calls": 53,
+      "triangles": 100532
+    },
+    {
+      "id": "spawn-5",
+      "tier": "medium",
+      "calls": 67,
+      "triangles": 146096
+    },
+    {
+      "id": "spawn-5",
+      "tier": "low",
+      "calls": 55,
+      "triangles": 118800
+    },
+    {
+      "id": "spawn-6",
+      "tier": "medium",
+      "calls": 65,
+      "triangles": 127828
+    },
+    {
+      "id": "spawn-6",
+      "tier": "low",
+      "calls": 53,
+      "triangles": 100532
+    },
+    {
+      "id": "spawn-7",
+      "tier": "medium",
+      "calls": 67,
+      "triangles": 146096
+    },
+    {
+      "id": "spawn-7",
+      "tier": "low",
+      "calls": 55,
+      "triangles": 118800
+    },
+    {
+      "id": "bridge-north",
+      "tier": "medium",
+      "calls": 43,
+      "triangles": 115528
+    },
+    {
+      "id": "bridge-north",
+      "tier": "low",
+      "calls": 29,
+      "triangles": 88112
+    },
+    {
+      "id": "bridge-south",
+      "tier": "medium",
+      "calls": 45,
+      "triangles": 133796
+    },
+    {
+      "id": "bridge-south",
+      "tier": "low",
+      "calls": 31,
+      "triangles": 106380
+    },
+    {
+      "id": "bridge-east",
+      "tier": "medium",
+      "calls": 49,
+      "triangles": 124912
+    },
+    {
+      "id": "bridge-east",
+      "tier": "low",
+      "calls": 35,
+      "triangles": 97236
+    },
+    {
+      "id": "bridge-west",
+      "tier": "medium",
+      "calls": 45,
+      "triangles": 133832
+    },
+    {
+      "id": "bridge-west",
+      "tier": "low",
+      "calls": 32,
+      "triangles": 106488
+    },
+    {
+      "id": "sat-north",
+      "tier": "medium",
+      "calls": 64,
+      "triangles": 141372
+    },
+    {
+      "id": "sat-north",
+      "tier": "low",
+      "calls": 52,
+      "triangles": 114076
+    },
+    {
+      "id": "sat-south",
+      "tier": "medium",
+      "calls": 62,
+      "triangles": 123104
+    },
+    {
+      "id": "sat-south",
+      "tier": "low",
+      "calls": 50,
+      "triangles": 95808
+    },
+    {
+      "id": "sat-east",
+      "tier": "medium",
+      "calls": 67,
+      "triangles": 146096
+    },
+    {
+      "id": "sat-east",
+      "tier": "low",
+      "calls": 55,
+      "triangles": 118800
+    },
+    {
+      "id": "sat-west",
+      "tier": "medium",
+      "calls": 65,
+      "triangles": 127828
+    },
+    {
+      "id": "sat-west",
+      "tier": "low",
+      "calls": 53,
+      "triangles": 100532
+    },
+    {
+      "id": "wall-0",
+      "tier": "medium",
+      "calls": 52,
+      "triangles": 135356
+    },
+    {
+      "id": "wall-0",
+      "tier": "low",
+      "calls": 35,
+      "triangles": 107204
+    },
+    {
+      "id": "wall-1",
+      "tier": "medium",
+      "calls": 53,
+      "triangles": 135580
+    },
+    {
+      "id": "wall-1",
+      "tier": "low",
+      "calls": 35,
+      "triangles": 107204
+    }
+  ]
+}

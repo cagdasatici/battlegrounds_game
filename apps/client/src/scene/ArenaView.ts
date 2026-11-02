@@ -140,6 +140,10 @@ function bridgeGeometry(c: Collider, glow: Batch, posts: Batch): BufferGeometry 
   return b.build();
 }
 
+/** Cool slate, sand, warm clay and moss: the tones of the north/west, east, west and south approaches. */
+const PILLAR_TONES = [0xa9b2bf, 0xd2bf8c, 0xc98f62, 0x86a070] as const;
+const pillarMoss = (id: string): number => [1, 2, 0, 3][Number(id.slice(7)) % 4] ?? 0;
+
 function obstacleGeometry(c: Collider): BufferGeometry {
   const b = new Batch();
   if (c.shape !== "cuboid") return b.build();
@@ -150,7 +154,10 @@ function obstacleGeometry(c: Collider): BufferGeometry {
   const ch = (hy * 2 - 0.16) / courses;
   for (let i = 0; i < courses; i++) {
     const inset = isWall ? 0 : (i % 2) * 0.03;
-    const tone = lerpHex(PALETTE.stone, PALETTE.stoneDark, (i % 2) * 0.35 + (courses - i) * 0.02);
+    let tone = lerpHex(PALETTE.stone, PALETTE.stoneDark, (i % 2) * 0.35 + (courses - i) * 0.02);
+    // QE02: each pillar weathers differently (moss creeps up a different number of courses, in its quadrant's tone).
+    if (!isWall) tone = lerpHex(tone, PILLAR_TONES[Number(c.id.slice(7)) % 4]!, 0.4);
+    if (!isWall && i < pillarMoss(c.id)) tone = lerpHex(tone, 0x6f8a58, 0.5);
     b.add(box(hx * 2 - inset, ch - 0.02, hz * 2 - inset), xf(c.centre[0], bottom + ch * (i + 0.5), c.centre[2]), tone);
   }
   b.add(box(hx * 2 + 0.08, 0.16, hz * 2 + 0.08), xf(c.centre[0], top - 0.08, c.centre[2]), isWall ? PALETTE.stoneDark : PALETTE.amber);
@@ -221,6 +228,57 @@ const groundFootprintGap = (colliders: readonly Collider[], x: number, z: number
 };
 
 /**
+ * QE02: one distinct landmark per island approach, all outside walkable ground (the plan test checks every crown).
+ * East keeps the approved flowering grove; north is tall pines over slate, west a broad common-tree crown over warm
+ * rock, south twisted silhouettes over low fern banks. Smaller flush accents (under 0.15 m) repeat each approach's
+ * species along its bridge mouths. `extra` props drop on the low tier.
+ */
+function planApproaches(): EnvPlacement[] {
+  const out: EnvPlacement[] = [];
+  const add = (p: EnvPlacement): void => { out.push(p); };
+  // East: the approved gate pair, flowers, fern, grass and flush stone beyond the walkable mouth.
+  for (const [x, z, scale] of [[29, -9.5, 0.8], [30.4, 9.9, 1.1]] as const)
+    add({ model: "CommonTree_1", x, y: -0.6, z, yaw: z < 0 ? 0.7 : 2.3, scale, region: "e" });
+  for (let i = 0; i < 2; i++) {
+    for (const side of [-1, 1]) {
+      const x = 32 + i * 6, z = side * (4.6 + (i % 2) * 0.35);
+      add({ model: "Fern_1", x, y: 0.005, z, yaw: i * 1.7, scale: 0.055, region: "e" });
+      if (i === 0) add({ model: "Bush_Common_Flowers", x: x + 0.25, y: 0.005, z: z + side * 0.35, yaw: i, scale: 0.1, region: "e" });
+      add({ model: "Grass_Common_Short", x: x - 0.9, y: 0.005, z: z + side * 0.2, yaw: i * 2.1 + side, scale: 0.08, region: "e" });
+      if (i === 1) add({ model: "RockPath_Round_Thin", x: x - 0.2, y: 0.003, z: side * 3.8, yaw: i * 0.6, scale: 0.28, region: "e" });
+    }
+  }
+  // East: a flowering hedge behind the far satellite rail puts the grove in the bridge sightline (solid, outside the footprint).
+  for (const [x, z, scale, yaw] of [[44.4, -3.4, 1.15, 0.5], [44.1, 2.9, 1, 2.2], [45.4, -0.2, 0.8, 4.1]] as const)
+    add({ model: "Bush_Common_Flowers", x, y: -0.5, z, yaw, scale, region: "e" });
+  // North: a tall pine pair behind the far satellite (it frames the sightline across the bridge), a supporting pair on
+  // the flanks of the gap, and a cool slate rock group.
+  for (const [x, z, scale, yaw, extra] of [[-8.8, -44.5, 1.45, 0.4, false], [9.6, -46, 1.2, 3, false], [-11.5, -25.5, 1.1, 1.9, true], [10.8, -27.3, 1, 2.6, true]] as const)
+    add({ model: "Pine_1", x, y: -0.8, z, yaw, scale, region: "n", extra });
+  for (const [x, z, scale, ry] of [[-4.5, -40.2, 0.9, 0.3], [0.5, -41.4, 1.2, 2.1], [4.3, -40.1, 0.8, 4.4]] as const)
+    add({ model: "Rock_Medium_2", x, y: -2.3, z, yaw: ry, scale, tint: 0xb8c4d6, region: "n" });
+  // West: a broad common-tree pair behind the far satellite, one supporting flank tree, and a warm rock group; no
+  // flowers, so it never reads as the east grove.
+  for (const [x, z, scale, yaw, extra] of [[-46.5, -5.5, 1.2, 5.1, false], [-48.5, 6.5, 0.85, 1.4, false]] as const)
+    add({ model: "CommonTree_1", x, y: -0.6, z, yaw, scale, region: "w", extra });
+  for (const [x, z, scale, ry, extra] of [[-27.4, -9.2, 1.1, 0.5, false], [-26.2, -11, 0.7, 2.6, false], [-36.5, -9.6, 0.9, 4.2, true]] as const)
+    add({ model: "Rock_Medium_3", x, y: -2.3, z, yaw: ry, scale, tint: 0xffcf9a, region: "w", extra });
+  // South: twisted silhouettes behind the far satellite (a supporting one on the flank) over low fern banks.
+  for (const [x, z, scale, yaw, extra] of [[-4.5, 43.8, 0.6, 1, false], [6.8, 45.5, 0.5, 2.2, false]] as const)
+    add({ model: "TwistedTree_2", x, y: -0.8, z, yaw, scale, region: "s", extra });
+  for (const side of [-1, 1]) for (const [dx, z, sc] of [[3.3, 18.2, 0.055], [4.6, 19.1, 0.05], [3.9, 27.3, 0.055], [5.2, 28.6, 0.05]] as const)
+    add({ model: "Fern_1", x: side * dx, y: 0.005, z, yaw: dx * side, scale: sc, region: "s", extra: dx > 4.5 });
+  // Small repeats along the other three bridge mouths.
+  for (const side of [-1, 1]) {
+    add({ model: "Grass_Common_Short", x: side * 3.6, y: 0.005, z: -17.2, yaw: side, scale: 0.08, region: "n" });
+    add({ model: "Grass_Common_Short", x: -22.8, y: 0.005, z: side * 3.7, yaw: side * 2, scale: 0.08, region: "w" });
+    add({ model: "Grass_Common_Short", x: -32.5, y: 0.005, z: side * 4.4, yaw: side * 0.7, scale: 0.08, region: "w" });
+    add({ model: "Fern_1", x: side * 3.2, y: 0.005, z: -28, yaw: side, scale: 0.05, region: "n" });
+  }
+  return out;
+}
+
+/**
  * Deterministic placement plan for the glTF dressing (ART1). Every placement is either outside all walkable ground
  * footprints (rim boulders on the island flanks, trees and rocks on the distant islets) or on the top face of a
  * non-walkable obstacle collider (a boulder on each pillar). Low decorative cover is additionally allowed at the east route margins (under 0.15 m).
@@ -229,13 +287,19 @@ export function planDressing(colliders: readonly Collider[]): EnvPlacement[] {
   const rnd = mulberry32(0x0a771);
   const out: EnvPlacement[] = [];
   ISLETS.forEach(([x, y, z, r], i) => {
-    out.push({ model: TREE_MODELS[i % 3]!, x: x + r * 0.3, y, z, yaw: rnd() * 6.28, scale: MODEL_SCALE[TREE_MODELS[i % 3]!] * (0.9 + rnd() * 0.3) });
-    out.push({ model: "Bush_Common", x: x - r * 0.35, y, z: z + r * 0.2, yaw: rnd() * 6.28, scale: 1.4 });
-    out.push({ model: ROCK_MODELS[i % 3]!, x: x - r * 0.1, y, z: z - r * 0.45, yaw: rnd() * 6.28, scale: 0.9 + rnd() * 0.5 });
+    // QE02: one region per islet so the frustum culls the five that are behind the camera.
+    const region = `i${i}`;
+    // Islets alternate the two lighter species; the twisted tree is reserved for the south landmark.
+    const treeModel = TREE_MODELS[i % 2]!;
+    out.push({ model: treeModel, x: x + r * 0.3, y, z, yaw: rnd() * 6.28, scale: MODEL_SCALE[treeModel] * (0.9 + rnd() * 0.3), region });
+    out.push({ model: "Bush_Common", x: x - r * 0.35, y, z: z + r * 0.2, yaw: rnd() * 6.28, scale: 1.4, region });
+    out.push({ model: ROCK_MODELS[i % 3]!, x: x - r * 0.1, y, z: z - r * 0.45, yaw: rnd() * 6.28, scale: 0.9 + rnd() * 0.5, region });
   });
   for (const c of colliders) {
     if (c.role !== "obstacle" || c.shape !== "cuboid" || !c.id.startsWith("pillar")) continue;
-    out.push({ model: ROCK_MODELS[out.length % 3]!, x: c.centre[0], y: c.centre[1] + c.halfExtents[1], z: c.centre[2], yaw: rnd() * 6.28, scale: 0.45 });
+    // QE02: each pillar crowns with a different boulder, size and tint so the ring reads as four places, not one repeat.
+    const n = Number(c.id.slice(7));
+    out.push({ model: ROCK_MODELS[(n + 1) % 3]!, x: c.centre[0] + (n % 2 ? 0.25 : -0.2), y: c.centre[1] + c.halfExtents[1], z: c.centre[2], yaw: rnd() * 6.28, scale: [0.34, 0.52, 0.42, 0.6][n % 4]!, tint: [0xb8c4d6, 0xffd9b0, 0xc9d8b8, 0xffffff][n % 4]! });
   }
   const bridges = colliders.filter((c) => c.role === "bridge" && c.shape === "cuboid");
   for (const c of colliders) {
@@ -258,42 +322,38 @@ export function planDressing(colliders: readonly Collider[]): EnvPlacement[] {
         const a = t * Math.PI * 2;
         px = c.centre[0] + Math.cos(a) * (c.radius + RIM_OFFSET); pz = c.centre[2] + Math.sin(a) * (c.radius + RIM_OFFSET);
       }
+      if (k % 2 === 1) continue; // QE02: thinned by half to free triangle budget for the approach landmarks
       if (groundFootprintGap(colliders, px, pz) < 0.6) continue;
       if (bridges.some((b) => b.shape === "cuboid" && Math.abs(px - b.centre[0]) < b.halfExtents[0] + 2.5 && Math.abs(pz - b.centre[2]) < b.halfExtents[2] + 2.5)) continue;
-      out.push({ model: ROCK_MODELS[Math.floor(rnd() * 3)]!, x: px, y: c.centre[1] + (c.shape === "cuboid" ? c.halfExtents[1] : c.halfHeight) - 2.6, z: pz, yaw: rnd() * 6.28, scale: 0.6 + rnd() * 0.7 });
+      out.push({ model: ROCK_MODELS[Math.floor(rnd() * 3)]!, x: px, y: c.centre[1] + (c.shape === "cuboid" ? c.halfExtents[1] : c.halfHeight) - 2.6, z: pz, yaw: rnd() * 6.28, scale: 0.6 + rnd() * 0.7, region: `r${px < 0 ? 0 : 1}${pz < 0 ? 0 : 1}` });
     }
   }
-  // East spawn (-3 z) -> bridge: asymmetric broadleaf gate rooted beyond the island edge.
-  // West deck answers with a narrow pine skyline. No solid-looking prop enters a walkable footprint.
-  if (colliders.some((c) => c.id === "sat.east")) {
-    for (const [x, z, scale] of [[29, -9.5, 0.8], [30.4, 9.9, 1.1]] as const)
-      out.push({ model: "CommonTree_1", x, y: -0.6, z, yaw: z < 0 ? 0.7 : 2.3, scale });
-    for (const [x, z, scale] of [[-34, -12.5, 1.3], [-39, -13.8, 1.7]] as const)
-      out.push({ model: "Pine_1", x, y: -0.8, z, yaw: 1.2, scale });
-    for (let i = 0; i < 2; i++) {
-      for (const side of [-1, 1]) {
-        const x = 32 + i * 6, z = side * (4.6 + (i % 2) * 0.35);
-        out.push({ model: "Fern_1", x, y: 0.005, z, yaw: i * 1.7, scale: 0.055 });
-        if (i === 0) out.push({ model: "Bush_Common_Flowers", x: x + 0.25, y: 0.005, z: z + side * 0.35, yaw: i, scale: 0.1 });
-        out.push({ model: "Grass_Common_Short", x: x - 0.9, y: 0.005, z: z + side * 0.2, yaw: i * 2.1 + side, scale: 0.08 });
-        if (i === 1) out.push({ model: "RockPath_Round_Thin", x: x - 0.2, y: 0.003, z: side * 3.8, yaw: i * 0.6, scale: 0.28 });
-      }
-    }
-  }
+  if (colliders.some((c) => c.id === "sat.east")) out.push(...planApproaches());
   return out;
 }
 
-/** Instanced glTF dressing for a loaded kit, in one group. Geometry and materials belong to the kit, not to the result. */
-export function buildDressing(colliders: readonly Collider[], kit: EnvKit): { group: Group; meshes: InstancedMesh[] } {
+/**
+ * Instanced glTF dressing for a loaded kit. Core props live in `env.dressing`; supporting props sit in the child group
+ * `env.dressing.extra`, which the scene hides on the low tier. Geometry and materials belong to the kit, not to the result.
+ */
+export function buildDressing(colliders: readonly Collider[], kit: EnvKit): { group: Group; meshes: InstancedMesh[]; extra: Group } {
   const plan = planDressing(colliders);
   const group = new Group();
   group.name = "env.dressing";
+  const extra = new Group();
+  extra.name = "env.dressing.extra";
+  group.add(extra);
   const far = new Set<EnvModelId>([...TREE_MODELS, "Fern_1", "Bush_Common_Flowers", "Grass_Common_Short"]), meshes: InstancedMesh[] = [];
   // Distant islet props and rim boulders cast no shadows; only the pillar boulders sit in the shadow frustum.
-  meshes.push(...instancePlacements(kit, plan.filter((p) => far.has(p.model) || p.model === "Bush_Common"), { cast: false, receive: false }));
-  meshes.push(...instancePlacements(kit, plan.filter((p) => !far.has(p.model) && p.model !== "Bush_Common"), { cast: false, receive: true }));
-  for (const m of meshes) group.add(m);
-  return { group, meshes };
+  for (const [target, subset] of [[group, plan.filter((p) => !p.extra)], [extra, plan.filter((p) => p.extra)]] as const) {
+    const made = [
+      ...instancePlacements(kit, subset.filter((p) => far.has(p.model) || p.model === "Bush_Common"), { cast: false, receive: false }),
+      ...instancePlacements(kit, subset.filter((p) => !far.has(p.model) && p.model !== "Bush_Common"), { cast: false, receive: true }),
+    ];
+    for (const m of made) target.add(m);
+    meshes.push(...made);
+  }
+  return { group, meshes, extra };
 }
 
 export function buildArena(colliders: readonly Collider[], ramp: DataTexture, opts: { detail: number } = { detail: 1 }): ArenaBuild {
@@ -333,15 +393,16 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
   }
   addMesh("deco.under", under.build(), flatToon, { cast: false, receive: false });
 
-  // Non-walkable rock shelves carry the landmark roots beyond the collision footprint.
+  // Non-walkable rock shelves carry the landmark roots and rock groups beyond the collision footprint.
   const shelves = new Batch();
-  for (const p of planDressing(colliders).filter((p) => (p.model === "CommonTree_1" || p.model === "Pine_1") && Math.abs(p.x) < 45 && Math.abs(p.z) < 20)) {
-    shelves.add(new DodecahedronGeometry(1, 0), xf(p.x, -2.1, p.z, 2.6, 1.9, 2.6, 0, p.yaw, 0), PALETTE.rockMid);
+  for (const p of planDressing(colliders).filter((p) => p.region && /^[nsew]$/.test(p.region) && p.y < 0)) {
+    const tree = p.model === "CommonTree_1" || p.model === "Pine_1" || p.model === "TwistedTree_2";
+    shelves.add(new DodecahedronGeometry(1, 0), xf(p.x, tree ? -2.1 : -2.0, p.z, tree ? 2.6 : 1.5 * p.scale + 0.6, tree ? 1.9 : 1.2, tree ? 2.6 : 1.5 * p.scale + 0.6, 0, p.yaw, 0), PALETTE.rockMid);
   }
   if (!shelves.empty) addMesh("deco.rootShelves", shelves.build(), flatToon, { cast: false, receive: true });
 
   // Ground cover on the playable islands: grass tufts, flowers and small rocks, kept off obstacles and the glyph.
-  const cover = new Batch();
+  const cover = new Batch(), coverLow = new Batch();
   const tufts = Math.round(140 * opts.detail);
   const flowerColors = [0xf7e27a, 0xfff6e6, 0xe98aa8, 0x8fb7ff];
   let placed = 0, tries = 0;
@@ -352,16 +413,63 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
     if (colliders.some((c) => c.role === "bridge" && c.shape === "cuboid" && Math.abs(x - c.centre[0]) < c.halfExtents[0] + 0.3 && Math.abs(z - c.centre[2]) < c.halfExtents[2] + 0.3)) continue;
     if (x > 16 && Math.abs(z) < 6) continue;
     placed++;
+    // QE02: every third tuft is also kept on the low tier (about 1 000 triangles) so low no longer reads as bare plain.
+    const out = placed % 3 === 0 ? coverLow : cover;
     const h = 0.22 + rnd() * 0.28;
     const tone = lerpHex(0x5f9a3a, 0xa6d66a, rnd());
     for (let k = 0; k < 3; k++) {
       const a = (k / 3) * Math.PI * 2 + rnd();
-      b2(cover, x + Math.cos(a) * 0.06, h, z + Math.sin(a) * 0.06, 0.035, tone, (rnd() - 0.5) * 0.5, a);
+      b2(out, x + Math.cos(a) * 0.06, h, z + Math.sin(a) * 0.06, 0.035, tone, (rnd() - 0.5) * 0.5, a);
     }
-    if (rnd() < 0.12) cover.add(new SphereGeometry(0.05, 6, 4), xf(x + 0.1, h + 0.05, z), flowerColors[Math.floor(rnd() * flowerColors.length)] ?? 0xffffff);
-    if (rnd() < 0.03) cover.add(new DodecahedronGeometry(0.16 + rnd() * 0.12, 0), xf(x, 0.08, z, 1, 0.7, 1, 0, rnd() * 3, 0), lerpHex(PALETTE.rockHi, PALETTE.stone, rnd()));
+    if (rnd() < 0.12) out.add(new SphereGeometry(0.05, 6, 4), xf(x + 0.1, h + 0.05, z), flowerColors[Math.floor(rnd() * flowerColors.length)] ?? 0xffffff);
+    if (rnd() < 0.03) out.add(new DodecahedronGeometry(0.16 + rnd() * 0.12, 0), xf(x, 0.08, z, 1, 0.7, 1, 0, rnd() * 3, 0), lerpHex(PALETTE.rockHi, PALETTE.stone, rnd()));
   }
+  addMesh("deco.coverLow", coverLow.build(), flatToon, { cast: false, receive: true });
   addMesh("deco.cover", cover.build(), flatToon, { cast: false, receive: true });
+
+  // QE02: island boundary vs safe bridge. A darker meadow band follows each outer edge and stops 0.3 m short of every
+  // bridge mouth, where paired flush stepping slabs (one tone per approach) mark the way across. All under 0.07 m tall.
+  const edge = new Batch(), slabs = new Batch();
+  const bridgesC = colliders.filter((c) => c.role === "bridge" && c.shape === "cuboid");
+  const approachTone: Record<string, number> = { north: 0xa9b2bf, west: 0xc9a27a, south: 0x8fa07a, east: 0xcdbb94 };
+  for (const c of colliders) {
+    if (!isGround(c) || c.shape !== "cuboid") continue;
+    const [hx, , hz] = c.halfExtents;
+    for (const axis of ["x", "z"] as const) for (const sign of [-1, 1]) {
+      if (c.id === "main.x" && axis === "z") continue; // internal seam of the rounded cross
+      if (c.id === "main.z" && axis === "x") continue;
+      const e = (axis === "x" ? c.centre[0] + sign * hx : c.centre[2] + sign * hz);
+      const half = axis === "x" ? hz : hx, mid = axis === "x" ? c.centre[2] : c.centre[0];
+      let segs: Array<[number, number]> = [[mid - half + 0.2, mid + half - 0.2]];
+      for (const b of bridgesC) {
+        if (b.shape !== "cuboid") continue;
+        const bAlongX = b.halfExtents[0] >= b.halfExtents[2];
+        if ((axis === "x") !== bAlongX) continue;
+        const bEnd = axis === "x" ? [b.centre[0] - b.halfExtents[0], b.centre[0] + b.halfExtents[0]] : [b.centre[2] - b.halfExtents[2], b.centre[2] + b.halfExtents[2]];
+        if (!bEnd.some((v) => Math.abs(v - e) < 0.2)) continue;
+        const lat = axis === "x" ? b.centre[2] : b.centre[0], lw = (axis === "x" ? b.halfExtents[2] : b.halfExtents[0]) + 0.3;
+        segs = segs.flatMap(([lo, hi]) => [[lo, Math.min(hi, lat - lw)], [Math.max(lo, lat + lw), hi]] as Array<[number, number]>).filter(([lo, hi]) => hi - lo > 0.4);
+      }
+      for (const [lo, hi] of segs) {
+        const len = hi - lo, m2 = (lo + hi) / 2, inset = e - sign * 0.42;
+        edge.add(box(axis === "x" ? 0.5 : len, 0.02, axis === "x" ? len : 0.5), xf(axis === "x" ? inset : m2, 0.02, axis === "x" ? m2 : inset), 0x56693f);
+      }
+    }
+  }
+  for (const b of bridgesC) {
+    if (b.shape !== "cuboid") continue;
+    const alongX = b.halfExtents[0] >= b.halfExtents[2];
+    const name = alongX ? (b.centre[0] > 0 ? "east" : "west") : b.centre[2] > 0 ? "south" : "north";
+    const lenH = alongX ? b.halfExtents[0] : b.halfExtents[2], latC = alongX ? b.centre[2] : b.centre[0], axC = alongX ? b.centre[0] : b.centre[2];
+    const lw = (alongX ? b.halfExtents[2] : b.halfExtents[0]) + 0.9;
+    for (const end of [-1, 1]) for (const [d, side, r] of [[0.8, -1, 0.42], [0.9, 1, 0.38], [2.0, -1, 0.34], [2.1, 1, 0.4]] as const) {
+      const ax = axC + end * (lenH + d), lt = latC + side * lw;
+      const g = new CylinderGeometry(r, r * 1.06, 0.06, 7, 1);
+      slabs.add(g, xf(alongX ? ax : lt, 0.03, alongX ? lt : ax, 1, 1, 1, 0, ax * 3.1 + lt, 0), lerpHex(approachTone[name]!, 0x77736c, (d - 0.8) * 0.2));
+    }
+  }
+  addMesh("deco.edge", edge.build(), flatToon, { cast: false, receive: true });
+  addMesh("deco.slabs", slabs.build(), flatToon, { cast: false, receive: true });
 
   // Ground glyph at the arena centre: pale inlaid rings and spokes just above the floor.
   const glyph = new Batch();
@@ -400,7 +508,7 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
     const cx = Math.cos(ang) * rad, cz = Math.sin(ang) * rad;
     for (let k = 0; k < 4; k++) {
       const s = 7 + rnd() * 9;
-      cl.add(new SphereGeometry(1, 10, 6), xf(cx + (rnd() - 0.5) * 18, y + (rnd() - 0.5) * 2, cz + (rnd() - 0.5) * 18, s, s * 0.38, s * 0.9), puffShade);
+      cl.add(new SphereGeometry(1, 8, 5), xf(cx + (rnd() - 0.5) * 18, y + (rnd() - 0.5) * 2, cz + (rnd() - 0.5) * 18, s, s * 0.38, s * 0.9), puffShade);
     }
   }
   const clouds = addMesh("deco.clouds", cl.build(), flatToon, { cast: false, receive: false });
