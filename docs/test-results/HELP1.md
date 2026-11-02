@@ -24,3 +24,15 @@ Offline install lacked cached tarballs; existing dependency directories were cop
 Both physical iPads: NOT RUN (DEV1). No gameplay/auth changes, invitations or deployment. HELP2 can consume the component. Full repository verification remains unresolved.
 
 Remote push was rejected by automatic approval review: exporting private implementation/test artifacts to the GitHub remote requires explicit authorization. Commits remain local.
+
+## Reconciliation re-run · 2 November 2026 (HEAD bee74a8)
+
+HELP1 code (`7cfc40d`, also integrated as `0c4807c`) is an ancestor of main; the ledger row was stale TODO. No code changed in this pass.
+
+- pnpm typecheck, pnpm lint (incl. boundaries, timers): PASS.
+- pnpm test tests/unit --maxWorkers=2: 74 files, 1225 tests PASS.
+- tests/browser/how-to-play.spec.ts, one worker: 3/3 PASS.
+- pnpm build: PASS.
+- content:validate: not re-run (no data changed).
+- No dedicated unit test file exists for HowToPlay; coverage is the browser spec only (controls, mappings, sparring flag, cleanup).
+- Physical iPad checks: NOT RUN (DEV1).
