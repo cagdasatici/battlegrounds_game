@@ -144,7 +144,7 @@ Execute one row per session using [the Quality 90 instructions](quality-90-plan.
 | QV01 | Visible urn lifecycle | Q01 T23 ORB2 | IMPLEMENTED (DEVICE CHECK PENDING) | 57f849f | docs/test-results/QV01.md |
 | QV02 | Durable attack telegraphs | Q01 FX4-align | IMPLEMENTED (DEVICE CHECK PENDING) | b857f02 | docs/test-results/QV02.md |
 | QV03 | Fault Strike signature | QV02 QF01 | IMPLEMENTED, DEVICE CHECK PENDING | e8d4716 | docs/test-results/QV03.md |
-| QV04 | Undertow Spiral signature | QV02 | IMPLEMENTED, DEVICE CHECK PENDING | | docs/test-results/QV04.md |
+| QV04 | Undertow Spiral signature | QV02 | IMPLEMENTED, DEVICE CHECK PENDING | cdcbb3e | docs/test-results/QV04.md |
 | QV05 | Furnace Ray signature | QV02 | TODO | | docs/test-results/QV05.md |
 | QI01 | Integrated bridge fight and owner approval | QE01 QF01 QC01 QV03 QV04 QV05 | TODO | | docs/test-results/QI01.md |
 | QE02 | Full arena art coverage | QI01 | TODO | | docs/test-results/QE02.md |
