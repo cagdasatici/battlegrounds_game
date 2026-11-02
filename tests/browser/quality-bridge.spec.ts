@@ -160,23 +160,30 @@ for (const cfg of [
         await caster.page.keyboard.down(caster.kit === "sv" ? "Digit1" : caster.kit === "td" ? "Digit2" : "Digit3");
         const capture = async (phase: string): Promise<void> => {
           seen.add(phase);
-          const views: [Client, Shot["view"]][] = [[caster, "attacker"], [target, "defender"], ...observers.map((o) => [o, "observer"] as [Client, Shot["view"]])];
-          await Promise.all(views.map(async ([c, view]) => {
+          let views: [Client, Shot["view"]][] = [[caster, "attacker"], [target, "defender"], ...observers.map((o) => [o, "observer"] as [Client, Shot["view"]])];
+          // Furnace Ray: a three-client windup shot outlasts the 0.5 s windup and the 1.5 s beam is over before the next poll, so the windup is attacker only.
+          if (phase === "windup" && caster.kit === "ea") views = views.filter(([, v]) => v === "attacker");
+          // QI01: short-lived flashes are gone within a few hundred ms under SwiftShader, so the time-critical shots (defender for impact, attacker for the beam) go first and alone; the rest follow.
+          const first = phase === "beam" ? views.filter(([, v]) => v === "attacker") : views.filter(([, v]) => v === "defender");
+          const shoot = async ([c, view]: [Client, Shot["view"]]): Promise<void> => {
             const s = await snap(c.page), file = `${tag}-${name}-${view}-${phase}.jpg`;
             await c.page.screenshot({ path: path.join(outDir, file), type: "jpeg", quality: 82 });
             shots.push({ file: `${tag}/${file}`, who: c.name, view, phase, tMs: Date.now() - start, tick: s.serverTick, action: s.players.find((p) => p.entityId === caster.id)?.action ?? "",
               fx: s.fx.active, calls: s.render?.calls ?? null, triangles: s.render?.triangles ?? null });
-          }));
+          };
+          if (phase === "impact" || phase === "beam") { for (const v of first) await shoot(v); await Promise.all(views.filter((v) => !first.includes(v)).map(shoot)); }
+          else await Promise.all(views.map(shoot));
         };
         while (Date.now() - start < 30_000) {
           const s = await snap(caster.page);
           fxPeak = Math.max(fxPeak, s.fx.active);
           const act = s.players.find((p) => p.entityId === caster.id)?.action ?? "";
           const hit = s.hitMoveIds.includes(move) && !before.has(move);
-          if (act === "Windup" && !seen.has("windup")) await capture("windup");
+          // Furnace Ray: polling cannot catch the phases under three SwiftShader clients, so the beam shot is taken 0.8 s after the key press (windup 0.5 s, active 1.5 s) and the windup shot is skipped.
+          if (caster.kit === "ea" && !seen.has("beam") && Date.now() - start >= 800) await capture("beam");
+          else if (act === "Windup" && !seen.has("windup") && caster.kit !== "ea") await capture("windup");
           else if (hit && !impactAt) { impactAt = Date.now(); await capture("impact"); }
           else if (impactAt && Date.now() - impactAt > 450 && !seen.has("settle")) { await capture("settle"); break; }
-          else if (caster.kit === "ea" && act === "Active" && !seen.has("beam")) { await sleep(500); await capture("beam"); }
           await sleep(25);
         }
         await caster.page.keyboard.up(caster.kit === "sv" ? "Digit1" : caster.kit === "td" ? "Digit2" : "Digit3");

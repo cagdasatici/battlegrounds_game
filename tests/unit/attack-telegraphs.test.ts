@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { GameScene } from "../../apps/client/src/scene/GameScene.js";
 import { buildIslandsMap } from "../../packages/shared/src/config/arena.js";
-import { AttackTelegraphs, TELEGRAPHED_MOVES, TELEGRAPH_CAPACITY, UNTELEGRAPHED_MOVES, rayCoverLength, type TelegraphPlayer } from "../../apps/client/src/fx/AttackTelegraphs.js";
+import { ACTIVE_FILL, AttackTelegraphs, FILL_OPACITY, WINDUP_EDGE, WINDUP_FILL, TELEGRAPHED_MOVES, TELEGRAPH_CAPACITY, UNTELEGRAPHED_MOVES, rayCoverLength, type TelegraphPlayer } from "../../apps/client/src/fx/AttackTelegraphs.js";
 
 const P = (o: Partial<TelegraphPlayer> = {}): TelegraphPlayer => ({
   entityId: 1, lifeId: 1, x: 0, y: 90, z: 0, facingYaw: 0, action: "Windup", moveId: "sv.b1", actionStartTick: 100, actionEndTick: 124, ...o,
@@ -97,7 +97,7 @@ test("low quality and Reduced Motion keep the outline and drop the animated fill
     const [fill, line] = g.children as unknown as [{ scale: { z: number }; material: { opacity: number } }, { visible: boolean }];
     expect(line.visible).toBe(true);
     expect(fill.scale.z).toBe(3); // full extent, not growing with progress
-    expect(fill.material.opacity).toBeCloseTo(0.18);
+    expect(fill.material.opacity).toBeCloseTo(FILL_OPACITY.flat);
     t.sync([], O(106));
   }
 });
@@ -109,4 +109,20 @@ test("dispose removes the group and further syncs are inert", () => {
   expect(scene.getObjectByName("fx.telegraphs")).toBeUndefined();
   t.sync([P()], O(106));
   expect(t.activeCount).toBe(0);
+});
+
+test("QI01: the windup band is a dark saturated fill with a light edge, strongly opaque, readable on sand planks", () => {
+  const lum = (h: number) => { const r = (h >> 16) & 255, g = (h >> 8) & 255, b = h & 255; return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  const SAND = 0xc9a56a;
+  expect(lum(WINDUP_FILL)).toBeLessThan(lum(SAND) * 0.5); // dark against the planks
+  expect(lum(WINDUP_EDGE)).toBeGreaterThan(lum(SAND)); // light edge contrasts with the fill
+  expect(lum(ACTIVE_FILL)).toBeLessThan(lum(SAND) * 0.7);
+  expect(FILL_OPACITY.windupMin).toBeGreaterThanOrEqual(0.4);
+  expect(FILL_OPACITY.flat).toBeGreaterThanOrEqual(0.5);
+  const { t, scene } = make();
+  t.sync([P()], O(100));
+  const g = scene.getObjectByName("fx.telegraphs")!.children.find((c) => c.visible)!;
+  const fill = g.children[0] as unknown as { material: { opacity: number; color: { getHex(): number } } };
+  expect(fill.material.opacity).toBeGreaterThanOrEqual(0.4);
+  expect(fill.material.color.getHex()).toBe(WINDUP_FILL);
 });

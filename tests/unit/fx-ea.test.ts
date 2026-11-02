@@ -9,6 +9,8 @@ import { EA_RECIPES, FURNACE, playFurnaceRay, onHit, recipeFor, scanPlayers } fr
 import type { CombatEvent } from "../../packages/shared/src/protocol.js";
 
 const Scene = function (): Scene { const g = new FighterView("td", makeToonRamp()).group; g.clear(); return g as unknown as Scene; } as unknown as new () => Scene;
+/** The pool caps one step at MAX_STEP_SEC (0.05 s), so draining takes several steps. */
+const drain = (fx: EffectsPool, sec = 2): void => { for (let i = 0; i < sec / 0.05; i++) fx.update(0.05); };
 const pool = (): EffectsPool => { const p = new EffectsPool(); p.configure(new Scene(), "low"); return p; };
 const first = Object.keys(EA_RECIPES)[0]!;
 
@@ -37,7 +39,7 @@ describe("FX4-ea recipes", () => {
     players.set("1", { x: 0, y: 0, z: 0, action: "Active", moveId: first, actionStartTick: 15 });
     scanPlayers(fx, players, seen);
     expect(fx.activeCount).toBeGreaterThan(afterWindup);
-    fx.update(2);
+    drain(fx);
     expect(fx.activeCount).toBe(0);
   });
   test("impact only on a ea hit and ignores other kinds", () => {
@@ -75,6 +77,21 @@ describe("QV05 Furnace Ray signature", () => {
     expect(w(sheath[0]!)).toBeGreaterThan(w(sheath[sheath.length - 1]!)); // taper
     expect(core.every((p) => Math.abs(p.x) < 1e-6)).toBe(true);
   });
+  test("QI01: the beam is wide and bright enough to read at 6 m, and survives a slow frame", () => {
+    const { fx, ps } = spy();
+    playFurnaceRay(fx, ctx({ tick: 101 }));
+    const core = ps.filter((p) => p.color === 0xfff1b0), sheath = ps.filter((p) => p.color === 0xff7a1a);
+    expect(Math.min(...core.map((p) => p.size))).toBeGreaterThanOrEqual(0.45); // about 0.5 m wide core
+    expect(Math.min(...sheath.map((p) => p.size))).toBeGreaterThanOrEqual(0.7);
+    const near = core.filter((p) => Math.abs(p.z) < 7).length;
+    expect(near).toBeGreaterThanOrEqual(5); // dense near the caster so the body is continuous at 6 m
+    // Low tier root cause: one slow frame (dt > life) used to kill the beam before it was ever drawn.
+    const real = pool();
+    real.spawn({ x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, life: FURNACE.life, size: 0.5, color: 1 });
+    real.update(0.4);
+    expect(real.activeCount).toBe(1);
+    real.dispose();
+  });
   test("stops at cover", () => {
     const { fx, ps } = spy();
     playFurnaceRay(fx, ctx({ cover: () => 5 }));
@@ -98,7 +115,7 @@ describe("QV05 Furnace Ray signature", () => {
     scanSustain(fx, p({}), st, recipeFor, 190); expect(st.size).toBe(0); // active end
     const n = fx.activeCount;
     scanSustain(fx, p({}), st, recipeFor, undefined); expect(fx.activeCount).toBe(n); // no tick, no beam
-    fx.update(2); expect(fx.activeCount).toBe(0);
+    drain(fx); expect(fx.activeCount).toBe(0);
     scanSustain(fx, p({ moveId: "ea.b1" }), st, recipeFor, 120); expect(st.size).toBe(0);
   });
 });
@@ -112,7 +129,7 @@ describe("EffectsPool live count (found by QV05 browser run)", () => {
       for (let i = 0; i < 16; i++) fx.spawn({ x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, life: 0.1, size: 0.1, color: 1 });
       fx.update(0.016 + rnd() * 0.07);
     }
-    fx.update(1); fx.update(1);
+    drain(fx);
     expect(fx.activeCount).toBe(0);
   });
 });

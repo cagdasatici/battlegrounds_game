@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import type { CombatEvent } from "../../packages/shared/src/protocol.js";
 import { EA_DEFS, SV_DEFS, TD_DEFS } from "../../packages/shared/src/config/kits/index.js";
 import {
-  abilityLabel, accentCss, allAbilityIds, formatNumber, kitOfMove, passesFilter, textsFor, type TextSettings,
+  abilityLabel, accentCss, separateTags, allAbilityIds, formatNumber, kitOfMove, passesFilter, textsFor, type TextSettings,
 } from "../../apps/client/src/fx/CombatTextFormat.js";
 
 const S: TextSettings = { damageNumbers: true, combatText: "all", reducedMotion: false };
@@ -72,5 +72,19 @@ describe("mine filter", () => {
     expect(passesFilter(ev({}), "all", "3")).toBe(true);
     expect(passesFilter(ev({}), "off", "1")).toBe(false);
     expect(textsFor(ev({ damage100: 300 }), { ...S, combatText: "mine" }, "3", name)).toEqual([]);
+  });
+});
+
+describe("QI01 simultaneous tag de-overlap", () => {
+  const box = (x: number, y: number) => ({ x, y, w: 110, h: 28 });
+  const overlaps = (a: { x: number; y: number; w: number; h: number }, b: typeof a) => Math.abs(a.x - b.x) < (a.w + b.w) / 2 && a.y > b.y - b.h && b.y > a.y - a.h;
+  test("three tags on top of each other end up with no overlap", () => {
+    const bs = [box(500, 300), box(510, 302), box(520, 298)];
+    const d = separateTags(bs);
+    const moved = bs.map((b, i) => ({ ...b, y: b.y + d[i]! }));
+    for (let i = 0; i < 3; i++) for (let j = i + 1; j < 3; j++) expect(overlaps(moved[i]!, moved[j]!)).toBe(false);
+  });
+  test("tags that do not overlap are left alone", () => {
+    expect(separateTags([box(100, 300), box(600, 300), box(100, 100)])).toEqual([0, 0, 0]);
   });
 });

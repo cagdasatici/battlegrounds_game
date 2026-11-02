@@ -9,6 +9,9 @@ import { Color, IcosahedronGeometry, InstancedMesh, Matrix4, MeshBasicMaterial, 
 export type PoolTier = "low" | "medium" | "high";
 export const POOL_CAPACITY: Readonly<Record<PoolTier, number>> = { low: 200, medium: 600, high: 1000 };
 
+/** Longest single step update() simulates. A slow frame (CPU raster, background tab) must not kill a short-lived effect before it is drawn once. */
+export const MAX_STEP_SEC = 0.05;
+
 export interface Particle {
   /** World position in metres. */
   x: number; y: number; z: number;
@@ -87,6 +90,7 @@ export class EffectsPool {
   update(dtSec: number): void {
     const mesh = this.mesh;
     if (!mesh || !(dtSec > 0)) return;
+    dtSec = Math.min(dtSec, MAX_STEP_SEC);
     let live = 0;
     for (let i = 0; i < this.cap; i++) {
       if (!(this.age[i]! < this.life[i]!)) continue;

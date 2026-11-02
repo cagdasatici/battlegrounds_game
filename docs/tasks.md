@@ -146,7 +146,7 @@ Execute one row per session using [the Quality 90 instructions](quality-90-plan.
 | QV03 | Fault Strike signature | QV02 QF01 | IMPLEMENTED, DEVICE CHECK PENDING | e8d4716 | docs/test-results/QV03.md |
 | QV04 | Undertow Spiral signature | QV02 | IMPLEMENTED, DEVICE CHECK PENDING | cdcbb3e | docs/test-results/QV04.md |
 | QV05 | Furnace Ray signature | QV02 | IMPLEMENTED, DEVICE CHECK PENDING | c345010 | docs/test-results/QV05.md |
-| QI01 | Integrated bridge fight and owner approval | QE01 QF01 QC01 QV03 QV04 QV05 | IN PROGRESS | 958faa4 | docs/test-results/QI01.md |
+| QI01 | Integrated bridge fight and owner approval | QE01 QF01 QC01 QV03 QV04 QV05 | IN PROGRESS | 958faa4 (rework 1 pending hash) | docs/test-results/QI01.md |
 | QE02 | Full arena art coverage | QI01 | TODO | | docs/test-results/QE02.md |
 | QF02 | Tide Duelist silhouette and animation | QI01 QF01 | TODO | | docs/test-results/QF02.md |
 | QF03 | Ember Artificer silhouette and animation | QF02 | TODO | | docs/test-results/QF03.md |

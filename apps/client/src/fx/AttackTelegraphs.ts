@@ -28,7 +28,12 @@ export const UNTELEGRAPHED_MOVES: Readonly<Record<string, string>> = {
 };
 
 export const TELEGRAPH_CAPACITY = 6;
-const WINDUP_COLOR = 0xffc34d, ACTIVE_COLOR = 0xff4a3a;
+/**
+ * QI01: the band must read on sand-coloured planks, so the fill is dark and saturated and the edge is a contrasting
+ * light colour (a pale fill on pale wood was the rework defect). Opacity is exported for the tests.
+ */
+export const WINDUP_FILL = 0x8f1d0c, WINDUP_EDGE = 0xfff0a0, ACTIVE_FILL = 0xd01808, ACTIVE_EDGE = 0xffffff;
+export const FILL_OPACITY = { windupMin: 0.4, windupMax: 0.75, active: 0.8, flat: 0.6 } as const;
 const BEAM_ORIGIN_FORWARD = 0.6, BEAM_ORIGIN_UP = 0.4; // spec 16, mirrors DEFAULT_BEAM_ORIGIN on the server
 const LIFT = 0.06;
 
@@ -89,8 +94,8 @@ export class AttackTelegraphs {
   constructor(private readonly scene: Scene, readonly capacity = TELEGRAPH_CAPACITY) {
     this.root.name = "fx.telegraphs";
     for (let i = 0; i < capacity; i++) {
-      const fillMat = new MeshBasicMaterial({ color: WINDUP_COLOR, transparent: true, opacity: 0.2, depthWrite: false, fog: false });
-      const lineMat = new LineBasicMaterial({ color: WINDUP_COLOR, fog: false });
+      const fillMat = new MeshBasicMaterial({ color: WINDUP_FILL, transparent: true, opacity: FILL_OPACITY.flat, depthWrite: false, fog: false });
+      const lineMat = new LineBasicMaterial({ color: WINDUP_EDGE, fog: false });
       const fill = new Mesh(this.plane, fillMat), line = new Line(this.rect, lineMat);
       line.computeLineDistances();
       const group = new Group();
@@ -159,8 +164,8 @@ export class AttackTelegraphs {
   private draw(s: Slot, def: AbilityDef, progress: number, o: TelegraphOptions): void {
     const shape = def.shape;
     const [fx, fz] = forwardOf(s.yaw);
-    const color = s.phase === "Windup" ? WINDUP_COLOR : ACTIVE_COLOR;
-    s.fillMat.color.setHex(color); s.lineMat.color.setHex(color);
+    const wind = s.phase === "Windup";
+    s.fillMat.color.setHex(wind ? WINDUP_FILL : ACTIVE_FILL); s.lineMat.color.setHex(wind ? WINDUP_EDGE : ACTIVE_EDGE);
     const surf = o.surface?.(s.ox, s.oz, s.oy);
     const baseY = (surf ?? s.oy - 0.9) + LIFT;
     let ox = s.ox, oz = s.oz, length = 0, width = 0, kind: string;
@@ -187,7 +192,7 @@ export class AttackTelegraphs {
       const animate = !o.reducedMotion && !o.lowQuality;
       s.fill.scale.set(width, 1, animate ? Math.max(0.1, progress) * len : len);
     }
-    s.fillMat.opacity = o.reducedMotion || o.lowQuality ? 0.18 : s.phase === "Windup" ? 0.12 + 0.28 * progress : 0.5;
+    s.fillMat.opacity = o.reducedMotion || o.lowQuality ? FILL_OPACITY.flat : s.phase === "Windup" ? FILL_OPACITY.windupMin + (FILL_OPACITY.windupMax - FILL_OPACITY.windupMin) * progress : FILL_OPACITY.active;
     s.fillMat.visible = true;
     s.fill.userData.progress = progress;
     s.group.userData.length = length; s.group.userData.width = width; s.group.userData.kind = kind;

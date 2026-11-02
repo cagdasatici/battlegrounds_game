@@ -28,11 +28,11 @@ describe("EffectsPool", () => {
     pool.configure(new Scene(), "low");
     pool.spawn({ ...P, life: 0.25 });
     pool.spawn({ ...P, life: 1 });
-    pool.update(0.2);
+    for (let i = 0; i < 4; i++) pool.update(0.05);
     expect(pool.activeCount).toBe(2);
-    pool.update(0.1);
+    for (let i = 0; i < 2; i++) pool.update(0.05);
     expect(pool.activeCount).toBe(1);
-    pool.update(1);
+    for (let i = 0; i < 30; i++) pool.update(0.05);
     expect(pool.activeCount).toBe(0);
   });
   test("dispose removes the mesh, runs registered disposers once and stops spawning", () => {

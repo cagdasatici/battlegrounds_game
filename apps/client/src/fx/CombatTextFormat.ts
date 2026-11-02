@@ -101,3 +101,31 @@ export function textsFor(e: CombatEvent, s: TextSettings, localId: string | unde
       return [];
   }
 }
+
+/** QI01: a screen-space box for one floating tag (centre x, bottom y, size in px). */
+export interface TagBox { x: number; y: number; w: number; h: number }
+/**
+ * Simultaneous tags (three casters in one moment) would sit on top of each other. Returns a vertical offset in px per
+ * input box (<= 0, moving up) so overlapping boxes stack with `gap` px between them. Lower tags (larger y) stay put,
+ * higher ones are pushed up; order of the input is preserved in the output.
+ */
+export function separateTags(boxes: readonly TagBox[], gap = 4): number[] {
+  const out = boxes.map(() => 0);
+  const order = boxes.map((_, i) => i).sort((a, b) => boxes[b]!.y - boxes[a]!.y); // bottom-most first
+  const placed: number[] = [];
+  for (const i of order) {
+    const b = boxes[i]!;
+    let moved = true;
+    while (moved) {
+      moved = false;
+      for (const j of placed) {
+        const o = boxes[j]!;
+        const ay = b.y + out[i]!, by = o.y + out[j]!;
+        const sameCol = Math.abs(b.x - o.x) < (b.w + o.w) / 2;
+        if (sameCol && ay > by - o.h - gap && by > ay - b.h - gap) { out[i] = by - o.h - gap - b.y; moved = true; }
+      }
+    }
+    placed.push(i);
+  }
+  return out;
+}

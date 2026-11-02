@@ -2,7 +2,7 @@ import { Vector3, type Camera } from "three";
 import type { CombatEvent } from "@eb/shared/protocol";
 import type { CombatBus } from "../app/CombatBus.js";
 import type { PresentationDeps } from "./index.js";
-import { textSettingsOf, textsFor, type TextSpec } from "./CombatTextFormat.js";
+import { separateTags, textSettingsOf, textsFor, type TagBox, type TextSpec } from "./CombatTextFormat.js";
 
 const MAX_ACTIVE = 24;
 const MAX_FEED = 4;
@@ -79,6 +79,7 @@ export const CombatText = {
       raf = 0;
       if (disposed) return;
       const now = performance.now();
+      const tagIdx: number[] = [], tagBoxes: TagBox[] = [];
       for (let i = items.length - 1; i >= 0; i--) {
         const it = items[i]!;
         const t = (now - it.born) / it.life;
@@ -92,7 +93,11 @@ export const CombatText = {
         const lift = it.rise ? t * RISE_M * (window.innerHeight / 6) : 0;
         it.el.style.display = "";
         it.el.style.transform = `translate(${s.x}px,${s.y - lift}px) translate(-50%,-100%)`;
+        if (it.el.dataset["ct"] === "cast") { tagIdx.push(i); tagBoxes.push({ x: s.x, y: s.y - lift, w: it.el.offsetWidth || 110, h: it.el.offsetHeight || 28 }); }
       }
+      // QI01: stack simultaneous move-name tags instead of letting them overlap.
+      const dys = separateTags(tagBoxes);
+      tagIdx.forEach((idx, k) => { const it = items[idx]!, b = tagBoxes[k]!; if (dys[k]) it.el.style.transform = `translate(${b.x}px,${b.y + dys[k]!}px) translate(-50%,-100%)`; });
       if (items.length > 0) raf = requestAnimationFrame(frame);
     };
     const kick = (): void => { if (raf === 0 && !disposed) raf = requestAnimationFrame(frame); };

@@ -28,7 +28,7 @@ const r = (id: string, glow: boolean, style: ActiveStyle, count: number, color: 
  */
 const RAY = EA_DEFS.find((d) => d.id === "ea.a3")!;
 const RAY_LEN = RAY.shape.kind === "beam" ? RAY.shape.length : 24;
-export const FURNACE = { emitTicks: 3, life: 0.1, core: 8, sheath: 8, flare: 8, flareLife: 0.25, originForward: 0.6, originUp: 0.4, pulses: RAY.hitOffsets, length: RAY_LEN } as const;
+export const FURNACE = { emitTicks: 4, life: 0.12, core: 12, sheath: 12, flare: 8, flareLife: 0.25, originForward: 0.6, originUp: 0.4, pulses: RAY.hitOffsets, length: RAY_LEN } as const;
 const CORE = 0xfff1b0, SHEATH = 0xff7a1a;
 export function playFurnaceRay(fx: EffectsPool, c: SustainCtx): void {
   const [dx, dz] = forwardOf(c.yaw);
@@ -43,18 +43,18 @@ export function playFurnaceRay(fx: EffectsPool, c: SustainCtx): void {
     c.state.lastPulse = last;
     for (let i = 0; i < FURNACE.flare; i++) {
       const d = ((i + 0.5) / FURNACE.flare) * len;
-      fx.spawn({ x: ox + dx * d, y: oy, z: oz + dz * d, vx: 0, vy: 0.8, vz: 0, life: FURNACE.flareLife, size: 0.34, color: GOLD });
+      fx.spawn({ x: ox + dx * d, y: oy, z: oz + dz * d, vx: 0, vy: 0.8, vz: 0, life: FURNACE.flareLife, size: 0.6, color: GOLD });
     }
   }
   if (c.state.lastEmit >= 0 && c.tick - c.state.lastEmit < FURNACE.emitTicks) return;
   c.state.lastEmit = c.tick;
   for (let i = 0; i < FURNACE.core; i++) {
-    const d = ((i + 0.5) / FURNACE.core) * len;
-    fx.spawn({ x: ox + dx * d, y: oy, z: oz + dz * d, vx: 0, vy: 0, vz: 0, life: FURNACE.life, size: 0.1, color: CORE });
+    const d = (((i + 0.5) / FURNACE.core) ** 1.5) * len;
+    fx.spawn({ x: ox + dx * d, y: oy, z: oz + dz * d, vx: 0, vy: 0, vz: 0, life: FURNACE.life, size: 0.5, color: CORE });
   }
   for (let i = 0; i < FURNACE.sheath; i++) {
-    const k = (i + 0.5) / FURNACE.sheath, d = k * len, half = 0.55 * (1 - k) + 0.06, side = i % 2 === 0 ? half : -half; // tapers with distance
-    fx.spawn({ x: ox + dx * d + px * side, y: oy, z: oz + dz * d + pz * side, vx: 0, vy: 0, vz: 0, life: FURNACE.life, size: 0.2, color: SHEATH });
+    const k = (i + 0.5) / FURNACE.sheath, d = (k ** 1.5) * len, half = 0.8 * (1 - k) + 0.12, side = i % 2 === 0 ? half : -half; // tapers with distance
+    fx.spawn({ x: ox + dx * d + px * side, y: oy, z: oz + dz * d + pz * side, vx: 0, vy: 0, vz: 0, life: FURNACE.life, size: 0.75, color: SHEATH });
   }
 }
 
@@ -66,7 +66,7 @@ export const EA_RECIPES: Readonly<Record<string, EaRecipe>> = {
   "ea.b4": r("ea.b4", false, "heat", 36, EMBER, 4, 16),
   "ea.a1": r("ea.a1", false, "spiral", 32, RED, 3, 12),
   "ea.a2": r("ea.a2", true, "ring", 28, GOLD, 4, 12),
-  "ea.a3": { ...r("ea.a3", true, "ribbon", 6, RED, 4, 14), sustain: playFurnaceRay, sustainPeak: (FURNACE.core + FURNACE.sheath) * 3 + FURNACE.flare },
+  "ea.a3": { ...r("ea.a3", true, "ribbon", 6, RED, 4, 14), sustain: playFurnaceRay, sustainPeak: (FURNACE.core + FURNACE.sheath) * 2 + FURNACE.flare },
   "ea.a4": r("ea.a4", true, "heat", 48, GOLD, 12, 20),
 };
 

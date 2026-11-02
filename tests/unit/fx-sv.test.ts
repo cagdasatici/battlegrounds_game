@@ -9,6 +9,8 @@ import { FAULT_FOOTPRINT, FAULT_LAYERS, SV_RECIPES, onHit, playFaultStrike, reci
 import type { CombatEvent } from "../../packages/shared/src/protocol.js";
 
 const Scene = function (): Scene { const g = new FighterView("td", makeToonRamp()).group; g.clear(); return g as unknown as Scene; } as unknown as new () => Scene;
+/** The pool caps one step at MAX_STEP_SEC (0.05 s), so draining takes several steps. */
+const drain = (fx: EffectsPool, sec = 2): void => { for (let i = 0; i < sec / 0.05; i++) fx.update(0.05); };
 const pool = (): EffectsPool => { const p = new EffectsPool(); p.configure(new Scene(), "low"); return p; };
 const first = Object.keys(SV_RECIPES)[0]!;
 
@@ -37,7 +39,7 @@ describe("FX4-sv recipes", () => {
     players.set("1", { x: 0, y: 0, z: 0, action: "Active", moveId: first, actionStartTick: 15 });
     scanPlayers(fx, players, seen);
     expect(fx.activeCount).toBeGreaterThan(afterWindup);
-    fx.update(2);
+    drain(fx);
     expect(fx.activeCount).toBe(0);
   });
   test("impact only on a sv hit and ignores other kinds", () => {
@@ -110,7 +112,7 @@ describe("QV03 Fault Strike signature", () => {
     const fx = pool(), seen = new Map<string, string>();
     scanPlayers(fx, new Map<string, unknown>([["1", { x: 0, y: 90, z: 0, action: "Active", moveId: "sv.b1", actionStartTick: 9 }]]), seen);
     expect(fx.activeCount).toBe(FAULT_LAYERS.crack + FAULT_LAYERS.chips + FAULT_LAYERS.settle);
-    fx.update(2);
+    drain(fx);
     expect(fx.activeCount).toBe(0);
     expect(SV_RECIPES["sv.b2"]!.playActive).toBeUndefined();
   });
