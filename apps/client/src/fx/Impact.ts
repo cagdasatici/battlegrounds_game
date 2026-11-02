@@ -67,7 +67,7 @@ export function sparkBurst(fx: EffectsPool, at: Pt, color: number, count: number
     const e = opts.dir ? rnd(-0.1, 0.9) : rnd(-0.25, 1), c = Math.sqrt(Math.max(0, 1 - e * e)), s = speed * rnd(0.55, 1);
     fx.glow.streak({ x: at.x, y: at.y, z: at.z, vx: Math.cos(a) * c * s, vy: e * s + (opts.up ?? 0), vz: Math.sin(a) * c * s, color, length: (opts.length ?? 0.6) * rnd(0.6, 1.2), width: opts.width ?? 0.05, life: life * rnd(0.7, 1.1), gravity: opts.gravity ?? 7 });
   }
-  const chunks = scaled(fx, opts.chunks ?? Math.round(count * 0.4), 1);
+  const chunks = opts.chunks === 0 ? 0 : scaled(fx, opts.chunks ?? Math.round(count * 0.4), 1);
   for (let i = 0; i < chunks; i++) {
     const a = rnd(0, TAU), s = speed * rnd(0.3, 0.8);
     // Fat short streaks read as chunks and cost no pool particles, so the shared pool's shed policy and counts are untouched.
@@ -78,10 +78,10 @@ export function sparkBurst(fx: EffectsPool, at: Pt, color: number, count: number
 /** The standard hit: white-hot flash, tinted bloom, sparks, ground shockwave, blast disc facing the attacker, light pulse. */
 export function playImpactBurst(fx: EffectsPool, i: ImpactInput): void {
   const p = i.power, g = fx.glow, { at, theme } = i;
-  g.flash({ ...at, color: theme.core, size: 0.9 * p + 0.3, grow: 1.5, life: 0.13 + 0.05 * p });
-  g.flash({ ...at, color: theme.accent, size: 1.6 * p + 0.4, grow: 1.7, life: 0.24 + 0.08 * p });
-  sparkBurst(fx, at, theme.core, 10 + 12 * p, 5 + 5 * p, 0.28 + 0.1 * p, { width: 0.045, length: 0.55 + 0.3 * p });
-  sparkBurst(fx, at, theme.accent, 6 + 8 * p, 3 + 4 * p, 0.35 + 0.1 * p, { width: 0.07, length: 0.4, chunks: 4 + 4 * p });
+  g.flash({ ...at, color: theme.core, size: 0.45 * p + 0.2, grow: 1.25, life: 0.08 + 0.025 * p });
+  g.flash({ ...at, color: theme.accent, size: 0.75 * p + 0.25, grow: 1.4, life: 0.14 + 0.03 * p });
+  sparkBurst(fx, at, theme.core, 5 + 7 * p, 5 + 5 * p, 0.28 + 0.1 * p, { width: 0.035, length: 0.55 + 0.3 * p, ...(i.dir ? { dir: i.dir } : {}), spread: 1.5, chunks: 0 });
+  sparkBurst(fx, at, theme.accent, 4 + 4 * p, 3 + 4 * p, 0.35 + 0.1 * p, { width: 0.07, length: 0.4, chunks: 2 + 2 * p });
   g.ring({ x: at.x, y: i.groundY + 0.06, z: at.z, color: theme.accent, radius: 1.3 + 1.1 * p, life: 0.3 + 0.12 * p });
   const f = i.dir ?? { x: 0, z: 1 };
   g.ring({ ...at, color: theme.core, radius: 0.7 + 0.7 * p, life: 0.2 + 0.06 * p, normal: { x: f.x, y: 0, z: f.z } });
@@ -125,30 +125,11 @@ export function playCounterFlash(fx: EffectsPool, at: Pt, groundY: number): void
   g.light({ ...at, color: 0xffcc33, intensity: 24, life: 0.25 });
 }
 
-/**
- * Special (ability) hit: layered on top of playImpactBurst. A white-hot starburst of four long crossing flares, a vertical
- * element pillar, a ring on each axis, a radial spray of fast streaks and heavy debris, and a strong light pulse.
- * `power` is the same server-driven number; it only scales size and count.
- */
+/** Special contacts add a narrow directional fan; the shared impact owns the flash and shockwave. */
 export function playSpecialImpact(fx: EffectsPool, i: ImpactInput): void {
-  const g = fx.glow, { at, theme } = i, p = Math.max(1, i.power);
-  g.flash({ ...at, color: 0xffffff, size: 2.2 * p + 0.8, grow: 1.9, life: 0.2 });
-  g.flash({ ...at, color: theme.accent, size: 3.4 * p + 0.8, grow: 1.6, life: 0.42 });
-  g.flash({ ...at, color: theme.dark, size: 4.6 * p, grow: 1.3, life: 0.55 });
-  const flares = scaled(fx, 8, 4); // crossing flares: long thin streaks fired outward in a horizontal-ish star
-  for (let k = 0; k < flares; k++) {
-    const a = (k / flares) * TAU + rnd(-0.1, 0.1), s = rnd(14, 20) * p;
-    g.streak({ x: at.x, y: at.y, z: at.z, vx: Math.cos(a) * s, vy: rnd(-1, 2), vz: Math.sin(a) * s, color: k % 2 ? theme.core : theme.accent, length: rnd(1.6, 2.6) * p, width: 0.11, life: rnd(0.22, 0.34), gravity: 0 });
-  }
-  const pillar = scaled(fx, 10, 3); // element pillar rising from the ground under the contact
-  for (let k = 0; k < pillar; k++) {
-    const a = rnd(0, TAU), r = rnd(0, 0.6);
-    g.streak({ x: at.x + Math.cos(a) * r, y: i.groundY, z: at.z + Math.sin(a) * r, vx: 0, vy: rnd(8, 13), vz: 0, color: k % 2 ? theme.core : theme.accent, length: rnd(1.6, 3.2), width: 0.12, life: rnd(0.35, 0.6) });
-  }
-  const axes = [{ x: 0, y: 1, z: 0 }, { x: 1, y: 0, z: 0 }, { x: 0, y: 0, z: 1 }];
-  axes.forEach((normal, k) => g.ring({ ...at, color: k === 0 ? theme.core : theme.accent, radius: 2.4 + 0.9 * p, from: 0.15, life: 0.34 + 0.06 * k, delay: 0.04 * k, normal }));
-  g.ring({ x: at.x, y: i.groundY + 0.06, z: at.z, color: theme.dark, radius: 3.4 + 1.2 * p, life: 0.55 });
-  sparkBurst(fx, at, theme.core, 26 + 10 * p, 11 + 4 * p, 0.5, { width: 0.06, length: 1, up: 2, chunks: 10 + 4 * p });
-  sparkBurst(fx, at, theme.accent, 16, 7, 0.65, { width: 0.09, length: 0.5, chunks: 12, gravity: 12 });
-  g.light({ ...at, color: theme.accent, intensity: 60 * p, life: 0.45 });
+  const { at, theme, dir } = i, p = Math.min(1.6, i.power), f = dir ?? { x: 0, z: 1 };
+  // Narrow impact fan follows the force of the blow; no second screen-filling explosion.
+  sparkBurst(fx, at, theme.accent, 12, 8 + 3 * p, 0.24, { dir: f, spread: 1.2, width: 0.045, length: 0.8, chunks: 0 });
+  for (let k = -1; k <= 1; k += 2) fx.glow.streak({ ...at, vx: f.x * 7 - f.z * k * 3, vy: k * 2, vz: f.z * 7 + f.x * k * 3,
+    color: theme.core, width: 0.065, length: 1.2 * p, life: 0.16 });
 }

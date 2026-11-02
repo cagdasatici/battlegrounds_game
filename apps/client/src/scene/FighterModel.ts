@@ -15,7 +15,7 @@ import { FIGHTER_DESIGNS, type PartDef } from "@eb/shared/fighterDesign";
 import { BONES, BONE_NAMES, boneRestWorld, buildKitClips, type BoneName, type ClipData, type ClipPhases } from "@eb/shared/rig";
 
 /** Outline thickness in metres, added to every part dimension for the back-face hull. */
-export const OUTLINE = 0.012;
+export const OUTLINE = 0.0065;
 /** Total width of the two-bone blend at elbows, knees, shoulders and hips (metres); half on each side of the joint. */
 export const JOINT_BAND = 0.06;
 export const KIT_ATLAS_SIZE = 512;
@@ -158,12 +158,12 @@ export function buildFighterGeometry(kit: KitId, pass: Pass, lod: Lod = "medium"
     if (pass === "outline" && p.glow) continue;
     if (p.fine && !detail.fine) continue;
     if (p.awakened && !awakened) continue; // QF01: awakened-only glow seams
-    const g = partGeometry(p, pass === "outline" ? OUTLINE : 0, detail);
+    const g = partGeometry(p, pass === "outline" ? OUTLINE : 0, p.fine ? DETAIL.low : detail);
     const base = boneRestWorld(p.bone);
     e.set(p.rot?.[0] ?? 0, p.rot?.[1] ?? 0, p.rot?.[2] ?? 0);
     m.compose(new Vector3(base[0] + p.pos[0], base[1] + p.pos[1], base[2] + p.pos[2]), new Quaternion().setFromEuler(e), new Vector3(1, 1, 1));
     g.applyMatrix4(m);
-    c.setHex(pass === "outline" ? 0x0c0d14 : design.palette[p.color]);
+    c.setHex(pass === "outline" ? 0x20232e : design.palette[p.color]);
     const cell = ATLAS_SLOTS.indexOf(p.color);
     const cu = (cell % ATLAS_GRID) / ATLAS_GRID, cv = Math.floor(cell / ATLAS_GRID) / ATLAS_GRID, cs = 1 / ATLAS_GRID;
     const at = g.getAttribute("position"), nm = g.getAttribute("normal"), ix = g.getIndex();
@@ -221,8 +221,8 @@ export function makeKitAtlas(kit: KitId, size = KIT_ATLAS_SIZE): DataTexture {
       if (!slot) { data[o] = data[o + 1] = data[o + 2] = 128; data[o + 3] = 255; continue; }
       const hex = pal[slot];
       const lx = (x % cellPx) / cellPx, ly = (y % cellPx) / cellPx;
-      let f = 0.94 + 0.12 * ly + (hash(x, y, cy * 4 + cx) - 0.5) * 0.06;
-      if (slot === "cloth" || slot === "primary" || slot === "secondary") f *= 0.96 + 0.04 * (((x >> 2) + (y >> 2)) & 1);
+      let f = 0.94 + 0.12 * ly + (hash(x, y, cy * 4 + cx) - 0.5) * 0.025;
+      if (slot === "cloth" || slot === "primary" || slot === "secondary") f *= 0.98 + 0.02 * (((x >> 2) + (y >> 2)) & 1);
       else if (slot === "stone") f *= 0.9 + 0.2 * hash(x >> 2, y >> 2, 7);
       else if (slot === "trim" || slot === "accent") f *= 1 - 0.08 * Math.abs(Math.sin(lx * 18));
       data[o] = Math.min(255, Math.round(((hex >> 16) & 255) * f));
@@ -244,7 +244,7 @@ export function makeKitAtlas(kit: KitId, size = KIT_ATLAS_SIZE): DataTexture {
 
 /** Three tonal bands (spec section 23): a 3x1 nearest-filtered ramp shared by every toon material. */
 export function makeToonRamp(): DataTexture {
-  const t = new DataTexture(new Uint8Array([105, 175, 255]), 3, 1, RedFormat);
+  const t = new DataTexture(new Uint8Array([88, 173, 255]), 3, 1, RedFormat);
   t.minFilter = NearestFilter; t.magFilter = NearestFilter;
   t.needsUpdate = true;
   return t;
@@ -301,7 +301,7 @@ export function buildFighterRig(kit: KitId, ramp: DataTexture, opts: { outline: 
   };
   add("body", "body", new MeshToonMaterial({ map: atlas, gradientMap: ramp }), true);
   add("glow", "glow", new MeshBasicMaterial({ vertexColors: true }), false);
-  if (opts.outline) add("outline", "outline", new MeshBasicMaterial({ color: 0x0c0d14, side: BackSide, vertexColors: true }), false);
+  if (opts.outline) add("outline", "outline", new MeshBasicMaterial({ color: 0x20232e, side: BackSide, vertexColors: true }), false);
   // Every mesh shares the one skeleton; the owner places root and meshes as siblings in one group.
   for (const mesh of meshes) mesh.bind(skeleton, new Matrix4());
   const clips = new Map<string, AnimationClip>();

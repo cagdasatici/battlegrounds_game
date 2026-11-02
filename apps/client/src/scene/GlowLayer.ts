@@ -26,6 +26,21 @@ export const SOFT_SCALE = 0.45;
 type Kind = "flash" | "ring" | "streak";
 const Z = new Vector3(0, 0, 1);
 
+/** Transparent shell, rather than an opaque-looking additive ball. No textures or extra passes. */
+function softenFlash(material: MeshBasicMaterial): void {
+  material.onBeforeCompile = (shader) => {
+    const vary = "varying vec3 vFxNormal; varying vec3 vFxView;\n";
+    shader.vertexShader = vary + shader.vertexShader.replace("#include <project_vertex>", `#include <project_vertex>
+      vFxNormal = normalize(normalMatrix * mat3(instanceMatrix) * normal);
+      vFxView = -mvPosition.xyz;`);
+    shader.fragmentShader = vary + shader.fragmentShader.replace("#include <opaque_fragment>", `
+      float rim = pow(1.0 - abs(dot(normalize(vFxNormal), normalize(vFxView))), 2.0);
+      diffuseColor.a *= 0.035 + rim * 0.36;
+      #include <opaque_fragment>`);
+  };
+  material.customProgramCacheKey = () => "vis01-shell";
+}
+
 class Slots {
   readonly mesh: InstancedMesh;
   readonly cap: number;
@@ -79,6 +94,8 @@ class Slots {
     this.age.fill(1); this.life.fill(1); // dead: age >= life
     this.owner = new Array<string | undefined>(cap).fill(undefined);
     const material = new MeshBasicMaterial({ color: 0xffffff, blending: AdditiveBlending, transparent: true, depthWrite: false, fog: false });
+    if (kind === "flash") softenFlash(material);
+    else material.opacity = kind === "ring" ? 0.48 : 0.65;
     this.mesh = new InstancedMesh(geometry, material, cap);
     this.mesh.name = `fx.glow.${kind}`;
     this.mesh.frustumCulled = false;
@@ -214,8 +231,15 @@ export class GlowLayer {
     this.release();
     this.tier = tier;
     const b = GLOW_BUDGET[tier];
-    const flashGeo = new SphereGeometry(0.5, 10, 7), ringGeo = new RingGeometry(0.86, 1, 40), streakGeo = new BoxGeometry(1, 1, 1);
+    const flashGeo = new SphereGeometry(0.5, 16, 10), ringGeo = new RingGeometry(0.965, 1, 48), streakGeo = new BoxGeometry(1, 1, 1, 1, 1, 4);
     streakGeo.translate(0, 0, 0.5); // grows forward from its origin along +Z, so a streak starts at its spawn point
+    // A tapered lance catches motion without the square confetti silhouette.
+    const vertices = streakGeo.getAttribute("position");
+    for (let i = 0; i < vertices.count; i++) {
+      const taper = Math.max(0.025, Math.sin(Math.PI * vertices.getZ(i)));
+      vertices.setX(i, vertices.getX(i) * taper); vertices.setY(i, vertices.getY(i) * taper);
+    }
+    streakGeo.computeVertexNormals();
     this.geometries = [flashGeo, ringGeo, streakGeo];
     this.flashes = new Slots("flash", flashGeo, b.flashes, scene);
     this.rings = new Slots("ring", ringGeo, b.rings, scene);
@@ -234,7 +258,7 @@ export class GlowLayer {
     if (!p || s.life <= 0) return false;
     const i = p.claim();
     this.base(p, i, s.x, s.y, s.z, s.color, s.life, s.delay, s.owner);
-    p.s0[i] = s.size * 0.4; p.s1[i] = s.size * (s.grow ?? 1.4);
+    p.s0[i] = Math.min(1.6, s.size) * 0.28; p.s1[i] = Math.min(2.4, s.size * (s.grow ?? 1.4));
     p.vx[i] = s.vx ?? 0; p.vy[i] = s.vy ?? 0; p.vz[i] = s.vz ?? 0; p.grav[i] = 0;
     return true;
   }
@@ -262,6 +286,21 @@ export class GlowLayer {
     return true;
   }
 
+  /** Curved trail, with contiguous tapered segments and a fading tail. Uses existing streak slots. */
+  arc(s: { centre: { x: number; y: number; z: number }; radius: number; start: number; sweep: number; color: number; width: number; life: number; yaw?: number; rise?: number; owner?: string }): void {
+    const n = Math.max(6, Math.round(18 * this.density));
+    const yaw = s.yaw ?? 0, cy = Math.cos(yaw), sy = Math.sin(yaw);
+    for (let i = 0; i < n; i++) {
+      const t = i / n, a = s.start + s.sweep * t, b = s.start + s.sweep * (i + 1) / n;
+      const x = Math.cos(a) * s.radius, z = Math.sin(a) * s.radius;
+      const dx = (Math.cos(b) - Math.cos(a)) * s.radius, dz = (Math.sin(b) - Math.sin(a)) * s.radius, dy = (s.rise ?? 0) / n;
+      const len = Math.hypot(dx, dy, dz);
+      this.streak({ x: s.centre.x + x * cy - z * sy, y: s.centre.y + (s.rise ?? 0) * t, z: s.centre.z + x * sy + z * cy,
+        vx: 0, vy: 0, vz: 0, dir: { x: (dx * cy - dz * sy) / len, y: dy / len, z: (dx * sy + dz * cy) / len },
+        color: s.color, width: s.width * (0.3 + 0.7 * Math.sin(Math.PI * t)), length: len * 2.1, life: s.life * (0.6 + 0.4 * t), ...(s.owner ? { owner: s.owner } : {}) });
+    }
+  }
+
   /** Point light pulse. Takes a free light, else the one closest to done; always a no-op on Low (zero lights) and under reduced motion. */
   light(s: LightSpec): boolean {
     if (this.lights.length === 0 || this.soft || s.life <= 0) return false;
@@ -275,8 +314,8 @@ export class GlowLayer {
     const l = this.lights[pick]!;
     l.position.set(s.x, s.y, s.z);
     l.color.setHex(s.color);
-    this.lightAge[pick] = 0; this.lightLife[pick] = s.life; this.lightPeak[pick] = s.intensity;
-    l.intensity = s.intensity;
+    this.lightAge[pick] = 0; this.lightLife[pick] = s.life; this.lightPeak[pick] = Math.min(18, s.intensity);
+    l.intensity = this.lightPeak[pick]!;
     return true;
   }
 
@@ -285,7 +324,7 @@ export class GlowLayer {
     tmpColor.setHex(color);
     p.r[i] = tmpColor.r; p.g[i] = tmpColor.g; p.b[i] = tmpColor.b;
     p.age[i] = -(delay ?? 0); p.life[i] = life; p.owner[i] = owner;
-    if ((delay ?? 0) <= 0) p.draw(i, 0, this.soft ? SOFT_SCALE : 1);
+    // Draw on the next update, after the caller has written all transform fields.
   }
 
   update(dtSec: number): void {
@@ -295,7 +334,7 @@ export class GlowLayer {
     // blows) fades each layer in proportion to how full its pool is instead of blowing the screen out. A lone hit is never dimmed.
     const fillF = (this.flashes?.alive ?? 0) / Math.max(1, this.flashes?.cap ?? 1), fillR = (this.rings?.alive ?? 0) / Math.max(1, this.rings?.cap ?? 1);
     const crowdF = 1 / (1 + 2.5 * Math.max(0, fillF - 0.2)), crowdR = 1 / (1 + 1.5 * Math.max(0, fillR - 0.25));
-    this.flashes?.step(dt, gain * crowdF); this.rings?.step(dt, gain * crowdR); this.streaks?.step(dt, gain);
+    this.flashes?.step(dt, gain * crowdF); this.rings?.step(dt, gain * crowdR); this.streaks?.step(dt, gain / (1 + 1.4 * Math.max(0, (this.streaks?.alive ?? 0) / Math.max(1, this.streaks?.cap ?? 1) - 0.3)));
     for (let i = 0; i < this.lights.length; i++) {
       if (!(this.lightAge[i]! < this.lightLife[i]!)) continue;
       const a = this.lightAge[i]! + dt;

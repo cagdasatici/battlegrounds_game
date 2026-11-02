@@ -4,7 +4,7 @@
  * Presentation only: nothing here reads or writes simulation state. `register`/`dispose` keep the T18a contract for
  * other effects that own their own resources.
  */
-import { Color, IcosahedronGeometry, InstancedMesh, Matrix4, MeshBasicMaterial, type Scene } from "three";
+import { Color, IcosahedronGeometry, InstancedMesh, Matrix4, MeshLambertMaterial, Vector3, type Scene } from "three";
 import { GlowLayer } from "./GlowLayer.js";
 
 export type PoolTier = "low" | "medium" | "high";
@@ -34,6 +34,9 @@ export interface Particle {
   gravity?: number;
   /** Warning-adjacent or beam body particle: never shed, only overwritten when the pool is completely full. Default false (decorative). */
   essential?: boolean;
+  /** Presentation shape: anisotropic scale and horizontal heading for beam segments / chips. */
+  stretch?: readonly [number, number, number];
+  yaw?: number;
 }
 
 export class EffectsPool {
@@ -52,6 +55,8 @@ export class EffectsPool {
   private vx = new Float32Array(0); private vy = new Float32Array(0); private vz = new Float32Array(0);
   private age = new Float32Array(0); private life = new Float32Array(0); private sz = new Float32Array(0);
   private grav = new Float32Array(0);
+  private sx = new Float32Array(0); private sy = new Float32Array(0); private szAxis = new Float32Array(0); private yaw = new Float32Array(0);
+  private readonly shape = new Vector3();
   private readonly m = new Matrix4();
   private readonly c = new Color();
 
@@ -74,8 +79,8 @@ export class EffectsPool {
     this.cursor = 0;
     this.alive = 0;
     this.shedTotal = 0;
-    for (const k of ["px", "py", "pz", "vx", "vy", "vz", "age", "life", "sz", "grav"] as const) this[k] = new Float32Array(n);
-    const mesh = new InstancedMesh(new IcosahedronGeometry(0.5, 0), new MeshBasicMaterial({ color: 0xffffff, fog: false }), n);
+    for (const k of ["px", "py", "pz", "vx", "vy", "vz", "age", "life", "sz", "grav", "sx", "sy", "szAxis", "yaw"] as const) this[k] = new Float32Array(n);
+    const mesh = new InstancedMesh(new IcosahedronGeometry(0.5, 0), new MeshLambertMaterial({ color: 0xffffff, fog: false }), n);
     mesh.name = "fx.pool";
     mesh.frustumCulled = false;
     mesh.count = n;
@@ -101,7 +106,9 @@ export class EffectsPool {
     if (!(this.age[i]! < this.life[i]!)) this.alive += 1;
     this.px[i] = p.x; this.py[i] = p.y; this.pz[i] = p.z;
     this.vx[i] = p.vx; this.vy[i] = p.vy; this.vz[i] = p.vz;
-    this.age[i] = 0; this.life[i] = p.life; this.sz[i] = p.size; this.grav[i] = p.gravity ?? 0;
+    this.age[i] = 0; this.life[i] = p.life; this.sz[i] = p.size;
+    this.sx[i] = p.stretch?.[0] ?? 1; this.sy[i] = p.stretch?.[1] ?? 1; this.szAxis[i] = p.stretch?.[2] ?? 1; this.yaw[i] = p.yaw ?? 0;
+    this.grav[i] = p.gravity ?? 0;
     mesh.setColorAt(i, this.c.set(p.color));
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     this.write(i, 1);
@@ -136,7 +143,7 @@ export class EffectsPool {
   private write(i: number, scale: number): void {
     const mesh = this.mesh!;
     const s = this.sz[i]! * scale;
-    this.m.makeScale(s, s, s).setPosition(this.px[i]!, this.py[i]!, this.pz[i]!);
+    this.m.makeRotationY(this.yaw[i]!).scale(this.shape.set(s * this.sx[i]!, s * this.sy[i]!, s * this.szAxis[i]!)).setPosition(this.px[i]!, this.py[i]!, this.pz[i]!);
     mesh.setMatrixAt(i, this.m);
     mesh.instanceMatrix.needsUpdate = true;
   }
@@ -146,7 +153,7 @@ export class EffectsPool {
     if (this.mesh) {
       this.mesh.removeFromParent();
       this.mesh.geometry.dispose();
-      (this.mesh.material as MeshBasicMaterial).dispose();
+      (this.mesh.material as MeshLambertMaterial).dispose();
       this.mesh.dispose();
     }
     this.mesh = null;

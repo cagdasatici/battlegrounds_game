@@ -81,7 +81,7 @@ export class GameScene {
   private onResize = (): void => this.resize();
   private disposed = false;
   private quality: Quality = "medium";
-  private readonly sun = new DirectionalLight(0xffecd0, 2.0);
+  private readonly sun = new DirectionalLight(0xffe4bd, 2.25);
   private readonly ramp: DataTexture = makeToonRamp();
   private readonly arena: ReturnType<typeof buildArena>;
   private env: { kit: EnvKit; meshes: InstancedMesh[] } | null = null;
@@ -91,8 +91,8 @@ export class GameScene {
   constructor(private readonly renderer: RendererLike, colliders: readonly Collider[], private readonly win: WindowLike) {
     this.colliders = colliders;
     this.scene.background = new Color(SKY.horizon);
-    this.scene.fog = new Fog(SKY.fog, 60, 165);
-    this.scene.add(new HemisphereLight(0xcce9eb, 0x6b7564, 1.15));
+    this.scene.fog = new Fog(SKY.fog, 75, 180);
+    this.scene.add(new HemisphereLight(0xb9d9f2, 0x44483a, 0.95));
     this.sun.position.set(28, 50, 18);
     this.sun.shadow.mapSize.set(1024, 1024);
     const cam = this.sun.shadow.camera;
@@ -100,7 +100,7 @@ export class GameScene {
     this.sun.shadow.bias = -0.0004;
     this.sun.shadow.normalBias = 0.04;
     // Cool fill light from the opposite side gives fighters a bright rim edge; it casts no shadow.
-    const rim = new DirectionalLight(0xbfe0ff, 0.9);
+    const rim = new DirectionalLight(0x8fc9ff, 0.65);
     rim.position.set(-25, 18, -30);
     this.scene.add(this.sun, this.sun.target, rim);
     this.arena = buildArena(colliders, this.ramp);

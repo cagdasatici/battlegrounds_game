@@ -6,8 +6,8 @@
       "id": "fighter.sv",
       "kind": "fighter",
       "path": "assets/fighters/sv.gltf",
-      "sha256": "9f2d4c80d60b71a794084a3ade8816ba3ee28625b3207a10cf1699957f7acdaa",
-      "byteSize": 619125,
+      "sha256": "0dc8dbdb69ee14ef52e8eeb06e56ec5f62ebd1d69e072c0c075d7bcec5888d99",
+      "byteSize": 632373,
       "license": "Project-original work; no third-party material; rights held by the project owner",
       "author": "Elemental Battlegrounds project (code authored in repository by Claude Code under owner direction)",
       "source": "repo:ops/scripts/art-gltf.ts from packages/shared/src/rig.ts and fighterDesign.ts",
@@ -21,7 +21,7 @@
         ],
         "max": [
           0.34801,
-          0.97,
+          1.01605,
           0.23213
         ]
       },
@@ -67,8 +67,8 @@
       "id": "fighter.td",
       "kind": "fighter",
       "path": "assets/fighters/td.gltf",
-      "sha256": "86c06f9720f7892c4f6e2bb9e109aee097d85e7266b41a76b416dc7ef69d1872",
-      "byteSize": 578346,
+      "sha256": "4e8b0baef6eeeaa41563dba98e63a01f9bc9a7bef0e65566f434b442770ece82",
+      "byteSize": 593693,
       "license": "Project-original work; no third-party material; rights held by the project owner",
       "author": "Elemental Battlegrounds project (code authored in repository by Claude Code under owner direction)",
       "source": "repo:ops/scripts/art-gltf.ts from packages/shared/src/rig.ts and fighterDesign.ts",
@@ -77,12 +77,12 @@
       "bounds": {
         "min": [
           -0.33295,
-          -0.905,
-          -0.18465
+          -0.9075,
+          -0.1875
         ],
         "max": [
           0.385,
-          0.98,
+          1.01605,
           0.29112
         ]
       },
@@ -125,8 +125,8 @@
       "id": "fighter.ea",
       "kind": "fighter",
       "path": "assets/fighters/ea.gltf",
-      "sha256": "748e4bf3c448ae999d7942f0fffe355fd5fee4eb48e34661e20258a9248954e1",
-      "byteSize": 606618,
+      "sha256": "4d4f456a7cd1954f47b18b337bb49dbb6bcad00240fa3c2d1269b0113c746c7f",
+      "byteSize": 619853,
       "license": "Project-original work; no third-party material; rights held by the project owner",
       "author": "Elemental Battlegrounds project (code authored in repository by Claude Code under owner direction)",
       "source": "repo:ops/scripts/art-gltf.ts from packages/shared/src/rig.ts and fighterDesign.ts",
@@ -135,12 +135,12 @@
       "bounds": {
         "min": [
           -0.36,
-          -0.905,
-          -0.18465
+          -0.9075,
+          -0.1875
         ],
         "max": [
           0.352,
-          0.97,
+          1.01605,
           0.29
         ]
       },
@@ -615,8 +615,8 @@
       "id": "code.arena-view",
       "kind": "code",
       "path": "apps/client/src/scene/ArenaView.ts",
-      "sha256": "c10cadb5785b7eb58e3e50557165a1428f67a0b84c2baf13e44b9fed7fcd4186",
-      "byteSize": 34539,
+      "sha256": "9f221145b5fa016768a6dc458e81e1b4d0305a37d4f51043455f2f54629bc6f8",
+      "byteSize": 38095,
       "license": "Project-original work; no third-party material; rights held by the project owner",
       "author": "Elemental Battlegrounds project (code authored in repository by Claude Code under owner direction)",
       "source": "repo:apps/client/src/scene/ArenaView.ts",

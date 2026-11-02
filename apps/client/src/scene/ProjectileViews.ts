@@ -14,8 +14,9 @@ export interface LoopProjectile {
 export class ProjectileViews {
   private readonly geometry = new SphereGeometry(1, 16, 10);
   private readonly core = new MeshBasicMaterial({ color: 0xffedab });
-  private readonly shell = new MeshBasicMaterial({ color: 0xff691f, wireframe: true });
-  private readonly reflected = new MeshBasicMaterial({ color: 0x75e6ff, wireframe: true });
+  private readonly shell = new MeshBasicMaterial({ color: 0xff691f, transparent: true, opacity: 0.38, depthWrite: false });
+  private readonly reflectedCore = new MeshBasicMaterial({ color: 0xdbf8ff });
+  private readonly reflected = new MeshBasicMaterial({ color: 0x75e6ff, transparent: true, opacity: 0.38, depthWrite: false });
   private readonly views = new Map<string, { group: Group; shell: Mesh; buffer: SnapshotBuffer; signature: string; tick: number; trail: { x: number; y: number; z: number } | null; dir: { x: number; y: number; z: number } }>();
   private disposed = false;
 
@@ -49,6 +50,9 @@ export class ProjectileViews {
         v.tick = tick;
       }
       v.shell.material = p.reflectionCount > 0 ? this.reflected : this.shell;
+      (v.group.children[0] as Mesh).material = p.reflectionCount > 0 ? this.reflectedCore : this.core;
+      v.shell.scale.set(1.12, 0.86 + 0.08 * Math.sin(nowTick * 0.5), 1.12);
+      v.shell.rotation.set(nowTick * 0.09, nowTick * 0.12, 0);
       v.group.scale.setScalar(p.chargeClass === "full" ? 0.5 : 0.35);
       v.group.userData = { entityId: p.entityId, ownerId: p.ownerId, reflectionCount: p.reflectionCount };
       const pose = v.buffer.sample(nowTick);
@@ -111,6 +115,6 @@ export class ProjectileViews {
     if (this.disposed) return;
     this.disposed = true;
     this.clear();
-    this.geometry.dispose(); this.core.dispose(); this.shell.dispose(); this.reflected.dispose();
+    this.geometry.dispose(); this.core.dispose(); this.shell.dispose(); this.reflected.dispose(); this.reflectedCore.dispose();
   }
 }

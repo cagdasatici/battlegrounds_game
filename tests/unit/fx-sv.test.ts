@@ -151,11 +151,11 @@ describe("QV06 Vanguard move coverage (one table over the kit)", () => {
     expect(n("sv.a4", 0)).toBe(ORBIT.capture); expect(n("sv.a4", 10000)).toBe(ORBIT.release);
     expect(n("sv.x2", 0)).toBe(GALE.pin); expect(n("sv.x2", 4000)).toBe(GALE.release);
   });
-  test("Fault Strike hit flash is drawn at the victim (carried QI01 item), big and bright", () => {
+  test("Fault Strike contact stays on the victim and clears quickly to preserve visibility", () => {
     const { out, fx } = rec();
     onHit(fx, ev({ moveId: "sv.b1", position: { x: 4, y: 1, z: -2 } }), () => undefined);
     expect(out.length).toBe(FAULT_HIT.flash + FAULT_HIT.sparks);
-    expect(out.slice(0, FAULT_HIT.flash).every((p) => p.x === 4 && p.z === -2 && p.life >= 0.45)).toBe(true);
+    expect(out.slice(0, FAULT_HIT.flash).every((p) => p.x === 4 && p.z === -2 && p.life <= 0.18)).toBe(true);
   });
   test("Skybreak chips end inside the 20 x 24 box on any heading", () => {
     for (const yaw of [0, 1.1, -2.2]) {

@@ -14,11 +14,11 @@ import {
 import type { Collider } from "@eb/shared/config/arena";
 import { instancePlacements, type EnvKit, type EnvModelId, type EnvPlacement } from "./EnvAssets.js";
 
-export const SKY = { horizon: 0xd5e8dd, zenith: 0x397ea5, nadir: 0x8bb4bf, fog: 0xc7dfda } as const;
+export const SKY = { horizon: 0xc2d5df, zenith: 0x326b9e, nadir: 0x6e9eae, fog: 0xb7cdd8 } as const;
 
 const PALETTE = {
-  grassTop: 0x879b65, grassSide: 0x465b3b, soil: 0x7a5636, rockHi: 0x8a7f78, rockMid: 0x645c66, rockLow: 0x403b4a,
-  wood: 0xa87a48, woodDark: 0x6b4a2c, stone: 0x9a968f, stoneDark: 0x6c6a70, amber: 0xf0a030, cloud: 0xffffff, cloudShade: 0xb9cde4,
+  grassTop: 0x78916b, grassSide: 0x354f42, soil: 0x7a5636, rockHi: 0x8a7f78, rockMid: 0x645c66, rockLow: 0x403b4a,
+  wood: 0xa87a48, woodDark: 0x6b4a2c, stone: 0x9a968f, stoneDark: 0x6c6a70, amber: 0xc79b58, cloud: 0xffffff, cloudShade: 0xb9cde4,
 } as const;
 
 function mulberry32(seed: number): () => number {
@@ -166,7 +166,16 @@ function obstacleGeometry(c: Collider): BufferGeometry {
     b.add(box(hx * 2 - inset, ch - 0.02, hz * 2 - inset), xf(c.centre[0], bottom + ch * (i + 0.5), c.centre[2]), tone);
   }
   b.add(box(hx * 2 + 0.08, 0.16, hz * 2 + 0.08), xf(c.centre[0], top - 0.08, c.centre[2]), isWall ? PALETTE.stoneDark : PALETTE.amber);
-  if (!isWall) b.add(box(hx * 2 + 0.06, 0.1, hz * 2 + 0.06), xf(c.centre[0], bottom + 0.05, c.centre[2]), PALETTE.stoneDark);
+  if (!isWall) {
+    b.add(box(hx * 2 + 0.06, 0.1, hz * 2 + 0.06), xf(c.centre[0], bottom + 0.05, c.centre[2]), PALETTE.stoneDark);
+    // Inlaid flutes and small diamond seals keep the original collision silhouette.
+    for (const side of [-1, 1]) for (const axis of [0, 1]) {
+      const x = c.centre[0] + (axis === 0 ? side * (hx + 0.006) : 0);
+      const z = c.centre[2] + (axis === 1 ? side * (hz + 0.006) : 0);
+      b.add(box(axis === 0 ? 0.012 : 0.075, hy * 1.35, axis === 1 ? 0.012 : 0.075), xf(x, c.centre[1], z), PALETTE.stoneDark);
+      b.add(new OctahedronGeometry(0.16, 0), xf(x, top - 0.42, z, axis === 0 ? 0.12 : 1, 1, axis === 1 ? 0.12 : 1), PALETTE.amber);
+    }
+  }
   return b.build();
 }
 
@@ -366,9 +375,9 @@ function meadowTexture(): DataTexture {
   const size = 128, pixels = new Uint8Array(size * size * 4), rnd = mulberry32(0x6b73);
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
     const i = (y * size + x) * 4;
-    const grain = rnd() * 14;
-    const blade = ((x * 7 + y * 3) % 19 < 2) ? 14 : 0;
-    const value = 218 + grain + blade + 6 * Math.sin(x * .34) * Math.sin(y * .28);
+    const grain = rnd() * 5;
+    const blade = ((x * 7 + y * 3) % 19 < 2) ? 5 : 0;
+    const value = 231 + grain + blade + 3 * Math.sin(x * .34) * Math.sin(y * .28);
     pixels[i] = value; pixels[i + 1] = value + 3; pixels[i + 2] = value - 5; pixels[i + 3] = 255;
   }
   const texture = new DataTexture(pixels, size, size, RGBAFormat);
@@ -412,6 +421,17 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
     const [hx, hy, hz] = c.halfExtents;
     const bottom = c.centre[1] - hy;
     underside(under, c.centre[0], c.centre[2], bottom + 0.01, hx * 0.98, hz * 0.98, Math.min(hx, hz) * 1.6 + 3, rnd);
+  }
+  for (const c of colliders) {
+    if (!isGround(c) || c.shape !== "cuboid") continue;
+    const [hx, hy, hz] = c.halfExtents;
+    for (let side = 0; side < 4; side++) for (let i = 0; i < 7; i++) {
+      const t = (i + 0.5) / 7 * 2 - 1;
+      const x = c.centre[0] + (side < 2 ? (side === 0 ? -1 : 1) * (hx + 0.35) : t * hx);
+      const z = c.centre[2] + (side >= 2 ? (side === 2 ? -1 : 1) * (hz + 0.35) : t * hz);
+      if (insideIsland(colliders, x, z, 0)) continue;
+      under.add(new DodecahedronGeometry(1, 0), xf(x, c.centre[1] - hy - 0.4, z, 0.8 + rnd(), 1.5 + rnd() * 2, 0.9 + rnd(), 0.2, rnd() * 3, 0.1), lerpHex(0x49555f, 0x84908a, rnd()));
+    }
   }
   addMesh("deco.under", under.build(), flatToon, { cast: false, receive: false });
 
@@ -493,13 +513,38 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
   addMesh("deco.edge", edge.build(), flatToon, { cast: false, receive: true });
   addMesh("deco.slabs", slabs.build(), flatToon, { cast: false, receive: true });
 
+  // VIS01: a weathered radial stone court and broken flagstone approaches. All are flush decoration.
+  const court = new Batch();
+  for (let band = 0; band < 5; band++) {
+    const inner = band * 1.72 + 0.12, outer = inner + 1.66, count = 12 + band * 6;
+    for (let i = 0; i < count; i++) {
+      const a = i / count * Math.PI * 2 + (band % 2) * 0.11;
+      const tone = lerpHex(0x647776, 0xabb3a1, rnd() * 0.55 + band * 0.045);
+      court.add(new RingGeometry(inner, outer, 4, 1, a + 0.007, Math.PI * 2 / count - 0.014), xf(0, 0.012, 0, 1, 1, 1, -Math.PI / 2), tone);
+    }
+  }
+  for (let route = 0; route < 4; route++) {
+    const a = route * Math.PI / 2;
+    for (let i = 0; i < 8; i++) for (const side of [-1, 1]) {
+      const d = 9.2 + i * 1.12, lateral = side * (0.42 + rnd() * 0.12);
+      const x = Math.sin(a) * d + Math.cos(a) * lateral, z = Math.cos(a) * d - Math.sin(a) * lateral;
+      if (!insideIsland(colliders, x, z, 0.9)) continue;
+      court.add(new CylinderGeometry(0.48, 0.5, 0.025, 6), xf(x, 0.017, z, 1, 1, 0.76, 0, a + rnd() * 0.3, 0), lerpHex(0x7a8580, 0xb5af95, rnd() * 0.7));
+    }
+  }
+  addMesh("deco.court", court.build(), terrain, { cast: false, receive: true });
+
   // Ground glyph at the arena centre: pale inlaid rings and spokes just above the floor.
   const glyph = new Batch();
   const ringMat = (r0: number, r1: number, col: number): void => { glyph.add(new RingGeometry(r0, r1, 64, 1), xf(0, 0.02, 0, 1, 1, 1, -Math.PI / 2), col); };
-  ringMat(4.6, 4.85, 0xe9dcb4); ringMat(8.1, 8.26, 0xd7c99e); ringMat(1.2, 1.35, 0xe9dcb4);
+  ringMat(4.72, 4.78, 0xe9dcb4); ringMat(8.45, 8.52, 0xd7c99e); ringMat(1.2, 1.25, 0xe9dcb4);
+  for (let i = 0; i < 24; i++) {
+    const a = i / 24 * Math.PI * 2;
+    glyph.add(box(0.055, 0.01, i % 3 === 0 ? 0.55 : 0.22), xf(Math.sin(a) * 8.15, 0.023, Math.cos(a) * 8.15, 1, 1, 1, 0, a, 0), 0xddc89a);
+  }
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2;
-    glyph.add(box(0.14, 0.01, 3.2), xf(Math.sin(a) * 3, 0.021, Math.cos(a) * 3, 1, 1, 1, 0, a, 0), 0xd7c99e);
+    glyph.add(box(0.045, 0.01, 2.9), xf(Math.sin(a) * 3, 0.021, Math.cos(a) * 3, 1, 1, 1, 0, a, 0), 0xd7c99e);
   }
   const glyphMat = new MeshBasicMaterial({ transparent: true, opacity: .48, vertexColors: true, side: DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   materials.push(glyphMat);
@@ -536,7 +581,7 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
   const clouds = addMesh("deco.clouds", cl.build(), flatToon, { cast: false, receive: false });
 
   // Sky dome with a vertical gradient; unaffected by fog.
-  const skyG = new SphereGeometry(165, 24, 14);
+  const skyG = new SphereGeometry(165, 48, 24);
   const sp = skyG.getAttribute("position");
   const colors: number[] = [];
   const c = new Color();
@@ -546,6 +591,17 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
     colors.push(c.r, c.g, c.b);
   }
   skyG.setAttribute("color", new Float32BufferAttribute(colors, 3));
+  // A warm sun and distant suspended spires belong to the sky, so camera movement cannot expose a backdrop edge.
+  const horizon = new Batch();
+  for (let i = 0; i < 16; i++) {
+    const a = i / 16 * Math.PI * 2, r = 138, x = Math.cos(a) * r, z = Math.sin(a) * r, y = -17 - rnd() * 12;
+    const w = 3.5 + rnd() * 5, h = 4 + rnd() * 6, tone = lerpHex(0x85a9b6, 0xb5c9d0, rnd());
+    horizon.add(new DodecahedronGeometry(1, 0), xf(x, y, z, w, 2, w * 0.7, 0, a, 0), tone);
+    horizon.add(new DodecahedronGeometry(1, 0), xf(x + w * 0.12, y - h * 0.6, z, w * 0.62, h, w * 0.48, 0.2, a, 0.12), tone);
+  }
+  horizon.add(new SphereGeometry(5.5, 24, 16), xf(68, 63, -111), 0xffe6bd);
+  const backdrop = addMesh("deco.horizon", horizon.build(), new MeshBasicMaterial({ vertexColors: true, fog: false, side: DoubleSide }), { cast: false, receive: false });
+  materials.push(backdrop.material as Material);
   geometries.push(skyG);
   const skyMat = new MeshBasicMaterial({ vertexColors: true, side: BackSide, fog: false, depthWrite: false });
   materials.push(skyMat);
@@ -554,6 +610,7 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
   sky.renderOrder = -10;
   sky.frustumCulled = false;
   group.add(sky);
+  sky.add(backdrop);
 
   return { group, sky, clouds, geometries, materials, textures: [grassMap] };
 }

@@ -8,7 +8,7 @@ import path from "node:path";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "../..");
-const outDir = path.join(root, "docs/test-results");
+const outDir = path.join(root, process.env["EB_VISUAL_OUT"] ?? "docs/test-results");
 const req = createRequire(path.join(root, "apps/client/package.json"));
 import { resolveChromium } from "./harness/chromium-path.js";
 const CHROMIUM = resolveChromium();
@@ -24,6 +24,7 @@ let base = "";
 test.beforeAll(async () => {
   const vite = req("vite") as { createServer(c: unknown): Promise<Dev> };
   server = await vite.createServer({ root: path.join(here, "harness"), configFile: false, server: { hmr: false, watch: null, port: 0, host: "127.0.0.1", fs: { strict: false } }, logLevel: "error" });
+  mkdirSync(outDir, { recursive: true });
   await server.listen();
   base = server.resolvedUrls!.local[0]!;
   browser = await chromium.launch({ executablePath: CHROMIUM, args: GL_ARGS });
@@ -35,6 +36,7 @@ for (const view of ["overview", "spawn", "bridge", "front"]) {
   test(`UX05 environment ${view}, both quality tiers fit rendering budgets`, async () => {
     const page = await browser.newPage({ viewport: { width: 1180, height: 820 } });
     const errors: string[] = []; page.on("pageerror", e => errors.push(String(e)));
+    page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
     try {
       await page.goto(`${base}/art.html?view=${view}&i=0&n=east`);
       await page.waitForFunction(() => { const a = (window as unknown as { __art: ArtApi }).__art; return a?.envState() === "ready" && a.frames() > 5; });

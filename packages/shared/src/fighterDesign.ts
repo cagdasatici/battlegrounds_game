@@ -65,6 +65,12 @@ function body(): P[] {
     part("browR", "box", "head", [0.05, 0.125, -0.121], [0.06, 0.014, 0.012], "hair", { rot: [0, 0, -0.18], bevel: 0.005, fine: true }),
     part("mouth", "box", "head", [0, 0.03, -0.121], [0.05, 0.01, 0.012], "dark", { bevel: 0.004, fine: true }),
     part("hair", "box", "head", [0, 0.17, 0.03], [0.27, 0.12, 0.27], "hair", { bevel: 0.05 }),
+    // VIS01 facial planes and swept locks, attached to the existing head bone.
+    part("nose", "box", "head", [0, 0.065, -0.124], [0.028, 0.045, 0.035], "skin", { bevel: 0.012, fine: true }),
+    part("earL", "sphere", "head", [-0.123, 0.075, 0], [0.028], "skin", { fine: true }),
+    part("earR", "sphere", "head", [0.123, 0.075, 0], [0.028], "skin", { fine: true }),
+    part("lockL", "box", "head", [-0.07, 0.215, -0.01], [0.07, 0.06, 0.2], "hair", { bevel: 0.025, rot: [-0.1, -0.25, -0.12], fine: true }),
+    part("lockR", "box", "head", [0.045, 0.22, 0.025], [0.075, 0.06, 0.19], "hair", { bevel: 0.025, rot: [-0.12, -0.25, -0.18], fine: true }),
   ];
   for (const s of ["L", "R"] as const) {
     const x = s === "L" ? -1 : 1;
@@ -75,6 +81,8 @@ function body(): P[] {
       part(`elbowJoint${s}`, "sphere", el, [0, 0, 0], [0.061], "skin"),
       part(`foreArm${s}`, "limb", el, [0, 0, 0], ARM_LOWER, "skin"),
       part(`hand${s}`, "box", ha, [0, -0.05, 0], [0.09, 0.1, 0.05], "skin", { bevel: 0.02 }),
+      part(`bootSole${s}`, "box", an, [x * 0.005, 0.005, -0.05], [0.13, 0.025, 0.275], "dark", { bevel: 0.009, fine: true }),
+      part(`knuckleFold${s}`, "box", ha, [0, -0.065, -0.028], [0.075, 0.012, 0.01], "cloth", { bevel: 0.004, fine: true }),
       part(`thumb${s}`, "capsule", ha, [-x * 0.052, -0.035, -0.012], [0.017, 0.045], "skin", { rot: [0, 0, -x * 0.35], fine: true }),
       part(`thigh${s}`, "limb", hp, [0, 0, 0], LEG_UPPER, "dark"),
       part(`shin${s}`, "limb", kn, [0, 0, 0], LEG_LOWER, "dark"),
@@ -122,6 +130,8 @@ function stoneVanguard(): FighterDesign {
     part("bootWedgeR", "cone", "ankleR", [0.005, 0.05, -0.17], [0.065, 0.12], "accent", { rot: [-Math.PI / 2, 0, 0] }),
     part("kneePlateL", "box", "kneeL", [0, 0.02, -0.075], [0.12, 0.1, 0.05], "stone"),
     part("kneePlateR", "box", "kneeR", [0, 0.02, -0.075], [0.12, 0.1, 0.05], "stone"),
+    part("mantleInlay", "box", "chest", [-0.27, 0.228, -0.194], [0.19, 0.025, 0.012], "trim", { fine: true, rot: [0, 0, 0.25] }),
+    part("beltSeal", "box", "hips", [0, 0.11, -0.128], [0.075, 0.075, 0.018], "stone", { fine: true, rot: [0, 0, Math.PI / 4], bevel: 0.01 }),
     // Armour layers: hanging tassets and a back slab so the rear silhouette is blocky and heavy.
     part("tassetL", "box", "hips", [-0.13, -0.14, -0.1], [0.14, 0.2, 0.04], "stone", { rot: [0.1, 0, 0.05], bevel: 0.015 }),
     part("tassetR", "box", "hips", [0.13, -0.14, -0.1], [0.14, 0.2, 0.04], "stone", { rot: [0.1, 0, -0.05], bevel: 0.015 }),
@@ -146,7 +156,7 @@ function stoneVanguard(): FighterDesign {
   );
   return {
     kit: "sv", label: "Stone Vanguard", glowColor: 0xffa63a,
-    palette: { skin: 0xc58b62, hair: 0x1b1714, primary: 0x3d4a8a, secondary: 0x2a2a30, accent: 0xffb020, trim: 0xf0a030, cloth: 0x3d3d46, dark: 0x2b2b32, stone: 0x8b8378 },
+    palette: { skin: 0xc58b62, hair: 0x1b1714, primary: 0x34465e, secondary: 0x2a2a30, accent: 0xe4af53, trim: 0xc39857, cloth: 0x3d3d46, dark: 0x2b2b32, stone: 0x8b8378 },
     parts,
   };
 }
@@ -177,6 +187,9 @@ function tideDuelist(): FighterDesign {
     part("guardDisc", "cylinder", "chest", [0.3, 0.2, 0], [0.17, 0.17, 0.05], "trim", { rot: [0, 0, Math.PI / 2] }),
     part("guardRim", "torus", "chest", [0.33, 0.2, 0], [0.165, 0.018], "secondary", { rot: [0, Math.PI / 2, 0] }),
     part("guardCore", "sphere", "chest", [0.345, 0.2, 0], [0.04], "accent", { glow: true }),
+    part("coatSeamL", "box", "chest", [-0.135, -0.02, -0.15], [0.012, 0.31, 0.012], "secondary", { fine: true }),
+    part("coatSeamR", "box", "chest", [0.135, -0.02, -0.15], [0.012, 0.31, 0.012], "secondary", { fine: true }),
+    part("sashKnot", "box", "hips", [-0.13, 0.09, -0.14], [0.075, 0.065, 0.045], "trim", { fine: true, rot: [0, 0, 0.5], bevel: 0.018 }),
     // Tied copper hair: crown, tie and a ponytail.
     part("ponytail", "capsule", "head", [0, 0.03, 0.2], [0.045, 0.2], "hair", { rot: [0.5, 0, 0] }),
     part("bangs", "box", "head", [0, 0.18, -0.07], [0.19, 0.04, 0.09], "hair", { rot: [-0.3, 0, 0] }),
@@ -208,6 +221,8 @@ function emberArtificer(): FighterDesign {
   parts = override(parts, "foreArmL", { color: "dark" });
   parts = override(parts, "foreArmR", { color: "dark" });
   parts = override(parts, "hair", { color: "stone", size: [0.27, 0.1, 0.26], pos: [0, 0.17, 0.04] });
+  parts = override(parts, "lockL", { color: "stone" });
+  parts = override(parts, "lockR", { color: "stone" });
   parts.push(
     // QF03 tapered furnace backpack: wide hot base on the spine, narrowing in two steps to a chimney stack. Copper bands.
     part("packC", "box", "spine", [0, -0.02, 0.2], [0.4, 0.2, 0.17], "trim"),
@@ -233,6 +248,8 @@ function emberArtificer(): FighterDesign {
     part("gauntletVentR", "box", "elbowR", [0, -0.14, -0.068], [0.09, 0.03, 0.01], "accent", { glow: true }),
     part("gauntletRingL", "torus", "handL", [0, 0.08, 0], [0.09, 0.012], "accent", { rot: [Math.PI / 2, 0, 0], glow: true }),
     part("gauntletRingR", "torus", "handR", [0, 0.08, 0], [0.09, 0.012], "accent", { rot: [Math.PI / 2, 0, 0], glow: true }),
+    part("chestStrap", "box", "chest", [-0.02, 0.04, -0.132], [0.035, 0.33, 0.018], "dark", { fine: true, rot: [0, 0, -0.42] }),
+    part("strapBuckle", "box", "chest", [-0.03, 0.065, -0.146], [0.065, 0.07, 0.015], "accent", { fine: true, bevel: 0.01 }),
     // Engineer goggles pushed up on the forehead.
     part("goggleBand", "box", "head", [0, 0.14, -0.035], [0.25, 0.035, 0.22], "dark"),
     part("lensL", "cylinder", "head", [-0.05, 0.165, -0.105], [0.035, 0.035, 0.03], "accent", { rot: [Math.PI / 2, 0, 0], glow: true }),
@@ -243,7 +260,7 @@ function emberArtificer(): FighterDesign {
   );
   return {
     kit: "ea", label: "Ember Artificer", glowColor: 0xffb070,
-    palette: { skin: 0xe2b89a, hair: 0x5a2a44, primary: 0xb03a8c, secondary: 0x6a2a6a, accent: 0xff8a2a, trim: 0xf6dcc0, cloth: 0x7a3a66, dark: 0x2a1a2a, stone: 0xe8c9a8 },
+    palette: { skin: 0xe2b89a, hair: 0x5a2a44, primary: 0x793f64, secondary: 0x48364f, accent: 0xff8a2a, trim: 0xf6dcc0, cloth: 0x7a3a66, dark: 0x2a1a2a, stone: 0xe8c9a8 },
     parts,
   };
 }

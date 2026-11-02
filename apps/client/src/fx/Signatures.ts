@@ -129,8 +129,19 @@ export function playSignatureActive(fx: EffectsPool, moveId: string, at: Pt, yaw
   if (!sig) return;
   const c: Ctx = { fx, theme: THEME[elementOfMove(moveId)], at, yaw, groundY, size: sig.size, reach: reachOf(moveId), sec: 0.4 };
   ACTIVES[sig.active](c);
+  const el = elementOfMove(moveId), g = fx.glow, f = fwd(c);
+  if (el === "water") {
+    // Continuous swept water ribbons, lifted off the floor so the victim stays legible.
+    for (const side of [-1, 1]) g.arc({ centre: { x: at.x + f.dx, y: at.y + side * 0.22, z: at.z + f.dz }, radius: 1.15 * sig.size,
+      start: yaw + side * 0.6, sweep: side * Math.PI * 1.35, color: side > 0 ? c.theme.accent : c.theme.dark,
+      width: 0.14 * sig.size, rise: 0.6, life: 0.34 });
+  } else if (el === "ember") {
+    // Swept flame tongues with dark orange edges and narrow gold cores.
+    g.arc({ centre: hand(c), radius: 0.85 * sig.size, start: yaw, sweep: Math.PI * 1.4, color: c.theme.dark,
+      width: 0.22 * sig.size, rise: 0.9, life: 0.3 });
+  }
   const h = hand(c);
-  fx.glow.flash({ ...h, color: c.theme.core, size: 0.9 * c.size, grow: 1.8, life: 0.22 });
+  fx.glow.flash({ ...h, color: c.theme.core, size: 0.45 * c.size, grow: 1.3, life: 0.12 });
   fx.glow.light({ ...h, color: c.theme.accent, intensity: 18 * c.size, life: 0.25 });
 }
 
@@ -170,8 +181,8 @@ const ACTIVES: Record<ActiveShape, (c: Ctx) => void> = {
   },
   beam(c) {
     const g = c.fx.glow, f = fwd(c), h = hand(c), len = Math.min(c.reach + 2, 6), n = scaled(c.fx, 6, 2);
-    g.streak({ ...h, vx: f.dx * 0.5, vy: 0, vz: f.dz * 0.5, color: c.theme.accent, length: len, width: 0.7 * c.size, life: 0.3 });
-    g.streak({ ...h, vx: f.dx * 0.5, vy: 0, vz: f.dz * 0.5, color: c.theme.core, length: len, width: 0.3 * c.size, life: 0.3 });
+    g.streak({ ...h, vx: f.dx * 0.5, vy: 0, vz: f.dz * 0.5, color: c.theme.dark, length: len, width: 0.36 * c.size, life: 0.3 });
+    g.streak({ ...h, vx: f.dx * 0.5, vy: 0, vz: f.dz * 0.5, color: c.theme.accent, length: len, width: 0.12 * c.size, life: 0.3 });
     for (let i = 0; i < n; i++) {
       const lat = (i % 2 ? 1 : -1) * rnd(0.2, 0.7);
       g.streak({ x: h.x + f.px * lat, y: h.y + rnd(-0.2, 0.2), z: h.z + f.pz * lat, vx: f.dx * 14, vy: 0, vz: f.dz * 14, color: c.theme.core, length: 0.8, width: 0.06, life: 0.3, delay: i * 0.02 });
@@ -240,7 +251,7 @@ const IMPACTS: Record<ImpactShape, (fx: EffectsPool, t: Theme, at: Pt, groundY: 
   },
   crack(fx, t, at, gy, p) {
     const g = fx.glow, n = scaled(fx, 8, 4);
-    for (let i = 0; i < n; i++) { const a = (i / n) * TAU + rnd(-0.2, 0.2); g.streak({ x: at.x, y: gy + 0.05, z: at.z, vx: 0, vy: 0, vz: 0, dir: { x: Math.cos(a), y: 0, z: Math.sin(a) }, color: i % 2 ? t.core : t.accent, length: rnd(1.2, 2.2) * (0.8 + 0.4 * p), width: 0.07, life: 0.7 }); }
+    for (let i = 0; i < n; i++) { const a = (i / n) * TAU + rnd(-0.2, 0.2); g.streak({ x: at.x, y: gy + 0.05, z: at.z, vx: 0, vy: 0, vz: 0, dir: { x: Math.cos(a), y: 0, z: Math.sin(a) }, color: t.dark, length: rnd(1.2, 2.2) * (0.8 + 0.4 * p), width: 0.07, life: 0.7 }); }
   },
   flare(fx, t, at, _gy, p) {
     const g = fx.glow, n = 8;

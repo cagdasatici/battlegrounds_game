@@ -38,7 +38,7 @@ export function playFaultStrike(fx: EffectsPool, at: Pos, yaw: number, surface: 
   for (let i = 0; i < FAULT_LAYERS.crack; i++) {
     const s = i % 2 ? 1 : -1, c = pt(FAULT_FOOTPRINT.impactAt, s * 0.25 * (1 + (i >> 1) * 0.8)), y = surface(c.x, c.z, at.y);
     if (y === null) continue;
-    fx.spawn({ x: c.x, y: y + 0.12, z: c.z, vx: 0, vy: 0.4, vz: 0, life: 0.45, size: 0.9, color: CRACK });
+    fx.spawn({ x: c.x, y: y + 0.12, z: c.z, vx: 0, vy: 0.4, vz: 0, life: 0.3, size: 0.55, color: 0x8d785a, stretch: [0.45, 0.16, 1.5], yaw });
   }
   // Split: chips leave the impact in two diverging rows; end points stay inside the wave box (lateral <= 0.9 at 8 m).
   const fwd = FAULT_FOOTPRINT.forward - FAULT_FOOTPRINT.impactAt, life = 0.4;
@@ -145,10 +145,10 @@ export function playHorizonBreak(fx: EffectsPool, c: SustainCtx): void {
   const len = c.cover ? Math.min(HORIZON.length, c.cover(ox, oy - 0.6, oz, f.dx, f.dz, HORIZON.length)) : HORIZON.length;
   if (len <= 0) return;
   const gen = beamGen(c.state); // QV09: continuous core, two interleaved emits
-  for (let i = 0; i < HORIZON.core; i++) { const d = beamStation(i, HORIZON.core, len, gen); fx.spawn({ x: ox + f.dx * d, y: oy, z: oz + f.dz * d, vx: 0, vy: 0, vz: 0, life: HORIZON.life, size: HORIZON.coreSize, color: PALE }); }
+  for (let i = 0; i < HORIZON.core; i++) { const d = beamStation(i, HORIZON.core, len, gen); fx.spawn({ x: ox + f.dx * d, y: oy, z: oz + f.dz * d, vx: 0, vy: 0, vz: 0, life: HORIZON.life, size: HORIZON.coreSize, stretch: [0.22, 0.22, len / HORIZON.core / HORIZON.coreSize * 2.4], yaw: Math.atan2(f.dx, f.dz), color: PALE }); }
   for (let i = 0; i < HORIZON.sheath; i++) {
     const d = beamStation(i, HORIZON.sheath, len, gen), s = i % 2 ? 1 : -1, w = 0.6 + (i % 3) * 0.3;
-    fx.spawn({ x: ox + f.dx * d + f.px * s * w, y: oy + (i % 3) * 0.2 - 0.2, z: oz + f.dz * d + f.pz * s * w, vx: 0, vy: 0.4, vz: 0, life: HORIZON.life, size: HORIZON.sheathSize, color: AMBER });
+    fx.spawn({ x: ox + f.dx * d + f.px * s * w, y: oy + (i % 3) * 0.2 - 0.2, z: oz + f.dz * d + f.pz * s * w, vx: 0, vy: 0.4, vz: 0, life: HORIZON.life, size: HORIZON.sheathSize, stretch: [0.14, 0.14, 2.5], yaw: Math.atan2(f.dx, f.dz), color: AMBER });
   }
 }
 
@@ -229,7 +229,7 @@ export function playVanguardActivate(fx: EffectsPool, at: Pos, _yaw: number, sur
 /** sv.b1 confirmed hit (QI01 carried item): the flash is drawn where the bodies are. At point blank the 3 m footprint mark lies behind the victim and is hidden from both fighters' cameras. */
 export const FAULT_HIT = { flash: 3, sparks: 5 } as const;
 export function playFaultHit(fx: EffectsPool, _e: CombatEvent, at: Pos): void {
-  for (let i = 0; i < FAULT_HIT.flash; i++) fx.spawn({ x: at.x, y: at.y + i * 0.15, z: at.z, vx: 0, vy: 0.3, vz: 0, life: 0.5, size: 1.3, color: CRACK });
+  for (let i = 0; i < FAULT_HIT.flash; i++) fx.spawn({ x: at.x, y: at.y + i * 0.15, z: at.z, vx: 0, vy: 0.3, vz: 0, life: 0.16, size: 0.34, color: CRACK, stretch: [0.4, 2, 0.4] });
   for (let i = 0; i < FAULT_HIT.sparks; i++) { const a = (i / FAULT_HIT.sparks) * Math.PI * 2; fx.spawn({ x: at.x, y: at.y, z: at.z, vx: Math.cos(a) * 3.5, vy: 1.5, vz: Math.sin(a) * 3.5, life: 0.4, size: 0.24, color: CHIP, gravity: 6 }); }
 }
 

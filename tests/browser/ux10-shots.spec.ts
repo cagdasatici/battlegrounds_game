@@ -9,7 +9,7 @@ import { resolveChromium } from "./harness/chromium-path.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "../..");
-const outDir = path.join(root, "docs/test-results/UX10");
+const outDir = path.join(root, process.env["EB_VISUAL_OUT"] ?? "docs/test-results/UX10");
 const req = createRequire(path.join(root, "apps/client/package.json"));
 const GL_ARGS = ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"];
 const phase = process.env["EB_UX10_PHASE"] ?? "after";
@@ -48,6 +48,7 @@ for (const show of SHOWS) {
     const page = await ctx.newPage();
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(String(e)));
+    page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
     try {
       await page.goto(`${base}/fx.html`);
       await page.waitForFunction(() => ((window as unknown as { __fx?: Fx }).__fx?.frames() ?? 0) > 20, undefined, { timeout: 30_000 });
@@ -78,6 +79,7 @@ test(`${phase}: ea ember orb projectile launch and trail, and the m1 finisher`, 
   const page = await ctx.newPage();
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
+    page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
   try {
     await page.goto(`${base}/fx.html`);
     await page.waitForFunction(() => ((window as unknown as { __fx?: Fx }).__fx?.frames() ?? 0) > 20, undefined, { timeout: 30_000 });
