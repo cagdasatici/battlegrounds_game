@@ -43,6 +43,15 @@ Run it: `cloudflared tunnel run battlegrounds`. To keep it running after reboot:
 - Caching: leave defaults. The game sends `Cache-Control: no-store` for API calls; the service worker (WEB1) handles file caching, so do not enable Rocket Loader, Auto Minify or any "Email obfuscation"/JS rewriting for this hostname.
 - Optional but recommended for the admin app (WEB4/WEB5, served at `/admin`): Zero Trust > Access > Applications > add `battle.cagdasatici.com/admin*` and `battle.cagdasatici.com/api/admin*` with an email one-time-PIN policy limited to your address. That puts a second login in front of the admin app and its API. Enable the admin by setting `ADMIN_PASSWORD_HASH` (print one with `ops/scripts/admin-hash.ts`).
 
+## 3a. Open join and Cloudflare Access (decision 0050)
+Players pick Arel or Nora and are seated in the one shared room; no invitation. Access to the hostname is protected by Cloudflare Access, with one email PIN per device.
+1. Zero Trust > Settings > Authentication: keep "One-time PIN" enabled. Note your team name (`<team>.cloudflareaccess.com`).
+2. Zero Trust > Access > Applications > Add > Self-hosted. Application domain `battle.cagdasatici.com` (whole hostname, no path). Session duration 1 month. Policy "Allow": Emails: the addresses of the people who may play. Do not add a Bypass or "Everyone" rule.
+3. Open the application's overview and copy the **Application Audience (AUD) Tag**.
+4. In `~/eb-env` add: `OPEN_JOIN=1`, `CF_ACCESS_TEAM=<team>`, `CF_ACCESS_AUD=<aud tag>`. Restart the server (see "Running at boot").
+5. Test: a private tab on mobile data opens the Access email-PIN page first; after the PIN the game shows the Arel/Nora picker. `curl -i -X POST https://battle.cagdasatici.com/api/open-session` without a login never returns the game (Access intercepts it); the server also answers 401 `ACCESS_REQUIRED` if a request ever reaches it without a valid token.
+The admin app keeps its own password and may additionally sit under the `/admin*` Access rule above.
+
 ## 4. Verify
 1. `curl https://battle.cagdasatici.com/healthz` returns `{"ok":true}`.
 2. `curl https://battle.cagdasatici.com/api/version` shows your `buildId`.

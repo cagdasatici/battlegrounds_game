@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { createGameServer } from "./createServer.js";
+import { AccessVerifier } from "./auth/AccessJwt.js";
 import { createAuthServices } from "./auth/Services.js";
 import { ConfigError, parseServerEnv, type ServerEnv } from "./config/env.js";
 import { log } from "./ops/StructuredLog.js";
@@ -19,6 +20,8 @@ const auth = createAuthServices({
   roomCodes: { play: "arena", practice: "practice" },
   buildId: env.buildId,
   adminPasswordHash: env.adminPasswordHash,
+  openJoin: env.openJoin,
+  access: env.accessTeam && env.accessAud ? new AccessVerifier(env.accessTeam, env.accessAud) : null,
 });
 const server = createGameServer(auth, { staticDir: env.staticDir });
 await server.listen(env.port, env.host);

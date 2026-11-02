@@ -1,12 +1,12 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import {
-  ARENA_ROOM_NAME, JoinTicketRequestSchema, PRACTICE_ROOM_NAME, PROTOCOL_VERSION, SessionRequestSchema,
+  ARENA_ROOM_NAME, JoinTicketRequestSchema, OpenSessionRequestSchema, PRACTICE_ROOM_NAME, PROTOCOL_VERSION, SessionRequestSchema,
   type JoinTicketResponse, type SessionResponse, type VersionResponse,
 } from "@eb/shared/protocol";
 import { computeContentHash } from "@eb/shared/config/content";
 import type { AuthServices } from "../auth/Services.js";
 import { RateLimiter } from "../auth/RateLimiter.js";
-import { safeEqual } from "../auth/tokens.js";
+import { safeEqual, sha256 } from "../auth/tokens.js";
 import { log } from "../ops/StructuredLog.js";
 import { registerAdminRoutes } from "./adminRoutes.js";
 import { registerRoomListRoutes } from "./roomListRoutes.js";
@@ -78,8 +78,20 @@ export function originAllowed(req: IncomingMessage, allowed: string[]): boolean 
   return o !== undefined && allowed.includes(o);
 }
 
+const LOOPBACK_ADDR = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
+
+/**
+ * Source address of the caller. Behind the Cloudflare Tunnel every socket is loopback, so the real client is read from
+ * `CF-Connecting-IP`, trusted only when the TCP peer is loopback (the production server listens on loopback only, so
+ * nothing else can reach it with a forged header).
+ */
 export function clientKey(req: IncomingMessage): string {
-  return req.socket.remoteAddress ?? "unknown";
+  const peer = req.socket.remoteAddress ?? "unknown";
+  if (LOOPBACK_ADDR.has(peer)) {
+    const fwd = hdr(req, "cf-connecting-ip");
+    if (fwd && fwd.length <= 64 && /^[0-9a-fA-F:.]+$/.test(fwd)) return fwd;
+  }
+  return peer;
 }
 
 export function registerSessionRoutes(app: HttpApp, svc: AuthServices, now: () => number = Date.now): void {
@@ -118,6 +130,37 @@ export function registerSessionRoutes(app: HttpApp, svc: AuthServices, now: () =
 
   const authed = (req: IncomingMessage) =>
     svc.sessions.get(parseCookies(hdr(req, "cookie"))[COOKIE_NAME]);
+
+  // Open join (OPEN_JOIN=1): the player picks Arel or Nora and the server mints a session for this source address plus
+  // browser cookie. Access control is the Cloudflare Access gate in front of the hostname, not an invitation.
+  app.post("/api/open-session", async (req, res) => {
+    if (!config.openJoin) return send(res, 404, { error: "NOT_FOUND" });
+    if (!originAllowed(req, config.allowedOrigins)) return send(res, 403, { error: "ORIGIN" });
+    const ip = clientKey(req);
+    if (!sessionLimiter.allow(ip) || !globalSessionLimiter.allow("*")) return send(res, 429, { error: "RATE_LIMITED" });
+    if (config.access && !(await config.access.verify(hdr(req, "cf-access-jwt-assertion")))) {
+      log("warn", "open session refused: no valid Access token", { ip: sha256(ip).slice(0, 8) });
+      return send(res, 401, { error: "ACCESS_REQUIRED" });
+    }
+    const raw = await readBody(req);
+    if (raw === TOO_LARGE) return send(res, 413, { error: "TOO_LARGE" }, { Connection: "close" });
+    const parsed = OpenSessionRequestSchema.safeParse(raw);
+    if (!parsed.success) return send(res, 400, { error: "BAD_REQUEST" });
+    const ipHash = sha256(ip);
+    const token = parseCookies(hdr(req, "cookie"))[COOKIE_NAME];
+    const existing = svc.sessions.get(token, false);
+    // Same browser, same address, same name: keep the session (and its seat). Anything else replaces it, so a changed
+    // name can never keep showing the old one.
+    if (existing && token && existing.ipHash === ipHash && existing.displayName === parsed.data.displayName) {
+      svc.sessions.get(token);
+      return send(res, 200, { expiresAt: Date.now() + 8 * 3600_000 } satisfies SessionResponse);
+    }
+    if (existing && token) svc.sessions.revoke(token);
+    const { cookieToken, session, expiresAt } = svc.sessions.create(parsed.data.displayName, ipHash);
+    const cookie = `${COOKIE_NAME}=${cookieToken}; ${config.secureCookies ? "Secure; " : ""}HttpOnly; SameSite=Strict; Path=/; Max-Age=${8 * 3600}`;
+    log("info", "open session created", { session: session.id.slice(0, 8), name: session.displayName });
+    send(res, 201, { expiresAt } satisfies SessionResponse, { "Set-Cookie": cookie });
+  });
 
   app.get("/api/csrf", (req, res) => {
     if (!originAllowed(req, config.allowedOrigins) && hdr(req, "origin") !== undefined) return send(res, 403, { error: "ORIGIN" });

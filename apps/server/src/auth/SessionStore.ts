@@ -7,6 +7,8 @@ export const SESSION_ABSOLUTE_MS = 24 * 3600_000;
 export interface SessionRecord {
   id: string; // sha256 of cookie token
   displayName: string;
+  /** sha256 of the source address for open-join sessions; never the raw address. */
+  ipHash?: string;
   csrf: string;
   createdAt: number;
   lastActive: number;
@@ -25,10 +27,11 @@ export class SessionStore {
     return () => this.revokeListeners.delete(fn);
   }
 
-  create(displayName: string): { cookieToken: string; session: SessionRecord; expiresAt: number } {
+  create(displayName: string, ipHash?: string): { cookieToken: string; session: SessionRecord; expiresAt: number } {
     const cookieToken = newToken(32);
     const t = this.now();
     const session: SessionRecord = { id: sha256(cookieToken), displayName, csrf: newToken(24), createdAt: t, lastActive: t };
+    if (ipHash !== undefined) session.ipHash = ipHash;
     const data = this.prune(this.store.read());
     data.sessions.push(session);
     this.store.write(data);

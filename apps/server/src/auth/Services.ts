@@ -3,6 +3,7 @@ import { InviteStore } from "./InviteStore.js";
 import { SessionStore } from "./SessionStore.js";
 import { SparringDirectory } from "./SparringDirectory.js";
 import { JoinTicketStore } from "./JoinTicketStore.js";
+import type { AccessVerifier } from "./AccessJwt.js";
 import { AdminAuth } from "../admin/AdminAuth.js";
 import { AtomicJsonStore } from "./AtomicJsonStore.js";
 import type { Difficulty } from "@eb/shared/sparring";
@@ -23,6 +24,10 @@ export interface AuthConfig {
   globalSessionsPerMinute?: number;
   /** scrypt hash for the admin login. Admin routes answer 404 when absent. */
   adminPasswordHash?: string | null;
+  /** OPEN_JOIN: players pick Arel or Nora and get a session without an invitation (access is gated by Cloudflare Access). */
+  openJoin?: boolean;
+  /** Cloudflare Access verifier. When set, open sessions require a valid Access token (fail closed). */
+  access?: AccessVerifier | null;
 }
 
 export interface AuthServices {

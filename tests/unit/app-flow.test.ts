@@ -33,6 +33,20 @@ describe("AppFlow journey (spec section 6)", () => {
     expect(flow.state.screen).toBe("match");
     expect(log).toEqual(["assets", "login", "join", "ready:td"]);
   });
+  test("open join: a changed profile signs in again on the next Play", async () => {
+    let picked = "Arel";
+    const signedAs: string[] = [];
+    const { flow } = mk({
+      login: async () => { signedAs.push(picked); },
+      needsLogin: () => signedAs[signedAs.length - 1] !== picked,
+    });
+    await flow.start();
+    await flow.play();
+    await flow.back();
+    picked = "Nora";
+    await flow.play();
+    expect(signedAs).toEqual(["Arel", "Nora"]);
+  });
   test("unsupported device: readable error with Retry, no join request", async () => {
     const { flow, log } = mk({ supported: () => false });
     await flow.start();

@@ -20,6 +20,8 @@ export interface FlowDeps {
   supported(): boolean;
   loadAssets(): Promise<void>;
   login(): Promise<void>;
+  /** True when the signed-in identity no longer matches the picked profile (open join rename). */
+  needsLogin?(): boolean;
   /** Joins the private FFA room, or the server derived practice room for `mode` "practice". */
   join(mode: FlowMode, roomCode?: string): Promise<void>;
   sendReady(kit: KitId): void;
@@ -111,7 +113,7 @@ export class AppFlow {
     try {
       await this.ensureAssets();
       if (revision !== this.revision) return;
-      if (step === "login" && (!this.loggedIn || this.mode === "sparring")) { await this.deps.login(); this.loggedIn = true; }
+      if (step === "login" && (!this.loggedIn || this.mode === "sparring" || this.deps.needsLogin?.() === true)) { await this.deps.login(); this.loggedIn = true; }
       if (revision !== this.revision) return;
       await this.deps.join(this.mode, this.target ?? undefined);
       if (revision !== this.revision) { await this.deps.leave(); return; }

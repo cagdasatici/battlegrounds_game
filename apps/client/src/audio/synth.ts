@@ -2,7 +2,11 @@
 
 export type SoundKind =
   | "hitLight" | "hitHeavy" | "block" | "counter" | "heal" | "ko"
-  | "castStone" | "castWater" | "castHeat" | "castGeneric";
+  | "castStone" | "castWater" | "castHeat" | "castGeneric"
+  | "swing" | "swingFinisher"
+  | "awakenStone" | "awakenWater" | "awakenHeat"
+  | "hitSpecialStone" | "hitSpecialWater" | "hitSpecialHeat"
+  | "capture" | "release" | "respawn";
 
 /** QS01: sustained beds for channelled abilities, one per element. */
 export type LoopKind = "loopStone" | "loopWater" | "loopHeat";
@@ -75,6 +79,67 @@ export const RECIPES: Record<SoundKind, Recipe> = {
   castGeneric: r([
     { src: "osc", wave: "triangle", f0: 330, f1: 520, gain: 0.3, attack: 0.01, dur: 0.12 },
   ]),
+  // Strike swings (m1 presses): a short air whoosh, rising then falling, so a punch is heard even when it misses.
+  swing: r([
+    { src: "noise", f0: 700, f1: 2600, filter: "bandpass", gain: 0.32, attack: 0.02, dur: 0.1 },
+    { src: "noise", f0: 2600, f1: 900, filter: "bandpass", gain: 0.18, attack: 0.005, dur: 0.07, delay: 0.09 },
+  ]),
+  swingFinisher: r([
+    { src: "noise", f0: 400, f1: 3200, filter: "bandpass", gain: 0.5, attack: 0.04, dur: 0.16 },
+    { src: "osc", wave: "sawtooth", f0: 140, f1: 70, gain: 0.3, attack: 0.02, dur: 0.22 },
+    { src: "noise", f0: 3200, f1: 600, filter: "bandpass", gain: 0.25, attack: 0.005, dur: 0.12, delay: 0.15 },
+  ]),
+  // Awakening: a long rising power-up, then an element-coloured release. Longer and louder than any cast.
+  awakenStone: r([
+    { src: "osc", wave: "sine", f0: 45, f1: 110, gain: 0.8, attack: 0.25, dur: 0.6 },
+    { src: "noise", f0: 120, f1: 900, filter: "lowpass", gain: 0.55, attack: 0.3, dur: 0.6 },
+    { src: "osc", wave: "sine", f0: 70, f1: 35, gain: 0.9, attack: 0.005, dur: 0.5, delay: 0.6 },
+    { src: "noise", f0: 2200, f1: 1200, filter: "bandpass", gain: 0.4, attack: 0.001, dur: 0.05, delay: 0.62 },
+    { src: "noise", f0: 1800, f1: 1100, filter: "bandpass", gain: 0.3, attack: 0.001, dur: 0.05, delay: 0.75 },
+  ]),
+  awakenWater: r([
+    { src: "noise", f0: 200, f1: 3600, filter: "bandpass", gain: 0.5, attack: 0.3, dur: 0.6 },
+    { src: "osc", wave: "sine", f0: 300, f1: 1200, gain: 0.4, attack: 0.3, dur: 0.6 },
+    { src: "osc", wave: "sine", f0: 1500, f1: 400, gain: 0.5, attack: 0.01, dur: 0.55, delay: 0.6 },
+    { src: "noise", f0: 4200, f1: 800, filter: "bandpass", gain: 0.4, attack: 0.01, dur: 0.4, delay: 0.6 },
+  ]),
+  awakenHeat: r([
+    { src: "osc", wave: "sawtooth", f0: 110, f1: 1100, gain: 0.4, attack: 0.4, dur: 0.6 },
+    { src: "noise", f0: 3000, f1: 6000, filter: "highpass", gain: 0.3, attack: 0.3, dur: 0.6, crackleHz: 40 },
+    { src: "noise", f0: 5200, f1: 3000, filter: "highpass", gain: 0.7, attack: 0.001, dur: 0.1, delay: 0.6 },
+    { src: "osc", wave: "square", f0: 220, f1: 55, gain: 0.5, attack: 0.002, dur: 0.45, delay: 0.6 },
+    { src: "noise", f0: 4000, f1: 2500, filter: "highpass", gain: 0.3, attack: 0.001, dur: 0.3, delay: 0.62, crackleHz: 55 },
+  ]),
+  // Special-move impacts: the heavy hit body plus an element accent, so skills read differently from plain punches.
+  hitSpecialStone: r([
+    { src: "noise", f0: 1800, f1: 250, filter: "lowpass", gain: 0.7, attack: 0.002, dur: 0.24 },
+    { src: "osc", wave: "sine", f0: 120, f1: 38, gain: 0.9, attack: 0.002, dur: 0.34 },
+    { src: "noise", f0: 2400, f1: 1500, filter: "bandpass", gain: 0.35, attack: 0.001, dur: 0.03, delay: 0.08 },
+    { src: "noise", f0: 1800, f1: 1200, filter: "bandpass", gain: 0.3, attack: 0.001, dur: 0.03, delay: 0.16 },
+  ]),
+  hitSpecialWater: r([
+    { src: "noise", f0: 3500, f1: 500, filter: "bandpass", gain: 0.6, attack: 0.002, dur: 0.22 },
+    { src: "osc", wave: "sine", f0: 160, f1: 60, gain: 0.7, attack: 0.002, dur: 0.26 },
+    { src: "osc", wave: "sine", f0: 900, f1: 300, gain: 0.3, attack: 0.005, dur: 0.22, delay: 0.04 },
+  ]),
+  hitSpecialHeat: r([
+    { src: "noise", f0: 2400, f1: 400, filter: "lowpass", gain: 0.7, attack: 0.002, dur: 0.22 },
+    { src: "osc", wave: "sine", f0: 150, f1: 50, gain: 0.8, attack: 0.002, dur: 0.28 },
+    { src: "noise", f0: 5200, f1: 3500, filter: "highpass", gain: 0.5, attack: 0.001, dur: 0.18, crackleHz: 60 },
+  ]),
+  capture: r([
+    { src: "osc", wave: "square", f0: 300, f1: 200, gain: 0.35, attack: 0.002, dur: 0.12 },
+    { src: "noise", f0: 1200, f1: 600, filter: "bandpass", gain: 0.5, attack: 0.002, dur: 0.1 },
+  ]),
+  release: r([
+    { src: "noise", f0: 600, f1: 2400, filter: "bandpass", gain: 0.35, attack: 0.01, dur: 0.14 },
+    { src: "osc", wave: "triangle", f0: 260, f1: 520, gain: 0.25, attack: 0.01, dur: 0.14 },
+  ]),
+  respawn: r([
+    { src: "osc", wave: "sine", f0: 330, f1: 330, gain: 0.25, attack: 0.02, dur: 0.15 },
+    { src: "osc", wave: "sine", f0: 440, f1: 440, gain: 0.25, attack: 0.02, dur: 0.15, delay: 0.1 },
+    { src: "osc", wave: "sine", f0: 660, f1: 660, gain: 0.25, attack: 0.02, dur: 0.3, delay: 0.2 },
+  ]),
 };
 
 /** Loop beds: a layer set that repeats until stopped. `dur` is the seed length; the voice loops through noise and oscillators. */
@@ -128,6 +193,24 @@ export function castKind(moveId: string | undefined): SoundKind {
   if (moveId.startsWith("td.")) return "castWater";
   if (moveId.startsWith("ea.")) return "castHeat";
   return "castGeneric";
+}
+
+/** Element of a kit move id (`sv.`, `td.`, `ea.`), or null for m1, dash and unknown ids. */
+export function elementOf(moveId: string | undefined): "Stone" | "Water" | "Heat" | null {
+  if (moveId === undefined) return null;
+  if (moveId.startsWith("sv.")) return "Stone";
+  if (moveId.startsWith("td.")) return "Water";
+  if (moveId.startsWith("ea.")) return "Heat";
+  return null;
+}
+
+/** Awakening is the server's `<kit>.activate` move (Awakening.ts). */
+export const isAwakenMove = (moveId: string | undefined): boolean => moveId !== undefined && moveId.endsWith(".activate");
+
+/** Strike press: m1.1 to m1.3 are plain swings, m1.4.* is the finisher. Null for every other move. */
+export function swingKind(moveId: string | undefined): "swing" | "swingFinisher" | null {
+  if (moveId === undefined || !moveId.startsWith("m1.")) return null;
+  return moveId.startsWith("m1.4") ? "swingFinisher" : "swing";
 }
 
 /** m1 casts and dashes are minor; skills and awakening are major. */

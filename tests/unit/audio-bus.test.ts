@@ -82,11 +82,10 @@ describe("Sfx mapping", () => {
   test("kinds map to distinct recipes", () => {
     expect(soundFor(ev({ kind: "hit", hitClass: "heavy" }))).toBe("hitHeavy");
     expect(soundFor(ev({ kind: "hit" }))).toBe("hitLight");
-    expect(soundFor(ev({ kind: "respawn" }))).toBeNull();
     expect(castKind("sv.a1")).toBe("castStone");
     expect(castKind("td.b2")).toBe("castWater");
     expect(castKind("ea.a3")).toBe("castHeat");
-    expect(Object.keys(RECIPES).length).toBe(10);
+    
     expect(Object.keys(LOOPS).length).toBe(3);
   });
   test("priority: local hit, nearby major, else", () => {
@@ -94,6 +93,48 @@ describe("Sfx mapping", () => {
     expect(priorityFor(ev({ kind: "cast", moveId: "sv.a1" }), "me", 10)).toBe(1);
     expect(priorityFor(ev({ kind: "cast", moveId: "sv.a1" }), "me", 30)).toBe(2);
     expect(priorityFor(ev({ kind: "cast", moveId: "m1.1" }), "me", 1)).toBe(2);
+  });
+});
+
+describe("Strike, special and awakening sounds", () => {
+  test("m1 presses swing, the fourth is a finisher, skills keep their cast", () => {
+    expect(soundFor(ev({ kind: "cast", moveId: "m1.1" }))).toBe("swing");
+    expect(soundFor(ev({ kind: "cast", moveId: "m1.3" }))).toBe("swing");
+    expect(soundFor(ev({ kind: "cast", moveId: "m1.4.finisher" }))).toBe("swingFinisher");
+    expect(soundFor(ev({ kind: "cast", moveId: "sv.a1" }))).toBe("castStone");
+    expect(soundFor(ev({ kind: "cast", moveId: "td.b2" }))).toBe("castWater");
+  });
+  test("awakening has its own sound per element", () => {
+    expect(soundFor(ev({ kind: "cast", moveId: "sv.activate" }))).toBe("awakenStone");
+    expect(soundFor(ev({ kind: "cast", moveId: "td.activate" }))).toBe("awakenWater");
+    expect(soundFor(ev({ kind: "cast", moveId: "ea.activate" }))).toBe("awakenHeat");
+  });
+  test("a skill impact carries its element; a plain punch does not", () => {
+    expect(soundFor(ev({ kind: "hit", moveId: "sv.a2", hitClass: "heavy" }))).toBe("hitSpecialStone");
+    expect(soundFor(ev({ kind: "hit", moveId: "td.a1" }))).toBe("hitSpecialWater");
+    expect(soundFor(ev({ kind: "hit", moveId: "ea.b3" }))).toBe("hitSpecialHeat");
+    expect(soundFor(ev({ kind: "hit", moveId: "m1.2" }))).toBe("hitLight");
+    expect(soundFor(ev({ kind: "hit", moveId: "m1.4.finisher", hitClass: "heavy" }))).toBe("hitHeavy");
+  });
+  test("grab, release and respawn are heard; every mapped kind has a recipe", () => {
+    expect(soundFor(ev({ kind: "capture" }))).toBe("capture");
+    expect(soundFor(ev({ kind: "release" }))).toBe("release");
+    expect(soundFor(ev({ kind: "respawn" }))).toBe("respawn");
+    const moves = ["m1.1", "m1.4.finisher", "sv.a1", "td.b2", "ea.a3", "sv.activate", "td.activate", "ea.activate"];
+    for (const kind of ["cast", "hit"] as const) for (const moveId of moves) {
+      const k = soundFor(ev({ kind, moveId }));
+      expect(k && RECIPES[k]).toBeTruthy();
+    }
+  });
+  test("awakening is the longest and every identity sound is distinct", () => {
+    const dur = (k: keyof typeof RECIPES) => RECIPES[k].dur;
+    for (const a of ["awakenStone", "awakenWater", "awakenHeat"] as const) expect(dur(a)).toBeGreaterThan(dur("castHeat"));
+    const kinds = ["swing", "swingFinisher", "awakenStone", "awakenWater", "awakenHeat", "hitSpecialStone", "hitSpecialWater", "hitSpecialHeat", "capture", "release", "respawn", "hitLight", "hitHeavy"] as const;
+    expect(new Set(kinds.map((k) => JSON.stringify(RECIPES[k].layers))).size).toBe(kinds.length);
+  });
+  test("the real bus plays the new sounds once unlocked", () => {
+    const t = mk(); t.bus.unlock();
+    for (const k of ["swing", "swingFinisher", "awakenStone", "hitSpecialHeat", "capture"] as const) expect(t.bus.play(k, 1, 0)).toBe(true);
   });
 });
 

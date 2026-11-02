@@ -19,6 +19,11 @@ export interface ServerEnv {
   lanHttp: boolean;
   /** scrypt hash (ops/scripts/admin-hash.ts) or null when the admin is disabled. */
   adminPasswordHash: string | null;
+  /** OPEN_JOIN=1: invitation-free Arel/Nora sessions. Only with Cloudflare Access in front. */
+  openJoin: boolean;
+  /** Cloudflare Access team name and application audience tag; both set or both absent. */
+  accessTeam: string | null;
+  accessAud: string | null;
 }
 
 export class ConfigError extends Error {
@@ -98,6 +103,13 @@ export function parseServerEnv(env: Env, cwd: string, repoRoot: string): ServerE
     if (!ok) problems.push("EB_LAN_HTTP requires PUBLIC_ORIGIN to be http://<private IPv4> (10.x, 172.16-31.x or 192.168.x); public IPs and domain names are refused");
   }
 
+  const openRaw = get("OPEN_JOIN");
+  if (openRaw !== undefined && openRaw !== "0" && openRaw !== "1") problems.push("OPEN_JOIN must be 0 or 1");
+  const accessTeam = get("CF_ACCESS_TEAM") ?? null, accessAud = get("CF_ACCESS_AUD") ?? null;
+  if ((accessTeam === null) !== (accessAud === null)) problems.push("CF_ACCESS_TEAM and CF_ACCESS_AUD must be set together");
+  if (accessTeam !== null && !/^[a-z0-9-]{1,63}$/.test(accessTeam)) problems.push("CF_ACCESS_TEAM must be the team name (the part before .cloudflareaccess.com)");
+  if (accessAud !== null && !/^[a-f0-9]{16,128}$/.test(accessAud)) problems.push("CF_ACCESS_AUD must be the application audience tag (hex)");
+  if (openRaw === "1" && prod && accessTeam === null && !lanHttp) problems.push("OPEN_JOIN=1 in production requires CF_ACCESS_TEAM and CF_ACCESS_AUD (Cloudflare Access must gate the hostname)");
   const hashRaw = get("ADMIN_PASSWORD_HASH");
   const adminFlag = get("ADMIN_ENABLED");
   if (adminFlag !== undefined && adminFlag !== "0" && adminFlag !== "1") problems.push("ADMIN_ENABLED must be 0 or 1");
@@ -106,5 +118,5 @@ export function parseServerEnv(env: Env, cwd: string, repoRoot: string): ServerE
   const adminPasswordHash = adminFlag === "0" ? null : hashRaw ?? null;
 
   if (problems.length > 0) throw new ConfigError(problems);
-  return { nodeEnv, host, port, publicOrigin, roomCapacity: 4, dataDir, logLevel: logLevel as ServerEnv["logLevel"], buildId, staticDir, lanHttp, adminPasswordHash };
+  return { nodeEnv, host, port, publicOrigin, roomCapacity: 4, dataDir, logLevel: logLevel as ServerEnv["logLevel"], buildId, staticDir, lanHttp, adminPasswordHash, openJoin: openRaw === "1", accessTeam, accessAud };
 }

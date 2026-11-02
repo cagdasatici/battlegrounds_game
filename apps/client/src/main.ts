@@ -92,6 +92,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   let sparRoom: string | null = null;
   let hostRoom: string | null = null;
   let authenticated = false;
+  let openName: string | null = null;
+  let openAvailable = true;
   const canvasHost = document.createElement("div");
   app.append(canvasHost);
   cleanups.push(() => canvasHost.remove());
@@ -215,14 +217,20 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       const idle = (): void => { if (matchCleanups.length === 0) gs?.render(); rafId = requestAnimationFrame(idle); };
       rafId = requestAnimationFrame(idle);
     },
+    needsLogin: () => openAvailable && !opts.invite && openName !== lobby.displayName,
     login: async () => {
       if (sparToken !== null) {
         sparRoom = await rc.redeemSparring(sparToken, guestName.value || lobby.displayName);
         sparToken = null;
       } else if (!sparRoom && !authenticated) {
-        if (opts.invite) await rc.login(opts.invite, lobby.displayName);
+        if (opts.invite) { await rc.login(opts.invite, lobby.displayName); authenticated = true; }
         // Cookie-only adult reload is authenticated by the CSRF endpoint when creating/joining.
-        authenticated = true;
+        else authenticated = true;
+      }
+      // Open join: the server session carries the display name, so a changed Arel/Nora pick needs a fresh session.
+      if (!sparRoom && sparToken === null && !opts.invite && openName !== lobby.displayName) {
+        openAvailable = await rc.openLogin(lobby.displayName);
+        if (openAvailable) openName = lobby.displayName;
       }
     },
     sparring: {

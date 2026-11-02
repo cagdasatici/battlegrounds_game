@@ -170,6 +170,20 @@ export class RoomClient {
     throw new ClientError("INVITE_INVALID", false);
   }
 
+  /**
+   * Open join: the server mints a session for the chosen profile name. Returns false when the server has open join off
+   * (404), so the caller can fall back to the invitation or cookie flow. A renamed profile gets a fresh session.
+   */
+  async openLogin(displayName: string): Promise<boolean> {
+    const r = await this.http("/api/open-session", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ displayName }),
+    });
+    if (r.status === 404) return false;
+    if (r.status === 200 || r.status === 201) { this.csrf = null; return true; }
+    if (r.status === 429 || r.status >= 500) throw new ClientError("SERVER_OFFLINE", true);
+    throw new ClientError("INVITE_INVALID", false);
+  }
+
   private async ensureCsrf(): Promise<string> {
     if (this.csrf) return this.csrf;
     const r = await this.http("/api/csrf");

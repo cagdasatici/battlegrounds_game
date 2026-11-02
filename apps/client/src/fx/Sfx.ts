@@ -1,6 +1,6 @@
 import { AudioBus, type AudioContextLike } from "../audio/AudioBus.js";
 import {
-  castKind, isMajorMove, loopKindFor, NEARBY_M, SUSTAIN_MIN_TICKS, PRIORITY_LOCAL_HIT, PRIORITY_MAJOR_NEARBY, PRIORITY_OTHER,
+  castKind, elementOf, isAwakenMove, isMajorMove, swingKind, loopKindFor, NEARBY_M, SUSTAIN_MIN_TICKS, PRIORITY_LOCAL_HIT, PRIORITY_MAJOR_NEARBY, PRIORITY_OTHER,
   type Priority, type SoundKind,
 } from "../audio/synth.js";
 import type { CombatBus } from "../app/CombatBus.js";
@@ -20,19 +20,29 @@ function posOf(players: Map<string, unknown>, id: string | undefined): Pos | und
 /** Pure mapping from a confirmed combat event to a sound, or null for none. */
 export function soundFor(e: CombatEvent): SoundKind | null {
   switch (e.kind) {
-    case "hit": return e.hitClass === "heavy" ? "hitHeavy" : "hitLight";
+    case "hit": {
+      const el = isMajorMove(e.moveId) ? elementOf(e.moveId) : null; // a skill impact carries its element
+      if (el) return `hitSpecial${el}` as SoundKind;
+      return e.hitClass === "heavy" ? "hitHeavy" : "hitLight";
+    }
+    case "capture": return "capture";
+    case "release": return "release";
+    case "respawn": return "respawn";
     case "block": return "block";
     case "counter": return "counter";
     case "heal": return "heal";
     case "ko": return "ko";
-    case "cast": return castKind(e.moveId);
+    case "cast": {
+      if (isAwakenMove(e.moveId)) { const el = elementOf(e.moveId); if (el) return `awaken${el}` as SoundKind; }
+      return swingKind(e.moveId) ?? castKind(e.moveId);
+    }
     default: return null;
   }
 }
 
 export function priorityFor(e: CombatEvent, localId: string | undefined, distM: number): Priority {
   if (localId !== undefined && e.targetId === localId && (e.kind === "hit" || e.kind === "block" || e.kind === "counter")) return PRIORITY_LOCAL_HIT;
-  const major = e.kind === "cast" ? isMajorMove(e.moveId) : e.kind === "ko" || e.kind === "counter";
+  const major = e.kind === "cast" ? isMajorMove(e.moveId) || isAwakenMove(e.moveId) : e.kind === "ko" || e.kind === "counter";
   return major && distM <= NEARBY_M ? PRIORITY_MAJOR_NEARBY : PRIORITY_OTHER;
 }
 
