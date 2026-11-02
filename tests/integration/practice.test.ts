@@ -174,3 +174,21 @@ describe("T18d practice room (real clients)", () => {
     await other.leave(); await a.c.leave();
   }, 20000);
 });
+
+test("practice bots: add two, remove cleanly, reject over-cap config (real client)", async () => {
+  const pr = await joinPractice("Bot practice");
+  try {
+    pr.c.send("practice", { guard: false, ragdoll: false, bots: ["easy", "hard"] });
+    await waitFor(() => players(pr.room).size === 4 && pr.me().owner.practiceBotCount === 2, 3000, "practice bots");
+    expect(pr.server.maxClients).toBe(1);
+    const ids = [...players(pr.room).values()].filter(p => p.owner === undefined && p.displayName.startsWith("Bot ")).map(p => p.entityId);
+    await sleep(300);
+    pr.c.send("practice", { guard: false, ragdoll: false, bots: ["easy", "easy", "easy"] });
+    await sleep(150);
+    expect(players(pr.room).size).toBe(4);
+    pr.c.send("practice", { guard: true, ragdoll: false, bots: [] });
+    await waitFor(() => players(pr.room).size === 2 && pr.me().owner.practiceBotCount === 0, 3000, "bots removed");
+    for (const id of ids) { expect(pr.server.combat.get(id)).toBeUndefined(); expect(pr.server.movement?.get(id)).toBeUndefined(); }
+    expect(pr.dummy()).toBeTruthy();
+  } finally { await pr.c.leave(); }
+}, 15000);

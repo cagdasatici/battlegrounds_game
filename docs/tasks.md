@@ -167,8 +167,8 @@ Execute one row per session using [the Quality 90 instructions](quality-90-plan.
 
 | Task | Title | Depends on | Status | Commit | Test report |
 |---|---|---|---|---|---|
-| UX01 | Discoverable admin and configurable bot rooms | WEB5 BOT4 | IMPLEMENTED (DEVICE CHECK PENDING) | see git log UX01 | docs/test-results/UX01.md |
-| UX02 | Add opponents from practice | UX01 | TODO | | docs/test-results/UX02.md |
+| UX01 | Discoverable admin and configurable bot rooms | WEB5 BOT4 | IMPLEMENTED (DEVICE CHECK PENDING) | ae871ef | docs/test-results/UX01.md |
+| UX02 | Add opponents from practice | UX01 | IMPLEMENTED (DEVICE CHECK PENDING) | see git log UX02 | docs/test-results/UX02.md |
 | UX03 | Menu and settings visual redesign | UX02 | TODO | | docs/test-results/UX03.md |
 | UX04 | Settings runtime and feedback | UX03 | TODO | | docs/test-results/UX04.md |
 | UX05 | Environment graphics refinement | UX04 | TODO | | docs/test-results/UX05.md |

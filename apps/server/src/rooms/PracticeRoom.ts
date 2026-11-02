@@ -7,7 +7,7 @@ import { PlayerSchema } from "../state/PlayerSchema.js";
 import { TokenBucket } from "../net/RateLimits.js";
 import { applyReaction, isAlive } from "../sim/ActionMachine.js";
 import { TutorialTracker } from "../sim/Tutorial.js";
-import { ArenaRoom } from "./ArenaRoom.js";
+import { BotArenaRoom } from "./BotArenaRoom.js";
 
 /** Dummy home and the player's start, on the main island (islands.v1 main slab covers |x| < 20, |z| < 20). */
 const DUMMY_AT: readonly [number, number] = [0, 0];
@@ -21,7 +21,7 @@ const DUMMY_RAGDOLL_TICKS = 90;
  * ragdoll toggles, awakening meter gain disabled, and server confirmed tutorial steps. One player; its own room
  * code, so nothing here can reach an FFA room, its scores or its meters.
  */
-export class PracticeRoom extends ArenaRoom {
+export class PracticeRoom extends BotArenaRoom {
   override maxClients = 1;
   readonly tutorial = new TutorialTracker();
   dummyId = 0;
@@ -30,11 +30,15 @@ export class PracticeRoom extends ArenaRoom {
 
   override async onCreate(options: { roomCode?: string }): Promise<void> {
     await super.onCreate(options);
+    this.maxClients = 1;
     this.awakening.meterEnabled = false;
     this.practiceBucket = new TokenBucket(4, 4, performance.now());
     this.onMessage(ClientMessage.practice, (client, raw) => this.onPractice(client, raw));
     this.spawnDummy();
   }
+
+  protected override botTargetAllowed(id: number): boolean { return id !== this.dummyId; }
+  protected override chooseBotSpawn(index: number): MapVec3 { return this.standPoint([index === 0 ? 5 : -5, 0]); }
 
   protected override extraBodyIds(): readonly number[] { return this.dummyId > 0 ? [this.dummyId] : []; }
 
@@ -72,6 +76,11 @@ export class PracticeRoom extends ArenaRoom {
     this.toggles = { guard: m.data.guard, ragdoll: m.data.ragdoll };
     p.owner.dummyGuard = m.data.guard;
     p.owner.dummyRagdoll = m.data.ragdoll;
+    if (m.data.bots) {
+      this.clearBots(); this.addBots(m.data.bots);
+      p.owner.practiceBotCount = m.data.bots.length;
+      p.owner.practiceBotDifficulty = m.data.bots[0] ?? "easy";
+    }
   }
 
   override stepTick(tick: number): void {

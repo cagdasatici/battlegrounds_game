@@ -59,7 +59,7 @@ export const PingMessageSchema = z.strictObject({ nonce: uint32, clientMs: finit
 export const LeaveMessageSchema = z.strictObject({});
 
 /** Practice room dummy toggles (T18d). Intent only: the server applies them to its own dummy. */
-export const PracticeSetSchema = z.strictObject({ guard: z.boolean(), ragdoll: z.boolean() });
+export const PracticeSetSchema = z.strictObject({ guard: z.boolean(), ragdoll: z.boolean(), bots: z.array(z.enum(["easy", "medium", "hard"])).max(2).optional() });
 export type PracticeSetMessage = z.infer<typeof PracticeSetSchema>;
 /** Practice tutorial steps in order. Each is confirmed by the server from simulation state, never by the client. */
 export const TUTORIAL_STEPS = ["move", "turn", "attack", "block", "dash", "skills", "awaken"] as const;

@@ -3,9 +3,10 @@
  * the checklist shows the server's replicated tutorialStep and the toggles send a strict `practice` message whose
  * effect is read back from the replicated owner record. One delegated click listener, removed in dispose().
  */
+import type { Difficulty } from "@eb/shared/sparring";
 import { tutorialView } from "./PracticeFormat.js";
 
-export interface PracticeState { step: number; skillMask: number; dummyGuard: boolean; dummyRagdoll: boolean }
+export interface PracticeState { step: number; skillMask: number; dummyGuard: boolean; dummyRagdoll: boolean; botCount?: number; botDifficulty?: string }
 
 export class PracticePanel {
   private readonly root: HTMLElement;
@@ -16,7 +17,7 @@ export class PracticePanel {
   private intent = { guard: false, ragdoll: false };
 
   constructor(
-    parent: HTMLElement, private readonly setToggles: (t: { guard: boolean; ragdoll: boolean }) => void,
+    parent: HTMLElement, private readonly setToggles: (t: { guard: boolean; ragdoll: boolean; bots?: Difficulty[] }) => void,
     private readonly doc: Document = document,
   ) {
     this.root = doc.createElement("div");
@@ -26,6 +27,13 @@ export class PracticePanel {
       + "width:min(300px,34vw);max-height:48vh;overflow:auto;padding:8px 10px;border-radius:12px;box-sizing:border-box;"
       + "background:#0b1118d9;color:#fff;font:13px system-ui;pointer-events:auto";
     this.onClick = (e: Event): void => {
+      const action = (e.target as HTMLElement | null)?.closest?.("button[data-bots]") as HTMLElement | null;
+      if (action) {
+        const difficulty = this.root.querySelector<HTMLSelectElement>("select[name=practice-difficulty]")?.value as Difficulty ?? "easy";
+        const count = action.dataset["bots"] === "remove" ? 0 : Math.min(2, (this.cur.botCount ?? 0) + 1);
+        this.setToggles({ ...this.intent, bots: Array.from({ length: count }, () => difficulty) });
+        return;
+      }
       const b = (e.target as HTMLElement | null)?.closest?.("button[data-toggle]") as HTMLElement | null;
       const t = b?.dataset["toggle"];
       if (t === "guard") this.intent = { ...this.intent, guard: !this.intent.guard };
@@ -77,6 +85,19 @@ export class PracticePanel {
       row.append(b);
     }
     this.root.append(row);
+    const opponents = this.doc.createElement("div"); opponents.style.cssText = "margin-top:10px;border-top:1px solid #ffffff26;padding-top:8px";
+    const label = this.doc.createElement("label"); label.textContent = "Opponent difficulty ";
+    const select = this.doc.createElement("select"); select.name = "practice-difficulty";
+    for (const d of ["easy", "medium", "hard"]) { const o = this.doc.createElement("option"); o.value = d; o.textContent = d; select.append(o); }
+    select.value = st.botDifficulty ?? "easy"; label.append(select); opponents.append(label);
+    for (const [action, text] of [["add", "Add bot"], ["remove", "Remove bots"]]) {
+      const b = this.doc.createElement("button"); b.dataset["bots"] = action; b.textContent = text!;
+      b.style.cssText = "min-height:44px;margin:6px 4px 0 0;border:1px solid #8fc9c0;border-radius:8px;background:#183333;color:#fff";
+      b.disabled = action === "add" ? (st.botCount ?? 0) >= 2 : (st.botCount ?? 0) === 0;
+      opponents.append(b);
+    }
+    const status = this.doc.createElement("p"); status.setAttribute("role", "status"); status.textContent = `${st.botCount ?? 0}/2 active bots · dummy stays available`;
+    opponents.append(status); this.root.append(opponents);
   }
 
   dispose(): void {

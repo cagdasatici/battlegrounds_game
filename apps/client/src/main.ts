@@ -62,7 +62,7 @@ interface HudPlayer extends LoopPlayer {
   cooldownEndTicks: ArrayLike<number>;
   owner?: {
     ackInputTick: number; epoch: number; pendingKit?: string; lethalCounterRemaining?: number;
-    tutorialStep?: number; tutorialSkillMask?: number; dummyGuard?: boolean; dummyRagdoll?: boolean;
+    tutorialStep?: number; tutorialSkillMask?: number; dummyGuard?: boolean; dummyRagdoll?: boolean; practiceBotCount?: number; practiceBotDifficulty?: string;
   } | undefined;
 }
 
@@ -470,7 +470,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       matchCleanups.push(() => panel.dispose());
       const panelTimer = window.setInterval(() => {
         const o = localOf()?.owner;
-        panel.render({ step: o?.tutorialStep ?? 0, skillMask: o?.tutorialSkillMask ?? 0, dummyGuard: o?.dummyGuard ?? false, dummyRagdoll: o?.dummyRagdoll ?? false });
+        panel.render({ step: o?.tutorialStep ?? 0, skillMask: o?.tutorialSkillMask ?? 0, dummyGuard: o?.dummyGuard ?? false, dummyRagdoll: o?.dummyRagdoll ?? false, botCount: o?.practiceBotCount ?? 0, botDifficulty: o?.practiceBotDifficulty ?? "easy" });
       }, 100);
       matchCleanups.push(() => window.clearInterval(panelTimer));
     }

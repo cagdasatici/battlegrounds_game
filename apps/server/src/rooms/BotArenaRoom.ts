@@ -26,6 +26,7 @@ export class BotArenaRoom extends ArenaRoom {
     await super.onCreate(options);
     this.addBots(difficulties);
   }
+  protected botTargetAllowed(_id: number): boolean { return true; }
   protected addBots(difficulties: readonly Difficulty[]): void {
     difficulties.forEach((difficulty, index) => {
       const id = this.nextEntityId++;
@@ -35,11 +36,21 @@ export class BotArenaRoom extends ArenaRoom {
       this.state.players.set(String(id), p);
       this.combat.add(id, p.lifeId, this.sim.tick, "sv");
       this.respawns.startLife(id, this.sim.tick);
-      this.movement!.add(id, this.chooseSpawn());
+      this.movement!.add(id, this.chooseBotSpawn(index));
       this.bots.set(`bot:${id}`, { entityId: id, input: new InputChannel(0), pendingKit: null, difficulty,
         decision: neutral(), lifeId: p.lifeId, spawnTick: this.sim.tick });
       this.pipeline.publishBody(id);
     });
+  }
+  protected chooseBotSpawn(_index: number): [number, number, number] { return this.chooseSpawn(); }
+  protected clearBots(): void {
+    for (const b of this.bots.values()) {
+      this.combat.remove(b.entityId, this.sim.tick); this.m1.remove(b.entityId);
+      this.abilities.remove(b.entityId); this.urns.drop(b.entityId); this.awakening.remove(b.entityId);
+      this.respawns.forget(b.entityId); this.movement?.remove(b.entityId);
+      this.state.players.delete(String(b.entityId));
+    }
+    this.bots.clear();
   }
   override onDispose(): void { this.bots.clear(); super.onDispose(); }
   protected override pipelineSeats(): ReadonlyMap<string, PipelineSeat> {
@@ -61,7 +72,7 @@ export class BotArenaRoom extends ArenaRoom {
       if (f.lifeId !== bot.lifeId) { bot.lifeId = f.lifeId; bot.spawnTick = f.actionStartTick; bot.decision = neutral(); }
       const def = this.abilities.registry.slotted(f.kitId, f.form, 1);
       bot.decision = decideBot(bot.difficulty, { tick, spawnTick: bot.spawnTick, selfId: bot.entityId,
-        self: { x: pos[0], z: pos[2] }, enemies,
+        self: { x: pos[0], z: pos[2] }, enemies: enemies.filter(e => this.botTargetAllowed(e.id)),
         slot1Ready: f.action === "Idle" && !!def && (f.cooldowns.get(def.id) ?? 0) <= tick }, bot.decision);
       const d = bot.decision;
       let moveX = d.approach ? -Math.sin(d.yaw) : 0, moveZ = d.approach ? -Math.cos(d.yaw) : 0;
