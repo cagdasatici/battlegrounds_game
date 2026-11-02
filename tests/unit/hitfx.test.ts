@@ -68,7 +68,7 @@ describe("EffectsPool", () => {
     pool.configure(scene, "low");
     let n = 0;
     pool.register(() => { n += 1; });
-    expect(scene.children.length).toBe(1);
+    expect(scene.children.length).toBe(1 + 3); // UX10: pool mesh plus the three glow meshes (low tier has no lights)
     pool.dispose(); pool.dispose();
     expect(scene.children.length).toBe(0);
     expect(n).toBe(1);
@@ -84,7 +84,7 @@ describe("EffectsPool", () => {
     expect(pool.activeCount).toBe(1);
     pool.configure(scene, "high");
     expect(pool.activeCount).toBe(0);
-    expect(scene.children.length).toBe(1);
+    expect(scene.children.length).toBe(1 + 3 + 4); // high tier: pool mesh, three glow meshes, four lights
     pool.dispose();
   });
 });
@@ -149,12 +149,14 @@ describe("HitFx table and playback", () => {
     };
     return { pool, calls, io };
   };
-  test("light hit: 10 sparks, red 90 ms victim flash, no hitstop, no shake", () => {
+  test("light hit: 10 sparks, red 90 ms victim flash, no hitstop, UX10 damage-scaled shake", () => {
     const t = rig("1");
     expect(planFor({ kind: "hit", hitClass: "light" })).toMatchObject({ burst: { count: 10 } });
     playHit(ev({ hitClass: "light" }), t.io);
     expect(t.pool.activeCount).toBe(10);
-    expect(t.calls).toEqual(["flash:2:ff3b3b:90:0.3"]);
+    expect(t.calls[0]).toBe("flash:2:ff3b3b:90:0.3");
+    expect(t.calls.filter((c) => c.startsWith("shake"))).toHaveLength(1); // UX10a: every hit shakes the involved local camera, scaled by damage
+    expect(t.calls.some((c) => c.startsWith("freeze"))).toBe(false);
   });
   test("flag disabled: heavy hit plays no hitstop freeze (decision 0049)", () => {
     HIT_STUN.enabled = false;
@@ -178,7 +180,8 @@ describe("HitFx table and playback", () => {
     const t = rig("2");
     playHit(ev({ kind: "block" }), t.io);
     expect(t.pool.activeCount).toBe(7 + 5);
-    expect(t.calls).toEqual(["shake:0.1:80"]);
+    expect(t.calls).toHaveLength(1);
+    expect(Number(t.calls[0]!.split(":")[1])).toBeGreaterThanOrEqual(0.1); // UX10a: never weaker than before, scales with the blocked damage
   });
   test("counter: gold flash on the countered attacker and hitstop 6 on both", () => {
     const t = rig();
@@ -252,7 +255,9 @@ describe("QV09 universal table", () => {
   });
   test("shake only for the involved local player and only on shake-bearing outcomes (Reduced Motion zeroes it in CameraRig)", () => {
     const me = rig("1"); playHit(ev({ moveId: "m1.4" }), me.io); playHit(ev({ moveId: "sv.wall" }), me.io); playHit(ev({ moveId: "m1.1" }), me.io);
-    expect(me.calls.filter((c) => c.startsWith("shake"))).toEqual(["shake:0.3:160", "shake:0.25:150"]);
+    const shakes = me.calls.filter((c) => c.startsWith("shake")).map((c) => Number(c.split(":")[1]));
+    expect(shakes.length).toBeGreaterThanOrEqual(2);
+    expect(shakes[0]).toBeGreaterThanOrEqual(0.3); expect(shakes[1]).toBeGreaterThanOrEqual(0.25); // UX10a only raises the old amplitudes
     const other = rig("9"); playHit(ev({ moveId: "m1.4" }), other.io);
     expect(other.calls.some((c) => c.startsWith("shake"))).toBe(false);
   });

@@ -4,6 +4,7 @@ import { fromYaw } from "@eb/shared/schema";
 import type { CombatBus } from "../app/CombatBus.js";
 import type { EffectsPool } from "../scene/EffectsPool.js";
 import type { PresentationDeps } from "./index.js";
+import { THEME, elementOf, elementOfMove, impactPower, playBlockRipple, playCounterFlash, playImpactBurst, playKoBlast, shakeFor, type Theme } from "./Impact.js";
 
 /**
  * Hit impact effects (FX1, decision 0024). Every confirmed contact reads differently per outcome: sparks, rings, shield
@@ -99,6 +100,10 @@ export interface HitFxIo {
   shake(amplitude: number, ms: number): void;
   flashLevel(): number;
   localId(): string | undefined;
+  /** UX10: kit id of an entity, ground height under a point, and the reduced-motion setting. All optional so older callers and tests keep working. */
+  kitOf?(id: string): string | undefined;
+  groundOf?(x: number, z: number, y: number): number | null;
+  reducedMotion?(): boolean;
 }
 
 const rnd = (a: number, b: number): number => a + Math.random() * (b - a);
@@ -112,6 +117,33 @@ export function playHit(e: CombatEvent, io: HitFxIo): void {
   const o = e.position ?? (chest ? { x: chest.x, y: chest.y + 0.3, z: chest.z } : undefined);
   if (!o) return;
   const fx = io.effects;
+  const soft = io.reducedMotion?.() ?? false;
+  fx.glow.setSoft(soft);
+
+  // UX10 shared impact language, driven by the confirmed event (damage, class, remaining HP), never by client input.
+  const actorAt = io.chestOf(e.actorId);
+  const dx = actorAt ? o.x - actorAt.x : 0, dz = actorAt ? o.z - actorAt.z : 0, dl = Math.hypot(dx, dz);
+  const dir = dl > 1e-3 ? { x: dx / dl, z: dz / dl } : undefined;
+  const groundY = io.groundOf?.(o.x, o.z, o.y) ?? o.y - 0.9;
+  const el = elementOfMove(e.moveId) !== "neutral" ? elementOfMove(e.moveId) : elementOf(io.kitOf?.(e.actorId));
+  const theme: Theme = THEME[el];
+  let shake: { amplitude: number; ms: number } | undefined;
+  if (e.kind === "hit") {
+    const killing = e.targetHp100 === 0;
+    const power = impactPower(e.damage100, e.hitClass === "heavy", universalOf(e.moveId) === "m1.4", killing);
+    if ((e.damage100 ?? 0) > 0 || universalOf(e.moveId) !== undefined) playImpactBurst(fx, { at: o, groundY, dir, theme, power });
+    shake = shakeFor(power);
+  } else if (e.kind === "block") {
+    const power = impactPower(e.damage100, false, false, false);
+    playBlockRipple(fx, o, dir ? { x: -dir.x, z: -dir.z } : { x: 0, z: 1 }, power);
+    shake = shakeFor(power * 0.45);
+  } else if (e.kind === "counter") {
+    playCounterFlash(fx, o, groundY);
+    shake = shakeFor(0.8);
+  } else if (e.kind === "ko") {
+    playKoBlast(fx, { at: o, groundY, dir, theme, power: 2 });
+    shake = shakeFor(2);
+  }
 
   const b = plan.burst;
   if (b) {
@@ -160,14 +192,16 @@ export function playHit(e: CombatEvent, io: HitFxIo): void {
   }
 
   if (plan.flash) {
-    io.fighterOf(plan.flash.who === "target" ? victim : e.actorId)?.flash(plan.flash.color, plan.flash.ms, io.flashLevel());
+    io.fighterOf(plan.flash.who === "target" ? victim : e.actorId)?.flash(plan.flash.color, plan.flash.ms, io.flashLevel() * (soft ? 0.5 : 1));
   }
   if (plan.freeze && HIT_STUN.enabled) {
     io.fighterOf(victim)?.freeze(plan.freeze);
     io.fighterOf(e.actorId)?.freeze(plan.freeze);
   }
   const me = io.localId();
-  if (plan.shake && me !== undefined && (e.actorId === me || e.targetId === me)) io.shake(plan.shake.amplitude, plan.shake.ms);
+  // Never weaker than the pre-UX10 plan: the damage-scaled shake only raises it.
+  const sh = shake && plan.shake ? { amplitude: Math.max(shake.amplitude, plan.shake.amplitude), ms: Math.max(shake.ms, plan.shake.ms) } : shake ?? plan.shake;
+  if (sh && !soft && me !== undefined && (e.actorId === me || e.targetId === me)) io.shake(sh.amplitude, sh.ms);
 }
 
 // ---- QV09: replicated-state cues (directional dash, evasive, guard raise) ------------------------------------------------
@@ -238,6 +272,9 @@ export const HitFx = {
         return typeof v === "number" ? v : 0.3;
       },
       localId: deps.localId,
+      kitOf: (id) => (deps.players().get(id) as { kitId?: string } | undefined)?.kitId,
+      groundOf: (x, z, y) => deps.surfaceHeight?.(x, z, y) ?? null,
+      reducedMotion: () => (deps.settings.get() as { reducedMotion?: unknown } | undefined)?.reducedMotion === true,
     };
     const off = bus.on((e) => { playHit(e, io); });
     const seen = new Map<string, MotionSeen>();

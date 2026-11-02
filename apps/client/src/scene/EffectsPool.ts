@@ -5,6 +5,7 @@
  * other effects that own their own resources.
  */
 import { Color, IcosahedronGeometry, InstancedMesh, Matrix4, MeshBasicMaterial, type Scene } from "three";
+import { GlowLayer } from "./GlowLayer.js";
 
 export type PoolTier = "low" | "medium" | "high";
 export const POOL_CAPACITY: Readonly<Record<PoolTier, number>> = { low: 200, medium: 600, high: 1000 };
@@ -36,6 +37,8 @@ export interface Particle {
 }
 
 export class EffectsPool {
+  /** UX10: additive flashes, shockwave rings, spark streaks and point lights, budgeted per tier. */
+  readonly glow = new GlowLayer();
   private disposers: Array<() => void> = [];
   private mesh: InstancedMesh | null = null;
   private tier: PoolTier | null = null;
@@ -82,6 +85,7 @@ export class EffectsPool {
     mesh.instanceMatrix.needsUpdate = true;
     scene.add(mesh);
     this.mesh = mesh;
+    this.glow.configure(scene, tier);
   }
 
   /** Adds a particle, overwriting the oldest slot when full. Returns false when the pool is not configured. */
@@ -109,6 +113,7 @@ export class EffectsPool {
     const mesh = this.mesh;
     if (!mesh || !(dtSec > 0)) return;
     dtSec = Math.min(dtSec, MAX_STEP_SEC);
+    this.glow.update(dtSec);
     let live = 0;
     for (let i = 0; i < this.cap; i++) {
       if (!(this.age[i]! < this.life[i]!)) continue;
@@ -137,6 +142,7 @@ export class EffectsPool {
   }
 
   private release(): void {
+    this.glow.release();
     if (this.mesh) {
       this.mesh.removeFromParent();
       this.mesh.geometry.dispose();
