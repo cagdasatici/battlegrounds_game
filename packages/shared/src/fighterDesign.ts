@@ -152,7 +152,8 @@ function stoneVanguard(): FighterDesign {
 
 function tideDuelist(): FighterDesign {
   let parts = body();
-  parts = override(parts, "chest", { color: "cloth", size: [0.43, 0.35, 0.26] });
+  // QF02 narrow shoulders: the chest is slimmer than the Vanguard's wedge and the old wide cape is gone.
+  parts = override(parts, "chest", { color: "cloth", size: [0.35, 0.35, 0.23] });
   parts = override(parts, "belly", { color: "primary" });
   parts = override(parts, "pelvis", { color: "dark" });
   parts = override(parts, "upperArmL", { color: "cloth", size: [0.082, 0.06, 0.28, 0.01] });
@@ -167,22 +168,26 @@ function tideDuelist(): FighterDesign {
     part("lapelL", "box", "chest", [-0.1, 0.12, -0.14], [0.1, 0.2, 0.025], "secondary", { rot: [0, 0, 0.35] }),
     part("lapelR", "box", "chest", [0.1, 0.12, -0.14], [0.1, 0.2, 0.025], "secondary", { rot: [0, 0, -0.35] }),
     part("sash", "box", "hips", [0, 0.1, -0.005], [0.37, 0.09, 0.25], "secondary"),
-    part("skirtFront", "box", "hips", [0, -0.2, -0.12], [0.26, 0.34, 0.03], "cloth", { rot: [0.08, 0, 0] }),
-    part("skirtBack", "box", "hips", [0, -0.2, 0.12], [0.26, 0.36, 0.03], "secondary", { rot: [-0.08, 0, 0] }),
-    part("sashTail", "box", "hips", [0.14, -0.15, 0.1], [0.07, 0.4, 0.02], "secondary", { rot: [-0.1, 0, -0.12] }),
+    // QF02 split hip panels: two unequal panels hang apart at the hip (long left, short right) so the legs read between them.
+    part("panelL", "box", "hips", [-0.15, -0.22, -0.07], [0.12, 0.4, 0.03], "cloth", { rot: [0.08, 0, 0.1] }),
+    part("panelR", "box", "hips", [0.14, -0.17, -0.07], [0.1, 0.3, 0.03], "secondary", { rot: [0.06, 0, -0.1] }),
+    part("panelBackL", "box", "hips", [-0.1, -0.22, 0.12], [0.1, 0.34, 0.025], "secondary", { rot: [-0.1, 0, 0.08] }),
     // Circular ceramic shoulder guard on the right shoulder, with a teal rim and droplet core.
     part("guardDisc", "cylinder", "chest", [0.3, 0.2, 0], [0.17, 0.17, 0.05], "trim", { rot: [0, 0, Math.PI / 2] }),
     part("guardRim", "torus", "chest", [0.33, 0.2, 0], [0.165, 0.018], "secondary", { rot: [0, Math.PI / 2, 0] }),
     part("guardCore", "sphere", "chest", [0.345, 0.2, 0], [0.04], "accent", { glow: true }),
     // Tied copper hair: crown, tie and a ponytail.
-    part("hairTie", "sphere", "head", [0, 0.1, 0.13], [0.035], "accent"),
     part("ponytail", "capsule", "head", [0, 0.03, 0.2], [0.045, 0.2], "hair", { rot: [0.5, 0, 0] }),
     part("bangs", "box", "head", [0, 0.18, -0.07], [0.19, 0.04, 0.09], "hair", { rot: [-0.3, 0, 0] }),
     part("wristTealL", "cylinder", "elbowL", [0, -0.2, 0], [0.06, 0.06, 0.06], "accent"),
     part("wristTealR", "cylinder", "elbowR", [0, -0.2, 0], [0.06, 0.06, 0.06], "accent"),
-    // Cloth layers: a high collar scarf and a long back cape give the duelist a tall, flowing outline.
+    // QF02 long asymmetric scarf: a collar ring and two stacked tails that trail from the neck down the left side of the back.
     part("scarf", "torus", "neck", [0, -0.02, 0], [0.085, 0.028], "secondary", { rot: [Math.PI / 2, 0, 0] }),
-    part("capeBack", "box", "chest", [0, -0.05, 0.16], [0.3, 0.5, 0.025], "cloth", { rot: [-0.06, 0, 0], bevel: 0.01 }),
+    part("scarfTailA", "box", "chest", [-0.08, 0.04, 0.15], [0.1, 0.46, 0.025], "secondary", { rot: [-0.14, 0, 0.1], bevel: 0.01 }),
+    part("scarfTailB", "box", "spine", [-0.17, -0.2, 0.17], [0.08, 0.5, 0.022], "cloth", { rot: [-0.2, 0, 0.16], bevel: 0.008 }),
+    // QF02 forked crest: two glow blades above the brow, only while Awakened.
+    part("crestL", "cone", "head", [-0.06, 0.3, -0.02], [0.03, 0.2], "accent", { glow: true, awakened: true, rot: [0, 0, 0.35] }),
+    part("crestR", "cone", "head", [0.06, 0.3, -0.02], [0.03, 0.2], "accent", { glow: true, awakened: true, rot: [0, 0, -0.35] }),
   );
   return {
     kit: "td", label: "Tide Duelist", glowColor: 0x5fe3d3,

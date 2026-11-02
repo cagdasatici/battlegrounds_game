@@ -107,3 +107,27 @@ describe("QF01 Stone Vanguard animation", () => {
     expect(td.find((x) => x.id === "td.b1")!.tracks[0]!.times[1]!).toBeCloseTo(0.3 * 0.95, 5);
   });
 });
+
+// QF02: Tide Duelist cross-body stance and Undertow Spiral shoulder lead.
+describe("QF02 Tide Duelist animation", () => {
+  const td = buildKitClips("td"), ea = buildKitClips("ea");
+  it("twists the torso across the hips at rest and in guard more than the Ember kit", () => {
+    // Shoulder line yaw: depth difference between the shoulders.
+    const twist = (c: ClipData): number => { const w = fk(c, 0); return Math.abs(w.shoulderL[2] - w.shoulderR[2]); };
+    for (const id of ["idle", "guard"]) expect(twist(td.find((c) => c.id === id)!), id).toBeGreaterThan(twist(ea.find((c) => c.id === id)!) + 0.03);
+  });
+  it("td.b2 leads with the shoulder before the windup and does not strike before the active key", () => {
+    const c = td.find((x) => x.id === "td.b2")!, times = c.tracks[0]!.times;
+    expect(times.length).toBeGreaterThanOrEqual(6);
+    expect(times[1]!).toBeCloseTo(0.12 * 0.95, 5);
+    expect(times[2]!).toBeCloseTo(0.3 * 0.95, 5);
+    expect(times[3]!).toBeCloseTo(0.42 * 0.95, 5);
+    const w0 = fk(c, 0), w1 = fk(c, 1);
+    // Right shoulder (hand) moves forward of the chest versus rest at the lead key, but the chest is not yet at full coil.
+    expect(Math.min(w1.handR[2], w1.handL[2]) - w1.chest[2]).toBeLessThan(Math.min(w0.handR[2], w0.handL[2]) - w0.chest[2] - 0.02);
+    expect(Math.abs(c.tracks[0]!.times[1]! - c.tracks[0]!.times[0]!)).toBeGreaterThan(0.05);
+  });
+  it("adds no lead key to other Duelist moves or other kits' td.b2", () => {
+    expect(td.find((x) => x.id === "td.b1")!.tracks[0]!.times[1]!).toBeCloseTo(0.3 * 0.95, 5);
+  });
+});

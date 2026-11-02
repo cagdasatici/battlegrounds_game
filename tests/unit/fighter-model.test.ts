@@ -215,8 +215,8 @@ describe("QF01 Stone Vanguard silhouette", () => {
       const total = PASSES.reduce((n, p) => { const g = buildFighterGeometry("sv", p, lod, true); const t = g.getIndex()!.count / 3; const bb = g.boundingBox!; expect(Math.max(-bb.min.x, bb.max.x)).toBeLessThanOrEqual(CAPSULE_R + SLACK); expect(Math.max(-bb.min.z, bb.max.z)).toBeLessThanOrEqual(CAPSULE_R + SLACK); g.dispose(); return n + t; }, 0);
       expect(total, `sv ${lod} awakened`).toBeLessThanOrEqual(lod === "medium" ? 8000 : 3000);
     }
-    // Other kits are unchanged by the awakened flag.
-    for (const k of ["td", "ea"] as const) expect(partsOf(buildFighterGeometry(k, "glow", "medium", true)).length).toBe(partsOf(buildFighterGeometry(k, "glow", "medium", false)).length);
+    // The Embers kit is unchanged by the awakened flag (the Duelist gains its own crest in QF02).
+    for (const k of ["ea"] as const) expect(partsOf(buildFighterGeometry(k, "glow", "medium", true)).length).toBe(partsOf(buildFighterGeometry(k, "glow", "medium", false)).length);
   });
   it("toggles seams in place through the rig and keeps three mesh passes", () => {
     const ramp = makeToonRamp();
@@ -229,5 +229,39 @@ describe("QF01 Stone Vanguard silhouette", () => {
     rig.setAwakened(false);
     expect(glow.geometry.getIndex()!.count).toBe(before);
     rig.dispose(); ramp.dispose();
+  });
+});
+
+// QF02: Tide Duelist sweeping silhouette. Budgets recorded before QF02: medium 3884, low 1976 triangles (all three passes).
+describe("QF02 Tide Duelist silhouette", () => {
+  const td = FIGHTER_DESIGNS.td;
+  const named = (n: string) => td.parts.find((p) => p.name === n)!;
+  const tris = (lod: Lod, awakened: boolean): number =>
+    PASSES.reduce((n, p) => { const g = buildFighterGeometry("td", p, lod, awakened); const t = g.getIndex()!.count / 3; g.dispose(); return n + t; }, 0);
+  it("has a narrow chest and an asymmetric multi-piece scarf on the back", () => {
+    expect(named("chest").size[0]).toBeLessThan(FIGHTER_DESIGNS.sv.parts.find((p) => p.name === "chest")!.size[0]!);
+    const tails = td.parts.filter((p) => /^scarfTail/.test(p.name));
+    expect(tails.length).toBeGreaterThanOrEqual(2);
+    expect(tails.every((t) => t.pos[0] < 0 && t.pos[2] > 0.1)).toBe(true);
+    expect(Math.max(...tails.map((t) => t.size[1]!))).toBeGreaterThanOrEqual(0.45);
+  });
+  it("splits the hip panels unequally", () => {
+    const l = named("panelL"), r = named("panelR");
+    expect(l.size[1]).toBeGreaterThan(r.size[1]! + 0.05);
+    expect(l.pos[0]).toBeLessThan(0);
+    expect(r.pos[0]).toBeGreaterThan(0);
+  });
+  it("shows a forked crest only while Awakened, in the glow pass", () => {
+    const crest = td.parts.filter((p) => /^crest/.test(p.name));
+    expect(crest.length).toBeGreaterThanOrEqual(2);
+    expect(crest.every((p) => p.awakened && p.glow && p.bone === "head")).toBe(true);
+    expect(Math.sign(crest[0]!.pos[0])).not.toBe(Math.sign(crest[1]!.pos[0]));
+    expect(partsOf(buildFighterGeometry("td", "glow", "medium", true)).length).toBeGreaterThan(partsOf(buildFighterGeometry("td", "glow", "medium", false)).length);
+  });
+  it("does not exceed the pre-QF02 triangle count, awakened or not", () => {
+    for (const aw of [false, true]) {
+      expect(tris("medium", aw), `medium awakened=${aw}`).toBeLessThanOrEqual(3884);
+      expect(tris("low", aw), `low awakened=${aw}`).toBeLessThanOrEqual(1976);
+    }
   });
 });

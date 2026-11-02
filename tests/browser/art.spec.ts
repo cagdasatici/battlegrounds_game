@@ -124,3 +124,50 @@ test("QF01 Stone Vanguard rear silhouette and Fault Strike phases", async () => 
     expect(errors).toEqual([]);
   } finally { await ctx.close(); }
 });
+
+// QF02 evidence: grayscale front / side / rear of all three kits at the same scale (8 m and 14 m, low and medium, Duelist base and
+// awakened), plus Tide Duelist guard / shoulder lead / windup / contact / recovery with no combat text. Wall-clock approximations.
+test("QF02 Tide Duelist silhouette and Undertow Spiral phases", async () => {
+  const outQ = path.join(outDir, "QF02");
+  mkdirSync(outQ, { recursive: true });
+  const ctx = await browser.newContext({ viewport: { width: 1180, height: 820 } });
+  const page = await ctx.newPage();
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  type A = ArtApi & { awaken(k: string, v: boolean): void };
+  const act = (kit: string, action: string, moveId: string) => page.evaluate(([k, a, m]) => (window as unknown as { __art: ArtApi }).__art.act(k as string, a as string, m as string), [kit, action, moveId]);
+  const clipOf = (kit: string) => page.evaluate((k) => (window as unknown as { __art: ArtApi }).__art.clip(k), kit);
+  const ready = async (url: string) => {
+    await page.goto(url);
+    await page.waitForFunction(() => ((window as unknown as { __art?: ArtApi }).__art?.frames() ?? 0) > 20, undefined, { timeout: 30_000 });
+    await page.addStyleTag({ content: "canvas{filter:grayscale(1)}" });
+  };
+  try {
+    for (const view of ["rear", "side"]) for (const dist of [8, 14]) {
+      await ready(`${base}/art.html?view=${view}&dist=${dist}`);
+      for (const q of ["medium", "low"]) for (const awakened of [false, true]) {
+        await page.evaluate(([qq, on]) => { const a = (window as unknown as { __art: A }).__art; a.quality(qq as string); a.awaken("td", on as boolean); }, [q, awakened]);
+        await page.waitForTimeout(500);
+        await page.screenshot({ path: path.join(outQ, `${view}-${dist}m-${q}${awakened ? "-awakened" : ""}.png`) });
+      }
+    }
+    await ready(`${base}/art.html`);
+    await page.screenshot({ path: path.join(outQ, "front-idle.png") });
+    await act("td", "Guard", "");
+    await page.waitForTimeout(500);
+    expect(await clipOf("td")).toBe("guard");
+    await page.screenshot({ path: path.join(outQ, "td-guard.png") });
+    // Undertow Spiral is retimed to its authoritative length; shoulder lead ~0.1 s, windup ~0.25 s, contact ~0.35 s, then recovery.
+    await act("td", "Windup", "td.b2");
+    await page.waitForTimeout(60);
+    expect(await clipOf("td")).toBe("td.b2");
+    await page.screenshot({ path: path.join(outQ, "td-b2-lead.png") });
+    await page.waitForTimeout(120);
+    await page.screenshot({ path: path.join(outQ, "td-b2-windup.png") });
+    await page.waitForTimeout(150);
+    await page.screenshot({ path: path.join(outQ, "td-b2-contact.png") });
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: path.join(outQ, "td-b2-recovery.png") });
+    expect(errors).toEqual([]);
+  } finally { await ctx.close(); }
+});

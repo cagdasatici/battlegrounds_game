@@ -17,8 +17,12 @@ if (route === "route" || route === "reverse") kits.forEach((k, i) => gs.viewFor(
 // QF01: rear view, all three kits facing away from the camera on one line, camera `dist` metres behind them.
 const rearDist = Number(new URLSearchParams(location.search).get("dist") ?? 8);
 if (route === "rear") kits.forEach((k, i) => gs.viewFor(k)?.setPose(-1.5 + i * 1.5, 0.9, 0, 0));
+// QF02: side view, same line along z, camera `dist` metres out on +x.
+if (route === "side") kits.forEach((k, i) => gs.viewFor(k)?.setPose(0, 0.9, -1.5 + i * 1.5, 0));
 const overview = new URLSearchParams(location.search).get("view") === "overview";
-gs.setCamera(route === "rear"
+gs.setCamera(route === "side"
+  ? { position: { x: rearDist, y: 1.9, z: 0 }, pivot: { x: 0, y: 0.9, z: 0 }, yaw: Math.PI / 2, pitch: 0, distance: rearDist }
+  : route === "rear"
   ? { position: { x: 0, y: 1.9, z: rearDist }, pivot: { x: 0, y: 0.9, z: 0 }, yaw: 0, pitch: 0, distance: rearDist }
   : route === "route"
   ? { position: { x: 40, y: 4, z: -4 }, pivot: { x: 25, y: 1, z: 0 }, yaw: 0, pitch: 0, distance: 15 }
