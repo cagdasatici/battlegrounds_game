@@ -1,3 +1,4 @@
+import { adoptCss } from "./adoptCss.js";
 import type { Difficulty, SparringSetupActions } from "@eb/shared/sparring";
 
 /** Standalone host controls. Callbacks own authentication, capacity and transport. */
@@ -6,9 +7,7 @@ export function mountSparringSetup(root: HTMLElement, actions: SparringSetupActi
   const panel = doc.createElement("section");
   panel.dataset["ui"] = "sparring-setup";
   panel.style.cssText = "box-sizing:border-box;width:min(100%,560px);margin:auto;padding:20px;background:#0b1118;color:#fff;font:16px system-ui;border-radius:16px";
-  const style = doc.createElement("style");
-  style.textContent = '[data-ui="sparring-setup"] [hidden]{display:none!important}[data-ui="sparring-setup"] button,[data-ui="sparring-setup"] select,[data-ui="sparring-setup"] input{box-sizing:border-box;min-height:48px;max-width:100%;font:inherit;padding:8px;border-radius:8px;border:2px solid #9fd3ff;background:#1d2b3a;color:#fff}[data-ui="sparring-setup"] button:disabled,[data-ui="sparring-setup"] select:disabled{opacity:.55}[data-ui="sparring-setup"] label{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:12px 0}';
-  panel.append(style);
+  const removeCss = adoptCss(doc, '[data-ui="sparring-setup"] [hidden]{display:none!important}[data-ui="sparring-setup"] button,[data-ui="sparring-setup"] select,[data-ui="sparring-setup"] input{box-sizing:border-box;min-height:48px;max-width:100%;font:inherit;padding:8px;border-radius:8px;border:2px solid #9fd3ff;background:#1d2b3a;color:#fff}[data-ui="sparring-setup"] button:disabled,[data-ui="sparring-setup"] select:disabled{opacity:.55}[data-ui="sparring-setup"] label{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:12px 0}');
   const title = doc.createElement("h1"); title.textContent = "Host sparring"; panel.append(title);
   const hint = doc.createElement("p");
   hint.textContent = "Choose up to three opponents. Start with no bots to play with friends. To change opponents, end the match first.";
@@ -127,6 +126,6 @@ export function mountSparringSetup(root: HTMLElement, actions: SparringSetupActi
   renderRows(); root.append(panel);
   return () => {
     if (disposed) return;
-    disposed = true; events.abort(); fallback.value = ""; panel.remove();
+    disposed = true; events.abort(); fallback.value = ""; removeCss(); panel.remove();
   };
 }

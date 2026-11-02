@@ -1,3 +1,4 @@
+import { adoptCss } from "./adoptCss.js";
 import { baseMoveLabels, KIT_LABEL, lobbyKits } from "./Lobby.js";
 
 /** Standalone instructions. No authentication, room connection or tutorial state. */
@@ -9,9 +10,7 @@ export function mountHowToPlay(root: HTMLElement, options: {
   view.setAttribute("aria-label", "How to play");
   view.dataset["ui"] = "how-to-play";
   view.style.cssText = "position:fixed;inset:0;overflow:auto;box-sizing:border-box;background:#0b1118;color:#fff;font:17px/1.5 system-ui;padding:24px max(24px,env(safe-area-inset-left));";
-  const style = doc.createElement("style");
-  style.textContent = '[data-ui="how-to-play"] .guide-body{max-width:900px;margin:auto}[data-ui="how-to-play"] button{min-height:48px;padding:8px 20px;margin:4px;font:600 17px system-ui;color:#fff;background:#1d2b3a;border:2px solid #9fd3ff;border-radius:12px}[data-ui="how-to-play"] button[aria-pressed="true"]{border-color:#ffd479}[data-ui="how-to-play"] button:focus-visible{outline:3px solid #ffd479;outline-offset:3px}[data-ui="how-to-play"] li{margin:8px 0}';
-  view.append(style);
+  const removeCss = adoptCss(doc, '[data-ui="how-to-play"] .guide-body{max-width:900px;margin:auto}[data-ui="how-to-play"] button{min-height:48px;padding:8px 20px;margin:4px;font:600 17px system-ui;color:#fff;background:#1d2b3a;border:2px solid #9fd3ff;border-radius:12px}[data-ui="how-to-play"] button[aria-pressed="true"]{border-color:#ffd479}[data-ui="how-to-play"] button:focus-visible{outline:3px solid #ffd479;outline-offset:3px}[data-ui="how-to-play"] li{margin:8px 0}');
   const body = doc.createElement("div");
   body.className = "guide-body";
   view.append(body);
@@ -76,5 +75,5 @@ export function mountHowToPlay(root: HTMLElement, options: {
   };
   view.addEventListener("click", onClick);
   root.append(view); buttons[0]!.focus();
-  return () => { view.removeEventListener("click", onClick); view.remove(); };
+  return () => { view.removeEventListener("click", onClick); removeCss(); view.remove(); };
 }
