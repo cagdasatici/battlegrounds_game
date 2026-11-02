@@ -4,7 +4,7 @@ import { TD_DEFS } from "../../packages/shared/src/config/kits/td.js";
 import { EffectsPool, POOL_CAPACITY } from "../../apps/client/src/scene/EffectsPool.js";
 import { FighterView } from "../../apps/client/src/scene/FighterView.js";
 import { makeToonRamp } from "../../apps/client/src/scene/FighterModel.js";
-import { LOW_QUALITY_CAP, TD_RECIPES, onHit, recipeFor, recipeParticles, scanPlayers } from "../../apps/client/src/fx/kits/td.js";
+import { LOW_QUALITY_CAP, TD_RECIPES, UNDERTOW, onHit, recipeFor, recipeParticles, scanPlayers } from "../../apps/client/src/fx/kits/td.js";
 import type { CombatEvent } from "../../packages/shared/src/protocol.js";
 
 const Scene = function (): Scene { const g = new FighterView("td", makeToonRamp()).group; g.clear(); return g as unknown as Scene; } as unknown as new () => Scene;
@@ -52,5 +52,40 @@ describe("FX4-td recipes", () => {
     expect(seen.size).toBe(1);
     scanPlayers(fx, new Map(), seen);
     expect(seen.size).toBe(0);
+  });
+});
+
+describe("QV04 Undertow Spiral signature", () => {
+  const ev = (o: Partial<CombatEvent>): CombatEvent => ({ eventId: "e", tick: 100, kind: "hit", actorId: "A", targetId: "B", lifeId: 1, moveId: "td.b2", position: { x: 2.2, y: 1, z: 0 }, ...o });
+  const chest = (id: string) => (id === "B" ? undefined : { x: 0, y: 1, z: 0 });
+  type P = { x: number; z: number; vx: number; vz: number; life: number; color: number };
+  const spy = (): { fx: EffectsPool; ps: P[] } => { const ps: P[] = []; return { ps, fx: { spawn: (p: P) => { ps.push(p); return true; }, get activeCount() { return ps.length; } } as unknown as EffectsPool }; };
+  test("budget fits low cap including the hit ribbon", () => {
+    expect(recipeParticles(TD_RECIPES["td.b2"]!)).toBeLessThanOrEqual(LOW_QUALITY_CAP);
+  });
+  test("confirmed capture draws a cyan edge and darker ribbon travelling the 3 m drag away from the caster", () => {
+    const { fx, ps } = spy();
+    onHit(fx, ev({}), chest);
+    expect(ps.length).toBe(UNDERTOW.edge + UNDERTOW.ribbon);
+    expect(new Set(ps.map((p) => p.color)).size).toBe(2);
+    for (const p of ps) { expect(p.vx).toBeGreaterThan(0); expect(p.vz).toBeCloseTo(0, 6); expect(p.vx * p.life).toBeCloseTo(UNDERTOW.dragM, 6); }
+    expect(ps.some((p) => Math.abs(p.z) > 0.2)).toBe(true); // ribbon is curved, not a straight line
+  });
+  test("the second hit is the slam splash, not another ribbon, and a miss or block draws nothing", () => {
+    const { fx, ps } = spy();
+    onHit(fx, ev({ eventId: "m", actorId: "M", kind: "block" }), chest);
+    onHit(fx, ev({ eventId: "n", actorId: "N", kind: "miss" as never }), chest);
+    expect(ps.length).toBe(0);
+    onHit(fx, ev({ actorId: "A" }), chest);
+    const n = ps.length;
+    onHit(fx, ev({ actorId: "A", tick: 148 }), chest);
+    expect(ps.length - n).toBe(TD_RECIPES["td.b2"]!.impact.count);
+  });
+  test("everything expires", () => {
+    const fx = pool();
+    onHit(fx, ev({ actorId: "Z" }), chest);
+    expect(fx.activeCount).toBe(UNDERTOW.edge + UNDERTOW.ribbon);
+    fx.update(2);
+    expect(fx.activeCount).toBe(0);
   });
 });

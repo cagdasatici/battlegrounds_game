@@ -21,13 +21,16 @@ export interface Recipe {
   /** Optional kit-specific Active effect (spawns at most `active.count` particles). Replaces the generic style when set. */
   playActive?: (fx: EffectsPool, at: Pos, yaw: number, surface: SurfaceHeight) => void;
   impact: { count: number; color: number; life: number; speed: number };
+  /** Optional kit-specific reaction to a confirmed bus `hit`. Replaces the generic impact when set; `hitCount` is its particle budget. */
+  playHit?: (fx: EffectsPool, e: CombatEvent, at: Pos, actorAt: Pos | undefined) => void;
+  hitCount?: number;
 }
 
 export const LOW_QUALITY_CAP = 100;
 export const DECAL_PARTS = 12, GLOW_PARTS = 6;
 
 /** Particles one recipe can spawn across windup, active and impact. */
-export const recipeParticles = (t: Recipe): number => DECAL_PARTS + (t.windup.glow ? GLOW_PARTS : 0) + t.active.count + t.impact.count;
+export const recipeParticles = (t: Recipe): number => DECAL_PARTS + (t.windup.glow ? GLOW_PARTS : 0) + t.active.count + t.impact.count + (t.hitCount ?? 0);
 
 /** Ground decal radius from an ability definition's shape, clamped so huge boxes still draw a readable ring. */
 export function decalRadiusFor(defs: readonly { id: string; shape: { kind: string; r?: number; w?: number; radius?: number } }[], moveId: string): number {
@@ -127,7 +130,8 @@ export function onHit(fx: EffectsPool, e: CombatEvent, chest: (id: string) => Po
   if (e.kind !== "hit") return;
   const t = recipeFor(e.moveId);
   const at = e.position ?? chest(e.targetId ?? e.actorId);
-  if (t && at) playImpact(fx, t, at);
+  if (!t || !at) return;
+  if (t.playHit) t.playHit(fx, e, at, e.targetId ? chest(e.actorId) : undefined); else playImpact(fx, t, at);
 }
 
 /** Builds a kit's `attach`: bus hit impacts plus a per-frame scan for windup and active. The disposer cancels both. */

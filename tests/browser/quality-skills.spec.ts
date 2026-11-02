@@ -99,3 +99,36 @@ test("QV03: Fault Strike windup, contact and settling layers appear from the rep
     for (const x of [A, B]) expect(x.errors).toEqual([]);
   } finally { await A.ctx.close(); await B.ctx.close().catch(() => undefined); }
 });
+
+test("QV04: Undertow Spiral ribbon appears only after a confirmed capture hit and drains", async () => {
+  test.setTimeout(120_000);
+  const A = await open("Tara", "td");
+  const B = await open("Nora", "ea");
+  try {
+    await until(async () => (await snap(B.page)).players.filter((p) => p.ready).length === 2, 15000, "both ready");
+    const listings = await matchMaker.query({ name: "arena" });
+    const arena = matchMaker.getLocalRoomById(listings[0]!.roomId) as unknown as ArenaRoom;
+    const aId = await until(async () => (await snap(A.page)).localEntityId, 10000, "A id");
+    const bId = await until(async () => (await snap(B.page)).localEntityId, 10000, "B id");
+    const fa = arena.combat.get(aId)!;
+    const cast = (action: string) => { const tick = arena.sim.tick; fa.action = action as never; fa.moveId = "td.b2"; fa.actionStartTick = tick; fa.actionEndTick = tick + 1000; };
+    const idle = () => { fa.action = "Idle" as never; fa.moveId = ""; fa.actionEndTick = Number.MAX_SAFE_INTEGER; };
+    const fxActive = (p: Page) => snap(p).then((s) => s.fx.active);
+    await until(async () => (await fxActive(B.page)) === 0, 8000, "quiet pool");
+    // Miss: windup and active only (no hit event) -> no ribbon, so the pool stays at the generic ring plus spiral.
+    cast("Windup");
+    await until(async () => { const n = await fxActive(B.page); return n > 0 ? n : false; }, 8000, "windup ring");
+    cast("Active");
+    const missPeak = await until(async () => { const n = await fxActive(B.page); return n > 12 ? n : false; }, 8000, "active spiral");
+    expect(missPeak).toBeLessThanOrEqual(12 + 28); // ring + generic spiral; no victim-bound ribbon budget
+    idle();
+    await until(async () => (await fxActive(B.page)) === 0, 8000, "miss drains");
+    // Confirmed capture: the server broadcasts a hit; the ribbon appears for both clients.
+    const server = arena as unknown as { broadcastEvent(t: number, k: string, a: number, b: number, life: number, move: string, dmg: number): void };
+    server.broadcastEvent(arena.sim.tick, "hit", aId, bId, arena.combat.get(bId)!.lifeId, "td.b2", 500);
+    const hit = await until(async () => { const n = await fxActive(B.page); return n >= 20 ? n : false; }, 8000, "ribbon after capture hit");
+    expect(hit).toBeGreaterThanOrEqual(20);
+    await until(async () => (await fxActive(B.page)) === 0, 8000, "ribbon drains");
+    for (const x of [A, B]) expect(x.errors).toEqual([]);
+  } finally { await A.ctx.close(); await B.ctx.close().catch(() => undefined); }
+});
