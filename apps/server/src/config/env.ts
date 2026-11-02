@@ -1,6 +1,7 @@
 // Production environment schema (spec section 24 "Build and start contract").
 // Errors name the variable and the rule only; values are never echoed, so a mistyped secret cannot leak into logs.
 import { isAbsolute, join } from "node:path";
+import { loadAdminPasswordHash } from "../admin/LocalAdminPassword.js";
 import { HASH_FORMAT } from "../admin/AdminAuth.js";
 
 export interface ServerEnv {
@@ -119,4 +120,18 @@ export function parseServerEnv(env: Env, cwd: string, repoRoot: string): ServerE
 
   if (problems.length > 0) throw new ConfigError(problems);
   return { nodeEnv, host, port, publicOrigin, roomCapacity: 4, dataDir, logLevel: logLevel as ServerEnv["logLevel"], buildId, staticDir, lanHttp, adminPasswordHash, openJoin: openRaw === "1", accessTeam, accessAud };
+}
+
+/** Resolve the same host-local credential used by admin:setup and play before validating startup. */
+export function loadServerEnv(env: Env, cwd: string, repoRoot: string): ServerEnv {
+  const resolved = { ...env };
+  if (resolved["ADMIN_ENABLED"] !== "0" && !resolved["ADMIN_PASSWORD_HASH"] && resolved["DATA_DIR"] && isAbsolute(resolved["DATA_DIR"])) {
+    try {
+      const hash = loadAdminPasswordHash(resolved["DATA_DIR"]);
+      if (hash) resolved["ADMIN_PASSWORD_HASH"] = hash;
+    } catch {
+      throw new ConfigError(["Local admin setup is unreadable or invalid; admin-password.hash must be a regular owner-only file (chmod 600)"]);
+    }
+  }
+  return parseServerEnv(resolved, cwd, repoRoot);
 }

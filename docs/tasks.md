@@ -183,3 +183,10 @@ Execute one row per session using [the Quality 90 instructions](quality-90-plan.
 | UX10b | Combat VFX: per-ability windup/active/impact signatures, M1 finisher, projectile launch and trail | UX10a | IMPLEMENTED (DEVICE CHECK PENDING) | see git log (UX10b commit); iPad check NOT RUN | docs/test-results/UX10.md |
 | UX10c | Combat VFX: quality tiers, light/particle budgets, busy four-fighter budget test | UX10b | IMPLEMENTED (DEVICE CHECK PENDING) | see git log (UX10c commit); iPad check NOT RUN | docs/test-results/UX10.md |
 | DJ01 | Double jump: one server-authoritative air jump per airtime, prediction parity, replicated flag, flip/ring/sound | UX10c | IMPLEMENTED (DEVICE CHECK PENDING) | see git log (DJ01 commit); iPad check NOT RUN | tests/unit/double-jump.test.ts, tests/integration/double-jump.test.ts | decision 0051 |
+
+## Background hosting and admin startup (approved 2026-11-02)
+
+| Task | Title | Depends on | Status | Commit | Test report |
+|---|---|---|---|---|---|
+| OPS01 | Load host-local admin credential in production startup | UX08 WEB4 T28 | IMPLEMENTED, DEVICE CHECK PENDING | see git log (OPS01 commit) | docs/test-results/OPS01.md |
+| OPS02 | Verify minimal background hosting and on-demand room lifecycle | T28 OPS01 | TODO | pending | docs/test-results/OPS02.md |

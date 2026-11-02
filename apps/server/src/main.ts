@@ -2,13 +2,13 @@ import { fileURLToPath } from "node:url";
 import { createGameServer } from "./createServer.js";
 import { AccessVerifier } from "./auth/AccessJwt.js";
 import { createAuthServices } from "./auth/Services.js";
-import { ConfigError, parseServerEnv, type ServerEnv } from "./config/env.js";
+import { ConfigError, loadServerEnv, type ServerEnv } from "./config/env.js";
 import { log } from "./ops/StructuredLog.js";
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 let env: ServerEnv;
 try {
-  env = parseServerEnv(process.env, process.cwd(), repoRoot);
+  env = loadServerEnv(process.env, process.cwd(), repoRoot);
 } catch (e) {
   if (e instanceof ConfigError) { console.error(e.message); process.exit(78); }
   throw e;

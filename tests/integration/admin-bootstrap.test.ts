@@ -9,7 +9,7 @@ import { expect, test } from "vitest";
 import { saveAdminPassword } from "../../ops/scripts/lib/adminSetup.js";
 
 // Exercises the actual owner launcher, not an injected AuthServices instance.
-test("local bootstrap: play consumes the private setup file and serves authenticated admin bot configuration", async () => {
+test.each(["play", "production"])("%s bootstrap consumes the private setup file and serves authenticated admin bot configuration", async (mode) => {
   const root = fileURLToPath(new URL("../../", import.meta.url));
   const req = createRequire(join(root, "apps/server/package.json"));
   const dir = mkdtempSync(join(tmpdir(), "eb-admin-launch-")), password = "bootstrap fixture password 0123";
@@ -19,9 +19,10 @@ test("local bootstrap: play consumes the private setup file and serves authentic
     socket.listen(0, "127.0.0.1", () => { const p = (socket.address() as { port: number }).port; socket.close(() => resolve(p)); });
   });
   const origin = `http://127.0.0.1:${port}`;
-  const env = { ...process.env, PORT: String(port), DATA_DIR: dir, ADMIN_ENABLED: "1" };
-  delete env["ADMIN_PASSWORD_HASH"]; delete env["PUBLIC_ORIGIN"];
-  const child = spawn(process.execPath, ["--import", req.resolve("tsx"), "ops/scripts/play.ts", "--local", "--no-build"], { cwd: root, env, stdio: ["ignore", "pipe", "pipe"] });
+  const env: NodeJS.ProcessEnv = { ...process.env, PORT: String(port), DATA_DIR: dir, ADMIN_ENABLED: "1", HOST: "127.0.0.1", NODE_ENV: "production", BUILD_ID: "admin-bootstrap", EB_ALLOW_HTTP_ORIGIN: "1" };
+  delete env["ADMIN_PASSWORD_HASH"]; env["PUBLIC_ORIGIN"] = origin;
+  const args = mode === "play" ? ["ops/scripts/play.ts", "--local", "--no-build"] : ["apps/server/src/main.ts"];
+  const child = spawn(process.execPath, ["--import", req.resolve("tsx"), ...args], { cwd: root, env, stdio: ["ignore", "pipe", "pipe"] });
   // Output contains a generated fixture invitation. Keep it in memory and never include it in assertion diagnostics.
   let output = ""; child.stdout.on("data", chunk => { output += String(chunk); }); child.stderr.on("data", () => {});
   const exited = new Promise<void>(resolve => child.once("exit", () => resolve()));
@@ -32,8 +33,10 @@ test("local bootstrap: play consumes the private setup file and serves authentic
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     expect(ready, "launcher becomes healthy with the stored admin hash").toBe(true);
+    if (mode === "play") {
     expect(output.includes(`Game home (bookmark this): ${origin}/`)).toBe(true);
     expect(output.includes(`Admin: ${origin}/admin.html`)).toBe(true);
+    }
     expect(output.includes(password)).toBe(false); expect(output.includes("scrypt$")).toBe(false);
     const response = await fetch(origin + "/api/admin/login", { method: "POST", headers: { origin, "content-type": "application/json" }, body: JSON.stringify({ password }) });
     expect(response.status).toBe(200);
