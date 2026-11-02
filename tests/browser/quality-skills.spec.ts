@@ -149,6 +149,7 @@ test("QV05: Furnace Ray is sustained for the whole replicated Active phase, then
     const fxActive = (p: Page) => snap(p).then((s) => s.fx.active);
     await until(async () => (await fxActive(B.page)) === 0, 8000, "quiet pool");
     set("Active", 1000);
+    await until(async () => (await fxActive(B.page)) > 0, 8000, "first sustained beam frame visible");
     // Sustained: particles live 0.1 s, so seeing them across 1.2 s means the beam is being re-emitted, not fired once.
     const samples: number[] = [];
     for (let i = 0; i < 8; i++) { await sleep(150); samples.push(await fxActive(B.page)); }

@@ -1,4 +1,6 @@
 import "./base.css";
+import { mountMoveGuide } from "./ui/MoveGuide.js";
+import { castDescription, skillRoles } from "./ui/SkillInfo.js";
 import type { WebGLRenderer } from "three";
 import type { Room } from "@colyseus/sdk";
 import { meterFraction } from "@eb/shared/awakening";
@@ -115,6 +117,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     play: () => { void flowRef.current?.play(); },
     practice: () => { void flowRef.current?.practice(); },
     guide: () => { openGuide(); },
+    moves: () => { openMoves(); },
     update: () => { void updater.apply(); },
     retry: () => { void flowRef.current?.retry(); },
     back: () => { void flowRef.current?.back(); },
@@ -140,6 +143,15 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     });
   };
   cleanups.push(() => { closeGuide(false); });
+
+  let disposeMoves: (() => void) | null = null;
+  const closeMoves = (): void => { disposeMoves?.(); disposeMoves = null; };
+  const openMoves = (): void => {
+    if (disposeMoves) return;
+    for (const f of settingsOpenHooks) f();
+    const me = localOf(); disposeMoves = mountMoveGuide(document.body, me && P0_KITS.includes(me.kitId as KitId) ? me.kitId as KitId : lobby.kit, me?.form ?? "Base", closeMoves);
+  };
+  cleanups.push(closeMoves);
 
   // T27 settings: one store and panel per local profile name (Arel/Nora); rebuilt if the label changes.
   const safeProbe = document.createElement("div");
@@ -408,7 +420,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     const probe = document.createElement("div");
     probe.style.cssText = "position:fixed;inset:0;visibility:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)";
     document.body.append(probe);
-    const hud = new Hud(document.body, document, (k) => { r.send("changeKit", { kitId: k }); kitMenu = false; }, () => { void flow.back(); }, () => { menuOpen = false; openSettings(); });
+    const hud = new Hud(document.body, document, (k) => { r.send("changeKit", { kitId: k }); kitMenu = false; }, () => { void flow.back(); }, () => { menuOpen = false; openSettings(); }, () => { menuOpen = false; openMoves(); });
     matchCleanups.push(() => { hud.dispose(); probe.remove(); });
     let hudKey = "";
     const currentLayout = (): Layout => {
@@ -481,7 +493,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     matchCleanups.push(() => loop.dispose());
 
     if (flow.mode === "practice") {
-      const panel = new PracticePanel(document.body, (t) => { r.send("practice", t); });
+      const panel = new PracticePanel(document.body, (t) => { r.send("practice", t); }, document, openMoves);
       matchCleanups.push(() => panel.dispose());
       const panelTimer = window.setInterval(() => {
         const o = localOf()?.owner;
@@ -500,6 +512,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       const st = {
         name: me?.displayName ?? lobby.displayName, hp: (me?.hp100 ?? 10000) / 100, maxHp: 100, meter: ml.fraction, meterText: ml.text,
         facingLock: router.facingLock, portrait: window.innerHeight > window.innerWidth,
+        castText: castDescription(me?.moveId ?? "", me?.action ?? ""),
+        skillRoles: skillRoles(me?.kitId ?? opts.kitId, me?.form ?? "Base"),
         skills: equippedSkillNames(me?.kitId ?? opts.kitId, me?.form ?? "Base"),
         blocked: blockNotice.active(performance.now()),
         cooldowns: [0, 1, 2, 3].map((i) => cooldownLabel(me?.cooldownEndTicks?.[i] ?? 0, now)),

@@ -18,7 +18,7 @@ export class PracticePanel {
 
   constructor(
     parent: HTMLElement, private readonly setToggles: (t: { guard: boolean; ragdoll: boolean; bots?: Difficulty[] }) => void,
-    private readonly doc: Document = document,
+    private readonly doc: Document = document, private readonly onMoves: () => void = () => undefined,
   ) {
     this.root = doc.createElement("div");
     this.root.dataset["ui"] = "practice";
@@ -27,6 +27,7 @@ export class PracticePanel {
       + "width:min(280px,30vw);max-height:46vh;overflow:auto;padding:8px 10px;border-radius:12px;box-sizing:border-box;"
       + "background:#0b1118d9;color:#fff;font:13px system-ui;pointer-events:auto";
     this.onClick = (e: Event): void => {
+      if ((e.target as HTMLElement | null)?.closest?.("button[data-moves]")) { this.onMoves(); return; }
       const action = (e.target as HTMLElement | null)?.closest?.("button[data-bots]") as HTMLElement | null;
       if (action) {
         const difficulty = this.root.querySelector<HTMLSelectElement>("select[name=practice-difficulty]")?.value as Difficulty ?? "easy";
@@ -58,6 +59,8 @@ export class PracticePanel {
     title.textContent = "Practice";
     title.style.cssText = "font:700 15px system-ui;margin-bottom:4px";
     this.root.append(title);
+    const guide = this.doc.createElement("button"); guide.textContent = "Moves & ranges"; guide.dataset["moves"] = "1";
+    guide.style.cssText = "min-height:44px;border-radius:8px;background:#224238;color:#c7f38b;border:1px solid #87bd9a;margin-bottom:8px"; this.root.append(guide);
     const list = this.doc.createElement("ol");
     list.style.cssText = "margin:0;padding-left:20px";
     for (const r of v.rows) {

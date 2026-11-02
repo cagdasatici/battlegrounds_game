@@ -2,7 +2,7 @@
  * Spec section 11 keyboard fallback: WASD, mouse attack, F guard, Q dash, Space jump, 1-4 abilities,
  * G awakening, Shift facing lock, Esc menu. It only feeds the same PointerRouter state as touch, so the
  * sampler, validation and rate limits are shared. Intent only; the server decides every outcome.
- * Double-W run is not implemented here (see the T18b report).
+ * Double-W run is recognised from forward excursions by the fixed-tick IntentSampler.
  */
 import type { ControlId } from "./ControlLayout.js";
 import type { PointerRouter } from "./PointerRouter.js";

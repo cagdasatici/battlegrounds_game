@@ -42,6 +42,7 @@ export interface LobbyActions {
   practice(): void;
   /** Opens the standalone How to play guide (HELP2). Optional so older callers keep working. */
   guide?(): void;
+  moves?(): void;
   retry(): void;
   back(): void;
   ready(kit: KitId): void;
@@ -73,6 +74,7 @@ export class Lobby {
       const a = b?.dataset["act"];
       if (a === "play") this.act.play();
       else if (a === "practice") this.act.practice();
+      else if (a === "moves") this.act.moves?.();
       else if (a === "guide") this.act.guide?.();
       else if (a === "retry") this.act.retry();
       else if (a === "back") this.act.back();
@@ -166,6 +168,7 @@ export class Lobby {
     this.content.append(row);
     this.add("p", `Moves: ${baseMoveLabels(this.selected).join(", ")}`, { "data-ui": "moves" });
     this.add("p", practice ? "Awakening: finish the first steps and the practice room fills your meter." : "Awakening: land and take hits to fill the meter, then press Awaken.", { "data-ui": "awakening" });
+    this.add("button", "Moves & ranges", { "data-act": "moves" });
     this.add("button", "Ready", { "data-act": "ready" });
     this.add("button", "Back", { "data-act": "back" });
   }

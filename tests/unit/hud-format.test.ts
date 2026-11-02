@@ -92,7 +92,7 @@ import { MIN_GAP_PX, placeSparringRect, rectGap, validateLayout } from "../../ap
 describe("QU01 skill buttons and block feedback", () => {
   test("short labels, readiness text and equipped names", () => {
     expect(shortSkillLabel("Fault Strike")).toBe("Fault Strike");
-    expect(shortSkillLabel("Undertow Spiral")).toBe("Undertow");
+    expect(shortSkillLabel("Undertow Spiral")).toBe("Undertow Spiral");
     expect(shortSkillLabel("")).toBe("");
     expect(skillStatus("")).toEqual({ ready: true, text: "Ready" });
     expect(skillStatus("3.2")).toEqual({ ready: false, text: "3.2" });

@@ -59,7 +59,7 @@ describe("KeyboardRouter (spec section 11 keys)", () => {
     const p = new IntentSampler(r, 1).sample(5)!;
     expect(p).not.toBeNull();
     expect(Object.keys(p).sort()).toEqual(
-      ["attackHeld", "blockHeld", "chargeHeldSlot", "edges", "epoch", "jumpHeld", "moveX", "moveZ", "pitch", "runHeld", "sampleTick", "seq", "v", "yaw"],
+      ["attackHeld", "blockHeld", "chargeHeldSlot", "edges", "epoch", "facingLock", "jumpHeld", "moveX", "moveZ", "pitch", "runHeld", "sampleTick", "seq", "v", "yaw"],
     );
     expect(p.chargeHeldSlot).toBe(1);
   });

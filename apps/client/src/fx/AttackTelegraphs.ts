@@ -14,14 +14,13 @@ import type { PresentationDeps } from "./index.js";
  */
 
 /** Moves that get a warning: area or directional shapes whose extent is fixed by the definition and the actor pose. */
-export const TELEGRAPHED_MOVES: readonly string[] = ["sv.b1", "sv.b2", "sv.a2", "sv.a3", "td.a3", "ea.b1", "ea.a3", "ea.a4"];
+export const TELEGRAPHED_MOVES: readonly string[] = ["sv.b1", "sv.b2", "sv.b3", "sv.b4", "sv.a4", "td.b1", "td.b2", "td.b3", "td.a1", "td.a2", "sv.a2", "sv.a3", "td.a3", "ea.b1", "ea.b4", "ea.a3", "ea.a4"];
 /**
  * Area moves deliberately left without a warning because the replicated public record cannot identify where the area
  * lands. TODO: add a recipe when the server publishes the field named here.
  */
 export const UNTELEGRAPHED_MOVES: Readonly<Record<string, string>> = {
   "ea.b2": "travel endpoint: the early-end recast tick is not replicated, so the 8 m travel end is unknown",
-  "ea.b4": "detonation point: ground-contact point within 8 m ahead is not replicated",
   "ea.a1": "sweep end and missed-probe blast point are not replicated",
   "ea.a2": "dash stop point (wall or capture) is not replicated",
   "td.a4": "dash stop point (wall or capture) is not replicated",
@@ -117,10 +116,10 @@ export class AttackTelegraphs {
       const p = v as TelegraphPlayer;
       live.add(p.entityId);
       const def = p.moveId && TELEGRAPHED_MOVES.includes(p.moveId) ? DEF_BY_ID.get(p.moveId) : undefined;
-      const phase = p.action === "Windup" || p.action === "Active" ? p.action : null;
+      const phase = p.moveId === "ea.b4" && p.action === "Windup" ? null : p.action === "Windup" || p.action === "Active" ? p.action : null;
       const start = p.actionStartTick ?? 0, end = p.actionEndTick ?? 0;
       const slot = this.byActor.get(p.entityId);
-      if (!def || !phase || o.tick >= end) { if (slot) this.release(slot); continue; }
+      if (!def || !phase || o.tick >= end || (def.id === "ea.b4" && o.surface?.(p.x / 100, p.z / 100, p.y / 100) === null)) { if (slot) this.release(slot); continue; }
       const key = `${p.entityId}:${p.lifeId}:${def.id}:${start}`;
       let s = slot;
       if (s && s.key !== key) {
@@ -135,7 +134,7 @@ export class AttackTelegraphs {
       }
       s.phase = phase;
       if (def.turnRate > 0) s.yaw = fromYaw(p.facingYaw); // the server turns the aim at turnRate, so follow the replicated facing
-      if (def.moveScale > 0) { s.ox = p.x / 100; s.oy = p.y / 100; s.oz = p.z / 100; }
+      if (def.moveScale > 0 || def.id === "ea.b4") { s.ox = p.x / 100; s.oy = p.y / 100; s.oz = p.z / 100; }
       this.draw(s, def, phase === "Windup" ? clamp01((o.tick - start) / Math.max(1, end - start)) : 1, o);
     }
     for (const [actor, s] of [...this.byActor]) if (!live.has(actor)) this.release(s);
@@ -179,7 +178,7 @@ export class AttackTelegraphs {
       const k = animate ? Math.max(0.15, progress) : 1;
       s.fill.scale.set(shape.r * k, 1, shape.r * k);
     } else {
-      let len = shape.kind === "box" ? shape.d : shape.length;
+      let len = def.id === "sv.b1" ? 8 : shape.kind === "box" ? shape.d : shape.length;
       width = shape.kind === "box" ? shape.w : shape.radius * 2;
       if (shape.kind === "beam") {
         ox += fx * BEAM_ORIGIN_FORWARD; oz += fz * BEAM_ORIGIN_FORWARD;

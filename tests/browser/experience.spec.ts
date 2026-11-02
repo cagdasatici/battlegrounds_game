@@ -159,3 +159,24 @@ test("UX04: settings affect live input, graphics status and music, survive closi
     expect(errors).toEqual([]);
   } finally { await ctx.close(); }
 });
+
+test("UX07: move guide explains base and awakened skills without casting; HUD keeps full names", async () => {
+  const { ctx, page, errors } = await open("&name=Arel");
+  try {
+    await page.click("[data-act=practice]"); await page.click("[data-act=ready]");
+    await page.waitForFunction(() => (window as unknown as { __eb?: unknown }).__eb !== undefined, undefined, { timeout: 30000 });
+    await expect(page.locator("[data-control=skill2]")).toContainText("Gravel Flurry");
+    await expect(page.locator("[data-control=skill3]")).toContainText("Reflect");
+    await page.getByRole("button", { name: "Moves & ranges", exact: true }).click();
+    const guide = page.getByRole("dialog", { name: "Moves & ranges", exact: true });
+    await expect(guide.locator("article")).toHaveCount(4);
+    await expect(guide).toContainText("narrow ground wave continues 8 m");
+    await page.screenshot({ path: path.join(outDir, "UX07-move-guide.png") });
+    await guide.getByRole("button", { name: "Awakened", exact: true }).click();
+    await expect(guide).toContainText("20 m wide and 24 m ahead");
+    await page.screenshot({ path: path.join(outDir, "UX07-awakened-guide.png") });
+    await page.keyboard.press("Escape"); await expect(guide).toBeHidden();
+    await page.screenshot({ path: path.join(outDir, "UX07-hud.png") });
+    expect(errors).toEqual([]);
+  } finally { await ctx.close(); }
+});

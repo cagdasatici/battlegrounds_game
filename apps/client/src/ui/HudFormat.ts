@@ -76,9 +76,7 @@ export function stillpointText(remainingTicks: number): string {
 /** Short on-button skill name: whole label up to 12 characters, else its first word (never empty). */
 export function shortSkillLabel(label: string): string {
   const t = label.trim();
-  if (t.length <= 12) return t;
-  const first = t.split(/\s+/)[0] ?? t;
-  return first.length <= 12 ? first : `${first.slice(0, 11)}.`;
+  return t.length <= 24 ? t : `${t.slice(0, 23)}…`;
 }
 
 /** Readiness text for a skill button: "Ready" or the cooldown label. Text and shape, never colour alone. */

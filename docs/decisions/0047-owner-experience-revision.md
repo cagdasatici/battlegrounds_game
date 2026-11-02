@@ -38,3 +38,9 @@ Windup/Active/Recovery windows; a stalled long windup cannot reach contact.
 Rounded core shapes and elbow seams increase the local art allocation for Tide
 and Ember to ≤5,500 medium / ≤3,000 low triangles, within the existing ≤8,000 /
 ≤3,000 project caps. The obsolete pre-QF02/QF03 no-increase assertions are updated.
+
+UX07 adds descriptions and retained danger footprints without modifying combat.
+Fault Strike displays its existing 8 m wave rather than only the 3 m direct box.
+Furnace Drop displays only its current projected ground footprint in Active,
+following replicated movement; it does not predict an unreplicated destination.
+Other unreplicated rush endpoints remain without a guessed area marker.

@@ -12,7 +12,7 @@ const make = () => { const scene = new GameScene({ setSize() {}, render() {}, di
 test("windup warning appears from the replicated phase and progress follows ticks", () => {
   const { t } = make();
   t.sync([P()], O(100));
-  expect(t.snapshot().entries[0]).toMatchObject({ phase: "Windup", progress: 0, kind: "box", length: 3, width: 2 });
+  expect(t.snapshot().entries[0]).toMatchObject({ phase: "Windup", progress: 0, kind: "box", length: 8, width: 2 });
   t.sync([P()], O(112));
   expect(t.snapshot().entries[0]!.progress).toBeCloseTo(0.5);
 });
@@ -96,7 +96,7 @@ test("low quality and Reduced Motion keep the outline and drop the animated fill
     const g = scene.getObjectByName("fx.telegraphs")!.children.find((c) => c.visible)!;
     const [fill, line] = g.children as unknown as [{ scale: { z: number }; material: { opacity: number } }, { visible: boolean }];
     expect(line.visible).toBe(true);
-    expect(fill.scale.z).toBe(3); // full extent, not growing with progress
+    expect(fill.scale.z).toBe(8); // full extent, not growing with progress
     expect(fill.material.opacity).toBeCloseTo(FILL_OPACITY.flat);
     t.sync([], O(106));
   }
@@ -125,4 +125,22 @@ test("QI01: the windup band is a dark saturated fill with a light edge, strongly
   const fill = g.children[0] as unknown as { material: { opacity: number; color: { getHex(): number } } };
   expect(fill.material.opacity).toBeGreaterThanOrEqual(0.4);
   expect(fill.material.color.getHex()).toBe(WINDUP_FILL);
+});
+
+test.each(["sv.b3", "sv.b4", "td.b1", "td.b2", "td.b3", "td.a1", "td.a2", "sv.a4"])("UX07 %s: close move shows a retained footprint and interruption removes it", moveId => {
+  const { t } = make(); t.sync([P({ moveId })], O(105, { lowQuality: true, reducedMotion: true }));
+  expect(t.snapshot().entries[0]?.phase).toBe("Windup");
+  t.sync([P({ moveId, action: "Stunned" })], O(106)); expect(t.activeCount).toBe(0); t.dispose();
+});
+test("UX07 Furnace Drop: no guessed endpoint during windup; active footprint follows actual projected position and disappears over void/death", () => {
+  const { t, scene } = make(); const surface = () => 2;
+  t.sync([P({ moveId: "ea.b4", y: 600 })], O(105, { surface })); expect(t.activeCount).toBe(0);
+  const p = P({ moveId: "ea.b4", action: "Active", y: 600, x: 300 });
+  t.sync([p], O(106, { surface }));
+  expect(t.snapshot().entries[0]).toMatchObject({ kind: "ring", length: 8, width: 8 });
+  const g = scene.getObjectByName("fx.telegraphs")!.children.find(c => c.visible)!;
+  expect(g.position.x).toBe(3); expect(g.position.y).toBeCloseTo(2.06);
+  t.sync([{ ...p, x: 500 }], O(107, { surface })); expect(g.position.x).toBe(5);
+  t.sync([p], O(108, { surface: () => null })); expect(t.activeCount).toBe(0);
+  t.sync([{ ...p, action: "Dead" }], O(109, { surface })); expect(t.activeCount).toBe(0); t.dispose();
 });

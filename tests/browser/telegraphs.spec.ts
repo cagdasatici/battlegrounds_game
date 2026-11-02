@@ -104,6 +104,7 @@ test("QV02: both observers see the authoritative phase warning, a missed windup 
     expect((await tele(B.page)).entries[0]!.progress).toBeGreaterThan(w.entries[0]!.progress);
     cast("Active", "ea.a3");
     await both((t) => t.entries.length === 1 && t.entries[0]!.phase === "Active", "transfer to active in both");
+    await A.page.screenshot({ path: "docs/test-results/UX07-beam-warning.png" });
     // Particle saturation must not erase the retained warning.
     await A.page.evaluate(() => (window as unknown as { __eb: { floodFx(n: number): void } }).__eb.floodFx(900));
     await sleep(200);
@@ -114,6 +115,11 @@ test("QV02: both observers see the authoritative phase warning, a missed windup 
     idle();
     await both((t) => t.active === 0, "interruption removes the warning");
 
+    for (const move of ["sv.b3", "sv.b4", "td.b2"]) {
+      cast("Windup", move); await both(t => t.active === 1 && t.entries[0]!.phase === "Windup", `new footprint ${move}`);
+      await B.page.screenshot({ path: `docs/test-results/UX07-warning-${move}.png` });
+      idle(); await both(t => t.active === 0, "close warning clears");
+    }
     // A short phase the observers never saw as Windup: only Active is drawn, never a retroactive Windup.
     const histBefore = (await tele(B.page)).history.length;
     cast("Active", "sv.b1");

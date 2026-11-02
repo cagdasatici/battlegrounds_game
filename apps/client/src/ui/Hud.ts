@@ -19,6 +19,8 @@ export interface HudState {
   cooldowns?: readonly string[];
   /** Four equipped short skill names for the current form. When given, skill buttons show name and readiness. */
   skills?: readonly string[];
+  skillRoles?: readonly string[];
+  castText?: string;
   /** True for a short window after the server confirmed a block of the local player's guard. */
   blocked?: boolean;
   formText?: string;
@@ -33,7 +35,7 @@ export interface HudState {
   kitMenu?: { kits: readonly { id: string; label: string }[]; current: string; pending: string } | null;
 }
 
-export interface HudBox { id: ControlId; left: number; top: number; width: number; height: number; round: boolean; label: string; sub?: string; ready?: boolean }
+export interface HudBox { id: ControlId; left: number; top: number; width: number; height: number; round: boolean; label: string; sub?: string; ready?: boolean; hint?: string }
 export interface HudModel { boxes: HudBox[]; panel: null | "rotate" | "enlarge"; hpText: string; meterPct: number; awakenReady: boolean; meterText: string }
 
 const LABELS: Record<ControlId, string> = {
@@ -62,6 +64,7 @@ export function hudModel(layout: Layout, st: HudState): HudModel {
     if (slot >= 0 && st.skills) {
       const s = skillStatus(st.cooldowns?.[slot] ?? "");
       box.label = `${slot + 1} ${shortSkillLabel(st.skills[slot] ?? "")}`.trim();
+      const hint = st.skillRoles?.[slot]; if (hint !== undefined) box.hint = hint;
       box.sub = s.text; box.ready = s.ready;
     }
     if (c.id === "block" && st.blocked) { box.label = "Blocked!"; box.ready = true; }
@@ -104,7 +107,7 @@ export class Hud {
   private readonly kitListener: (e: Event) => void;
   private readonly menuListener: (e: Event) => void;
 
-  constructor(parent: HTMLElement, private readonly doc: Document = document, private readonly onKitPick: (kit: string) => void = () => undefined, private readonly onLeave: () => void = () => undefined, private readonly onSettings: () => void = () => undefined) {
+  constructor(parent: HTMLElement, private readonly doc: Document = document, private readonly onKitPick: (kit: string) => void = () => undefined, private readonly onLeave: () => void = () => undefined, private readonly onSettings: () => void = () => undefined, private readonly onMoves: () => void = () => undefined) {
     this.root = doc.createElement("div");
     this.root.className = "eb-hud";
     this.root.style.cssText = "position:fixed;inset:0;pointer-events:none;font:600 13px system-ui;color:#fff";
@@ -133,10 +136,13 @@ export class Hud {
     const settings = Object.assign(doc.createElement("button"), { textContent: "Settings" });
     settings.dataset["settings"] = "1";
     settings.style.cssText = leave.style.cssText;
-    this.menuPanel.append(settings, leave);
+    const moves = Object.assign(doc.createElement("button"), { textContent: "Moves & ranges" });
+    moves.dataset["moves"] = "1"; moves.style.cssText = leave.style.cssText;
+    this.menuPanel.append(moves, settings, leave);
     this.menuListener = (e: Event): void => {
       const d = (e.target as HTMLElement | null)?.dataset;
       if (d?.["leave"]) this.onLeave();
+      else if (d?.["moves"]) this.onMoves();
       else if (d?.["settings"]) this.onSettings();
     };
     this.menuPanel.addEventListener("click", this.menuListener);
@@ -155,7 +161,7 @@ export class Hud {
   }
 
   private renderExtras(st: HudState): void {
-    const line = [st.formText, st.stillpointText].filter((t) => t !== undefined && t !== "").join("   ");
+    const line = [st.castText, st.formText, st.stillpointText].filter((t) => t !== undefined && t !== "").join("   ");
     this.info.style.display = line ? "block" : "none";
     this.info.textContent = line;
     this.badge.style.display = st.blocked ? "block" : "none";
@@ -219,9 +225,10 @@ export class Hud {
       if (b.sub !== undefined) {
         el.replaceChildren(
           Object.assign(this.doc.createElement("span"), { textContent: b.label }),
+          ...(b.hint ? [Object.assign(this.doc.createElement("small"), { textContent: b.hint })] : []),
           Object.assign(this.doc.createElement("span"), { textContent: b.ready ? "Ready" : b.sub }),
         );
-        Object.assign(el.style, { flexDirection: "column", lineHeight: "1.15", fontSize: "10px", whiteSpace: "nowrap", textAlign: "center", overflow: "hidden" });
+        Object.assign(el.style, { flexDirection: "column", lineHeight: "1.15", fontSize: "10px", whiteSpace: "normal", textAlign: "center", overflow: "hidden", padding: "3px" });
         el.style.borderStyle = b.ready ? "solid" : "dashed";
         el.style.borderWidth = b.ready ? "3px" : "2px";
       } else {
