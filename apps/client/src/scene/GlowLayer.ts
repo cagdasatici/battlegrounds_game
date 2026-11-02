@@ -291,7 +291,11 @@ export class GlowLayer {
   update(dtSec: number): void {
     if (!(dtSec > 0)) return;
     const dt = Math.min(dtSec, 0.05), gain = this.soft ? SOFT_SCALE : 1;
-    this.flashes?.step(dt, gain); this.rings?.step(dt, gain); this.streaks?.step(dt, gain);
+    // Crowd dimming: additive flashes and rings stack to white, so a pile-up of overlapping effects (four fighters trading
+    // blows) fades each layer in proportion to how full its pool is instead of blowing the screen out. A lone hit is never dimmed.
+    const fillF = (this.flashes?.alive ?? 0) / Math.max(1, this.flashes?.cap ?? 1), fillR = (this.rings?.alive ?? 0) / Math.max(1, this.rings?.cap ?? 1);
+    const crowdF = 1 / (1 + 2.5 * Math.max(0, fillF - 0.2)), crowdR = 1 / (1 + 1.5 * Math.max(0, fillR - 0.25));
+    this.flashes?.step(dt, gain * crowdF); this.rings?.step(dt, gain * crowdR); this.streaks?.step(dt, gain);
     for (let i = 0; i < this.lights.length; i++) {
       if (!(this.lightAge[i]! < this.lightLife[i]!)) continue;
       const a = this.lightAge[i]! + dt;

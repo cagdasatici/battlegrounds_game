@@ -2,6 +2,8 @@
 // A script plays replicated action phases and server combat events, exactly the inputs production presents. Not shipped.
 import { WebGLRenderer } from "three";
 import { buildIslandsMap } from "../../../packages/shared/src/config/arena.js";
+import { DENSITY, GLOW_BUDGET } from "../../../apps/client/src/scene/GlowLayer.js";
+import { POOL_CAPACITY } from "../../../apps/client/src/scene/EffectsPool.js";
 import { GameScene } from "../../../apps/client/src/scene/GameScene.js";
 import { CombatBus } from "../../../apps/client/src/app/CombatBus.js";
 import { registerPresentation } from "../../../apps/client/src/fx/index.js";
@@ -25,6 +27,8 @@ const dispose = registerPresentation(bus, {
   serverTick: tick, surfaceHeight: (_x, _z, y) => y - 0.9,
 });
 
+/** Point lights of the effects layer that are actually emitting right now. */
+const litLights = (): number => { let n = 0; gs.scene.traverse((o) => { const l = o as unknown as { isLight?: boolean; intensity: number }; if (o.name.startsWith("fx.light.") && l.isLight && l.intensity > 0.001) n++; }); return n; };
 const yawQ = (rad: number): number => Math.round((((rad / (Math.PI * 2)) % 1) + 1) % 1 * 1024) % 1024;
 let seq = 0;
 function place(id: string, kit: Kit, x: number, z: number, yaw: number): void {
@@ -49,13 +53,16 @@ cam(0, 2.6, 12.5, 0, 1.1, 6);
 
 let frames = 0, prev = performance.now();
 // Optional moving Ember Orb: fed to the real ProjectileViews exactly as the game loop feeds replicated projectiles.
+const peak = { calls: 0, triangles: 0 };
 let orb: { x0: number; z: number; t0: number; full: boolean } | null = null;
 const loop = (now: number): void => {
   if (orb) {
     const tk = tick(), x = orb.x0 + ((tk - orb.t0) / 60) * 4;
     gs.projectiles.sync(x > 6 ? [] : [["1", { entityId: 1, ownerId: 1, spawnTick: orb.t0, x: Math.round(x * 100), y: 130, z: Math.round(orb.z * 100), vx: 400, vy: 0, vz: 0, chargeClass: orb.full ? "full" : "light", reflectionCount: 0, remainingTicks: 30 }]], tk, tk + 8);
   }
-  gs.render(Math.min(0.05, (now - prev) / 1000)); prev = now; frames++; requestAnimationFrame(loop);
+  gs.render(Math.min(0.05, (now - prev) / 1000)); prev = now; frames++;
+  const r = renderer.info.render; peak.calls = Math.max(peak.calls, r.calls); peak.triangles = Math.max(peak.triangles, r.triangles);
+  requestAnimationFrame(loop);
 };
 requestAnimationFrame(loop);
 
@@ -75,7 +82,11 @@ requestAnimationFrame(loop);
   idle: (id: string) => { const p = players.get(id)!; p.action = "Idle"; p.moveId = ""; gs.viewFor(id)?.setAction("Idle", "", 0); },
   /** Emits a server combat event on the bus. */
   event: (e: Partial<CombatEvent>) => { emit({ eventId: `e${seq++}`, tick: tick(), kind: "hit", actorId: "sv", targetId: "td", lifeId: 1, ...e } as CombatEvent); },
-  fx: () => ({ active: gs.effects.activeCount, capacity: gs.effects.capacity, glow: (gs.effects as unknown as { glowStats?: () => unknown }).glowStats?.() ?? null }),
+  fx: () => ({ active: gs.effects.activeCount, capacity: gs.effects.capacity, glow: gs.effects.glow.stats(), lit: litLights() }),
+  /** Peak draw calls and triangles of any rendered frame since the last reset (renderer.info is per frame). */
+  peak: () => ({ ...peak }),
+  resetPeak: () => { peak.calls = 0; peak.triangles = 0; },
+  budget: () => ({ glow: GLOW_BUDGET, pool: POOL_CAPACITY, density: DENSITY }),
   shakes: () => shakes.slice(),
   orb: (on: boolean, x0 = -4, z = 6, full = true) => { orb = on ? { x0, z, t0: tick(), full } : null; if (!on) gs.projectiles.sync([], 0, 0); },
   remove: (id: string) => { players.delete(id); gs.removeFighter(id); },

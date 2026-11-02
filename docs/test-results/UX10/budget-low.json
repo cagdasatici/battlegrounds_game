@@ -1,0 +1,28 @@
+{
+ "fixture": "four fighters, 12 abilities cycling, an ability phase per fighter every 120 ms and a staggered hit/block per fighter every 360 ms plus a KO every 2.2 s; SwiftShader desktop Chromium 1100x700",
+ "tier": "low",
+ "steps": 36,
+ "frames": 178,
+ "peak": {
+  "pool": 200,
+  "flashes": 10,
+  "rings": 10,
+  "streaks": 90,
+  "lights": 0,
+  "lit": 0,
+  "calls": 46,
+  "triangles": 36254
+ },
+ "budget": {
+  "drawCalls": 120,
+  "triangles": 300000,
+  "pool": 200,
+  "glow": {
+   "flashes": 10,
+   "rings": 10,
+   "streaks": 90,
+   "lights": 0
+  },
+  "lights": 0
+ }
+}

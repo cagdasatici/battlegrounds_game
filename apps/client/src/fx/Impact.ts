@@ -102,8 +102,8 @@ export function playBlockRipple(fx: EffectsPool, at: Pt, towardAttacker: { x: nu
 /** Finishing blow: oversized flash, three staggered shockwaves, a vertical beam and spark fountain. */
 export function playKoBlast(fx: EffectsPool, i: ImpactInput): void {
   const g = fx.glow, { at, theme } = i;
-  g.flash({ ...at, color: 0xffffff, size: 2.6, grow: 1.6, life: 0.3 });
-  g.flash({ ...at, color: theme.accent, size: 4.2, grow: 1.5, life: 0.5 });
+  g.flash({ ...at, color: 0xffffff, size: 1.8, grow: 1.5, life: 0.28 });
+  g.flash({ ...at, color: theme.accent, size: 2.8, grow: 1.4, life: 0.45 });
   for (let k = 0; k < 3; k++) g.ring({ x: at.x, y: i.groundY + 0.06, z: at.z, color: k === 1 ? theme.core : theme.accent, radius: 3.2 + 1.6 * k, life: 0.5 + 0.12 * k, delay: 0.08 * k });
   g.ring({ ...at, color: theme.core, radius: 2.2, life: 0.35, normal: { x: i.dir?.x ?? 0, y: 0, z: i.dir?.z ?? 1 } });
   const n = scaled(fx, 14, 4);
