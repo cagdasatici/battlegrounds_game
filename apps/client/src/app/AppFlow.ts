@@ -39,12 +39,15 @@ export interface FlowDeps {
 /** 0.5 s, 1 s, 2 s, 4 s, then capped at 8 s. */
 export const retryDelayMs = (attempt: number): number => Math.min(8000, 500 * 2 ** Math.min(attempt, 10));
 
+class AssetError extends Error { constructor(readonly cause0: unknown) { super("assets"); } }
+
 export class AppFlow {
   state: FlowState = { screen: "boot", error: null, canRetry: false };
   /** Which room the current journey targets. Set by play() and practice(); kept across Retry. */
   mode: FlowMode = "play";
   private readonly subs = new Set<(s: FlowState) => void>();
   private loggedIn = false;
+  private assetsReady = false;
   private retries = 0;
   private failed: Step | null = null;
   private busy = false;
@@ -81,7 +84,24 @@ export class AppFlow {
   async start(): Promise<void> {
     this.set("boot");
     if (!this.deps.supported()) { this.failed = null; this.set("error", "UNSUPPORTED", true); return; }
-    await this.run("assets");
+    // QP01: Welcome is interactive without the renderer; assets load on the first Play/Practice/room join (see ensureAssets).
+    const revision = this.revision;
+    try {
+      this.failed = null; this.retries = 0;
+      if (this.deps.sparring && await this.deps.sparring.recover()) this.mode = "sparring";
+    } catch (e) {
+      if (revision === this.revision) this.fail("login", e);
+      return;
+    }
+    if (revision !== this.revision) return;
+    this.set("welcome");
+  }
+
+  /** Loads renderer, physics and the map once (idempotent in the dep). Failure is ASSET_FAILED with Retry. */
+  private async ensureAssets(): Promise<void> {
+    if (this.assetsReady) return;
+    try { await this.deps.loadAssets(); } catch (e) { throw new AssetError(e); }
+    this.assetsReady = true;
   }
 
   private async run(step: Step): Promise<void> {
@@ -89,14 +109,8 @@ export class AppFlow {
     this.busy = true;
     const revision = this.revision;
     try {
-      if (step === "assets") {
-        await this.deps.loadAssets();
-        this.failed = null; this.retries = 0;
-        if (this.deps.sparring && await this.deps.sparring.recover()) this.mode = "sparring";
-        if (revision !== this.revision) return;
-        this.set("welcome");
-        return;
-      }
+      await this.ensureAssets();
+      if (revision !== this.revision) return;
       if (step === "login" && (!this.loggedIn || this.mode === "sparring")) { await this.deps.login(); this.loggedIn = true; }
       if (revision !== this.revision) return;
       await this.deps.join(this.mode, this.target ?? undefined);
@@ -104,7 +118,7 @@ export class AppFlow {
       this.failed = null; this.retries = 0;
       this.set("lobby");
     } catch (e) {
-      if (revision === this.revision) this.fail(step, e);
+      if (revision === this.revision) this.fail(e instanceof AssetError ? "assets" : step, e);
     } finally {
       this.busy = false;
     }
@@ -145,6 +159,7 @@ export class AppFlow {
     this.busy = true;
     const revision = this.revision;
     try {
+      await this.ensureAssets();
       await this.deps.login();
       this.loggedIn = true;
       if (revision !== this.revision) return;
@@ -159,7 +174,7 @@ export class AppFlow {
       try { await this.deps.sparring.end(); } catch { /* nothing held yet */ }
       if (revision === this.revision) {
         const c = e instanceof ClientError ? e.code : null;
-        const code: FlowError = c === "ROOM_FULL" || c === "INVITE_INVALID" || c === "VERSION_MISMATCH" ? c : "SERVER_OFFLINE";
+        const code: FlowError = e instanceof AssetError ? "ASSET_FAILED" : c === "ROOM_FULL" || c === "INVITE_INVALID" || c === "VERSION_MISMATCH" ? c : "SERVER_OFFLINE";
         this.failed = null;
         this.set("error", code, false);
       }
@@ -171,6 +186,7 @@ export class AppFlow {
     this.busy = true;
     const revision = this.revision;
     try {
+      await this.ensureAssets();
       await this.deps.login();
       this.loggedIn = true;
       if (revision !== this.revision) return;
@@ -207,7 +223,7 @@ export class AppFlow {
       await this.deps.sleep(retryDelayMs(this.retries++));
       if (revision !== this.revision) return;
       if (step === null) { await this.start(); return; }
-      await this.run(step);
+      await this.run(step === "assets" ? "login" : step);
     } finally { this.retryPending = false; }
   }
 

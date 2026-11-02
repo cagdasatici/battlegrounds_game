@@ -111,6 +111,7 @@ describe("WEB3 AppFlow one-tap join", () => {
     await f.start();
     const first = f.joinListed(arena);
     await f.joinListed(arena);
+    await new Promise((r) => setTimeout(r, 0)); // assets and login settle before the join is pending
     release(); await first;
     expect(log).toEqual(["login"]);
     await f.joinListed(arena); // now in the lobby: ignored

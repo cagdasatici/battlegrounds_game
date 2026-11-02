@@ -51,11 +51,7 @@ export function isSoftwareRenderer(gl: { getExtension(n: string): unknown; getPa
   } catch { return false; }
 }
 
-export function hasWebGL2(): boolean {
-  try {
-    return !!document.createElement("canvas").getContext("webgl2");
-  } catch { return false; }
-}
+export { hasWebGL2 } from "./webgl.js";
 
 /** Half-width of the shadow frustum in metres: follows the camera pivot so 1024 texels stay sharp near the action. */
 const SHADOW_HALF = 24;

@@ -160,18 +160,18 @@ test.describe("five error states, each with plain text and Retry or Back", () =>
     } finally { await ctx.close(); }
   });
 
-  test("ASSET_FAILED: map file missing, Retry then reaches Welcome", async () => {
-    const ctx = await browser.newContext({ viewport: { width: 1024, height: 768 }, hasTouch: true });
-    const page = await ctx.newPage();
+  test("ASSET_FAILED (QP01: on first Play, Welcome stays light): map file missing, Retry then reaches the lobby", async () => {
+    const { ctx, page } = await open("&name=Arel");
     try {
       let fail = true;
       await page.route((u) => u.pathname.endsWith("islands.v1.json") && !u.search.includes("import"), (r) => (fail ? r.fulfill({ status: 404, body: "no" }) : r.continue()));
-      await page.goto(`${base}/?room=flow`);
+      await page.waitForSelector("[data-act=play]");
+      await page.click("[data-act=play]");
       await expect(errorBox(page)).toHaveAttribute("data-code", "ASSET_FAILED");
       await expect(page.locator("[data-act=retry]")).toBeVisible();
       fail = false;
       await page.click("[data-act=retry]");
-      await expect(page.locator("[data-act=play]")).toBeVisible({ timeout: 15_000 });
+      await expect(page.locator("[data-ui=room-status]")).toBeVisible({ timeout: 15_000 });
     } finally { await ctx.close(); }
   });
 });

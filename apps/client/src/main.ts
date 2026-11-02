@@ -1,5 +1,5 @@
 import "./base.css";
-import { WebGLRenderer } from "three";
+import type { WebGLRenderer } from "three";
 import type { Room } from "@colyseus/sdk";
 import { meterFraction } from "@eb/shared/awakening";
 import { surfaceBelow, parseArenaMap, type ArenaMap } from "@eb/shared/config/arena";
@@ -14,11 +14,9 @@ import { swRegistration } from "./app/registerSw.js";
 import { UpdateWatcher, browserUpdateDeps } from "./app/UpdateWatcher.js";
 import { AppFlow } from "./app/AppFlow.js";
 import { CombatBus } from "./app/CombatBus.js";
-import { registerPresentation } from "./fx/index.js";
-import { rayCoverLength, type AttackTelegraphs } from "./fx/AttackTelegraphs.js";
-import { CaptureCam } from "./fx/CaptureCam.js";
+import type { AttackTelegraphs } from "./fx/AttackTelegraphs.js";
 import { AdaptiveQuality } from "./app/AdaptiveQuality.js";
-import { GameLoop, type LoopPlayer, type LoopState } from "./app/GameLoop.js";
+import type { LoopPlayer, LoopState } from "./app/GameLoop.js";
 import { SettingsStore } from "./app/SettingsStore.js";
 import { computeLayout, placeSparringRect, type Layout } from "./input/ControlLayout.js";
 import { resolveLayout, viewportClass } from "./input/LayoutEdit.js";
@@ -26,10 +24,9 @@ import { attachKeyboardRouter } from "./input/KeyboardRouter.js";
 import { IntentSampler } from "./input/IntentSampler.js";
 import { PointerRouter, attachPointerRouter } from "./input/PointerRouter.js";
 import { ClockSync } from "./net/ClockSync.js";
-import { createRapierCollide, initRapier } from "./net/RapierCollide.js";
 import { RoomClient } from "./net/RoomClient.js";
-import { CameraRig, fighterMarkers, framingOk, projectPoint } from "./scene/CameraRig.js";
-import { GameScene, hasWebGL2, isSoftwareRenderer, type Quality } from "./scene/GameScene.js";
+import { hasWebGL2 } from "./scene/webgl.js";
+import type { GameScene, Quality } from "./scene/GameScene.js";
 import { Hud, readSafeRect } from "./ui/Hud.js";
 import {
   BlockNotice, RejectionNotice, cooldownLabel, equippedSkillNames, formTimerText, meterLabel, respawnSecondsLeft, scoreboardRows, stillpointText,
@@ -41,6 +38,8 @@ import { SettingsPanel } from "./ui/Settings.js";
 
 /** TODO(BOT4C): set from the real Host sparring action's availability once it is wired on this build. */
 const SPARRING_GUIDE_AVAILABLE = false;
+
+type Runtime = typeof import("./gameRuntime.js");
 
 export interface BootOptions {
   /** Invitation consumed from the URL fragment; without it Play shows INVITE_INVALID. */
@@ -77,6 +76,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     for (const c of list.splice(0).reverse()) { try { c(); } catch { /* keep disposing */ } }
   };
 
+  let rt: Runtime | null = null; // QP01: Three/Rapier runtime, loaded on first arena use
   let map: ArenaMap | null = null;
   let gs: GameScene | null = null;
   let glRenderer: WebGLRenderer | undefined; // read only by the opt-in ?debug=1 probe
@@ -184,15 +184,17 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     supported: () => hasWebGL2() && typeof WebAssembly === "object",
     loadAssets: async () => {
       if (map) return;
+      const loaded = rt ?? (rt = await import("./gameRuntime.js"));
+      if (disposed) return;
       const res = await fetch(islandsUrl);
       if (!res.ok) throw new Error("map");
       const m = parseArenaMap(await res.json());
-      await initRapier();
-      const renderer = new WebGLRenderer({ antialias: true });
+      await loaded.initRapier();
+      const renderer = new loaded.WebGLRenderer({ antialias: true });
       canvasHost.append(renderer.domElement);
       glRenderer = renderer;
-      softwareGl = isSoftwareRenderer(renderer.getContext());
-      gs = new GameScene(renderer, m.colliders, window);
+      softwareGl = loaded.isSoftwareRenderer(renderer.getContext());
+      gs = new loaded.GameScene(renderer, m.colliders, window);
       if (softwareGl) gs.setQuality("low");
       await gs.loadEnvironment();
       gs.setCamera({ position: { x: 0, y: 20, z: 40 }, pivot: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0, distance: 40, shoulderOffset: 0 });
@@ -352,8 +354,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   cleanups.push(() => window.removeEventListener("pagehide", dispose));
 
   function enterMatch(kit: KitId): void {
-    const g = gs as GameScene, m = map as ArenaMap, r = room as Room;
-    const kitHandle = createRapierCollide(m);
+    const g = gs as GameScene, m = map as ArenaMap, r = room as Room, R = rt as Runtime;
+    const kitHandle = R.createRapierCollide(m);
     matchCleanups.push(() => kitHandle.dispose());
     const welcome = rc.welcome as WelcomeMessage;
     let showBoard = false, menuOpen = false, kitMenu = false;
@@ -434,18 +436,18 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     matchCleanups.push(attachKeyboardRouter(router, window, canvas));
 
     let telegraphs: AttackTelegraphs | null = null;
-    const cam = new CameraRig(m.colliders);
+    const cam = new R.CameraRig(m.colliders);
     cam.setDistance(settings.get().cameraDistance);
     cam.reducedMotion = settings.get().reducedMotion;
-    matchCleanups.push(registerPresentation(bus, {
+    matchCleanups.push(R.registerPresentation(bus, {
       scene: g.scene, camera: g.camera, players, settings, localId: () => { const me = localOf(); return me ? String(me.entityId) : undefined; },
       surfaceHeight: (x, z, fromY) => surfaceBelow(m.colliders, x, z, fromY),
       effects: g.effects, fighters: (id) => g.viewFor(id), shake: (a, ms) => { cam.shake(a, ms); },
       serverTick: () => Math.floor(clock.serverTick(performance.now()) ?? ((r.state as { serverTick?: number }).serverTick ?? 0)),
-      cover: (ox, oy, oz, fx, fz, max) => rayCoverLength(m.colliders, ox, oy, oz, fx, fz, max),
+      cover: (ox, oy, oz, fx, fz, max) => R.rayCoverLength(m.colliders, ox, oy, oz, fx, fz, max),
       onTelegraphs: (t) => { telegraphs = t; },
     }));
-    const captureCam = new CaptureCam(cam);
+    const captureCam = new R.CaptureCam(cam);
     let capRaf = 0;
     const capFrame = (): void => {
       const me = localOf() as { action?: string; lifeId?: number; connected?: boolean } | undefined;
@@ -454,7 +456,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     };
     capRaf = requestAnimationFrame(capFrame);
     matchCleanups.push(() => { cancelAnimationFrame(capRaf); captureCam.dispose(); });
-    const loop = new GameLoop({
+    const loop = new R.GameLoop({
       scene: g, camera: cam, collide: kitHandle.collide, router, sampler, clock,
       readState: (): LoopState => ({ serverTick: (r.state as { serverTick?: number }).serverTick ?? 0, players: players().entries(), projectiles: (r.state as LoopState).projectiles ?? [], urns: (r.state as LoopState).urns ?? [] }),
       sendInput: (p) => { rc.send("input", p); },
@@ -530,12 +532,12 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
           camera: (() => {
             const f = loop.framing;
             if (!f) return null;
-            const markers = f.opponent ? fighterMarkers(f.opponent) : null;
+            const markers = f.opponent ? R.fighterMarkers(f.opponent) : null;
             const aspect = g.camera.aspect;
             return { offset: cam.shoulderOffset, lift: cam.heightAssist, distance: cam.pose.distance, position: cam.pose.position, pivot: cam.pose.pivot, yaw: router.yaw, local: f.local, opponent: f.opponent, markers,
-              visible: f.opponent ? framingOk(cam.pose, f.local, f.opponent, aspect) : null,
+              visible: f.opponent ? R.framingOk(cam.pose, f.local, f.opponent, aspect) : null,
               screen: markers ? Object.fromEntries(Object.entries(markers).map(([k, v]) => {
-                const q = projectPoint(cam.pose, v, aspect);
+                const q = R.projectPoint(cam.pose, v, aspect);
                 return [k, { x: (q.x + 1) / 2 * window.innerWidth, y: (1 - q.y) / 2 * window.innerHeight, depth: q.depth }];
               })) : null };
           })(),

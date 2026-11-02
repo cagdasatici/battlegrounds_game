@@ -1,0 +1,360 @@
+{
+  "coldWelcome": {
+    "responses": 7,
+    "rawBytes": 377499,
+    "gzipBytes": 118191,
+    "transferBytes": 381924,
+    "jsGzipBytes": 115713,
+    "msToInteractive": 1222,
+    "files": [
+      {
+        "path": "/",
+        "raw": 1017,
+        "gzip": 457,
+        "transfer": 1957
+      },
+      {
+        "path": "/assets/main-ySi_2nfl.css",
+        "raw": 137,
+        "gzip": 136,
+        "transfer": 1123
+      },
+      {
+        "path": "/assets/schemas-_9SXt2jU.js",
+        "raw": 91527,
+        "gzip": 25815,
+        "transfer": 92531
+      },
+      {
+        "path": "/assets/main-DXdES4yn.js",
+        "raw": 282300,
+        "gzip": 89898,
+        "transfer": 283331
+      },
+      {
+        "path": "/asset-manifest.json",
+        "raw": 1061,
+        "gzip": 496,
+        "transfer": 1993
+      },
+      {
+        "path": "/api/version",
+        "raw": 77,
+        "gzip": 95,
+        "transfer": 989
+      },
+      {
+        "path": "/icons/icon-192.png",
+        "raw": 1380,
+        "gzip": 1294,
+        "transfer": 0
+      }
+    ]
+  },
+  "playToFirstFrame": {
+    "responses": 28,
+    "rawBytes": 7108327,
+    "gzipBytes": 2693868,
+    "transferBytes": 3068,
+    "msFromClick": 1199,
+    "files": [
+      {
+        "path": "/assets/gameRuntime-DBAIWqdU.js",
+        "gzip": 1868203
+      },
+      {
+        "path": "/assets/islands.v1-BTPzerRx.json",
+        "gzip": 649
+      },
+      {
+        "path": "/assets/CommonTree_1-BAxmEhF-.bin",
+        "gzip": 215991
+      },
+      {
+        "path": "/assets/Bark_NormalTree-BHT_KRAC.png",
+        "gzip": 20
+      },
+      {
+        "path": "/assets/Bark_NormalTree_Normal-CzhGr8sG.png",
+        "gzip": 20
+      },
+      {
+        "path": "/assets/Leaves_NormalTree_C-Dafwt_uy.png",
+        "gzip": 20
+      },
+      {
+        "path": "/assets/Pine_1-BDl_c5Sx.bin",
+        "gzip": 113661
+      },
+      {
+        "path": "/assets/Leaf_Pine_C-BvhYYSuB.png",
+        "gzip": 20
+      },
+      {
+        "path": "/assets/TwistedTree_2-Cnuh5bIR.bin",
+        "gzip": 297235
+      },
+      {
+        "path": "/assets/Bark_TwistedTree--UJebXGR.png",
+        "gzip": 20
+      },
+      {
+        "path": "/assets/Bark_TwistedTree_Normal-IkP3z86V.png",
+        "gzip": 20
+      },
+      {
+        "path": "/assets/Leaves_TwistedTree_C-Wi_s9B4V.png",
+        "gzip": 20
+      },
+      {
+        "path": "/assets/Bush_Common-DBucVUTX.bin",
+        "gzip": 45127
+      },
+      {
+        "path": "/assets/Fern_1-DFl528tp.bin",
+        "gzip": 7783
+      },
+      {
+        "path": "/assets/Leaves-UmDfXjDS.png",
+        "gzip": 20
+      },
+      {
+        "path": "/assets/Bush_Common_Flowers-rzszlh79.bin",
+        "gzip": 61722
+      },
+      {
+        "path": "/assets/Flowers-C6wAQFpI.png",
+        "gzip": 20
+      },
+      {
+        "path": "/assets/Grass_Common_Short-BDJ3hfmA.bin",
+        "gzip": 4697
+      },
+      {
+        "path": "/assets/Grass-BjaeUlOs.png",
+        "gzip": 20
+      },
+      {
+        "path": "/assets/RockPath_Round_Thin-DF8l7qGU.bin",
+        "gzip": 48920
+      },
+      {
+        "path": "/assets/PathRocks_Diffuse-DGz0Bb5X.png",
+        "gzip": 20
+      },
+      {
+        "path": "/assets/Rock_Medium_1-LvuMFzWi.bin",
+        "gzip": 9079
+      },
+      {
+        "path": "/assets/Rocks_Diffuse-NpCTgUG8.png",
+        "gzip": 20
+      },
+      {
+        "path": "/assets/Rock_Medium_2-BbztjeI_.bin",
+        "gzip": 6465
+      },
+      {
+        "path": "/assets/Rock_Medium_3-DsYJfl49.bin",
+        "gzip": 13772
+      },
+      {
+        "path": "/api/version",
+        "gzip": 95
+      },
+      {
+        "path": "/api/csrf",
+        "gzip": 68
+      },
+      {
+        "path": "/api/join-ticket",
+        "gzip": 161
+      }
+    ]
+  },
+  "p1Cache": {
+    "entries": 34,
+    "rawBytes": 10277561
+  },
+  "warmWelcome": {
+    "msToInteractive": 184,
+    "requestsSeenByPage": 8,
+    "paths": [
+      "/",
+      "/assets/main-DXdES4yn.js",
+      "/assets/schemas-_9SXt2jU.js",
+      "/assets/main-ySi_2nfl.css",
+      "/asset-manifest.json",
+      "/api/version",
+      "/icons/icon-192.png"
+    ]
+  },
+  "cycles": [
+    {
+      "cycle": 1,
+      "heapUsedMB": 13.96,
+      "jsEventListeners": 61,
+      "domNodes": 316,
+      "audioContextsCreated": 2,
+      "audioContextsOpen": 0,
+      "inMatch": {
+        "geometries": 53,
+        "calls": 55,
+        "fxActive": 0,
+        "projectiles": 0,
+        "urns": 8,
+        "players": 2
+      }
+    },
+    {
+      "cycle": 2,
+      "heapUsedMB": 14.16,
+      "jsEventListeners": 61,
+      "domNodes": 316,
+      "audioContextsCreated": 3,
+      "audioContextsOpen": 0,
+      "inMatch": {
+        "geometries": 53,
+        "calls": 55,
+        "fxActive": 0,
+        "projectiles": 0,
+        "urns": 8,
+        "players": 2
+      }
+    },
+    {
+      "cycle": 3,
+      "heapUsedMB": 14.18,
+      "jsEventListeners": 61,
+      "domNodes": 316,
+      "audioContextsCreated": 4,
+      "audioContextsOpen": 0,
+      "inMatch": {
+        "geometries": 53,
+        "calls": 55,
+        "fxActive": 0,
+        "projectiles": 0,
+        "urns": 8,
+        "players": 2
+      }
+    },
+    {
+      "cycle": 4,
+      "heapUsedMB": 14.35,
+      "jsEventListeners": 61,
+      "domNodes": 316,
+      "audioContextsCreated": 5,
+      "audioContextsOpen": 0,
+      "inMatch": {
+        "geometries": 53,
+        "calls": 55,
+        "fxActive": 0,
+        "projectiles": 0,
+        "urns": 8,
+        "players": 2
+      }
+    },
+    {
+      "cycle": 5,
+      "heapUsedMB": 14.39,
+      "jsEventListeners": 61,
+      "domNodes": 316,
+      "audioContextsCreated": 6,
+      "audioContextsOpen": 0,
+      "inMatch": {
+        "geometries": 53,
+        "calls": 55,
+        "fxActive": 0,
+        "projectiles": 0,
+        "urns": 8,
+        "players": 2
+      }
+    },
+    {
+      "cycle": 6,
+      "heapUsedMB": 14.42,
+      "jsEventListeners": 61,
+      "domNodes": 316,
+      "audioContextsCreated": 7,
+      "audioContextsOpen": 0,
+      "inMatch": {
+        "geometries": 53,
+        "calls": 55,
+        "fxActive": 0,
+        "projectiles": 0,
+        "urns": 8,
+        "players": 2
+      }
+    },
+    {
+      "cycle": 7,
+      "heapUsedMB": 14.45,
+      "jsEventListeners": 61,
+      "domNodes": 316,
+      "audioContextsCreated": 8,
+      "audioContextsOpen": 0,
+      "inMatch": {
+        "geometries": 53,
+        "calls": 55,
+        "fxActive": 0,
+        "projectiles": 0,
+        "urns": 8,
+        "players": 2
+      }
+    },
+    {
+      "cycle": 8,
+      "heapUsedMB": 14.72,
+      "jsEventListeners": 61,
+      "domNodes": 316,
+      "audioContextsCreated": 9,
+      "audioContextsOpen": 0,
+      "inMatch": {
+        "geometries": 53,
+        "calls": 55,
+        "fxActive": 0,
+        "projectiles": 0,
+        "urns": 8,
+        "players": 2
+      }
+    },
+    {
+      "cycle": 9,
+      "heapUsedMB": 14.77,
+      "jsEventListeners": 61,
+      "domNodes": 316,
+      "audioContextsCreated": 10,
+      "audioContextsOpen": 0,
+      "inMatch": {
+        "geometries": 53,
+        "calls": 55,
+        "fxActive": 0,
+        "projectiles": 0,
+        "urns": 8,
+        "players": 2
+      }
+    },
+    {
+      "cycle": 10,
+      "heapUsedMB": 14.78,
+      "jsEventListeners": 61,
+      "domNodes": 316,
+      "audioContextsCreated": 11,
+      "audioContextsOpen": 0,
+      "inMatch": {
+        "geometries": 53,
+        "calls": 55,
+        "fxActive": 0,
+        "projectiles": 0,
+        "urns": 8,
+        "players": 2
+      }
+    }
+  ],
+  "serverLog": {
+    "joins": 11,
+    "lefts": 11,
+    "expected": 11
+  },
+  "heapGrowthMB": 0.82
+}

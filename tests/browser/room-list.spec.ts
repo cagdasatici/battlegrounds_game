@@ -90,7 +90,8 @@ test("a listed hosted match appears for another player and joins with one tap; a
     // No bearer or id appears in the page text for the listed row.
     expect(await g.page.locator("[data-ui=room-list]").innerText()).not.toContain(code);
     await row.click();
-    await expect(ready(g.page)).toBeVisible();
+    // QP01: the guest's first join loads the renderer chunk (many unbundled modules under the Vite dev server), so allow for it.
+    await expect(ready(g.page)).toBeVisible({ timeout: 30_000 });
     expect(g.errors).toEqual([]);
   } finally { await h.ctx.close(); await g.ctx.close(); }
 });

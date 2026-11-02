@@ -54,20 +54,33 @@ describe("AppFlow journey (spec section 6)", () => {
       expect(flow.state).toMatchObject({ screen: "error", error: code, canRetry: retry });
     }
   });
-  test("asset failure at boot is ASSET_FAILED with Retry", async () => {
+  test("QP01: Welcome does not load assets; the first Play does, and an asset failure there is ASSET_FAILED with Retry", async () => {
     let n = 0;
-    const { flow } = mk({ loadAssets: async () => { if (n++ === 0) throw new Error("404"); } });
+    const { flow, log } = mk({ loadAssets: async () => { if (n++ === 0) throw new Error("404"); } });
     await flow.start();
-    expect(flow.state).toMatchObject({ screen: "error", error: "ASSET_FAILED", canRetry: true });
-    await flow.retry();
     expect(flow.state.screen).toBe("welcome");
+    expect(n).toBe(0);
+    await flow.play();
+    expect(flow.state).toMatchObject({ screen: "error", error: "ASSET_FAILED", canRetry: true });
+    expect(log).toEqual([]); // no login or join before assets exist
+    await flow.retry();
+    expect(flow.state.screen).toBe("lobby");
+    expect(log).toEqual(["login", "join"]);
+    expect(n).toBe(2);
+  });
+  test("QP01: assets load once across repeated join and leave cycles", async () => {
+    let loads = 0;
+    const { flow } = mk({ loadAssets: async () => { loads++; } });
+    await flow.start();
+    for (let i = 0; i < 3; i++) { await flow.practice(); expect(flow.state.screen).toBe("lobby"); await flow.back(); }
+    expect(loads).toBe(1);
   });
   test("no invitation: Play shows INVITE_INVALID with Back only, no request sent", async () => {
     const { flow, log } = mk({ hasInvite: false });
     await flow.start();
     await flow.play();
     expect(flow.state).toMatchObject({ screen: "error", error: "INVITE_INVALID", canRetry: false });
-    expect(log).toEqual(["assets"]);
+    expect(log).toEqual([]);
     await flow.back();
     expect(flow.state.screen).toBe("welcome");
   });
@@ -119,7 +132,7 @@ describe("AppFlow journey (spec section 6)", () => {
     await a.flow.start();
     await a.flow.practice();
     expect(a.flow.state).toMatchObject({ screen: "error", error: "INVITE_INVALID", canRetry: false });
-    expect(a.log).toEqual(["assets"]);
+    expect(a.log).toEqual([]);
     const modes: string[] = [];
     let n = 0;
     const b = mk({ join: async (m) => { modes.push(m); if (n++ === 0) throw new ClientError("ROOM_FULL", true); } });
