@@ -441,3 +441,137 @@ for (const tier of ["low", "medium"] as const) {
   });
 }
 
+
+
+// ---- QV09: universal attacks and contextual outcomes ----------------------------------------------------------------
+// Real input: the attacker holds the real attack key (M1 chain, block when the defender holds the real guard key) and presses
+// the real dash and guard keys; the server decides every hit, block and dash. Contextual events the keyboard cannot reach in a
+// short test (wall, urn pickup/throw, capture/release, KO, respawn, counter) are server broadcast events on a synthetic fixture.
+const outDir9 = path.join(root, "docs/test-results/QV09");
+for (const tier of ["low", "medium"] as const) {
+  test(`QV09 ${tier}: universal attacks, guard, dash and contextual outcomes read on both clients and drain`, async () => {
+    test.setTimeout(600_000);
+    mkdirSync(outDir9, { recursive: true });
+    const openT = async (name: string, kit: string) => {
+      const ctx = await browser.newContext({ viewport: { width: 1024, height: 768 }, hasTouch: true });
+      await ctx.addInitScript(({ s, spoof }) => {
+        try { for (const n of ["Sven", "Nora", "default"]) localStorage.setItem(`eb.settings.v1.${n}`, JSON.stringify(s)); } catch { /* storage unavailable */ }
+        if (spoof) for (const C of [WebGLRenderingContext, WebGL2RenderingContext]) {
+          const orig = C.prototype.getParameter;
+          C.prototype.getParameter = function (this: WebGLRenderingContext, p: number) { return p === 0x9246 ? "ANGLE (Apple, Apple M-series GPU, Metal) [QV09 fixture]" : orig.call(this, p); } as never;
+        }
+      }, { s: { ...defaultSettings(), quality: tier }, spoof: tier !== "low" });
+      const page = await ctx.newPage(), errors: string[] = [];
+      page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
+      page.on("pageerror", (e) => errors.push(String(e)));
+      const { token } = svc.invites.create({ ttlMs: 120_000, maxUses: 1 });
+      await page.goto(`${base}/?room=match&name=${name}&kit=${kit}&debug=1&auto=1#invite=${token}`);
+      await page.waitForFunction(() => (window as unknown as { __eb?: unknown }).__eb !== undefined, undefined, { timeout: 30_000 });
+      return { ctx, page, errors };
+    };
+    const A = await openT("Sven", "sv"), B = await openT("Nora", "ea");
+    const rep: Record<string, unknown> = { fixture: "real keyboard/mouse input for m1 chain, block, guard, dash; synthetic server broadcast events for contextual rows; SwiftShader desktop Chromium 1024x768", tier };
+    const peaks: Record<string, number> = {};
+    try {
+      await until(async () => (await snap(B.page)).players.filter((p) => p.ready).length === 2, 30000, "both ready");
+      const arena = matchMaker.getLocalRoomById((await matchMaker.query({ name: "arena" }))[0]!.roomId) as unknown as ArenaRoom;
+      const aId = await until(async () => (await snap(A.page)).localEntityId, 10000, "A id"), bId = await until(async () => (await snap(B.page)).localEntityId, 10000, "B id");
+      const place = (id: number, x: number, z: number, yaw: number): void => {
+        const b = arena.movement!.get(id)!, pos = { x, y: ARENA.capsule.centreAboveSurface + 0.02, z };
+        b.rb.setTranslation(pos, true); b.rb.setNextKinematicTranslation(pos); b.state.vx = b.state.vy = b.state.vz = 0; b.state.facingYaw = yaw;
+      };
+      const apply = () => { place(aId, 6, 8, -Math.PI / 2); place(bId, 7.4, 8, Math.PI / 2); for (const id of [aId, bId]) arena.combat.get(id)!.protectedUntilTick = 0; };
+      const full = (p: Page) => snap(p) as unknown as Promise<Snap & { hitMoveIds: string[]; eventCounts: Record<string, number>; render: { calls: number; triangles: number } | null }>;
+      const fxOf = async (p: Page = B.page) => (await snap(p)).fx.active;
+      const fb = arena.combat.get(bId)!;
+      const atk = (await A.page.locator("[data-control=attack]").boundingBox({ timeout: 5000 }))!;
+      const swing = async (on: boolean) => { if (on) { await A.page.mouse.move(atk.x + atk.width / 2, atk.y + atk.height / 2); await A.page.mouse.down(); } else await A.page.mouse.up(); };
+      const shot = async (p: Page, name: string) => { await p.screenshot({ path: path.join(outDir9, `${tier}-${name}.jpg`), type: "jpeg", quality: 82 }); };
+      const track = async (name: string, ms: number, p: Page = B.page) => { // peak pool size over a window
+        const t0 = Date.now(); let m = 0;
+        while (Date.now() - t0 < ms) { m = Math.max(m, await fxOf(p)); await sleep(30); }
+        peaks[name] = Math.max(peaks[name] ?? 0, m);
+        return m;
+      };
+      apply();
+      await A.page.evaluate(() => (window as unknown as { __eb: { setCameraYaw(y: number): void } }).__eb.setCameraYaw(-Math.PI / 2));
+      await B.page.evaluate(() => (window as unknown as { __eb: { setCameraYaw(y: number): void } }).__eb.setCameraYaw(Math.PI / 2));
+      await sleep(1200);
+      await until(async () => (await fxOf()) === 0, 15000, "quiet pool");
+
+      const T = Date.now(); const log = (m: string) => console.log(`[QV09 ${tier}] +${Date.now() - T}ms ${m}`);
+      log("setup done");
+      // 1. Real M1 chain: hold the attack key; the defender is re-placed in range between swings. Server-confirmed move ids prove the steps.
+      await swing(true); log("attack down");
+      const t0 = Date.now(); let seen = new Set<string>(), chainPeak = 0;
+      while (Date.now() - t0 < 14000 && !(seen.has("m1.1") && seen.has("m1.4"))) {
+        fb.hp100 = 10000; apply();
+        chainPeak = Math.max(chainPeak, await fxOf());
+        seen = new Set((await full(A.page)).hitMoveIds.map((m) => m.split(".").slice(0, 2).join(".")));
+        await sleep(60);
+      }
+      log(`chain loop done ${[...seen]}`);
+      await shot(B.page, "m1-chain");
+      await swing(false);
+      expect(seen.has("m1.1"), `server-confirmed m1 steps: ${[...seen]} A=${JSON.stringify((await snap(A.page)).players.map((p) => [p.name, p.action, p.hp100]))}`).toBe(true);
+      peaks["m1 chain"] = chainPeak; rep["m1Seen"] = [...seen];
+      await until(async () => (await fxOf()) === 0, 15000, "chain drains");
+      await sleep(1500); apply(); fb.hp100 = 10000;
+
+      // 2. Real guard: B holds the guard key; the guard cue plays on A's client, then A's real swing is blocked by the server.
+      const bevents = async () => (await full(B.page)).eventCounts;
+      await B.page.keyboard.down("KeyF");
+      await until(async () => (await snap(A.page)).players.find((p) => p.entityId === bId)?.action === "Guard" || null, 8000, "B guarding");
+      await shot(A.page, "guard-raised");
+      const blocks0 = (await bevents())["block"] ?? 0;
+      await swing(true);
+      const t1 = Date.now(); let blockPeak = 0;
+      while (Date.now() - t1 < 12000 && ((await bevents())["block"] ?? 0) === blocks0) { fb.hp100 = 10000; apply(); blockPeak = Math.max(blockPeak, await fxOf()); await sleep(40); }
+      const blocked = ((await bevents())["block"] ?? 0) > blocks0;
+      if (blocked) await shot(B.page, "block");
+      await swing(false); await B.page.keyboard.up("KeyF");
+      expect(blocked, "server confirmed a block from real input").toBe(true);
+      peaks["block"] = blockPeak;
+      await until(async () => (await fxOf()) === 0 && (await fxOf(A.page)) === 0, 15000, "block drains");
+
+      // 3. Real directional dash: A holds forward and presses the dash key; B (observer) sees the streak for the replicated Dash.
+      await B.page.evaluate(() => (window as unknown as { __eb: { setCameraYaw(y: number): void } }).__eb.setCameraYaw(0)); // side view of the pair (they stand along X)
+      apply(); await sleep(800);
+      await A.page.keyboard.down("KeyW"); await A.page.keyboard.press("KeyQ");
+      const dash = await until(async () => { const n = await fxOf(); return n > 0 ? n : false; }, 5000, "dash streak on the observer");
+      await shot(B.page, "dash"); await A.page.keyboard.up("KeyW");
+      peaks["dash"] = dash;
+      await until(async () => (await fxOf()) === 0, 15000, "dash drains");
+
+      // 4. Contextual outcomes the keyboard cannot reach quickly: server broadcast events. Each must show on both clients and drain.
+      apply(); await sleep(800);
+      const server = arena as unknown as { broadcastEvent(t: number, k: string, a: number, b: number | undefined, life: number, move: string | undefined, dmg?: number, extra?: { hitClass?: string }): void };
+      const rows: { name: string; kind: string; move?: string; dmg?: number; target?: number; actor?: number; heavy?: boolean }[] = [
+        { name: "m1.4-hit", kind: "hit", move: "m1.4", dmg: 300 }, { name: "wall", kind: "hit", move: "sv.wall", dmg: 900 }, { name: "pickup", kind: "cast", move: "sv.pickup", target: -1 },
+        { name: "throw", kind: "hit", move: "sv.throw", dmg: 1000 }, { name: "capture", kind: "capture", move: "sv.x2", dmg: 0 }, { name: "release", kind: "release", move: "sv.x2" },
+        { name: "counter", kind: "counter", move: "m1.1", dmg: 0 }, { name: "ko", kind: "ko", move: "m1.4", dmg: 0 }, { name: "respawn", kind: "respawn", actor: bId, target: bId },
+      ];
+      const sel = tier === "medium" ? new Set(["m1.4-hit", "wall", "capture"]) : null;
+      const outcome: { name: string; a: number; b: number }[] = [];
+      for (const r of rows) {
+        if (sel && !sel.has(r.name)) continue;
+        await until(async () => (await fxOf()) === 0 && (await fxOf(A.page)) === 0, 15000, `${r.name} quiet`);
+        const actor = r.actor ?? aId, target = r.target === -1 ? undefined : (r.target ?? bId);
+        const before = await fxOf();
+        server.broadcastEvent(arena.sim.tick, r.kind, actor, target, fb.lifeId, r.move, r.dmg, { hitClass: r.heavy ? "heavy" : "light" });
+        const nb = await until(async () => { const v = await fxOf(); return v > before ? v : false; }, 8000, `${r.name} on B`);
+        const na = await fxOf(A.page);
+        await shot(B.page, r.name);
+        outcome.push({ name: r.name, a: na, b: nb });
+        expect(nb).toBeLessThan(100);
+      }
+      rep["contextual"] = outcome;
+      await until(async () => (await fxOf()) === 0 && (await fxOf(A.page)) === 0, 15000, "everything drains");
+      const s = await full(B.page);
+      rep["render"] = s.render ? { calls: s.render.calls, triangles: s.render.triangles } : null;
+      rep["peaks"] = peaks;
+      writeFileSync(path.join(outDir9, `${tier}-report.json`), JSON.stringify(rep, null, 1));
+      for (const x of [A, B]) expect(x.errors).toEqual([]);
+    } finally { await A.ctx.close(); await B.ctx.close().catch(() => undefined); }
+  });
+}

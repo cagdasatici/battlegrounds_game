@@ -4,7 +4,7 @@ import { EffectsPool, POOL_CAPACITY } from "../../apps/client/src/scene/EffectsP
 import { FighterView } from "../../apps/client/src/scene/FighterView.js";
 import { makeToonRamp } from "../../apps/client/src/scene/FighterModel.js";
 import { CameraRig } from "../../apps/client/src/scene/CameraRig.js";
-import { planFor, playHit, type HitFxIo } from "../../apps/client/src/fx/HitFx.js";
+import { planFor, playHit, scanMotion, universalOf, DASH_PARTS, EVASIVE_PARTS, GUARD_PARTS, type HitFxIo, type MotionSeen } from "../../apps/client/src/fx/HitFx.js";
 import type { CombatEvent } from "../../packages/shared/src/protocol.js";
 
 // `three` resolves only from apps/client, so borrow a Group (an Object3D, which is all the pool needs) from a FighterView.
@@ -141,7 +141,7 @@ describe("HitFx table and playback", () => {
   test("block: shield arc, no flash, small shake for involved local only", () => {
     const t = rig("2");
     playHit(ev({ kind: "block" }), t.io);
-    expect(t.pool.activeCount).toBe(7);
+    expect(t.pool.activeCount).toBe(7 + 5);
     expect(t.calls).toEqual(["shake:0.1:80"]);
   });
   test("counter: gold flash on the countered attacker and hitstop 6 on both", () => {
@@ -165,11 +165,104 @@ describe("HitFx table and playback", () => {
     playHit(ev({ position: undefined }), t.io);
     expect(t.pool.activeCount).toBe(10);
     playHit(ev({ kind: "cast" }), t.io);
-    playHit(ev({ kind: "capture" }), t.io);
+    playHit(ev({ kind: "cast" }), t.io);
     expect(t.pool.activeCount).toBe(10);
     const none = rig();
     none.io.chestOf = () => undefined;
     playHit(ev({ position: undefined }), none.io);
     expect(none.pool.activeCount).toBe(0);
+  });
+});
+
+// ---- QV09: universal attacks and contextual outcomes ---------------------------------------------------------------
+describe("QV09 universal table", () => {
+  const rig = (local?: string) => {
+    const pool = new EffectsPool(); pool.configure(new Scene(), "low");
+    const calls: string[] = [];
+    const f = (id: string) => ({ flash: (c: number, ms: number, l?: number) => calls.push(`flash:${id}:${ms}:${l}`), freeze: (n: number) => calls.push(`freeze:${id}:${n}`) });
+    const io: HitFxIo = { effects: pool, fighterOf: f, chestOf: (id) => ({ x: id === "1" ? 0 : 2, y: 1, z: 0 }), shake: (a, ms) => calls.push(`shake:${a}:${ms}`), flashLevel: () => 0.3, localId: () => local };
+    return { pool, calls, io };
+  };
+  // Every row: the particles one event spawns on the low pool (cap 100), and the side effects. Kit ability ids must stay generic.
+  const rows: { name: string; e: Partial<CombatEvent>; parts: number; calls: string[] }[] = [
+    { name: "m1.1 light", e: { moveId: "m1.1", hitClass: "light" }, parts: 10, calls: ["flash:2:90:0.3"] },
+    { name: "m1.2 slash fan", e: { moveId: "m1.2", hitClass: "light" }, parts: 4 + 10, calls: ["flash:2:90:0.3"] },
+    { name: "m1.3 palm ring", e: { moveId: "m1.3", hitClass: "light" }, parts: 6 + 16, calls: ["flash:2:90:0.3"] },
+    { name: "m1.4 fourth hit", e: { moveId: "m1.4", hitClass: "light" }, parts: 10 + 16 + 16, calls: ["flash:2:140:0.3", "freeze:2:4", "freeze:1:4"] },
+    { name: "m1.4 finisher heavy", e: { moveId: "m1.4.finisher", hitClass: "heavy" }, parts: 10 + 16 + 16, calls: ["flash:2:140:0.3", "freeze:2:4", "freeze:1:4"] },
+    { name: "m1.2 awakened heavy keeps the heavy base", e: { moveId: "m1.2", hitClass: "heavy" }, parts: 24 + 16, calls: ["flash:2:140:0.3", "freeze:2:4", "freeze:1:4"] },
+    { name: "wall", e: { moveId: "sv.wall", hitClass: "light" }, parts: 14 + 16, calls: ["flash:2:120:0.3", "freeze:2:3", "freeze:1:3"] },
+    { name: "urn throw", e: { moveId: "ea.throw", hitClass: "light" }, parts: 12 + 16, calls: ["flash:2:120:0.3", "freeze:2:3", "freeze:1:3"] },
+    { name: "kit ability stays generic", e: { moveId: "sv.b1", hitClass: "light" }, parts: 10, calls: ["flash:2:90:0.3"] },
+    { name: "pickup cast", e: { kind: "cast", moveId: "td.pickup", targetId: undefined }, parts: 8, calls: [] },
+    { name: "plain cast is silent", e: { kind: "cast", moveId: "sv.b1", targetId: undefined }, parts: 0, calls: [] },
+    { name: "capture ring", e: { kind: "capture", moveId: "sv.x2" }, parts: 16, calls: [] },
+    { name: "release burst", e: { kind: "release", moveId: "sv.x2" }, parts: 8 + 16, calls: [] },
+    { name: "respawn column", e: { kind: "respawn", actorId: "2", targetId: "2", moveId: undefined }, parts: 10 + 16, calls: ["flash:2:200:0.3"] },
+    { name: "block adds sparks to the arc", e: { kind: "block", moveId: "m1.1" }, parts: 5 + 7, calls: [] },
+    { name: "counter", e: { kind: "counter" }, parts: 32, calls: ["flash:1:160:0.3", "freeze:2:6", "freeze:1:6"] },
+    { name: "ko", e: { kind: "ko" }, parts: 22, calls: [] },
+  ];
+  test.each(rows)("$name", ({ e, parts, calls }) => {
+    const t = rig(); // no local player: shake never fires here
+    playHit(ev(e), t.io);
+    expect(t.pool.activeCount).toBe(parts);
+    expect(t.calls).toEqual(calls);
+    expect(parts).toBeLessThan(100);
+  });
+  test("duplicate event replays (the bus de-duplicates by eventId, the table does not)", () => {
+    const t = rig(); playHit(ev({ moveId: "m1.3" }), t.io); playHit(ev({ moveId: "m1.3" }), t.io);
+    expect(t.pool.activeCount).toBe(44);
+  });
+  test("shake only for the involved local player and only on shake-bearing outcomes (Reduced Motion zeroes it in CameraRig)", () => {
+    const me = rig("1"); playHit(ev({ moveId: "m1.4" }), me.io); playHit(ev({ moveId: "sv.wall" }), me.io); playHit(ev({ moveId: "m1.1" }), me.io);
+    expect(me.calls.filter((c) => c.startsWith("shake"))).toEqual(["shake:0.3:160", "shake:0.25:150"]);
+    const other = rig("9"); playHit(ev({ moveId: "m1.4" }), other.io);
+    expect(other.calls.some((c) => c.startsWith("shake"))).toBe(false);
+  });
+  test("spray travels away from the attacker", () => {
+    const t = rig(); // attacker chest at x 0, victim at x 2: the fan heads toward +x
+    const vxs: number[] = [];
+    const spawn = t.pool.spawn.bind(t.pool);
+    t.pool.spawn = (p) => { vxs.push(p.vx); return spawn(p); };
+    playHit(ev({ moveId: "m1.2", position: { x: 2, y: 1, z: 0 } }), t.io);
+    expect(vxs.filter((v) => v > 2).length).toBe(10);
+  });
+  test("universalOf recognises only m1 steps and shared context moves", () => {
+    expect(["m1.1", "m1.4.finisher", "sv.wall", "td.pickup", "ea.throw"].map(universalOf)).toEqual(["m1.1", "m1.4", "wall", "pickup", "throw"]);
+    expect(["sv.b1", "sv.x3", "wall", "m1.5", "xx.wall", undefined].map(universalOf)).toEqual([undefined, undefined, undefined, undefined, undefined, undefined]);
+  });
+});
+
+describe("QV09 replicated-state cues", () => {
+  const mk = () => { const pool = new EffectsPool(); pool.configure(new Scene(), "low"); return pool; };
+  const P = (o: Record<string, unknown>) => ({ x: 0, y: 100, z: 0, vx: 0, vz: 0, facingYaw: 0, action: "Idle", moveId: "", actionStartTick: 0, ...o });
+  test("each dash kind plays once per start; evasive is larger; guard plays on entry only", () => {
+    const pool = mk(), seen = new Map<string, MotionSeen>();
+    const players = new Map<string, unknown>([["1", P({})]]);
+    scanMotion(pool, players, seen);
+    expect(pool.activeCount).toBe(0);
+    for (const [move, n] of [["dash.forward", DASH_PARTS], ["dash.side", DASH_PARTS], ["dash.back", DASH_PARTS], ["evasive", EVASIVE_PARTS]] as const) {
+      for (let k = 0; k < 40; k++) pool.update(0.05); // drain
+      players.set("1", P({ action: "Dash", moveId: move, actionStartTick: 10 }));
+      scanMotion(pool, players, seen); scanMotion(pool, players, seen);
+      expect(pool.activeCount).toBe(n);
+      players.set("1", P({ action: "Idle" })); scanMotion(pool, players, seen);
+    }
+    for (let k = 0; k < 40; k++) pool.update(0.05);
+    players.set("1", P({ action: "Dash", moveId: "dash.forward", actionStartTick: 40 })); scanMotion(pool, players, seen);
+    expect(pool.activeCount).toBe(DASH_PARTS); // a new start replays
+    for (let k = 0; k < 40; k++) pool.update(0.05);
+    players.set("1", P({ action: "Guard" })); scanMotion(pool, players, seen); scanMotion(pool, players, seen);
+    expect(pool.activeCount).toBe(GUARD_PARTS);
+  });
+  test("a player who leaves is forgotten; particles all expire", () => {
+    const pool = mk(), seen = new Map<string, MotionSeen>();
+    scanMotion(pool, new Map([["1", P({ action: "Guard" })]]), seen);
+    expect(seen.size).toBe(1);
+    scanMotion(pool, new Map(), seen);
+    expect(seen.size).toBe(0);
+    for (let k = 0; k < 40; k++) pool.update(0.05);
+    expect(pool.activeCount).toBe(0);
   });
 });

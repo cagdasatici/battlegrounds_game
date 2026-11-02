@@ -1,0 +1,36 @@
+{
+ "fixture": "real keyboard/mouse input for m1 chain, block, guard, dash; synthetic server broadcast events for contextual rows; SwiftShader desktop Chromium 1024x768",
+ "tier": "medium",
+ "m1Seen": [
+  "m1.1",
+  "m1.2",
+  "m1.3",
+  "m1.4"
+ ],
+ "contextual": [
+  {
+   "name": "m1.4-hit",
+   "a": 42,
+   "b": 42
+  },
+  {
+   "name": "wall",
+   "a": 30,
+   "b": 30
+  },
+  {
+   "name": "capture",
+   "a": 16,
+   "b": 16
+  }
+ ],
+ "render": {
+  "calls": 58,
+  "triangles": 59570
+ },
+ "peaks": {
+  "m1 chain": 64,
+  "block": 0,
+  "dash": 8
+ }
+}

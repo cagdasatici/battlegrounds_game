@@ -25,6 +25,9 @@ describe("damage formatting", () => {
   test("heal, block, counter words", () => {
     expect(textsFor(ev({ kind: "heal", targetId: "2", damage100: 500 }), S, "1", name)[0]).toMatchObject({ text: "+5", color: "#4dff88", anchorId: "2" });
     expect(textsFor(ev({ kind: "block" }), S, "1", name)[0]).toMatchObject({ text: "BLOCK", color: "#9fd8ff", lifeMs: 700, anchorId: "2" });
+    expect(textsFor(ev({ kind: "capture" }), S, "1", name)[0]).toMatchObject({ kind: "capture", text: "CAUGHT", anchorId: "2" });
+    expect(textsFor(ev({ kind: "release" }), S, "1", name)[0]).toMatchObject({ kind: "release", text: "FREE", anchorId: "2" });
+    expect(textsFor(ev({ kind: "capture", targetId: undefined }), S, "1", name)).toEqual([]);
     expect(textsFor(ev({ kind: "counter", actorId: "2", targetId: "1" }), S, "1", name)[0]).toMatchObject({ text: "COUNTER!", color: "#ffcc33", bold: true, anchorId: "2", lifeMs: 1000 });
   });
   test("damageNumbers off hides numbers but keeps words", () => {

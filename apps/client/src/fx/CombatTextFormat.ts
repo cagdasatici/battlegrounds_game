@@ -41,7 +41,7 @@ export function formatNumber(v100: number): string {
   return Number.isInteger(v) ? String(v) : v.toFixed(1);
 }
 
-export type TextKind = "hit" | "heal" | "block" | "counter" | "cast" | "castSelf" | "ko";
+export type TextKind = "hit" | "heal" | "block" | "counter" | "cast" | "castSelf" | "ko" | "capture" | "release";
 export interface TextSpec {
   kind: TextKind;
   text: string;
@@ -83,6 +83,11 @@ export function textsFor(e: CombatEvent, s: TextSettings, localId: string | unde
     case "counter":
       // The counterer is the actor of a counter event.
       return [{ ...base, kind: "counter", text: "COUNTER!", color: "#ffcc33", bold: true, lifeMs: 1000, anchorId: e.actorId }];
+    // QV09: seizure and release read as short tags over the held fighter, so a capture is not mistaken for a miss.
+    case "capture":
+      return e.targetId === undefined ? [] : [{ ...base, kind: "capture", text: "CAUGHT", color: "#bfe8ff", lifeMs: 700, anchorId: e.targetId }];
+    case "release":
+      return e.targetId === undefined ? [] : [{ ...base, kind: "release", text: "FREE", color: "#e8f4ff", lifeMs: 600, anchorId: e.targetId }];
     case "cast": {
       const label = abilityLabel(e.moveId);
       if (label === undefined) return [];
