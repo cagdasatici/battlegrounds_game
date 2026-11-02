@@ -5,6 +5,7 @@ import { SparringDirectory } from "./SparringDirectory.js";
 import { JoinTicketStore } from "./JoinTicketStore.js";
 import { AdminAuth } from "../admin/AdminAuth.js";
 import { AtomicJsonStore } from "./AtomicJsonStore.js";
+import type { Difficulty } from "@eb/shared/sparring";
 import type { Announcement } from "@eb/shared/admin";
 
 export interface AuthConfig {
@@ -36,7 +37,7 @@ export interface AuthServices {
   admin: AdminAuth | null;
   startedAt: number;
   /** Admin overrides for arena rooms (display name, listed). TODO: persist when rooms must survive a restart. */
-  roomMeta: Map<string, { name: string; listed: boolean }>;
+  roomMeta: Map<string, { name: string; listed: boolean; bots?: Difficulty[] }>;
   announcement: { get(): Announcement | null; set(a: Announcement | null): void };
   /** Set by createGameServer: live seated humans and capacity of the room for a code (0 seated when no room is live). */
   occupancy: (roomName: string, roomCode: string) => { players: number; capacity: number };

@@ -1,7 +1,8 @@
 import { Server, matchMaker } from "colyseus";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import { ARENA_ROOM_NAME, MAX_CLIENTS, PRACTICE_ROOM_NAME } from "@eb/shared/protocol";
-import { ArenaRoom, setArenaAuth } from "./rooms/ArenaRoom.js";
+import { setArenaAuth } from "./rooms/ArenaRoom.js";
+import { BotArenaRoom } from "./rooms/BotArenaRoom.js";
 import { SparringRoom } from "./rooms/SparringRoom.js";
 import { SPARRING_ROOM_NAME } from "@eb/shared/sparring";
 import { registerSparringRoutes } from "./http/sparringRoutes.js";
@@ -41,7 +42,7 @@ export function createGameServer(auth: AuthServices, opts: { staticDir?: string 
     },
   });
   // Joining requires a ticket (onAuth); filterBy keeps each private room code in its own room.
-  server.define(ARENA_ROOM_NAME, ArenaRoom).filterBy(["roomCode"]);
+  server.define(ARENA_ROOM_NAME, BotArenaRoom).filterBy(["roomCode"]);
   // Practice: one player and a dummy per room; the matchmaker derives a private code per session (sessionRoutes).
   server.define(PRACTICE_ROOM_NAME, PracticeRoom).filterBy(["roomCode"]);
   server.define(SPARRING_ROOM_NAME, SparringRoom).filterBy(["roomCode"]);

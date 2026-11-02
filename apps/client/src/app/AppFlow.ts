@@ -128,7 +128,6 @@ export class AppFlow {
   async play(): Promise<void> {
     if (this.busy || this.state.screen !== "welcome") return;
     this.mode = this.deps.sparring?.guest || this.mode === "sparring" ? "sparring" : "play";
-    if (!this.deps.hasInvite && !this.loggedIn && this.mode !== "sparring") { this.failed = null; this.set("error", "INVITE_INVALID", false); return; }
     await this.run("login");
   }
 
@@ -136,7 +135,6 @@ export class AppFlow {
   async practice(): Promise<void> {
     if (this.busy || this.state.screen !== "welcome") return;
     this.mode = "practice";
-    if (!this.deps.hasInvite && !this.loggedIn) { this.failed = null; this.set("error", "INVITE_INVALID", false); return; }
     await this.run("login");
   }
 

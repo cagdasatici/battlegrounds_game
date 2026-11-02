@@ -1,3 +1,4 @@
+import type { Difficulty } from "@eb/shared/sparring";
 import {
   AdminInviteRowSchema, AdminLoginResponseSchema, AdminRoomRowSchema, AdminSessionRowSchema, AdminStatusSchema, AnnouncementResponseSchema,
   type AdminInviteRow, type AdminRoomRow, type AdminSessionRow, type AdminStatus, type Announcement,
@@ -18,7 +19,7 @@ export interface AdminApi {
   sessions(): Promise<AdminSessionRow[]>;
   revokeSession(id: string): Promise<void>;
   rooms(): Promise<AdminRoomRow[]>;
-  createRoom(name: string): Promise<AdminRoomRow>;
+  createRoom(name: string, bots?: Difficulty[]): Promise<AdminRoomRow>;
   setListed(code: string, listed: boolean): Promise<void>;
   closeRoom(code: string): Promise<void>;
   announcement(): Promise<Announcement | null>;
@@ -54,7 +55,7 @@ export function createAdminApi(onUnauthorized: () => void, f: Fetch = (i, o) => 
     async sessions() { return AdminSessionRowSchema.array().parse(obj(await call("GET", "/sessions"))["sessions"]); },
     async revokeSession(id) { await call("DELETE", `/sessions/${encodeURIComponent(id)}`); },
     async rooms() { return AdminRoomRowSchema.array().parse(obj(await call("GET", "/rooms"))["rooms"]); },
-    async createRoom(name) { return AdminRoomRowSchema.parse(await call("POST", "/rooms", { name })); },
+    async createRoom(name, bots = []) { return AdminRoomRowSchema.parse(await call("POST", "/rooms", { name, bots })); },
     async setListed(code, listed) { await call("PATCH", `/rooms/${encodeURIComponent(code)}`, { listed }); },
     async closeRoom(code) { await call("DELETE", `/rooms/${encodeURIComponent(code)}`); },
     async announcement() { return AnnouncementResponseSchema.parse(await call("GET", "/announcement")).announcement; },

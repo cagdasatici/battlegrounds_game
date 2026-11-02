@@ -30,7 +30,7 @@ export function registerAdminRoutes(app: HttpApp, svc: AuthServices, contentHash
     .filter(([, name]) => name === ARENA_ROOM_NAME)
     .map(([roomCode, name]) => {
       const meta = svc.roomMeta.get(roomCode);
-      return { roomCode, name: meta?.name ?? label(roomCode), kind: "arena" as const, players: svc.occupancy(name, roomCode).players, bots: 0, listed: meta?.listed ?? true };
+      return { roomCode, name: meta?.name ?? label(roomCode), kind: "arena" as const, players: svc.occupancy(name, roomCode).players, bots: meta?.bots?.length ?? 0, listed: meta?.listed ?? true };
     });
   const sparRows = (): AdminRoomRow[] => svc.sparring.all().map((m, i) => ({
     roomCode: m.roomCode, name: `Sparring ${i + 1}`, kind: "sparring" as const, players: m.humans, bots: m.bots, listed: m.listed,
@@ -136,8 +136,8 @@ export function registerAdminRoutes(app: HttpApp, svc: AuthServices, contentHash
     if (!p.success) return bad(res);
     const roomCode = `a-${randomBytes(4).toString("hex")}`;
     config.roomCodes[roomCode] = ARENA_ROOM_NAME;
-    svc.roomMeta.set(roomCode, { name: p.data.name, listed: true });
-    send(res, 201, { roomCode, name: p.data.name, kind: "arena", players: 0, bots: 0, listed: true } satisfies AdminRoomRow);
+    svc.roomMeta.set(roomCode, { name: p.data.name, listed: true, bots: p.data.bots });
+    send(res, 201, { roomCode, name: p.data.name, kind: "arena", players: 0, bots: p.data.bots.length, listed: true } satisfies AdminRoomRow);
   });
   app.delete(`${PREFIX}/rooms/:code`, async (req, res) => {
     if (!guard(req, res, true)) return;
@@ -161,7 +161,7 @@ export function registerAdminRoutes(app: HttpApp, svc: AuthServices, contentHash
     const code = lastSegment(req);
     if (svc.sparring.setListed(code, p.data.listed)) return send(res, 200, { roomCode: code, listed: p.data.listed });
     if (!Object.hasOwn(config.roomCodes, code) || config.roomCodes[code] !== ARENA_ROOM_NAME) return notFound(res);
-    svc.roomMeta.set(code, { name: svc.roomMeta.get(code)?.name ?? label(code), listed: p.data.listed });
+    svc.roomMeta.set(code, { ...svc.roomMeta.get(code), name: svc.roomMeta.get(code)?.name ?? label(code), listed: p.data.listed });
     send(res, 200, { roomCode: code, listed: p.data.listed });
   });
 

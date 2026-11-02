@@ -16,7 +16,7 @@ export function listRooms(svc: AuthServices): RoomSummary[] {
     const meta = svc.roomMeta.get(roomCode);
     if (meta && !meta.listed) continue;
     const o = svc.occupancy(roomName, roomCode);
-    rooms.push({ roomCode, name: meta?.name ?? label(roomCode), kind: "arena", players: o.players, capacity: o.capacity, bots: 0 });
+    rooms.push({ roomCode, name: meta?.name ?? label(roomCode), kind: "arena", players: o.players, capacity: 4, bots: meta?.bots?.length ?? 0 });
   }
   let n = 0;
   for (const m of svc.sparring.listed()) {

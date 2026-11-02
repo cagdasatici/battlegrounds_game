@@ -176,6 +176,26 @@ test("rooms: create a named listed arena room, list it publicly, toggle listing,
   expect(h.svc.sparring.describe(sp)).toBeNull();
 });
 
+test("admin bots: strict config, real client sees bots and reserved human capacity", async () => {
+  for (const bots of [["impossible"], ["easy", "easy", "easy", "easy"]]) {
+    expect((await call("/api/admin/rooms", "POST", { name: "Invalid", bots })).status).toBe(400);
+  }
+  const r = await call("/api/admin/rooms", "POST", { name: "Bot arena", bots: ["easy", "hard", "medium"] });
+  expect(r.status).toBe(201);
+  const made = await r.json() as { roomCode: string; bots: number };
+  expect(made.bots).toBe(3);
+  const c = await loginClient(h, "Bot tester");
+  const room = await c.join(made.roomCode);
+  await waitFor(() => (room.state as { players: Map<string, unknown> }).players?.size === 4, 3000, "three bots and human");
+  expect((await c.listRooms()).find(x => x.roomCode === made.roomCode)).toMatchObject({ bots: 3, capacity: 4, players: 1 });
+  const other = await loginClient(h, "No space");
+  await expect(other.join(made.roomCode)).rejects.toThrow();
+  expect((await call(`/api/admin/rooms/${made.roomCode}`, "PATCH", { listed: false })).status).toBe(200);
+  expect(h.svc.roomMeta.get(made.roomCode)?.bots).toEqual(["easy", "hard", "medium"]);
+  await c.leave();
+  await call(`/api/admin/rooms/${made.roomCode}`, "DELETE");
+});
+
 test("announcement: set, public read, clear, expiry, length and strictness", async () => {
   expect(((await (await call("/api/announcement", "GET", undefined, { cookie: "", csrf: null })).json()) as { announcement: unknown }).announcement).toBeNull();
   expect((await call("/api/admin/announcement", "PUT", { text: "x".repeat(201) })).status).toBe(400);

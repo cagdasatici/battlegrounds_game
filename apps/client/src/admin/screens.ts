@@ -166,7 +166,15 @@ export const mountRooms: Mount = (root, api) => {
   const l = el(f.doc, "label", "Room name "); l.append(name);
   const create = el(f.doc, "button", "Create room"); create.type = "submit";
   const list = el(f.doc, "ul");
-  form.append(l, create); f.body.append(form, list);
+  const botLabel = el(f.doc, "label", "Bots ");
+  const count = el(f.doc, "select"); count.name = "bots";
+  for (let n = 0; n <= 3; n++) { const o = el(f.doc, "option", String(n)); o.value = String(n); count.append(o); }
+  botLabel.append(count);
+  const difficultyLabel = el(f.doc, "label", "Bot difficulty ");
+  const difficulty = el(f.doc, "select"); difficulty.name = "difficulty";
+  for (const value of ["easy", "medium", "hard"]) { const o = el(f.doc, "option", value); o.value = value; difficulty.append(o); }
+  difficultyLabel.append(difficulty);
+  form.append(l, botLabel, difficultyLabel, el(f.doc, "p", "Four fighters maximum, including bots. Close a room to change its opponents."), create); f.body.append(form, list);
   const load = (): void => f.busy("load", async () => {
     try {
       const rows = await api.rooms();
@@ -184,7 +192,7 @@ export const mountRooms: Mount = (root, api) => {
     e.preventDefault();
     f.busy("create", async () => {
       create.disabled = true;
-      try { await api.createRoom(name.value.trim()); name.value = ""; load(); } catch { fail(f, "Creating the room"); }
+      try { await api.createRoom(name.value.trim(), Array.from({ length: Number(count.value) }, () => difficulty.value as "easy" | "medium" | "hard")); name.value = ""; load(); } catch { fail(f, "Creating the room"); }
       if (f.alive()) create.disabled = false;
     });
   }, { signal: f.events.signal });

@@ -121,6 +121,7 @@ export class Lobby {
       this.add("button", "How to play", { "data-act": "guide" });
       this.add("button", "Practice", { "data-act": "practice" });
       this.add("button", "Settings", { "data-act": "settings" });
+      this.add("a", "Admin · manage rooms", { href: "/admin.html", "data-ui": "admin-link" });
       if (view.updateVisible) this.add("button", "Update", { "data-act": "update" });
       return;
     }

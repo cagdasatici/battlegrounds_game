@@ -75,12 +75,12 @@ describe("AppFlow journey (spec section 6)", () => {
     for (let i = 0; i < 3; i++) { await flow.practice(); expect(flow.state.screen).toBe("lobby"); await flow.back(); }
     expect(loads).toBe(1);
   });
-  test("no invitation: Play shows INVITE_INVALID with Back only, no request sent", async () => {
-    const { flow, log } = mk({ hasInvite: false });
+  test("bookmark without invitation: Play validates the saved session on the server", async () => {
+    const { flow, log } = mk({ hasInvite: false, join: async () => { throw new ClientError("INVITE_INVALID", false); } });
     await flow.start();
     await flow.play();
     expect(flow.state).toMatchObject({ screen: "error", error: "INVITE_INVALID", canRetry: false });
-    expect(log).toEqual([]);
+    expect(log).toEqual(["assets", "login"]);
     await flow.back();
     expect(flow.state.screen).toBe("welcome");
   });
@@ -127,12 +127,12 @@ describe("AppFlow journey (spec section 6)", () => {
     expect(modes).toEqual(["practice", "play"]);
     expect(log.filter((l) => l === "login")).toHaveLength(1);
   });
-  test("Practice without an invitation shows INVITE_INVALID and makes no request; Retry keeps practice mode", async () => {
-    const a = mk({ hasInvite: false });
+  test("Practice from a bookmark validates session; Retry keeps practice mode", async () => {
+    const a = mk({ hasInvite: false, login: async () => { throw new ClientError("INVITE_INVALID", false); } });
     await a.flow.start();
     await a.flow.practice();
     expect(a.flow.state).toMatchObject({ screen: "error", error: "INVITE_INVALID", canRetry: false });
-    expect(a.log).toEqual([]);
+    expect(a.log).toEqual(["assets"]);
     const modes: string[] = [];
     let n = 0;
     const b = mk({ join: async (m) => { modes.push(m); if (n++ === 0) throw new ClientError("ROOM_FULL", true); } });

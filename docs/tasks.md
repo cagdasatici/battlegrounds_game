@@ -162,3 +162,15 @@ Execute one row per session using [the Quality 90 instructions](quality-90-plan.
 | QD01 | Two-iPad acceptance and human playtest | QP02 QW01 | BLOCKED | | docs/test-results/QD01.md | Missing: two physical iPads and two human players (owner-run). All automated prerequisites implemented. Recording sheet prepared 2026-11-02; device evidence and blind stimuli/answer key still pending |
 | FLAKE1 | Browser debug-probe and load flakes | QP02 | DONE | 8e46984 | docs/test-results/FLAKE1.md |
 | QR01 | Measured score and release verdict | QD01 | BLOCKED | | docs/test-results/QR01.md | Missing: QD01 device and playtest results |
+
+## Owner experience revision (approved 2026-11-02)
+
+| Task | Title | Depends on | Status | Commit | Test report |
+|---|---|---|---|---|---|
+| UX01 | Discoverable admin and configurable bot rooms | WEB5 BOT4 | IMPLEMENTED (DEVICE CHECK PENDING) | see git log UX01 | docs/test-results/UX01.md |
+| UX02 | Add opponents from practice | UX01 | TODO | | docs/test-results/UX02.md |
+| UX03 | Menu and settings visual redesign | UX02 | TODO | | docs/test-results/UX03.md |
+| UX04 | Settings runtime and feedback | UX03 | TODO | | docs/test-results/UX04.md |
+| UX05 | Environment graphics refinement | UX04 | TODO | | docs/test-results/UX05.md |
+| UX06 | Character joints and movement refinement | UX05 | TODO | | docs/test-results/UX06.md |
+| UX07 | Ability descriptions and area readability | UX06 | TODO | | docs/test-results/UX07.md |

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DifficultySchema } from "./sparring.js";
 
 /** WEB4 admin contracts. Every request is strict; responses never carry tokens, hashes or full session ids. */
 export const ADMIN_COOKIE = "eb_admin";
@@ -9,7 +10,7 @@ export const AdminInviteCreateSchema = z.strictObject({
   ttlHours: z.number().int().min(1).max(24 * 30),
   maxUses: z.number().int().min(1).max(100),
 });
-export const AdminRoomCreateSchema = z.strictObject({ name: z.string().trim().min(1).max(32) });
+export const AdminRoomCreateSchema = z.strictObject({ name: z.string().trim().min(1).max(32), bots: z.array(DifficultySchema).max(3).default([]) });
 export const AdminRoomPatchSchema = z.strictObject({ listed: z.boolean() });
 /** Empty text clears the announcement. */
 export const AdminAnnouncementPutSchema = z.strictObject({
