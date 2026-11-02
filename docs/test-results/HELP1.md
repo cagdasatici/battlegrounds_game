@@ -36,3 +36,5 @@ HELP1 code (`7cfc40d`, also integrated as `0c4807c`) is an ancestor of main; the
 - content:validate: not re-run (no data changed).
 - No dedicated unit test file exists for HowToPlay; coverage is the browser spec only (controls, mappings, sparring flag, cleanup).
 - Physical iPad checks: NOT RUN (DEV1).
+
+Reconciliation commit: `76aff3e`.
