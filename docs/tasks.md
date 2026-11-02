@@ -153,7 +153,7 @@ Execute one row per session using [the Quality 90 instructions](quality-90-plan.
 | QV06 | Vanguard ability and awakening coverage | QI01 QV01 QV03 | IMPLEMENTED (DEVICE CHECK PENDING) | 06dc60a | docs/test-results/QV06.md | Delegated assessment, decision 0036. Fault Strike flash carried item shown |
 | QV07 | Duelist ability and awakening coverage | QF02 QV04 | DONE | eaf39b8 | docs/test-results/QV07.md |
 | QV08 | Artificer ability and awakening coverage | QF03 QV05 ORB2 | IMPLEMENTED (DEVICE CHECK PENDING) | 7971e5e, cc4b33a | docs/test-results/QV08.md |
-| QV09 | Universal attacks and contextual outcomes | QV01 QV06 QV07 QV08 | IMPLEMENTED, DEVICE CHECK PENDING | HASH | docs/test-results/QV09.md |
+| QV09 | Universal attacks and contextual outcomes | QV01 QV06 QV07 QV08 | IMPLEMENTED, DEVICE CHECK PENDING | 00afaca | docs/test-results/QV09.md |
 | QS01 | Original kit and defensive audio | QV09 | TODO | | docs/test-results/QS01.md |
 | QU01 | Touch HUD and first match | QC01 QA01 | IMPLEMENTED (DEVICE CHECK PENDING) | 511e38b | docs/test-results/QU01.md |
 | QP01 | Production load and join cycles | QE02 QF03 QV09 QS01 QU01 | TODO | | docs/test-results/QP01.md |
