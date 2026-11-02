@@ -32,7 +32,7 @@ describe("T18a GameScene", () => {
     // T25: one mesh per collider id, plus merged decoration meshes named "deco.*" (sky, clouds, cover, islets).
     const ids = new Set(colliders.map((c) => c.id));
     expect([...names].filter((n) => ids.has(n)).length).toBe(colliders.length);
-    for (const n of names) expect(ids.has(n) || n.startsWith("deco.") || n === "fx.pool").toBe(true); // FX1: the pooled particle mesh
+    for (const n of names) expect(ids.has(n) || n.startsWith("deco.") || n === "fx.pool" || n.startsWith("fx.glow.")).toBe(true); // FX1: pooled particle mesh; UX10: GlowLayer flash/ring/spark meshes
     gs.dispose();
   });
 
