@@ -5,7 +5,7 @@ import { EffectsPool, POOL_CAPACITY } from "../../apps/client/src/scene/EffectsP
 import { FighterView } from "../../apps/client/src/scene/FighterView.js";
 import { makeToonRamp } from "../../apps/client/src/scene/FighterModel.js";
 import { LOW_QUALITY_CAP, decalRadiusFor, recipeParticles } from "../../apps/client/src/fx/kits/common.js";
-import { SV_RECIPES, onHit, recipeFor, scanPlayers } from "../../apps/client/src/fx/kits/sv.js";
+import { FAULT_FOOTPRINT, FAULT_LAYERS, SV_RECIPES, onHit, playFaultStrike, recipeFor, scanPlayers } from "../../apps/client/src/fx/kits/sv.js";
 import type { CombatEvent } from "../../packages/shared/src/protocol.js";
 
 const Scene = function (): Scene { const g = new FighterView("td", makeToonRamp()).group; g.clear(); return g as unknown as Scene; } as unknown as new () => Scene;
@@ -56,5 +56,62 @@ describe("FX4-sv recipes", () => {
     expect(seen.size).toBe(1);
     scanPlayers(fx, new Map(), seen);
     expect(seen.size).toBe(0);
+  });
+});
+
+describe("QV03 Fault Strike signature", () => {
+  type P = { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; size: number; color: number };
+  const capture = (yaw: number, surface: (x: number, z: number, y: number) => number | null = (_x, _z, y) => y - 0.9): P[] => {
+    const out: P[] = [];
+    playFaultStrike({ spawn: (p: P) => { out.push(p); return true; } } as unknown as EffectsPool, { x: 5, y: 0.9, z: -3 }, yaw, surface);
+    return out;
+  };
+  const toLocal = (p: { x: number; z: number }, yaw: number): { f: number; l: number } => {
+    const dx = -Math.sin(yaw), dz = -Math.cos(yaw); // forwardOf convention checked below
+    return { f: (p.x - 5) * dx + (p.z + 3) * dz, l: (p.x - 5) * -dz + (p.z + 3) * dx };
+  };
+  test("three distinct layers fit the recipe budget and the low pool", () => {
+    const ps = capture(0.7);
+    expect(ps.length).toBe(FAULT_LAYERS.crack + FAULT_LAYERS.chips + FAULT_LAYERS.settle);
+    expect(ps.length).toBeLessThanOrEqual(SV_RECIPES["sv.b1"]!.active.count);
+    expect(recipeParticles(SV_RECIPES["sv.b1"]!)).toBeLessThanOrEqual(LOW_QUALITY_CAP);
+    const colors = new Set(ps.map((p) => p.color));
+    expect(colors.size).toBe(3);
+    const life = (c: number) => ps.filter((p) => p.color === c).map((p) => p.life);
+    const [crack, chip, frag] = [...colors].map((c) => Math.max(...life(c)));
+    expect(crack!).toBeLessThan(chip!);
+    expect(chip!).toBeLessThan(frag!);
+  });
+  test("every fragment and chip end point stays inside the wave footprint, on all headings", () => {
+    for (const yaw of [0, 0.7, 2, -2.4, Math.PI]) {
+      const fwdSign = Math.abs(toLocal({ x: 5 + -Math.sin(yaw), z: -3 + -Math.cos(yaw) }, yaw).f - 1) < 1e-9 ? 1 : -1;
+      for (const p of capture(yaw)) {
+        const t = p.vx === 0 && p.vz === 0 ? 0 : p.life;
+        const end = toLocal({ x: p.x + p.vx * t, z: p.z + p.vz * t }, yaw);
+        const f = end.f * fwdSign;
+        expect(f).toBeGreaterThanOrEqual(FAULT_FOOTPRINT.impactAt - 1e-6);
+        expect(f).toBeLessThanOrEqual(FAULT_FOOTPRINT.forward + 1e-6);
+        expect(Math.abs(end.l)).toBeLessThanOrEqual(FAULT_FOOTPRINT.halfWidth);
+      }
+    }
+  });
+  test("chips split to both sides of the heading", () => {
+    const sides = new Set(capture(0).filter((p) => p.vx !== 0).map((p) => Math.sign(p.vx)));
+    expect(sides.size).toBe(2);
+  });
+  test("nothing spawns when the impact point has no surface (void)", () => {
+    expect(capture(0, () => null).length).toBe(0);
+    // Void only beyond the impact: chips and crack remain, the unsupported fragments are skipped.
+    const partial = capture(0, (_x, z, y) => (z < -3 - 5 ? null : y - 0.9));
+    expect(partial.length).toBeLessThan(FAULT_LAYERS.crack + FAULT_LAYERS.chips + FAULT_LAYERS.settle);
+    expect(partial.length).toBeGreaterThanOrEqual(FAULT_LAYERS.crack + FAULT_LAYERS.chips);
+  });
+  test("sv.b1 Active uses it, other moves keep the generic style, and the pool drains", () => {
+    const fx = pool(), seen = new Map<string, string>();
+    scanPlayers(fx, new Map<string, unknown>([["1", { x: 0, y: 90, z: 0, action: "Active", moveId: "sv.b1", actionStartTick: 9 }]]), seen);
+    expect(fx.activeCount).toBe(FAULT_LAYERS.crack + FAULT_LAYERS.chips + FAULT_LAYERS.settle);
+    fx.update(2);
+    expect(fx.activeCount).toBe(0);
+    expect(SV_RECIPES["sv.b2"]!.playActive).toBeUndefined();
   });
 });

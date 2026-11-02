@@ -18,6 +18,8 @@ export interface Recipe {
   /** Windup telegraph: ground decal ring (metres, from the ability shape) and a charging glow at the hand. Never quality scaled. */
   windup: { decalRadius: number; color: number; glow: boolean };
   active: { style: ActiveStyle; count: number; color: number; life: number; reach: number };
+  /** Optional kit-specific Active effect (spawns at most `active.count` particles). Replaces the generic style when set. */
+  playActive?: (fx: EffectsPool, at: Pos, yaw: number, surface: SurfaceHeight) => void;
   impact: { count: number; color: number; life: number; speed: number };
 }
 
@@ -36,7 +38,7 @@ export function decalRadiusFor(defs: readonly { id: string; shape: { kind: strin
 
 export type Pos = { x: number; y: number; z: number };
 
-type SurfaceHeight = NonNullable<PresentationDeps["surfaceHeight"]>;
+export type SurfaceHeight = NonNullable<PresentationDeps["surfaceHeight"]>;
 const flatAtFeet: SurfaceHeight = (_x, _z, y) => y - ARENA.capsule.centreAboveSurface;
 
 export function playWindup(fx: EffectsPool, t: Recipe, at: Pos, yaw: number, surface: SurfaceHeight = flatAtFeet): void {
@@ -57,6 +59,7 @@ export function playWindup(fx: EffectsPool, t: Recipe, at: Pos, yaw: number, sur
 }
 
 export function playActive(fx: EffectsPool, t: Recipe, at: Pos, yaw: number, surface: SurfaceHeight = flatAtFeet): void {
+  if (t.playActive) { t.playActive(fx, at, yaw, surface); return; }
   const { style, count, color, life, reach } = t.active;
   const [fx0, fz0] = forwardOf(yaw);
   for (let i = 0; i < count; i++) {

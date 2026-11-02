@@ -28,7 +28,7 @@ test("ring and fracture samples use pillar and island heights and skip the void"
   for (const play of [playWindup, playActive]) {
     const pool = new EffectsPool();
     const spawn = vi.spyOn(pool, "spawn");
-    const recipe = SV_RECIPES["sv.b1"]!;
+    const recipe = SV_RECIPES["sv.b4"]!; // generic fracture style (sv.b1 has a custom Active, see fx-sv)
     const offset = play === playWindup ? 0.05 : 0.08;
     play(pool, recipe, { x: -10.55, y: 2.9, z: -10 }, 0, surface);
     const heights = new Set(spawn.mock.calls.map(([p]) => p.y));
