@@ -3,10 +3,11 @@
  * fighters are sampled from SnapshotBuffer at 100 ms delay. Presentation only: nothing here decides hits, HP or positions.
  */
 import {
+  DataTexture, RGBAFormat, LinearFilter, Mesh, MeshBasicMaterial, PlaneGeometry,
   Color, DirectionalLight, type InstancedMesh, Fog, HemisphereLight, PCFSoftShadowMap, PerspectiveCamera, Scene,
-  type BufferGeometry, type DataTexture, type Material,
+  type BufferGeometry, type Material,
 } from "three";
-import type { Collider } from "@eb/shared/config/arena";
+import { surfaceBelow, type Collider } from "@eb/shared/config/arena";
 import type { KitId } from "@eb/shared/protocol";
 import { buildArena, buildDressing, SKY } from "./ArenaView.js";
 import { loadEnvKit, type EnvKit } from "./EnvAssets.js";
@@ -53,6 +54,16 @@ export function isSoftwareRenderer(gl: { getExtension(n: string): unknown; getPa
 
 export { hasWebGL2 } from "./webgl.js";
 
+/** Soft ground contact, retained on low quality where shadow maps are disabled. */
+function makeContactTexture(): DataTexture {
+  const pixels = new Uint8Array(32 * 32 * 4);
+  for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+    const i = (y * 32 + x) * 4, r = Math.hypot((x - 15.5) / 16, (y - 15.5) / 16);
+    pixels[i] = 17; pixels[i + 1] = 31; pixels[i + 2] = 28; pixels[i + 3] = Math.max(0, 1 - r) ** 2 * 255;
+  }
+  const t = new DataTexture(pixels, 32, 32, RGBAFormat); t.magFilter = LinearFilter; t.needsUpdate = true; return t;
+}
+
 /** Half-width of the shadow frustum in metres: follows the camera pivot so 1024 texels stay sharp near the action. */
 const SHADOW_HALF = 24;
 
@@ -62,13 +73,15 @@ export class GameScene {
   readonly effects = new EffectsPool();
   readonly projectiles = new ProjectileViews(this.scene);
   readonly urns = new UrnViews(this.scene);
+  private readonly contacts = new Map<string, Mesh<PlaneGeometry, MeshBasicMaterial>>();
+  private readonly contactTexture = makeContactTexture();
   private geometries = new Set<BufferGeometry>();
   private materials = new Set<Material>();
   private fighters = new Map<string, { view: FighterView; buffer: SnapshotBuffer }>();
   private onResize = (): void => this.resize();
   private disposed = false;
   private quality: Quality = "medium";
-  private readonly sun = new DirectionalLight(0xfff0d2, 2.6);
+  private readonly sun = new DirectionalLight(0xffecd0, 2.0);
   private readonly ramp: DataTexture = makeToonRamp();
   private readonly arena: ReturnType<typeof buildArena>;
   private env: { kit: EnvKit; meshes: InstancedMesh[] } | null = null;
@@ -78,8 +91,8 @@ export class GameScene {
   constructor(private readonly renderer: RendererLike, colliders: readonly Collider[], private readonly win: WindowLike) {
     this.colliders = colliders;
     this.scene.background = new Color(SKY.horizon);
-    this.scene.fog = new Fog(SKY.fog, 70, 175);
-    this.scene.add(new HemisphereLight(0xe2f0ff, 0x9a8a70, 1.45));
+    this.scene.fog = new Fog(SKY.fog, 60, 165);
+    this.scene.add(new HemisphereLight(0xcce9eb, 0x6b7564, 1.15));
     this.sun.position.set(28, 50, 18);
     this.sun.shadow.mapSize.set(1024, 1024);
     const cam = this.sun.shadow.camera;
@@ -159,6 +172,9 @@ export class GameScene {
     const view = new FighterView(kit, this.ramp);
     view.setShadows(this.quality !== "low");
     this.scene.add(view.group);
+    const contact = new Mesh(new PlaneGeometry(1.7, 1.7), new MeshBasicMaterial({ map: this.contactTexture, transparent: true, opacity: .3, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+    contact.name = `contact.${id}`; contact.rotation.x = -Math.PI / 2; contact.renderOrder = 1;
+    this.contacts.set(id, contact); this.scene.add(contact);
     this.fighters.set(id, { view, buffer: new SnapshotBuffer() });
     return view;
   }
@@ -166,6 +182,8 @@ export class GameScene {
   removeFighter(id: string): void {
     const f = this.fighters.get(id);
     if (!f) return;
+    const contact = this.contacts.get(id);
+    if (contact) { contact.geometry.dispose(); contact.material.dispose(); contact.removeFromParent(); this.contacts.delete(id); }
     f.view.dispose();
     this.fighters.delete(id);
   }
@@ -202,7 +220,19 @@ export class GameScene {
 
   /** Draws one frame. `dtSec` advances fighter animation and drifting clouds; it never schedules gameplay. */
   render(dtSec = 0): void {
-    for (const { view } of this.fighters.values()) view.update(dtSec);
+    for (const [id, { view }] of this.fighters) {
+      view.update(dtSec);
+      const contact = this.contacts.get(id), pos = view.group.position;
+      const ground = surfaceBelow(this.colliders, pos.x, pos.z, pos.y);
+      if (contact) {
+        contact.visible = ground !== null && pos.y - ground < 5;
+        if (ground !== null) {
+          contact.position.set(pos.x, ground + .025, pos.z);
+          const height = Math.max(0, pos.y - ground - .9);
+          contact.material.opacity = .32 / (1 + height * 1.5); contact.scale.setScalar(1 + height * .15);
+        }
+      }
+    }
     this.effects.update(dtSec);
     this.urns.update(dtSec);
     this.arena.sky.position.copy(this.camera.position);
@@ -227,6 +257,8 @@ export class GameScene {
       for (const t of this.env.kit.textures) t.dispose();
       this.env = null;
     }
+    this.contactTexture.dispose();
+    for (const texture of this.arena.textures) texture.dispose();
     this.ramp.dispose();
     this.geometries.clear(); this.materials.clear();
     this.scene.clear();

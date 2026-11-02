@@ -6,14 +6,15 @@
  * correspondence; decoration is merged into a handful of meshes named "deco.*". Presentation only.
  */
 import {
+  DataTexture, RepeatWrapping, RGBAFormat, SRGBColorSpace, LinearFilter,
   BackSide, BoxGeometry, BufferGeometry, Color, ConeGeometry, CylinderGeometry, DodecahedronGeometry, DoubleSide, Euler, Float32BufferAttribute,
   Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshToonMaterial, OctahedronGeometry, Quaternion, RingGeometry, SphereGeometry, Vector3,
-  type DataTexture, type Material,
+  type Material, type Texture,
 } from "three";
 import type { Collider } from "@eb/shared/config/arena";
 import { instancePlacements, type EnvKit, type EnvModelId, type EnvPlacement } from "./EnvAssets.js";
 
-export const SKY = { horizon: 0xcfe3f0, zenith: 0x2f86e8, nadir: 0x9fbcd6, fog: 0xc4dae9 } as const;
+export const SKY = { horizon: 0xd5e8dd, zenith: 0x397ea5, nadir: 0x8bb4bf, fog: 0xc7dfda } as const;
 
 const PALETTE = {
   grassTop: 0x879b65, grassSide: 0x465b3b, soil: 0x7a5636, rockHi: 0x8a7f78, rockMid: 0x645c66, rockLow: 0x403b4a,
@@ -35,7 +36,7 @@ type Shader = (x: number, y: number, z: number, nx: number, ny: number, nz: numb
 
 /** Accumulates transformed, vertex coloured geometry into one BufferGeometry. */
 class Batch {
-  private pos: number[] = []; private nor: number[] = []; private col: number[] = []; private idx: number[] = [];
+  private pos: number[] = []; private nor: number[] = []; private col: number[] = []; private uv: number[] = []; private idx: number[] = [];
   private readonly c = new Color();
   add(g: BufferGeometry, m: Matrix4, color: number | Shader): void {
     g.applyMatrix4(m);
@@ -43,7 +44,7 @@ class Batch {
     const base = this.pos.length / 3;
     for (let i = 0; i < at.count; i++) {
       const x = at.getX(i), y = at.getY(i), z = at.getZ(i), nx = nm.getX(i), ny = nm.getY(i), nz = nm.getZ(i);
-      this.pos.push(x, y, z); this.nor.push(nx, ny, nz);
+      this.pos.push(x, y, z); this.uv.push(x / 4, z / 4); this.nor.push(nx, ny, nz);
       this.c.setHex(typeof color === "number" ? color : color(x, y, z, nx, ny, nz));
       this.col.push(this.c.r, this.c.g, this.c.b);
     }
@@ -55,6 +56,7 @@ class Batch {
   build(): BufferGeometry {
     const g = new BufferGeometry();
     g.setAttribute("position", new Float32BufferAttribute(this.pos, 3));
+    g.setAttribute("uv", new Float32BufferAttribute(this.uv, 2));
     g.setAttribute("normal", new Float32BufferAttribute(this.nor, 3));
     g.setAttribute("color", new Float32BufferAttribute(this.col, 3));
     g.setIndex(this.idx);
@@ -78,6 +80,7 @@ export interface ArenaBuild {
   readonly clouds: Mesh;
   readonly geometries: BufferGeometry[];
   readonly materials: Material[];
+  readonly textures: Texture[];
 }
 
 const isGround = (c: Collider): boolean => c.role === "ground";
@@ -97,12 +100,14 @@ function groundGeometry(c: Collider): BufferGeometry {
     // Broad, quiet patches read at gameplay distance; warm wear leads the east spawn to the bridge.
     const wear = Math.exp(-Math.pow((z + 1.5) / 3.2, 2)) * Math.max(0, Math.min(1, (x - 15) / 12));
     const meadow = 0.5 + 0.5 * Math.sin(x * 0.27 + Math.cos(z * 0.31));
-    return lerpHex(lerpHex(0x71885b, 0x9ca874, meadow), 0xb5a486, wear * 0.85);
+    const route = Math.min(Math.abs(x), Math.abs(z));
+    const path = Math.exp(-(route * route) / 2.8) * Math.min(1, Math.hypot(x, z) / 9);
+    return lerpHex(lerpHex(0x496d54, 0x91a36a, meadow), 0xb8ac84, Math.max(wear * 0.85, path * .7));
   };
   if (c.shape === "cuboid") {
     const [hx, hy, hz] = c.halfExtents;
     b.add(box(hx * 2, hy * 2 - lip, hz * 2), xf(c.centre[0], bottom + (hy * 2 - lip) / 2, c.centre[2]), rock);
-    b.add(new BoxGeometry(hx * 2 + 0.08, lip, hz * 2 + 0.08, 8, 1, 8), xf(c.centre[0], top - lip / 2, c.centre[2]), grass);
+    b.add(new BoxGeometry(hx * 2 + 0.08, lip, hz * 2 + 0.08, 12, 1, 12), xf(c.centre[0], top - lip / 2, c.centre[2]), grass);
   } else {
     const h = c.halfHeight * 2;
     b.add(new CylinderGeometry(c.radius, c.radius * 0.96, h - lip, 28, 1), xf(c.centre[0], bottom + (h - lip) / 2, c.centre[2]), rock);
@@ -356,6 +361,21 @@ export function buildDressing(colliders: readonly Collider[], kit: EnvKit): { gr
   return { group, meshes, extra };
 }
 
+/** Original small repeating grass/grain texture. No external bitmap or canvas allocation. */
+function meadowTexture(): DataTexture {
+  const size = 128, pixels = new Uint8Array(size * size * 4), rnd = mulberry32(0x6b73);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const i = (y * size + x) * 4;
+    const grain = rnd() * 14;
+    const blade = ((x * 7 + y * 3) % 19 < 2) ? 14 : 0;
+    const value = 218 + grain + blade + 6 * Math.sin(x * .34) * Math.sin(y * .28);
+    pixels[i] = value; pixels[i + 1] = value + 3; pixels[i + 2] = value - 5; pixels[i + 3] = 255;
+  }
+  const texture = new DataTexture(pixels, size, size, RGBAFormat);
+  texture.wrapS = texture.wrapT = RepeatWrapping; texture.magFilter = LinearFilter;
+  texture.colorSpace = SRGBColorSpace; texture.needsUpdate = true; return texture;
+}
+
 export function buildArena(colliders: readonly Collider[], ramp: DataTexture, opts: { detail: number } = { detail: 1 }): ArenaBuild {
   const group = new Group();
   const geometries: BufferGeometry[] = [];
@@ -363,7 +383,9 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
   const toon = new MeshToonMaterial({ vertexColors: true, gradientMap: ramp });
   const unlit = new MeshBasicMaterial({ vertexColors: true });
   const flatToon = new MeshToonMaterial({ vertexColors: true, gradientMap: ramp });
-  materials.push(toon, unlit, flatToon);
+  const grassMap = meadowTexture();
+  const terrain = new MeshToonMaterial({ vertexColors: true, gradientMap: ramp, map: grassMap });
+  materials.push(toon, unlit, flatToon, terrain);
   const addMesh = (name: string, g: BufferGeometry, mat: Material, shadows: { cast: boolean; receive: boolean }): Mesh => {
     geometries.push(g);
     const m = new Mesh(g, mat);
@@ -378,7 +400,7 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
   const posts = new Batch();
   for (const c of colliders) {
     const g = isGround(c) ? groundGeometry(c) : c.role === "bridge" ? bridgeGeometry(c, glow, posts) : c.role === "guardrail" ? railGeometry(c, glow) : obstacleGeometry(c);
-    addMesh(c.id, g, toon, { cast: c.role === "obstacle" || c.role === "ground", receive: true });
+    addMesh(c.id, g, isGround(c) ? terrain : toon, { cast: c.role === "obstacle" || c.role === "ground", receive: true });
   }
 
   if (!posts.empty) addMesh("deco.posts", posts.build(), toon, { cast: false, receive: true });
@@ -479,7 +501,7 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
     const a = (i / 8) * Math.PI * 2;
     glyph.add(box(0.14, 0.01, 3.2), xf(Math.sin(a) * 3, 0.021, Math.cos(a) * 3, 1, 1, 1, 0, a, 0), 0xd7c99e);
   }
-  const glyphMat = new MeshBasicMaterial({ vertexColors: true, side: DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  const glyphMat = new MeshBasicMaterial({ transparent: true, opacity: .48, vertexColors: true, side: DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   materials.push(glyphMat);
   addMesh("deco.glyph", glyph.build(), glyphMat, { cast: false, receive: false });
 
@@ -533,7 +555,7 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
   sky.frustumCulled = false;
   group.add(sky);
 
-  return { group, sky, clouds, geometries, materials };
+  return { group, sky, clouds, geometries, materials, textures: [grassMap] };
 }
 
 /** One grass blade cone merged into a batch, leaning by `lean` radians around `yaw`. */

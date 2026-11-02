@@ -106,3 +106,14 @@ describe("T18a GameScene", () => {
     expect(gs.effects.size).toBe(0);
   });
 });
+
+it("UX05 contact shadow stays on ground and fades during a jump, including low tier", () => {
+  const gs = new GameScene(fakeRenderer(), colliders, fakeWindow());
+  gs.setQuality("low"); const v = gs.addFighter("jump", "sv"); v.setPose(0, .9, 0, 0); gs.render(0);
+  const shadow = gs.scene.getObjectByName("contact.jump") as Mesh;
+  expect(shadow.position.y).toBeCloseTo(.025);
+  const groundOpacity = (shadow.material as Material).opacity;
+  v.setPose(0, 3, 0, 0); gs.render(0);
+  expect(shadow.position.y).toBeCloseTo(.025); expect((shadow.material as Material).opacity).toBeLessThan(groundOpacity);
+  gs.removeFighter("jump"); expect(gs.scene.getObjectByName("contact.jump")).toBeUndefined(); gs.dispose();
+});
