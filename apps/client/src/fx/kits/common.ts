@@ -33,7 +33,7 @@ export interface Recipe {
 export interface SustainCtx {
   at: Pos; yaw: number; tick: number; startTick: number; endTick: number;
   cover?: ((ox: number, oy: number, oz: number, fx: number, fz: number, max: number) => number) | undefined;
-  state: { start: number; lastEmit: number; lastPulse: number };
+  state: { start: number; lastEmit: number; lastPulse: number; px?: number; pz?: number }; // px/pz: QV07 last seen position for motion trails
 }
 
 export const LOW_QUALITY_CAP = 100;
@@ -50,6 +50,12 @@ export function decalRadiusFor(defs: readonly { id: string; shape: { kind: strin
 }
 
 export type Pos = { x: number; y: number; z: number };
+
+/** Forward/perpendicular frame at a position for a heading; `pt(f, l)` is f metres ahead and l metres to the right. */
+export function frameOf(at: Pos, yaw: number): { dx: number; dz: number; px: number; pz: number; pt: (f: number, l: number) => { x: number; z: number } } {
+  const [dx, dz] = forwardOf(yaw), px = -dz, pz = dx;
+  return { dx, dz, px, pz, pt: (f, l) => ({ x: at.x + dx * f + px * l, z: at.z + dz * f + pz * l }) };
+}
 
 export type SurfaceHeight = NonNullable<PresentationDeps["surfaceHeight"]>;
 const flatAtFeet: SurfaceHeight = (_x, _z, y) => y - ARENA.capsule.centreAboveSurface;

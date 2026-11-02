@@ -151,7 +151,7 @@ Execute one row per session using [the Quality 90 instructions](quality-90-plan.
 | QF02 | Tide Duelist silhouette and animation | QI01 QF01 | IMPLEMENTED (DEVICE CHECK PENDING) | 38f4a42 | docs/test-results/QF02.md |
 | QF03 | Ember Artificer silhouette and animation | QF02 | IN PROGRESS | | docs/test-results/QF03.md |
 | QV06 | Vanguard ability and awakening coverage | QI01 QV01 QV03 | IMPLEMENTED (DEVICE CHECK PENDING) | 06dc60a | docs/test-results/QV06.md | Delegated assessment, decision 0036. Fault Strike flash carried item shown |
-| QV07 | Duelist ability and awakening coverage | QF02 QV04 | TODO | | docs/test-results/QV07.md |
+| QV07 | Duelist ability and awakening coverage | QF02 QV04 | DONE | | docs/test-results/QV07.md |
 | QV08 | Artificer ability and awakening coverage | QF03 QV05 ORB2 | TODO | | docs/test-results/QV08.md |
 | QV09 | Universal attacks and contextual outcomes | QV01 QV06 QV07 QV08 | TODO | | docs/test-results/QV09.md |
 | QS01 | Original kit and defensive audio | QV09 | TODO | | docs/test-results/QS01.md |

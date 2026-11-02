@@ -2,7 +2,7 @@ import { forwardOf } from "@eb/shared/math";
 import { SV_DEFS } from "@eb/shared/config/kits/index";
 import type { EffectsPool } from "../../scene/EffectsPool.js";
 import type { CombatEvent } from "@eb/shared/protocol";
-import { decalRadiusFor, makeKitFx, onHit as onHitWith, scanPlayers as scanWith, type ActiveStyle, type Pos, type Recipe, type SustainCtx } from "./common.js";
+import { decalRadiusFor, frameOf, makeKitFx, onHit as onHitWith, scanPlayers as scanWith, type ActiveStyle, type Pos, type Recipe, type SustainCtx } from "./common.js";
 
 /**
  * Stone Vanguard ability effects (FX4-sv). Stone language: fans of thrown chips and circular fractures in the ground.
@@ -61,10 +61,6 @@ export function playFaultStrike(fx: EffectsPool, at: Pos, yaw: number, surface: 
  * origin, facing and extents come from the replicated pose and the ability definition, never from client input.
  */
 const def = (id: string) => SV_DEFS.find((d) => d.id === id)!;
-const frameOf = (at: Pos, yaw: number) => {
-  const [dx, dz] = forwardOf(yaw), px = -dz, pz = dx;
-  return { dx, dz, px, pz, pt: (f: number, l: number) => ({ x: at.x + dx * f + px * l, z: at.z + dz * f + pz * l }) };
-};
 type Surface = (x: number, z: number, y: number) => number | null;
 const AMBER = 0xffb347, PALE = 0xf4ead2, BROWN = 0x7a5a3a;
 
