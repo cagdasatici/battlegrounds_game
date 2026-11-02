@@ -123,7 +123,7 @@ export function scanPlayers(fx: EffectsPool, players: Map<string, unknown>, seen
   for (const [id, v] of players) {
     live.add(id);
     const p = v as PlayerLike;
-    if (p.action !== "Windup" && p.action !== "Active") { seen.delete(id); continue; }
+    if (p.action !== "Windup" && p.action !== "Active" && p.action !== "Awakening") { seen.delete(id); continue; }
     const t = recipeFor(p.moveId);
     if (!t) continue;
     const key = `${p.action}:${p.moveId}:${p.actionStartTick ?? 0}`;
@@ -131,7 +131,7 @@ export function scanPlayers(fx: EffectsPool, players: Map<string, unknown>, seen
     seen.set(id, key);
     const at = { x: p.x / 100, y: p.y / 100, z: p.z / 100 };
     const yaw = fromYaw(p.facingYaw ?? 0);
-    if (p.action === "Windup") playWindup(fx, t, at, yaw, surface); else playActive(fx, t, at, yaw, surface);
+    if (p.action === "Windup") playWindup(fx, t, at, yaw, surface); else playActive(fx, t, at, yaw, surface); // Awakening plays the kit activation recipe once
   }
   for (const id of [...seen.keys()]) if (!live.has(id)) seen.delete(id);
 }

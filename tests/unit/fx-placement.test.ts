@@ -4,7 +4,7 @@ import { EffectsPool } from "../../apps/client/src/scene/EffectsPool.js";
 import { playActive, playWindup } from "../../apps/client/src/fx/kits/common.js";
 import { SV_RECIPES } from "../../apps/client/src/fx/kits/sv.js";
 
-const flurry = SV_RECIPES["sv.b2"]!;
+const flurry = { ...SV_RECIPES["sv.b2"]!, active: { ...SV_RECIPES["sv.b2"]!.active, count: 6 } }; // generic styles (sv.b2 has a custom sustained cue since QV06)
 const at = { x: 0, y: 0.9, z: 0 };
 test.each([[0, 0, -1], [Math.PI / 2, -1, 0], [Math.PI, 0, 1], [-Math.PI / 2, 1, 0]] as const)(
   "fan, streams and hand glow face the attack lane at yaw %s", (yaw, dx, dz) => {
@@ -28,7 +28,7 @@ test("ring and fracture samples use pillar and island heights and skip the void"
   for (const play of [playWindup, playActive]) {
     const pool = new EffectsPool();
     const spawn = vi.spyOn(pool, "spawn");
-    const recipe = SV_RECIPES["sv.b4"]!; // generic fracture style (sv.b1 has a custom Active, see fx-sv)
+    const { playActive: _custom, ...recipe } = SV_RECIPES["sv.b4"]!; // generic fracture style (sv kit moves have custom Active cues since QV03/QV06)
     const offset = play === playWindup ? 0.05 : 0.08;
     play(pool, recipe, { x: -10.55, y: 2.9, z: -10 }, 0, surface);
     const heights = new Set(spawn.mock.calls.map(([p]) => p.y));

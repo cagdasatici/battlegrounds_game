@@ -1,0 +1,174 @@
+{
+ "fixture": "synthetic server phase + broadcast hit events; SwiftShader desktop Chromium 1024x768",
+ "tier": "low",
+ "report": [
+  {
+   "id": "sv.b1",
+   "tier": "low",
+   "cuePeak": 26,
+   "hitPeaks": [
+    44
+   ],
+   "drained": true,
+   "stoppedOnInterrupt": null,
+   "render": {
+    "calls": 52,
+    "triangles": 91294
+   },
+   "shot": "low-sv.b1-hit.jpg"
+  },
+  {
+   "id": "sv.b2",
+   "tier": "low",
+   "cuePeak": 5,
+   "hitPeaks": [],
+   "drained": true,
+   "stoppedOnInterrupt": true,
+   "render": {
+    "calls": 52,
+    "triangles": 91294
+   },
+   "shot": "low-sv.b2-cue.jpg"
+  },
+  {
+   "id": "sv.b3",
+   "tier": "low",
+   "cuePeak": 14,
+   "hitPeaks": [],
+   "drained": true,
+   "stoppedOnInterrupt": null,
+   "render": {
+    "calls": 50,
+    "triangles": 91292
+   },
+   "shot": "low-sv.b3-cue.jpg"
+  },
+  {
+   "id": "sv.b4",
+   "tier": "low",
+   "cuePeak": 18,
+   "hitPeaks": [],
+   "drained": true,
+   "stoppedOnInterrupt": null,
+   "render": {
+    "calls": 50,
+    "triangles": 91292
+   },
+   "shot": "low-sv.b4-cue.jpg"
+  },
+  {
+   "id": "sv.a1",
+   "tier": "low",
+   "cuePeak": 22,
+   "hitPeaks": [
+    54
+   ],
+   "drained": true,
+   "stoppedOnInterrupt": null,
+   "render": {
+    "calls": 50,
+    "triangles": 91292
+   },
+   "shot": "low-sv.a1-hit.jpg"
+  },
+  {
+   "id": "sv.a2",
+   "tier": "low",
+   "cuePeak": 48,
+   "hitPeaks": [],
+   "drained": true,
+   "stoppedOnInterrupt": null,
+   "render": {
+    "calls": 52,
+    "triangles": 91294
+   },
+   "shot": "low-sv.a2-cue.jpg"
+  },
+  {
+   "id": "sv.a3",
+   "tier": "low",
+   "cuePeak": 20,
+   "hitPeaks": [],
+   "drained": true,
+   "stoppedOnInterrupt": true,
+   "render": {
+    "calls": 52,
+    "triangles": 91294
+   },
+   "shot": "low-sv.a3-cue.jpg"
+  },
+  {
+   "id": "sv.a4",
+   "tier": "low",
+   "cuePeak": 16,
+   "hitPeaks": [
+    40,
+    70
+   ],
+   "drained": true,
+   "stoppedOnInterrupt": null,
+   "render": {
+    "calls": 50,
+    "triangles": 91292
+   },
+   "shot": "low-sv.a4-hit.jpg"
+  },
+  {
+   "id": "sv.x1",
+   "tier": "low",
+   "cuePeak": 18,
+   "hitPeaks": [],
+   "drained": true,
+   "stoppedOnInterrupt": null,
+   "render": {
+    "calls": 50,
+    "triangles": 91292
+   },
+   "shot": "low-sv.x1-cue.jpg"
+  },
+  {
+   "id": "sv.x2",
+   "tier": "low",
+   "cuePeak": 12,
+   "hitPeaks": [
+    28,
+    54
+   ],
+   "drained": true,
+   "stoppedOnInterrupt": null,
+   "render": {
+    "calls": 50,
+    "triangles": 91292
+   },
+   "shot": "low-sv.x2-hit.jpg"
+  },
+  {
+   "id": "sv.x3",
+   "tier": "low",
+   "cuePeak": 8,
+   "hitPeaks": [
+    34
+   ],
+   "drained": true,
+   "stoppedOnInterrupt": null,
+   "render": {
+    "calls": 50,
+    "triangles": 91292
+   },
+   "shot": "low-sv.x3-hit.jpg"
+  },
+  {
+   "id": "sv.activate",
+   "tier": "low",
+   "cuePeak": 32,
+   "hitPeaks": [],
+   "drained": true,
+   "stoppedOnInterrupt": null,
+   "render": {
+    "calls": 50,
+    "triangles": 91292
+   },
+   "shot": "low-sv.activate-cue.jpg"
+  }
+ ]
+}
