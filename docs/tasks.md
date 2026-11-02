@@ -149,7 +149,7 @@ Execute one row per session using [the Quality 90 instructions](quality-90-plan.
 | QI01 | Integrated bridge fight and owner approval | QE01 QF01 QC01 QV03 QV04 QV05 | IMPLEMENTED (DEVICE CHECK PENDING) | 958faa4 5d2b834 | docs/test-results/QI01.md | Delegated approval, decision 0033. Fault Strike impact flash visibility carried to QV06 |
 | QE02 | Full arena art coverage | QI01 | TODO | | docs/test-results/QE02.md |
 | QF02 | Tide Duelist silhouette and animation | QI01 QF01 | IMPLEMENTED (DEVICE CHECK PENDING) | 38f4a42 | docs/test-results/QF02.md |
-| QF03 | Ember Artificer silhouette and animation | QF02 | IN PROGRESS | | docs/test-results/QF03.md |
+| QF03 | Ember Artificer silhouette and animation | QF02 | IMPLEMENTED (DEVICE CHECK PENDING) | pending | docs/test-results/QF03.md |
 | QV06 | Vanguard ability and awakening coverage | QI01 QV01 QV03 | IMPLEMENTED (DEVICE CHECK PENDING) | 06dc60a | docs/test-results/QV06.md | Delegated assessment, decision 0036. Fault Strike flash carried item shown |
 | QV07 | Duelist ability and awakening coverage | QF02 QV04 | DONE | eaf39b8 | docs/test-results/QV07.md |
 | QV08 | Artificer ability and awakening coverage | QF03 QV05 ORB2 | TODO | | docs/test-results/QV08.md |

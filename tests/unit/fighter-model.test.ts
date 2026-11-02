@@ -215,8 +215,7 @@ describe("QF01 Stone Vanguard silhouette", () => {
       const total = PASSES.reduce((n, p) => { const g = buildFighterGeometry("sv", p, lod, true); const t = g.getIndex()!.count / 3; const bb = g.boundingBox!; expect(Math.max(-bb.min.x, bb.max.x)).toBeLessThanOrEqual(CAPSULE_R + SLACK); expect(Math.max(-bb.min.z, bb.max.z)).toBeLessThanOrEqual(CAPSULE_R + SLACK); g.dispose(); return n + t; }, 0);
       expect(total, `sv ${lod} awakened`).toBeLessThanOrEqual(lod === "medium" ? 8000 : 3000);
     }
-    // The Embers kit is unchanged by the awakened flag (the Duelist gains its own crest in QF02).
-    for (const k of ["ea"] as const) expect(partsOf(buildFighterGeometry(k, "glow", "medium", true)).length).toBe(partsOf(buildFighterGeometry(k, "glow", "medium", false)).length);
+    // Awakened-only parts exist on all three kits now (QF02 crest, QF03 vent fins); each kit has its own test below.
   });
   it("toggles seams in place through the rig and keeps three mesh passes", () => {
     const ramp = makeToonRamp();
@@ -262,6 +261,38 @@ describe("QF02 Tide Duelist silhouette", () => {
     for (const aw of [false, true]) {
       expect(tris("medium", aw), `medium awakened=${aw}`).toBeLessThanOrEqual(3884);
       expect(tris("low", aw), `low awakened=${aw}`).toBeLessThanOrEqual(1976);
+    }
+  });
+});
+
+// QF03: Ember Artificer furnace silhouette. Budgets recorded before QF03: medium 4312, low 2024 triangles (all three passes).
+describe("QF03 Ember Artificer silhouette", () => {
+  const ea = FIGHTER_DESIGNS.ea;
+  const named = (n: string) => ea.parts.find((p) => p.name === n)!;
+  const tris = (lod: Lod, awakened: boolean): number =>
+    PASSES.reduce((n, p) => { const g = buildFighterGeometry("ea", p, lod, awakened); const t = g.getIndex()!.count / 3; g.dispose(); return n + t; }, 0);
+  it("has a compact torso and a backpack that tapers from a wide base to a narrow top", () => {
+    expect(named("chest").size[0]).toBeLessThan(FIGHTER_DESIGNS.sv.parts.find((p) => p.name === "chest")!.size[0]!);
+    expect(named("packC").size[0]!).toBeGreaterThan(named("packB").size[0]!);
+    expect(named("packB").size[0]!).toBeGreaterThan(named("packA").size[0]!);
+    expect(named("stack").pos[1]).toBeGreaterThan(named("packA").pos[1]);
+  });
+  it("has side vents on both flanks and an insulated left forearm guard bigger than the right", () => {
+    expect(named("ventL").pos[0]).toBeLessThan(0);
+    expect(named("ventR").pos[0]).toBeGreaterThan(0);
+    expect(named("gauntletL").size[1]!).toBeGreaterThan(named("gauntletR").size[1]! + 0.07);
+  });
+  it("shows two clear vent fins only while Awakened, in the glow pass", () => {
+    const fins = ea.parts.filter((p) => /^fin/.test(p.name));
+    expect(fins.length).toBe(2);
+    expect(fins.every((p) => p.awakened && p.glow)).toBe(true);
+    expect(Math.sign(fins[0]!.pos[0])).not.toBe(Math.sign(fins[1]!.pos[0]));
+    expect(partsOf(buildFighterGeometry("ea", "glow", "medium", true)).length).toBe(partsOf(buildFighterGeometry("ea", "glow", "medium", false)).length + 2);
+  });
+  it("does not exceed the pre-QF03 triangle count, awakened or not", () => {
+    for (const aw of [false, true]) {
+      expect(tris("medium", aw), `medium awakened=${aw}`).toBeLessThanOrEqual(4312);
+      expect(tris("low", aw), `low awakened=${aw}`).toBeLessThanOrEqual(2024);
     }
   });
 });

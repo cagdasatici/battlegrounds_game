@@ -176,8 +176,8 @@ export const KIT_STYLE: Readonly<Record<KitId, KitStyle>> = {
   // Tide: narrow and upright, sweeping cross-body stance (QF02): chest and spine twist across the hips, leading right shoulder
   // forward with the open palm, left arm swept back, weight on the back foot.
   td: { weight: 0.9, tempo: 0.95, idle: { chest: [-0.02, 0.4, 0.04], spine: [0, 0.18, 0], shoulderR: [1.0, 0.3, 0.05], elbowR: [-0.7, 0, 0], handR: [-0.1, 0, 0], shoulderL: [0.1, 0, -0.75], elbowL: [-0.7, 0, 0], hipL: [-0.3, 0.12, -0.05], hipR: [0.22, 0.12, 0.1], kneeR: [0.38, 0, 0] } },
-  // Ember: loose and engineered, arms ready at the gauntlets.
-  ea: { weight: 1, tempo: 1, idle: { shoulderL: [0.6, 0, -0.2], elbowL: [-1.1, 0, 0], shoulderR: [0.6, 0, 0.2], elbowR: [-1.1, 0, 0], chest: [0.1, 0, 0], head: [-0.08, 0, 0], hipL: [-0.15, 0, -0.1], hipR: [0.15, 0, 0.1], kneeL: [0.28, 0, 0], kneeR: [0.28, 0, 0] } },
+  // Ember (QF03): compact and hunched under the furnace pack, insulated left forearm held across the body, right gauntlet ready.
+  ea: { weight: 1, tempo: 1, idle: { shoulderL: [0.8, 0.3, -0.05], elbowL: [-1.5, 0, 0], shoulderR: [0.6, 0, 0.2], elbowR: [-1.1, 0, 0], chest: [0.14, 0.05, 0], spine: [0.06, 0, 0], head: [-0.1, 0, 0], hipL: [-0.15, 0, -0.1], hipR: [0.15, 0, 0.1], kneeL: [0.32, 0, 0], kneeR: [0.32, 0, 0] } },
 };
 
 /**
@@ -188,6 +188,8 @@ const GUARD_OVERLAY: Partial<Record<KitId, { pose: Pose; extraDrop: number }>> =
   sv: { pose: { hipL: [-0.2, 0, -0.42], hipR: [0.2, 0, 0.42], kneeL: [0.8, 0, 0], kneeR: [0.8, 0, 0], ankleL: [-0.25, 0, 0], ankleR: [-0.25, 0, 0], spine: [0.22, 0, 0] }, extraDrop: 0.07 },
   // QF02: the Duelist guards in a long, narrow cross-body line: torso twisted, hips staggered front to back.
   td: { pose: { chest: [0.12, 0.45, 0], spine: [0.15, 0.2, 0], hipL: [-0.5, 0.15, -0.1], hipR: [0.35, 0.15, 0.1], kneeL: [0.6, 0, 0], kneeR: [0.5, 0, 0] }, extraDrop: 0.02 },
+  // QF03: the Artificer guards behind the insulated left forearm, hunched forward so the furnace pack rides high.
+  ea: { pose: { shoulderL: [1.45, 0.6, 0.05], elbowL: [-2.2, 0, 0], spine: [0.3, 0, 0], chest: [0.22, 0, 0], head: [0.15, 0, 0] }, extraDrop: 0.03 },
 };
 /** Time (unscaled seconds) of the sv.b1 weight-shift key; it must stay before the shared windup key at 0.3 s. */
 export const SV_B1_SHIFT_T = 0.14;
@@ -198,6 +200,11 @@ export const TD_B2_LEAD_T = 0.12;
 /** The leading (right) shoulder drops forward and the chest begins to turn into the spiral before the windup coils away. */
 const TD_B2_LEAD: Pose = { chest: [0.06, 0.55, 0.05], spine: [0.05, 0.25, 0], shoulderR: [1.35, 0.4, 0.3], elbowR: [-0.5, 0, 0], shoulderL: [0.2, 0, -0.9], hipL: [-0.35, 0.2, -0.1], hipR: [0.3, 0.1, 0.1], kneeR: [0.5, 0, 0] };
 const TD_B2_LEAD_HIPS: Vec3 = [-0.03, -0.07, 0.02];
+/** Time (unscaled seconds) of the ea.a3 vent-open key (QF03); before the shared windup key at 0.3 s. */
+export const EA_A3_VENT_T = 0.12;
+/** Furnace Ray: the torso rocks back and the shoulders hunch so the pack tilts up and its back vents face open before the beam braces. */
+const EA_A3_VENT: Pose = { chest: [-0.32, 0.1, 0], spine: [-0.15, 0, 0], head: [-0.18, 0, 0], shoulderL: [0.5, 0, -0.55], shoulderR: [0.5, 0, 0.55], elbowL: [-1.4, 0, 0], elbowR: [-1.4, 0, 0] };
+const EA_A3_VENT_HIPS: Vec3 = [0, -0.05, 0.03];
 
 // ---- move archetypes ----------------------------------------------------------------------------------------
 
@@ -368,6 +375,7 @@ function moveClip(id: string, kit: KitId): ClipData {
     { t: 0, pose: base },
     ...(id === "sv.b1" ? [{ t: sc(SV_B1_SHIFT_T), pose: merge(base, SV_B1_SHIFT), hips: SV_B1_SHIFT_HIPS } as Key] : []),
     ...(id === "td.b2" ? [{ t: sc(TD_B2_LEAD_T), pose: merge(base, TD_B2_LEAD), hips: TD_B2_LEAD_HIPS } as Key] : []),
+    ...(id === "ea.a3" ? [{ t: sc(EA_A3_VENT_T), pose: merge(base, EA_A3_VENT), hips: EA_A3_VENT_HIPS } as Key] : []),
     { t: sc(0.3), pose: wk, hips: ph.windupHips ?? [0, 0, 0] },
     { t: sc(0.42), pose: ak, hips: ph.activeHips ?? [0, 0, 0] },
   ];

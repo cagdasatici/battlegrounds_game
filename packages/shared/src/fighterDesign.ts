@@ -198,7 +198,8 @@ function tideDuelist(): FighterDesign {
 
 function emberArtificer(): FighterDesign {
   let parts = body();
-  parts = override(parts, "chest", { color: "primary" });
+  // QF03 compact torso: the chest is slimmer and shallower than the Vanguard's wedge so the furnace pack carries the outline.
+  parts = override(parts, "chest", { color: "primary", size: [0.4, 0.34, 0.24] });
   parts = override(parts, "belly", { color: "dark" });
   parts = override(parts, "pelvis", { color: "secondary" });
   parts = override(parts, "upperArmL", { color: "primary" });
@@ -207,24 +208,28 @@ function emberArtificer(): FighterDesign {
   parts = override(parts, "foreArmR", { color: "dark" });
   parts = override(parts, "hair", { color: "stone", size: [0.27, 0.1, 0.26], pos: [0, 0.17, 0.04] });
   parts.push(
-    // Segmented ceramic backpack: three stacked plates with copper bands.
-    part("packA", "box", "chest", [0, 0.2, 0.2], [0.3, 0.16, 0.14], "trim"),
-    part("packB", "box", "chest", [0, 0.03, 0.2], [0.34, 0.16, 0.16], "trim"),
-    part("packC", "box", "spine", [0, 0.0, 0.2], [0.3, 0.16, 0.15], "trim"),
-    part("bandA", "box", "chest", [0, 0.115, 0.2], [0.36, 0.03, 0.18], "accent"),
-    part("bandB", "box", "chest", [0, -0.05, 0.2], [0.36, 0.03, 0.18], "accent"),
-    part("ventL", "cylinder", "chest", [-0.1, 0.3, 0.22], [0.035, 0.045, 0.1], "dark"),
-    part("ventR", "cylinder", "chest", [0.1, 0.3, 0.22], [0.035, 0.045, 0.1], "dark"),
-    part("ventGlowL", "sphere", "chest", [-0.1, 0.36, 0.22], [0.03], "accent", { glow: true }),
-    part("ventGlowR", "sphere", "chest", [0.1, 0.36, 0.22], [0.03], "accent", { glow: true }),
-    // Floating copper rings orbiting the backpack (they ride the chest bone).
-    part("ringOuter", "torus", "chest", [0, 0.2, 0.34], [0.24, 0.022], "accent", { rot: [Math.PI / 2 - 0.35, 0, 0.2], glow: true }),
-    part("ringInner", "torus", "chest", [0, 0.2, 0.34], [0.17, 0.018], "trim", { rot: [Math.PI / 2 + 0.4, 0.5, 0] }),
-    // Independent gauntlets with heat vents.
-    part("gauntletL", "box", "elbowL", [0, -0.14, 0], [0.15, 0.2, 0.15], "secondary"),
-    part("gauntletR", "box", "elbowR", [0, -0.14, 0], [0.15, 0.2, 0.15], "secondary"),
-    part("gauntletVentL", "box", "elbowL", [0, -0.14, -0.078], [0.1, 0.03, 0.01], "accent", { glow: true }),
-    part("gauntletVentR", "box", "elbowR", [0, -0.14, -0.078], [0.1, 0.03, 0.01], "accent", { glow: true }),
+    // QF03 tapered furnace backpack: wide hot base on the spine, narrowing in two steps to a chimney stack. Copper bands.
+    part("packC", "box", "spine", [0, -0.02, 0.2], [0.4, 0.2, 0.17], "trim"),
+    part("packB", "box", "chest", [0, 0.01, 0.2], [0.3, 0.17, 0.16], "trim"),
+    part("packA", "box", "chest", [0, 0.2, 0.2], [0.2, 0.18, 0.12], "trim"),
+    part("bandA", "box", "chest", [0, 0.115, 0.2], [0.3, 0.03, 0.17], "accent"),
+    part("bandB", "box", "chest", [0, -0.07, 0.2], [0.34, 0.03, 0.18], "accent"),
+    // Chimney stack on top with a glowing mouth.
+    part("stack", "cylinder", "chest", [0, 0.36, 0.2], [0.055, 0.07, 0.16], "dark"),
+    part("stackGlow", "sphere", "chest", [0, 0.45, 0.2], [0.035], "accent", { glow: true }),
+    // QF03 side vents: dark louvre blocks and glowing slits on both flanks of the pack, visible from behind and the side.
+    part("ventL", "box", "chest", [-0.19, 0.03, 0.2], [0.07, 0.18, 0.14], "dark"),
+    part("ventR", "box", "chest", [0.19, 0.03, 0.2], [0.07, 0.18, 0.14], "dark"),
+    part("ventGlowL", "box", "chest", [-0.228, 0.03, 0.2], [0.012, 0.12, 0.09], "accent", { glow: true }),
+    part("ventGlowR", "box", "chest", [0.228, 0.03, 0.2], [0.012, 0.12, 0.09], "accent", { glow: true }),
+    // QF03 Awakened: two clear vent fins flare out from the flanks of the pack.
+    part("finL", "cone", "chest", [-0.26, 0.3, 0.2], [0.075, 0.44], "accent", { glow: true, awakened: true, rot: [0, 0, 0.6] }),
+    part("finR", "cone", "chest", [0.26, 0.3, 0.2], [0.075, 0.44], "accent", { glow: true, awakened: true, rot: [0, 0, -0.6] }),
+    // QF03 asymmetric forearms: a big insulated guard on the left forearm, a slim heat vent on the right.
+    part("gauntletL", "box", "elbowL", [0, -0.14, 0], [0.22, 0.3, 0.2], "trim", { bevel: 0.03 }),
+    part("gauntletR", "box", "elbowR", [0, -0.14, 0], [0.13, 0.2, 0.13], "secondary"),
+    part("gauntletVentL", "box", "elbowL", [0, -0.14, -0.103], [0.14, 0.03, 0.01], "accent", { glow: true }),
+    part("gauntletVentR", "box", "elbowR", [0, -0.14, -0.068], [0.09, 0.03, 0.01], "accent", { glow: true }),
     part("gauntletRingL", "torus", "handL", [0, 0.08, 0], [0.09, 0.012], "accent", { rot: [Math.PI / 2, 0, 0], glow: true }),
     part("gauntletRingR", "torus", "handR", [0, 0.08, 0], [0.09, 0.012], "accent", { rot: [Math.PI / 2, 0, 0], glow: true }),
     // Engineer goggles pushed up on the forehead.
@@ -233,10 +238,7 @@ function emberArtificer(): FighterDesign {
     part("lensR", "cylinder", "head", [0.05, 0.165, -0.105], [0.035, 0.035, 0.03], "accent", { rot: [Math.PI / 2, 0, 0], glow: true }),
     part("bootCapL", "box", "ankleL", [0, 0.08, -0.04], [0.14, 0.1, 0.28], "accent"),
     part("bootCapR", "box", "ankleR", [0, 0.08, -0.04], [0.14, 0.1, 0.28], "accent"),
-    // Armour and cloth layers: shoulder plates and a front apron.
     part("apron", "box", "hips", [0, -0.17, -0.12], [0.22, 0.3, 0.03], "trim", { rot: [0.06, 0, 0], bevel: 0.012 }),
-    part("shoulderPlateL", "box", "chest", [-0.27, 0.21, 0], [0.16, 0.07, 0.2], "secondary", { bevel: 0.03 }),
-    part("shoulderPlateR", "box", "chest", [0.27, 0.21, 0], [0.16, 0.07, 0.2], "secondary", { bevel: 0.03 }),
   );
   return {
     kit: "ea", label: "Ember Artificer", glowColor: 0xffb070,

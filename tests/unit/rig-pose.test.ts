@@ -131,3 +131,30 @@ describe("QF02 Tide Duelist animation", () => {
     expect(td.find((x) => x.id === "td.b1")!.tracks[0]!.times[1]!).toBeCloseTo(0.3 * 0.95, 5);
   });
 });
+
+// QF03: Ember Artificer compact stance, forearm guard and Furnace Ray vent-open key.
+describe("QF03 Ember Artificer animation", () => {
+  const ea = buildKitClips("ea"), sv = buildKitClips("sv");
+  it("guards with the insulated left forearm raised in front of the chest", () => {
+    const w = fk(ea.find((c) => c.id === "guard")!, 0);
+    expect(Math.abs(w.handL[2] - w.chest[2])).toBeLessThan(0.45); // held close to the chest
+    expect(w.handL[1]).toBeGreaterThan(w.hips[1] + 0.1); // above the hips
+    expect(Math.hypot(w.handL[0] - w.chest[0], w.handL[1] - w.chest[1], w.handL[2] - w.chest[2])).toBeLessThan(0.5); // guard hand stays near the chest
+  });
+  it("ea.a3 opens the vents with a chest rock-back key before the windup and does not strike early", () => {
+    const c = ea.find((x) => x.id === "ea.a3")!, times = c.tracks[0]!.times;
+    expect(times[1]!).toBeCloseTo(0.12, 5);
+    expect(times[2]!).toBeCloseTo(0.3, 5);
+    expect(times[3]!).toBeCloseTo(0.42, 5);
+    const w0 = fk(c, 0), w1 = fk(c, 1);
+    // Beam direction is whichever way the hand travels at the active key; the vent key must reach well short of it.
+    const rel = (k: number): number => { const w = fk(c, k); return w.handL[2] - w.chest[2]; };
+    const dir = Math.sign(rel(3) - rel(0));
+    expect(dir * (rel(1) - rel(0))).toBeLessThan(dir * (rel(3) - rel(0)) * 0.5);
+    // The torso visibly moves at the vent key (pack tilt) without any strike.
+    expect(Math.abs(w1.head[2] - w0.head[2])).toBeGreaterThan(0.05);
+  });
+  it("adds no vent key to other Artificer moves", () => {
+    expect(ea.find((x) => x.id === "ea.a1")!.tracks[0]!.times[1]!).toBeCloseTo(0.3, 5);
+  });
+});

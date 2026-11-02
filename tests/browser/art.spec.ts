@@ -171,3 +171,55 @@ test("QF02 Tide Duelist silhouette and Undertow Spiral phases", async () => {
     expect(errors).toEqual([]);
   } finally { await ctx.close(); }
 });
+
+// QF03 evidence: grayscale front / side / rear of all three kits at the same scale (8 m and 14 m, low and medium, Artificer base and
+// awakened), plus Ember Artificer guard / shoulder lead / windup / contact / recovery with no combat text. Wall-clock approximations.
+test("QF03 Ember Artificer silhouette and Furnace Ray phases", async () => {
+  const outQ = path.join(outDir, "QF03");
+  mkdirSync(outQ, { recursive: true });
+  const ctx = await browser.newContext({ viewport: { width: 1180, height: 820 } });
+  const page = await ctx.newPage();
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  type A = ArtApi & { awaken(k: string, v: boolean): void };
+  const act = (kit: string, action: string, moveId: string) => page.evaluate(([k, a, m]) => (window as unknown as { __art: ArtApi }).__art.act(k as string, a as string, m as string), [kit, action, moveId]);
+  const clipOf = (kit: string) => page.evaluate((k) => (window as unknown as { __art: ArtApi }).__art.clip(k), kit);
+  const ready = async (url: string) => {
+    await page.goto(url);
+    await page.waitForFunction(() => ((window as unknown as { __art?: ArtApi }).__art?.frames() ?? 0) > 20, undefined, { timeout: 30_000 });
+    await page.addStyleTag({ content: "canvas{filter:grayscale(1)}" });
+  };
+  try {
+    for (const view of ["rear", "side"]) for (const dist of [8, 14]) {
+      await ready(`${base}/art.html?view=${view}&dist=${dist}`);
+      for (const q of ["medium", "low"]) for (const awakened of [false, true]) {
+        await page.evaluate(([qq, on]) => { const a = (window as unknown as { __art: A }).__art; a.quality(qq as string); a.awaken("ea", on as boolean); }, [q, awakened]);
+        await page.waitForTimeout(500);
+        await page.screenshot({ path: path.join(outQ, `${view}-${dist}m-${q}${awakened ? "-awakened" : ""}.png`) });
+      }
+    }
+    await ready(`${base}/art.html`);
+    await page.screenshot({ path: path.join(outQ, "front-idle.png") });
+    // Complete anonymous lineup for QD01: all three fighters side by side, no labels, base then awakened.
+    for (const k of ["sv", "td", "ea"]) await page.evaluate(([kk]) => (window as unknown as { __art: A }).__art.awaken(kk as string, true), [k]);
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: path.join(outQ, "lineup-awakened.png") });
+    for (const k of ["sv", "td", "ea"]) await page.evaluate(([kk]) => (window as unknown as { __art: A }).__art.awaken(kk as string, false), [k]);
+    await act("ea", "Guard", "");
+    await page.waitForTimeout(500);
+    expect(await clipOf("ea")).toBe("guard");
+    await page.screenshot({ path: path.join(outQ, "ea-guard.png") });
+    // Furnace Ray is retimed to its authoritative length; vent-open key ~0.1 s, windup ~0.25 s, contact ~0.35 s, then recovery.
+    await act("ea", "Windup", "ea.a3");
+    await page.waitForTimeout(60);
+    expect(await clipOf("ea")).toBe("ea.a3");
+    await page.screenshot({ path: path.join(outQ, "ea-a3-lead.png") });
+    await page.waitForTimeout(120);
+    await page.screenshot({ path: path.join(outQ, "ea-a3-windup.png") });
+    await page.waitForTimeout(150);
+    await page.screenshot({ path: path.join(outQ, "ea-a3-contact.png") });
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: path.join(outQ, "ea-a3-recovery.png") });
+    expect(errors).toEqual([]);
+  } finally { await ctx.close(); }
+});
