@@ -138,7 +138,7 @@ Execute one row per session using [the Quality 90 instructions](quality-90-plan.
 | Q00 | Baseline and evidence inventory | FX4-align ORB2 WEB1 WEB2 WEB3 WEB4 WEB5 | DONE | 0192299 | docs/test-results/Q00.md |
 | Q01 | Reproducible fight and load capture | Q00 | DONE | caff92f | docs/test-results/Q01.md |
 | QA01 | Reliable sparring and replay | Q01 BOT5 | DONE | 577f9bc | docs/test-results/QA01.md |
-| QC01 | Close-combat visibility | Q01 | IMPLEMENTED, DEVICE CHECK PENDING | HASH | docs/test-results/QC01.md |
+| QC01 | Close-combat visibility | Q01 | IMPLEMENTED, DEVICE CHECK PENDING | bf64d3a | docs/test-results/QC01.md |
 | QE01 | East bridge MegaKit art pass | Q01 ART1 | IMPLEMENTED (DEVICE CHECK PENDING) | de8cf2a | docs/test-results/QE01.md |
 | QF01 | Stone Vanguard silhouette and animation | Q01 ART2 | IMPLEMENTED (DEVICE CHECK PENDING) | c8e12ad | docs/test-results/QF01.md |
 | QV01 | Visible urn lifecycle | Q01 T23 ORB2 | IMPLEMENTED (DEVICE CHECK PENDING) | 57f849f | docs/test-results/QV01.md |
