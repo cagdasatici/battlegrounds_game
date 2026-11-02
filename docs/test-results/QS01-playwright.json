@@ -1,0 +1,113 @@
+{
+  "routing": {
+    "before": {
+      "made": 0,
+      "unlocked": false,
+      "voices": 0
+    },
+    "unlocked": {
+      "made": 1,
+      "unlocked": true
+    },
+    "kinds": {
+      "block": 1,
+      "counter": 1,
+      "ko": 1,
+      "stone": 1,
+      "tide": 1,
+      "ember": 1,
+      "duplicate": 0
+    },
+    "sustain": {
+      "start": 1,
+      "phaseEnd": 0,
+      "restart": 1,
+      "interrupt": 0,
+      "death": 0,
+      "leave": 0,
+      "beforeHide": 1,
+      "hidden": 0,
+      "hiddenSuspended": 1,
+      "visibleAgain": 1,
+      "ctxSuspended": 0,
+      "resumed": 1
+    },
+    "end": {
+      "closed": 1,
+      "probeGone": true,
+      "ctxState": "closed"
+    },
+    "pageErrors": []
+  },
+  "offline": {
+    "metrics": {
+      "castStone": {
+        "peak": 0.205,
+        "rms": 0.0228,
+        "centroidHz": 80
+      },
+      "castWater": {
+        "peak": 0.392,
+        "rms": 0.0447,
+        "centroidHz": 751
+      },
+      "castHeat": {
+        "peak": 0.71,
+        "rms": 0.0558,
+        "centroidHz": 797
+      },
+      "block": {
+        "peak": 0.174,
+        "rms": 0.0077,
+        "centroidHz": 2041
+      },
+      "counter": {
+        "peak": 0.319,
+        "rms": 0.0274,
+        "centroidHz": 1756
+      },
+      "ko": {
+        "peak": 0.254,
+        "rms": 0.0394,
+        "centroidHz": 635
+      },
+      "hitLight": {
+        "peak": 0.159,
+        "rms": 0.0067,
+        "centroidHz": 779
+      },
+      "hitHeavy": {
+        "peak": 0.278,
+        "rms": 0.0305,
+        "centroidHz": 167
+      }
+    },
+    "pairwiseL1": {
+      "castStone~castWater": 2,
+      "castStone~castHeat": 1.993,
+      "castStone~block": 1.999,
+      "castStone~counter": 1.999,
+      "castStone~ko": 1.98,
+      "castWater~castHeat": 1.775,
+      "castWater~block": 0.546,
+      "castWater~counter": 1.999,
+      "castWater~ko": 1.851,
+      "castHeat~block": 1.567,
+      "castHeat~counter": 1.883,
+      "castHeat~ko": 1.037,
+      "block~counter": 1.989,
+      "block~ko": 1.7,
+      "counter~ko": 1.925
+    },
+    "minPairwiseL1": 0.546
+  },
+  "game": {
+    "maxVoices": 1,
+    "drained": {
+      "unlocked": true,
+      "voices": 0,
+      "loops": 0
+    },
+    "pageErrors": []
+  }
+}

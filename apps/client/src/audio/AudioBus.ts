@@ -1,4 +1,4 @@
-import { attenuation, MAX_VOICES, RECIPES, type Priority, type SoundKind } from "./synth.js";
+import { attenuation, LOOPS, MAX_VOICES, RECIPES, type LoopKind, type Priority, type Recipe, type SoundKind } from "./synth.js";
 
 /** Structural subset of the WebAudio API used here, so tests can pass a fake context. */
 export interface ParamLike {
@@ -29,9 +29,13 @@ export interface AudioContextLike {
   createBiquadFilter(): FilterLike;
   createGain(): GainLike;
   createDynamicsCompressor(): CompressorLike;
+  /** QS01: optional so fakes stay small. Real contexts report "running", "suspended", "closed" or (Safari) "interrupted". */
+  readonly state?: string;
+  suspend?(): Promise<void>;
+  onstatechange?: (() => void) | null;
 }
 
-interface Voice { priority: Priority; start: number; end: number; stop: () => void }
+interface Voice { priority: Priority; start: number; end: number; stop: () => void; loopKey?: string; out?: GainLike }
 
 /**
  * Master bus: one compressor, effects gain from settings, a 16 voice cap with priority stealing and linear
@@ -43,6 +47,7 @@ export class AudioBus {
   private noise: BufferLike | null = null;
   private voices: Voice[] = [];
   private unlocked = false;
+  private suspended = false;
   private effects = 1;
 
   constructor(private readonly make: () => AudioContextLike) {}
@@ -68,6 +73,7 @@ export class AudioBus {
       for (let i = 0; i < len; i++) { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; d[i] = ((s >>> 0) / 0xffffffff) * 2 - 1; }
       this.ctx = ctx; this.master = master; this.noise = buf; this.unlocked = true;
       void ctx.resume().catch(() => {});
+      ctx.onstatechange = () => { if (ctx.state !== undefined && ctx.state !== "running") this.stopAllLoops(); };
     } catch { this.unlocked = false; }
   }
 
@@ -80,19 +86,91 @@ export class AudioBus {
   /** Returns true when a voice was started. distM is listener-to-source distance in metres. */
   play(kind: SoundKind, priority: Priority, distM: number): boolean {
     const ctx = this.ctx, master = this.master;
-    if (!this.unlocked || !ctx || !master) return false;
+    if (!this.unlocked || !ctx || !master || this.isSuspended) return false;
     const att = attenuation(distM);
     if (att <= 0) return false;
     this.prune();
-    if (this.voices.length >= MAX_VOICES) {
-      // Steal the lowest priority (largest number), oldest voice, unless everything outranks the newcomer.
-      let victim = this.voices[0]!;
-      for (const v of this.voices) if (v.priority > victim.priority || (v.priority === victim.priority && v.start < victim.start)) victim = v;
-      if (victim.priority < priority) return false;
-      victim.stop();
-      this.voices = this.voices.filter((v) => v !== victim);
-    }
+    if (this.voices.length >= MAX_VOICES && !this.steal(priority)) return false;
     const recipe = RECIPES[kind];
+    const t0 = ctx.currentTime;
+    const { stop } = this.build(ctx, master, recipe, att, false);
+    this.voices.push({ priority, start: t0, end: t0 + recipe.dur + 0.02, stop });
+    return true;
+  }
+
+  /** QS01: start (or keep) a sustained bed under `key`. Counts as a voice. Returns false when silent or dropped. */
+  startLoop(key: string, kind: LoopKind, priority: Priority, distM: number): boolean {
+    const ctx = this.ctx, master = this.master;
+    if (!this.unlocked || !ctx || !master || this.suspended || (ctx.state !== undefined && ctx.state !== "running")) return false;
+    if (this.voices.some((v) => v.loopKey === key)) return this.setLoopDistance(key, distM);
+    const att = attenuation(distM);
+    if (att <= 0) return false;
+    this.prune();
+    if (this.voices.length >= MAX_VOICES && !this.steal(priority)) return false;
+    const { out, stop } = this.build(ctx, master, LOOPS[kind], att, true);
+    this.voices.push({ priority, start: ctx.currentTime, end: Infinity, stop, loopKey: key, out });
+    return true;
+  }
+
+  /** Re-apply distance attenuation to a live loop; stops it when out of range. */
+  setLoopDistance(key: string, distM: number): boolean {
+    const v = this.voices.find((x) => x.loopKey === key);
+    if (!v) return false;
+    const att = attenuation(distM);
+    if (att <= 0) { this.stopLoop(key); return false; }
+    if (v.out) v.out.gain.value = att;
+    return true;
+  }
+
+  stopLoop(key: string): void {
+    const v = this.voices.find((x) => x.loopKey === key);
+    if (!v) return;
+    v.stop();
+    this.voices = this.voices.filter((x) => x !== v);
+  }
+
+  hasLoop(key: string): boolean { return this.voices.some((v) => v.loopKey === key); }
+  get loopCount(): number { return this.voices.filter((v) => v.loopKey !== undefined).length; }
+
+  stopAllLoops(): void {
+    for (const v of this.voices) if (v.loopKey !== undefined) v.stop();
+    this.voices = this.voices.filter((v) => v.loopKey === undefined);
+  }
+
+  /** Page hidden or device interruption: silence every loop and refuse new ones until resume(). One-shots finish on their own. */
+  suspend(): void {
+    this.suspended = true;
+    this.stopAllLoops();
+    void this.ctx?.suspend?.().catch(() => {});
+  }
+
+  resume(): void {
+    this.suspended = false;
+    void this.ctx?.resume().catch(() => {});
+  }
+
+  /** Safari can leave a context suspended after creation; call on each gesture until it runs. True once running. */
+  ensureRunning(): boolean {
+    const ctx = this.ctx;
+    if (!this.unlocked || !ctx) return false;
+    if (ctx.state === undefined || ctx.state === "running") return true;
+    if (!this.suspended) void ctx.resume().catch(() => {});
+    return false;
+  }
+
+  get isSuspended(): boolean { return this.suspended || (this.ctx?.state !== undefined && this.ctx.state !== "running"); }
+
+  /** Free a voice slot for a newcomer of `priority`; false when everything outranks it. */
+  private steal(priority: Priority): boolean {
+    let victim = this.voices[0]!;
+    for (const v of this.voices) if (v.priority > victim.priority || (v.priority === victim.priority && v.start < victim.start)) victim = v;
+    if (victim.priority < priority) return false;
+    victim.stop();
+    this.voices = this.voices.filter((v) => v !== victim);
+    return true;
+  }
+
+  private build(ctx: AudioContextLike, master: GainLike, recipe: Recipe, att: number, loop: boolean): { out: GainLike; stop: () => void } {
     const t0 = ctx.currentTime;
     const out = ctx.createGain();
     out.gain.value = att;
@@ -103,14 +181,14 @@ export class AudioBus {
       const env = ctx.createGain();
       env.gain.setValueAtTime(0.0001, at);
       env.gain.linearRampToValueAtTime(l.gain, at + l.attack);
-      env.gain.exponentialRampToValueAtTime(0.0001, end);
+      if (!loop) env.gain.exponentialRampToValueAtTime(0.0001, end);
       let head: NodeLike;
       let src: SourceLike;
       if (l.src === "osc") {
         const o = ctx.createOscillator();
         o.type = l.wave ?? "sine";
         o.frequency.setValueAtTime(l.f0, at);
-        o.frequency.exponentialRampToValueAtTime(l.f1, end);
+        if (!loop) o.frequency.exponentialRampToValueAtTime(l.f1, end);
         src = o; head = o;
       } else {
         const n = ctx.createBufferSource();
@@ -118,7 +196,7 @@ export class AudioBus {
         const f = ctx.createBiquadFilter();
         f.type = l.filter ?? "lowpass";
         f.frequency.setValueAtTime(l.f0, at);
-        f.frequency.exponentialRampToValueAtTime(l.f1, end);
+        if (!loop) f.frequency.exponentialRampToValueAtTime(l.f1, end);
         f.Q.value = 1;
         n.connect(f);
         src = n; head = f;
@@ -131,17 +209,13 @@ export class AudioBus {
         const depth = ctx.createGain();
         depth.gain.value = l.gain * 0.5;
         lfo.connect(depth); depth.connect(env.gain);
-        lfo.start(at); lfo.stop(end + 0.02); srcs.push(lfo);
+        lfo.start(at); if (!loop) lfo.stop(end + 0.02); srcs.push(lfo);
       }
       env.connect(out);
-      src.start(at); src.stop(end + 0.02);
+      src.start(at); if (!loop) src.stop(end + 0.02);
       srcs.push(src);
     }
-    this.voices.push({
-      priority, start: t0, end: t0 + recipe.dur + 0.02,
-      stop: () => { for (const s of srcs) { try { s.stop(); s.disconnect(); } catch { /* already stopped */ } } out.disconnect(); },
-    });
-    return true;
+    return { out, stop: () => { for (const s of srcs) { try { s.stop(); s.disconnect(); } catch { /* already stopped */ } } out.disconnect(); } };
   }
 
   private prune(): void {
@@ -154,6 +228,7 @@ export class AudioBus {
     this.voices = [];
     this.master?.disconnect();
     const c = this.ctx;
+    if (c) c.onstatechange = null;
     this.ctx = null; this.master = null; this.unlocked = false;
     void c?.close().catch(() => {});
   }

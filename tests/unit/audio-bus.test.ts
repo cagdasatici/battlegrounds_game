@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { AudioBus, type AudioContextLike } from "../../apps/client/src/audio/AudioBus.js";
-import { attenuation, castKind, RECIPES } from "../../apps/client/src/audio/synth.js";
-import { priorityFor, soundFor } from "../../apps/client/src/fx/Sfx.js";
+import { attenuation, castKind, LOOPS, loopKindFor, RECIPES } from "../../apps/client/src/audio/synth.js";
+import { priorityFor, scanSustainAudio, soundFor } from "../../apps/client/src/fx/Sfx.js";
 import type { CombatEvent } from "../../packages/shared/src/protocol.js";
 
 function fakeCtx() {
@@ -87,11 +87,126 @@ describe("Sfx mapping", () => {
     expect(castKind("td.b2")).toBe("castWater");
     expect(castKind("ea.a3")).toBe("castHeat");
     expect(Object.keys(RECIPES).length).toBe(10);
+    expect(Object.keys(LOOPS).length).toBe(3);
   });
   test("priority: local hit, nearby major, else", () => {
     expect(priorityFor(ev({ targetId: "me" }), "me", 30)).toBe(0);
     expect(priorityFor(ev({ kind: "cast", moveId: "sv.a1" }), "me", 10)).toBe(1);
     expect(priorityFor(ev({ kind: "cast", moveId: "sv.a1" }), "me", 30)).toBe(2);
     expect(priorityFor(ev({ kind: "cast", moveId: "m1.1" }), "me", 1)).toBe(2);
+  });
+});
+
+describe("QS01 element identity", () => {
+  const sig = (k: keyof typeof RECIPES) => JSON.stringify(RECIPES[k].layers);
+  test("element casts and defensive sounds are all distinct recipes", () => {
+    const kinds = ["castStone", "castWater", "castHeat", "block", "counter", "ko"] as const;
+    expect(new Set(kinds.map(sig)).size).toBe(kinds.length);
+  });
+  test("stone has falling chip ticks, tide descends, ember rises then ignites", () => {
+    const chips = RECIPES.castStone.layers.filter((l) => l.src === "noise" && (l.delay ?? 0) > 0);
+    expect(chips.length).toBeGreaterThanOrEqual(3);
+    for (let i = 1; i < chips.length; i++) expect(chips[i]!.f0).toBeLessThan(chips[i - 1]!.f0);
+    const tone = RECIPES.castWater.layers.find((l) => l.src === "osc")!;
+    expect(tone.f1).toBeLessThan(tone.f0);
+    const charge = RECIPES.castHeat.layers.find((l) => l.src === "osc")!;
+    expect(charge.f1).toBeGreaterThan(charge.f0);
+    const ignite = RECIPES.castHeat.layers.filter((l) => l.src === "noise");
+    for (const l of ignite) expect(l.delay ?? 0).toBeGreaterThanOrEqual(charge.dur - 0.05);
+  });
+  test("loopKindFor: kits only, never m1 or dash", () => {
+    expect(loopKindFor("sv.a3")).toBe("loopStone");
+    expect(loopKindFor("td.a3")).toBe("loopWater");
+    expect(loopKindFor("ea.a4")).toBe("loopHeat");
+    expect(loopKindFor("m1.1")).toBeNull();
+    expect(loopKindFor("dash.forward")).toBeNull();
+    expect(loopKindFor(undefined)).toBeNull();
+  });
+});
+
+describe("QS01 sustained loops", () => {
+  test("loop starts once, counts as a voice, stops on stopLoop and never expires by time", () => {
+    const t = mk(); t.bus.unlock();
+    expect(t.bus.startLoop("a", "loopHeat", 1, 2)).toBe(true);
+    expect(t.bus.startLoop("a", "loopHeat", 1, 2)).toBe(true);
+    expect(t.bus.loopCount).toBe(1);
+    t.state.time = 600;
+    expect(t.bus.activeVoices).toBe(1);
+    t.bus.stopLoop("a");
+    expect(t.bus.activeVoices).toBe(0);
+    expect(t.state.stopped).toBeGreaterThan(0);
+  });
+  test("loops obey the 16 voice cap and attenuation", () => {
+    const t = mk(); t.bus.unlock();
+    for (let i = 0; i < 20; i++) t.bus.startLoop(`k${i}`, "loopStone", 2, 1);
+    expect(t.bus.activeVoices).toBe(16);
+    expect(t.bus.startLoop("far", "loopStone", 0, 45)).toBe(false);
+    expect(t.bus.startLoop("near", "loopStone", 0, 1)).toBe(true);
+    expect(t.bus.activeVoices).toBe(16);
+    t.bus.setLoopDistance("near", 60);
+    expect(t.bus.hasLoop("near")).toBe(false);
+  });
+  test("stolen loop is forgotten so it can restart", () => {
+    const t = mk(); t.bus.unlock();
+    for (let i = 0; i < 16; i++) t.bus.startLoop(`k${i}`, "loopStone", 2, 1);
+    t.bus.play("hitLight", 0, 1);
+    expect(t.bus.loopCount).toBe(15);
+  });
+  test("suspend stops loops, refuses new voices until resume; dispose clears", () => {
+    const t = mk(); t.bus.unlock();
+    t.bus.startLoop("a", "loopWater", 1, 2);
+    t.bus.suspend();
+    expect(t.bus.loopCount).toBe(0);
+    expect(t.bus.startLoop("a", "loopWater", 1, 2)).toBe(false);
+    expect(t.bus.play("hitLight", 0, 0)).toBe(false);
+    t.bus.resume();
+    expect(t.bus.startLoop("a", "loopWater", 1, 2)).toBe(true);
+    t.bus.dispose();
+    expect(t.bus.activeVoices).toBe(0);
+  });
+  test("device interruption (statechange to interrupted) stops loops and blocks restart", () => {
+    const f = fakeCtx() as ReturnType<typeof fakeCtx> & { ctx: { state?: string; onstatechange?: (() => void) | null } };
+    f.ctx.state = "running";
+    const bus = new AudioBus(() => f.ctx);
+    bus.unlock();
+    bus.startLoop("a", "loopHeat", 1, 2);
+    f.ctx.state = "interrupted";
+    f.ctx.onstatechange?.();
+    expect(bus.loopCount).toBe(0);
+    expect(bus.startLoop("a", "loopHeat", 1, 2)).toBe(false);
+    f.ctx.state = "running";
+    expect(bus.startLoop("a", "loopHeat", 1, 2)).toBe(true);
+  });
+});
+
+describe("QS01 sustain scan follows replicated state", () => {
+  const P = (over: Record<string, unknown>) => ({ x: 0, z: 0, action: "Active", moveId: "ea.a3", actionStartTick: 100, actionEndTick: 400, ...over });
+  const run = (players: Map<string, unknown>, tick: number | undefined, bus: AudioBus, live: Set<string>) => scanSustainAudio(bus, players, tick, "me", live);
+  test("starts on active, stops on active end, interruption, death and leave; short actives and m1 stay silent", () => {
+    const t = mk(); t.bus.unlock();
+    const live = new Set<string>();
+    const players = new Map<string, unknown>([["me", P({})], ["foe", P({ moveId: "m1.1" })], ["short", P({ actionEndTick: 110 })]]);
+    run(players, 150, t.bus, live);
+    expect(t.bus.loopCount).toBe(1);
+    run(players, 150, t.bus, live);
+    expect(t.bus.loopCount).toBe(1);
+    run(players, undefined, t.bus, live);
+    expect(t.bus.loopCount).toBe(0);
+    run(players, 150, t.bus, live);
+    run(players, 400, t.bus, live); // confirmed phase end
+    expect(t.bus.loopCount).toBe(0);
+    run(players, 150, t.bus, live);
+    players.set("me", P({ action: "Stunned" })); // interruption
+    run(players, 160, t.bus, live);
+    expect(t.bus.loopCount).toBe(0);
+    players.set("me", P({})); run(players, 170, t.bus, live);
+    players.set("me", P({ action: "Dead" })); // death
+    run(players, 171, t.bus, live);
+    expect(t.bus.loopCount).toBe(0);
+    players.set("me", P({})); run(players, 172, t.bus, live);
+    players.delete("me"); // leave
+    run(players, 173, t.bus, live);
+    expect(t.bus.loopCount).toBe(0);
+    expect(live.size).toBe(0);
   });
 });

@@ -4,6 +4,9 @@ export type SoundKind =
   | "hitLight" | "hitHeavy" | "block" | "counter" | "heal" | "ko"
   | "castStone" | "castWater" | "castHeat" | "castGeneric";
 
+/** QS01: sustained beds for channelled abilities, one per element. */
+export type LoopKind = "loopStone" | "loopWater" | "loopHeat";
+
 export interface Layer {
   src: "osc" | "noise";
   wave?: "sine" | "square" | "sawtooth" | "triangle";
@@ -35,8 +38,8 @@ export const RECIPES: Record<SoundKind, Recipe> = {
     { src: "osc", wave: "sine", f0: 140, f1: 45, gain: 0.8, attack: 0.002, dur: 0.28 },
   ]),
   block: r([
-    { src: "osc", wave: "square", f0: 880, f1: 760, gain: 0.25, attack: 0.001, dur: 0.07 },
-    { src: "noise", f0: 5000, f1: 4000, filter: "highpass", gain: 0.3, attack: 0.001, dur: 0.05 },
+    { src: "osc", wave: "square", f0: 880, f1: 760, gain: 0.4, attack: 0.001, dur: 0.07 },
+    { src: "noise", f0: 5000, f1: 4000, filter: "highpass", gain: 0.45, attack: 0.001, dur: 0.05 },
   ]),
   counter: r([
     { src: "osc", wave: "sawtooth", f0: 400, f1: 1400, gain: 0.3, attack: 0.005, dur: 0.14 },
@@ -51,21 +54,56 @@ export const RECIPES: Record<SoundKind, Recipe> = {
     { src: "osc", wave: "sawtooth", f0: 300, f1: 40, gain: 0.6, attack: 0.005, dur: 0.7 },
     { src: "noise", f0: 1200, f1: 100, filter: "lowpass", gain: 0.5, attack: 0.005, dur: 0.6 },
   ]),
+  // QS01 element identities. Stone: low transient then falling chip ticks. Tide: short noise sweep then a descending
+  // water tone. Ember: rising charge then a dry ignition crack (high, short, no tail).
   castStone: r([
-    { src: "noise", f0: 400, f1: 120, filter: "lowpass", gain: 0.8, attack: 0.005, dur: 0.25 },
-    { src: "osc", wave: "sine", f0: 90, f1: 50, gain: 0.7, attack: 0.005, dur: 0.25 },
+    { src: "osc", wave: "sine", f0: 90, f1: 50, gain: 0.7, attack: 0.005, dur: 0.2 },
+    { src: "noise", f0: 400, f1: 120, filter: "lowpass", gain: 0.6, attack: 0.005, dur: 0.14 },
+    { src: "noise", f0: 2600, f1: 2000, filter: "bandpass", gain: 0.35, attack: 0.001, dur: 0.025, delay: 0.1 },
+    { src: "noise", f0: 2000, f1: 1500, filter: "bandpass", gain: 0.3, attack: 0.001, dur: 0.025, delay: 0.17 },
+    { src: "noise", f0: 1500, f1: 1000, filter: "bandpass", gain: 0.25, attack: 0.001, dur: 0.025, delay: 0.24 },
   ]),
   castWater: r([
-    { src: "noise", f0: 300, f1: 2400, filter: "bandpass", gain: 0.5, attack: 0.12, dur: 0.4 },
+    { src: "noise", f0: 300, f1: 2400, filter: "bandpass", gain: 0.45, attack: 0.05, dur: 0.16 },
+    { src: "osc", wave: "sine", f0: 820, f1: 330, gain: 0.35, attack: 0.02, dur: 0.3, delay: 0.1 },
   ]),
   castHeat: r([
-    { src: "osc", wave: "sawtooth", f0: 200, f1: 900, gain: 0.3, attack: 0.02, dur: 0.35 },
-    { src: "noise", f0: 4000, f1: 2500, filter: "highpass", gain: 0.3, attack: 0.01, dur: 0.35, crackleHz: 38 },
+    { src: "osc", wave: "sawtooth", f0: 160, f1: 820, gain: 0.3, attack: 0.15, dur: 0.3 },
+    { src: "noise", f0: 4500, f1: 6500, filter: "highpass", gain: 0.5, attack: 0.001, dur: 0.06, delay: 0.3 },
+    { src: "noise", f0: 5000, f1: 3500, filter: "highpass", gain: 0.25, attack: 0.001, dur: 0.12, delay: 0.3, crackleHz: 55 },
   ]),
   castGeneric: r([
     { src: "osc", wave: "triangle", f0: 330, f1: 520, gain: 0.3, attack: 0.01, dur: 0.12 },
   ]),
 };
+
+/** Loop beds: a layer set that repeats until stopped. `dur` is the seed length; the voice loops through noise and oscillators. */
+export const LOOPS: Record<LoopKind, Recipe> = {
+  loopStone: r([
+    { src: "noise", f0: 220, f1: 220, filter: "lowpass", gain: 0.5, attack: 0.05, dur: 1 },
+    { src: "osc", wave: "sine", f0: 55, f1: 55, gain: 0.35, attack: 0.05, dur: 1 },
+  ]),
+  loopWater: r([
+    { src: "noise", f0: 1400, f1: 1400, filter: "bandpass", gain: 0.4, attack: 0.05, dur: 1 },
+    { src: "osc", wave: "sine", f0: 420, f1: 420, gain: 0.15, attack: 0.05, dur: 1 },
+  ]),
+  loopHeat: r([
+    { src: "osc", wave: "sawtooth", f0: 110, f1: 110, gain: 0.22, attack: 0.05, dur: 1 },
+    { src: "noise", f0: 4200, f1: 4200, filter: "highpass", gain: 0.3, attack: 0.05, dur: 1, crackleHz: 24 },
+  ]),
+};
+
+/** Abilities held longer than this many ticks (0.5 s at 60 Hz) have a sustained bed. */
+export const SUSTAIN_MIN_TICKS = 30;
+
+/** Loop bed for a kit ability id, or null for m1, dash and unknown ids. */
+export function loopKindFor(moveId: string | undefined): LoopKind | null {
+  if (moveId === undefined || !isMajorMove(moveId)) return null;
+  if (moveId.startsWith("sv.")) return "loopStone";
+  if (moveId.startsWith("td.")) return "loopWater";
+  if (moveId.startsWith("ea.")) return "loopHeat";
+  return null;
+}
 
 /** Lower number = more important. */
 export type Priority = 0 | 1 | 2;
