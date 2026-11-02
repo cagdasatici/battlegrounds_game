@@ -22,6 +22,8 @@ export interface V3 { x: number; y: number; z: number }
 /** QC01 (D): close-combat shoulder framing. Presentation only; never read by the server. */
 export const CLOSE_COMBAT = {
   enterM: 2.5, exitM: 3, maxOffset: 0.55,
+  /** QC01 height assist (D): metres the pivot and boom rise while framing; the view direction is unchanged. */
+  assistHeight: 0.5,
   /** Local torso radius plus opponent radius plus a small margin: lateral gap below which the opponent hides behind the torso. */
   hideLateral: 0.8,
   head: 0.75, shoulderY: 0.5, shoulderHalf: 0.25, /* D: visible silhouette, narrower than the 0.35 collision capsule */ torsoRadius: 0.25, torsoHalfHeight: 0.9,
@@ -105,7 +107,7 @@ export function sphereCast(colliders: readonly Collider[], from: V3, dir: V3, ma
 export interface CameraTrack { ms: number; orbitRad: number; distance: number }
 export const CAMERA_TRACK_MAX_MS = 1200;
 
-export interface CameraPose { position: V3; pivot: V3; yaw: number; pitch: number; distance: number; shoulderOffset: number }
+export interface CameraPose { position: V3; pivot: V3; yaw: number; pitch: number; distance: number; shoulderOffset: number; heightAssist?: number }
 
 /** Head and both shoulder points of a fighter, for framing checks and debug captures. */
 export function fighterMarkers(f: Framed): { head: V3; shoulderLeft: V3; shoulderRight: V3 } {
@@ -171,6 +173,7 @@ export class CameraRig {
   private shakeTotal = 0;
   private shakeClock = 0;
   private offset = 0;
+  private lift = 0;
   private latched = false;
   private track: CameraTrack | null = null;
   private trackT = 0;
@@ -197,6 +200,8 @@ export class CameraRig {
 
   /** Current lateral shoulder offset in metres (0 to 0.55, camera-right). */
   get shoulderOffset(): number { return this.offset; }
+  /** Current height assist in metres (0 to CLOSE_COMBAT.assistHeight). */
+  get heightAssist(): number { return this.lift; }
   get shaking(): boolean { return this.shakeLeft > 0; }
 
   setColliders(colliders: readonly Collider[]): void { this.colliders = colliders; }
@@ -251,7 +256,7 @@ export class CameraRig {
     }
     this.pose = {
       position: { x: pivot.x + dir.x * d + ox, y: pivot.y + dir.y * d + oy, z: pivot.z + dir.z * d + oz },
-      pivot, yaw, pitch, distance: d, shoulderOffset: this.offset,
+      pivot, yaw, pitch, distance: d, shoulderOffset: this.offset, heightAssist: this.lift,
     };
     return this.pose;
   }
@@ -286,6 +291,16 @@ export class CameraRig {
       this.offset = this.offset < target ? Math.min(target, this.offset + step) : Math.max(target, this.offset - step);
     }
     this.offset = Math.min(this.offset, room); // an obstruction clamps at once, never a penetration
-    return { x: base.x + right.x * this.offset, y: base.y, z: base.z + right.z * this.offset };
+    // Height assist: same latch (or constant under Reduced Motion), ceiling-clamped with the existing cast radius and clearance.
+    const wantUp = (reduced ? opp !== null : this.latched) ? M.assistHeight : 0;
+    const upHit = wantUp > 0 ? sphereCast(this.colliders, base, { x: 0, y: 1, z: 0 }, wantUp, CAMERA.castRadius) : wantUp;
+    const upRoom = upHit < wantUp ? Math.max(0, upHit - CAMERA.clearance) : wantUp;
+    if (reduced) this.lift = upRoom;
+    else {
+      const step = (dt * Math.max(M.assistHeight, 1e-9)) / CAMERA.easeOutSeconds;
+      this.lift = this.lift < upRoom ? Math.min(upRoom, this.lift + step) : Math.max(upRoom, this.lift - step);
+    }
+    this.lift = Math.min(this.lift, upRoom); // a ceiling clamps at once
+    return { x: base.x + right.x * this.offset, y: base.y + this.lift, z: base.z + right.z * this.offset };
   }
 }

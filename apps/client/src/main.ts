@@ -518,7 +518,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
             if (!f) return null;
             const markers = f.opponent ? fighterMarkers(f.opponent) : null;
             const aspect = g.camera.aspect;
-            return { offset: cam.shoulderOffset, distance: cam.pose.distance, position: cam.pose.position, pivot: cam.pose.pivot, yaw: router.yaw, local: f.local, opponent: f.opponent, markers,
+            return { offset: cam.shoulderOffset, lift: cam.heightAssist, distance: cam.pose.distance, position: cam.pose.position, pivot: cam.pose.pivot, yaw: router.yaw, local: f.local, opponent: f.opponent, markers,
               visible: f.opponent ? framingOk(cam.pose, f.local, f.opponent, aspect) : null,
               screen: markers ? Object.fromEntries(Object.entries(markers).map(([k, v]) => {
                 const q = projectPoint(cam.pose, v, aspect);

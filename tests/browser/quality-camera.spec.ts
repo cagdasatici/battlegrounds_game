@@ -14,7 +14,7 @@ import { createAuthServices, type AuthServices } from "../../apps/server/src/aut
 import { roomDirectory } from "../../apps/server/src/rooms/RoomDirectory.js";
 import type { SparringRoom } from "../../apps/server/src/rooms/SparringRoom.js";
 import { ARENA, buildIslandsMap } from "../../packages/shared/src/config/arena.js";
-import { CAMERA, sphereCast } from "../../apps/client/src/scene/CameraRig.js";
+import { CAMERA, CLOSE_COMBAT, sphereCast } from "../../apps/client/src/scene/CameraRig.js";
 import { resolveChromium } from "./harness/chromium-path.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -23,7 +23,7 @@ const req = createRequire(path.join(root, "apps/client/package.json"));
 interface Dev { close(): Promise<void>; listen(): Promise<unknown> }
 interface V3 { x: number; y: number; z: number }
 interface Cam {
-  offset: number; distance: number; yaw: number; position: V3; pivot: V3; local: V3; opponent: { centre: V3; yaw: number } | null;
+  offset: number; lift: number; distance: number; yaw: number; position: V3; pivot: V3; local: V3; opponent: { centre: V3; yaw: number } | null;
   visible: { head: boolean; shoulderLeft: boolean; shoulderRight: boolean; ok: boolean } | null;
   screen: Record<string, { x: number; y: number; depth: number }> | null;
 }
@@ -197,8 +197,11 @@ test("QC01: opponent head and a shoulder stay visible in close combat at centre,
         const d = Math.hypot(c!.position.x - c!.pivot.x, c!.position.y - c!.pivot.y, c!.position.z - c!.pivot.z);
         const dir = { x: (c!.position.x - c!.pivot.x) / d, y: (c!.position.y - c!.pivot.y) / d, z: (c!.position.z - c!.pivot.z) / d };
         expect(sphereCast(cols, c!.pivot, dir, d + 1e-3, CAMERA.castRadius)).toBeGreaterThanOrEqual(d + 1e-3 - 1e-6);
+        expect(c!.lift).toBeLessThanOrEqual(CLOSE_COMBAT.assistHeight + 1e-9);
         const sideX = Math.cos(yaw), sideZ = -Math.sin(yaw);
         const base = { x: c!.local.x, y: c!.local.y + CAMERA.pivotHeight, z: c!.local.z };
+        expect(Math.abs(c!.pivot.y - base.y - c!.lift)).toBeLessThan(1e-6);
+        expect(sphereCast(cols, base, { x: 0, y: 1, z: 0 }, Math.max(c!.lift, 1e-6), CAMERA.castRadius)).toBeGreaterThanOrEqual(c!.lift - 1e-6);
         const lat = (c!.pivot.x - base.x) * sideX + (c!.pivot.z - base.z) * sideZ;
         expect(Math.abs(lat - c!.offset)).toBeLessThan(1e-6);
         expect(sphereCast(cols, base, { x: sideX, y: 0, z: sideZ }, Math.max(c!.offset, 1e-6), CAMERA.castRadius)).toBeGreaterThanOrEqual(c!.offset - 1e-6);
@@ -209,11 +212,11 @@ test("QC01: opponent head and a shoulder stay visible in close combat at centre,
     const count = (st: Stance): number => views.filter((v) => v.stance === st && v.ok).length;
     const summary = { aligned: count("aligned"), right: count("right"), left: count("left"), of: 6 };
     writeFileSync(path.join(outDir, "camera-metrics.json"), JSON.stringify({
-      note: "Dev client on SwiftShader; synthetic placement fixture, real input. Visibility is the client's pure framing predicate (head plus one shoulder, not behind the local torso, inside the frustum). Only the right stance is gated; aligned and left are recorded diagnostics.",
+      note: "Dev client on SwiftShader; synthetic placement fixture, real input. Visibility is the client's pure framing predicate (head plus one shoulder, not behind the local torso, inside the frustum). All three stances are gated (at least 5 of 6 views each).",
       summary, views, spots: out,
     }, null, 2) + "\n");
     expect(views.length).toBe(18);
-    expect(summary.right, JSON.stringify(summary)).toBeGreaterThanOrEqual(5);
+    for (const st of ["aligned", "right", "left"] as const) expect(summary[st], JSON.stringify(summary)).toBeGreaterThanOrEqual(5);
     expect(host.errors).toEqual([]); expect(guest.errors).toEqual([]);
   } finally { await guest?.ctx.close(); await host.ctx.close(); }
 });

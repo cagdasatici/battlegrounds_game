@@ -233,6 +233,30 @@ describe("QC01 close-combat framing", () => {
     const c = clamp.update(me, 0, 0, 1 / 60, hidden).shoulderOffset;
     expect(c).toBeGreaterThan(0); expect(c).toBeLessThan(CLOSE_COMBAT.maxOffset);
   });
+  test("height assist: engages with the latch, eases over 0.15 s, releases above 3 m, leaves yaw and pitch alone", () => {
+    const H = CLOSE_COMBAT.assistHeight, r = new CameraRig([]);
+    near(r.update(me, 0.3, 0.1, 0.075, hidden).heightAssist ?? -1, H / 2);
+    const up = r.update(me, 0.3, 0.1, 0.075, hidden);
+    near(up.heightAssist ?? -1, H); near(up.pivot.y, me.y + CAMERA.pivotHeight + H);
+    near(up.yaw, 0.3); near(up.pitch, 0.1); near(up.distance, CAMERA.defaultDistance);
+    near(settle(r, { ...hidden, centre: { ...hidden.centre, z: -3.1 } }).heightAssist ?? -1, 0);
+    near(new CameraRig([]).update(me, 0, 0, 0.3, null).heightAssist ?? -1, 0);
+  });
+  test("height assist: Reduced Motion applies it constant on the first frame and drops it with the target", () => {
+    const r = new CameraRig([]); r.reducedMotion = true;
+    near(r.update(me, 0, 0, 1 / 60, { centre: { x: 8, y: 0.9, z: -8 }, yaw: 0 }).heightAssist ?? -1, CLOSE_COMBAT.assistHeight);
+    near(r.update(me, 0, 0, 1 / 60, null).heightAssist ?? -1, 0);
+  });
+  test("height assist: a low ceiling clamps it at once and the pivot stays clear", () => {
+    const ceiling: Collider = { id: "c", role: "obstacle", shape: "cuboid", centre: [0, 3, 0], halfExtents: [5, 0.5, 5] }; // underside at y = 2.5
+    const r = new CameraRig([ceiling]); settle(r, hidden);
+    const pose = settle(r, hidden, 1 / 60);
+    const room = 2.5 - (me.y + CAMERA.pivotHeight) - CAMERA.castRadius - CAMERA.clearance;
+    expect(pose.heightAssist ?? 99).toBeLessThanOrEqual(room + 1e-9);
+    expect(pose.heightAssist ?? 99).toBeLessThan(CLOSE_COMBAT.assistHeight);
+    const rm = new CameraRig([ceiling]); rm.reducedMotion = true;
+    expect(rm.update(me, 0, 0, 1 / 60, hidden).heightAssist ?? 99).toBeLessThanOrEqual(room + 1e-9);
+  });
   test("capture track keeps ownership of yaw and distance while the offset applies", () => {
     const r = new CameraRig([]); settle(r, hidden);
     r.playTrack({ ms: 600, orbitRad: 0.5, distance: 5 });

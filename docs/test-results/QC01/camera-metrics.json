@@ -1,9 +1,9 @@
 {
-  "note": "Dev client on SwiftShader; synthetic placement fixture, real input. Visibility is the client's pure framing predicate (head plus one shoulder, not behind the local torso, inside the frustum). Only the right stance is gated; aligned and left are recorded diagnostics.",
+  "note": "Dev client on SwiftShader; synthetic placement fixture, real input. Visibility is the client's pure framing predicate (head plus one shoulder, not behind the local torso, inside the frustum). All three stances are gated (at least 5 of 6 views each).",
   "summary": {
-    "aligned": 0,
+    "aligned": 6,
     "right": 6,
-    "left": 0,
+    "left": 6,
     "of": 6
   },
   "views": [
@@ -11,37 +11,37 @@
       "stance": "aligned",
       "spot": "centre",
       "view": "attacker",
-      "ok": false
+      "ok": true
     },
     {
       "stance": "aligned",
       "spot": "centre",
       "view": "defender",
-      "ok": false
+      "ok": true
     },
     {
       "stance": "aligned",
       "spot": "wall",
       "view": "attacker",
-      "ok": false
+      "ok": true
     },
     {
       "stance": "aligned",
       "spot": "wall",
       "view": "defender",
-      "ok": false
+      "ok": true
     },
     {
       "stance": "aligned",
       "spot": "bridge",
       "view": "attacker",
-      "ok": false
+      "ok": true
     },
     {
       "stance": "aligned",
       "spot": "bridge",
       "view": "defender",
-      "ok": false
+      "ok": true
     },
     {
       "stance": "right",
@@ -83,37 +83,37 @@
       "stance": "left",
       "spot": "centre",
       "view": "attacker",
-      "ok": false
+      "ok": true
     },
     {
       "stance": "left",
       "spot": "centre",
       "view": "defender",
-      "ok": false
+      "ok": true
     },
     {
       "stance": "left",
       "spot": "wall",
       "view": "attacker",
-      "ok": false
+      "ok": true
     },
     {
       "stance": "left",
       "spot": "wall",
       "view": "defender",
-      "ok": false
+      "ok": true
     },
     {
       "stance": "left",
       "spot": "bridge",
       "view": "attacker",
-      "ok": false
+      "ok": true
     },
     {
       "stance": "left",
       "spot": "bridge",
       "view": "defender",
-      "ok": false
+      "ok": true
     }
   ],
   "spots": [
@@ -137,15 +137,16 @@
       "pre": [
         {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": 0.55,
-            "y": 2.02,
+            "y": 2.52,
             "z": 8
           },
           "pivot": {
             "x": 0.55,
-            "y": 2.02,
+            "y": 2.52,
             "z": 1.5
           },
           "yaw": 0,
@@ -180,40 +181,41 @@
             }
           },
           "visible": {
-            "head": false,
+            "head": true,
             "shoulderLeft": true,
             "shoulderRight": false,
-            "ok": false
+            "ok": true
           },
           "screen": {
             "head": {
               "x": 466.27385868018166,
-              "y": 413.09845356715715,
+              "y": 454.66767294881026,
               "depth": 8
             },
             "shoulderLeft": {
               "x": 487.0584683710082,
-              "y": 433.8830632579836,
+              "y": 475.45228263963673,
               "depth": 8
             },
             "shoulderRight": {
               "x": 445.48924898935513,
-              "y": 433.8830632579836,
+              "y": 475.45228263963673,
               "depth": 8
             }
           }
         },
         {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": -0.5499999999999993,
-            "y": 2.0188179294159636,
+            "y": 2.5188179294159636,
             "z": -6.5
           },
           "pivot": {
             "x": -0.55,
-            "y": 2.0188179294159636,
+            "y": 2.5188179294159636,
             "z": -6.735557395310444e-17
           },
           "yaw": 3.141592653589793,
@@ -248,25 +250,25 @@
             }
           },
           "visible": {
-            "head": false,
+            "head": true,
             "shoulderLeft": true,
             "shoulderRight": false,
-            "ok": false
+            "ok": true
           },
           "screen": {
             "head": {
               "x": 466.2738586801816,
-              "y": 413.0001780642923,
+              "y": 454.5693974459454,
               "depth": 8
             },
             "shoulderLeft": {
               "x": 487.05846837100813,
-              "y": 433.7847877551188,
+              "y": 475.3540071367719,
               "depth": 8
             },
             "shoulderRight": {
               "x": 445.4892489893551,
-              "y": 433.7847877551188,
+              "y": 475.3540071367719,
               "depth": 8
             }
           }
@@ -275,15 +277,16 @@
       "impactViews": {
         "host": {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": 0.55,
-            "y": 2.02,
+            "y": 2.52,
             "z": 8
           },
           "pivot": {
             "x": 0.55,
-            "y": 2.02,
+            "y": 2.52,
             "z": 1.5
           },
           "yaw": 0,
@@ -318,40 +321,41 @@
             }
           },
           "visible": {
-            "head": false,
+            "head": true,
             "shoulderLeft": true,
             "shoulderRight": false,
-            "ok": false
+            "ok": true
           },
           "screen": {
             "head": {
               "x": 466.27385868018166,
-              "y": 413.09845356715715,
+              "y": 454.66767294881026,
               "depth": 8
             },
             "shoulderLeft": {
               "x": 487.0584683710082,
-              "y": 433.8830632579836,
+              "y": 475.45228263963673,
               "depth": 8
             },
             "shoulderRight": {
               "x": 445.48924898935513,
-              "y": 433.8830632579836,
+              "y": 475.45228263963673,
               "depth": 8
             }
           }
         },
         "guest": {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": -0.5499999999999993,
-            "y": 2.02,
+            "y": 2.52,
             "z": -6.5
           },
           "pivot": {
             "x": -0.55,
-            "y": 2.02,
+            "y": 2.52,
             "z": -6.735557395310444e-17
           },
           "yaw": 3.141592653589793,
@@ -386,25 +390,25 @@
             }
           },
           "visible": {
-            "head": false,
+            "head": true,
             "shoulderLeft": true,
             "shoulderRight": false,
-            "ok": false
+            "ok": true
           },
           "screen": {
             "head": {
               "x": 466.2738586801816,
-              "y": 413.09845356715715,
+              "y": 454.66767294881026,
               "depth": 8
             },
             "shoulderLeft": {
               "x": 487.05846837100813,
-              "y": 433.8830632579836,
+              "y": 475.45228263963673,
               "depth": 8
             },
             "shoulderRight": {
               "x": 445.4892489893551,
-              "y": 433.8830632579836,
+              "y": 475.45228263963673,
               "depth": 8
             }
           }
@@ -415,43 +419,36 @@
           "t": 2,
           "act": "Idle",
           "hit": false,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         },
         {
-          "t": 36,
+          "t": 35,
           "act": "Idle",
           "hit": false,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         },
         {
-          "t": 68,
-          "act": "Idle",
-          "hit": false,
-          "host": false,
-          "guest": false
-        },
-        {
-          "t": 102,
+          "t": 67,
           "act": "Windup",
           "hit": false,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         },
         {
-          "t": 851,
+          "t": 862,
           "act": "Windup",
           "hit": true,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         },
         {
-          "t": 1637,
+          "t": 1594,
           "act": "Recovery",
           "hit": true,
           "host": true,
-          "guest": false
+          "guest": true
         }
       ]
     },
@@ -475,21 +472,22 @@
       "pre": [
         {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": -1,
-            "y": 2.017035776672419,
+            "y": 2.5177567800087854,
             "z": 0.5500000000000005
           },
           "pivot": {
             "x": 5.5,
-            "y": 2.017035776672419,
+            "y": 2.5177567800087854,
             "z": 0.55
           },
           "yaw": -1.5707963267948966,
           "local": {
             "x": 5.5,
-            "y": 0.9170357766724192,
+            "y": 0.9177567800087855,
             "z": 0
           },
           "opponent": {
@@ -518,40 +516,41 @@
             }
           },
           "visible": {
-            "head": false,
+            "head": true,
             "shoulderLeft": true,
             "shoulderRight": false,
-            "ok": false
+            "ok": true
           },
           "screen": {
             "head": {
               "x": 468.4512939811254,
-              "y": 411.4781073024345,
+              "y": 451.12492870565524,
               "depth": 8.4
             },
             "shoulderLeft": {
               "x": 488.2461603533411,
-              "y": 431.2729736746503,
+              "y": 470.91979507787096,
               "depth": 8.4
             },
             "shoulderRight": {
               "x": 448.65642760890967,
-              "y": 431.2729736746503,
+              "y": 470.91979507787096,
               "depth": 8.4
             }
           }
         },
         {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": 13.9,
-            "y": 2.02,
+            "y": 2.52,
             "z": -0.5499999999999996
           },
           "pivot": {
             "x": 7.4,
-            "y": 2.02,
+            "y": 2.52,
             "z": -0.55
           },
           "yaw": 1.5707963267948966,
@@ -586,25 +585,25 @@
             }
           },
           "visible": {
-            "head": false,
+            "head": true,
             "shoulderLeft": true,
             "shoulderRight": false,
-            "ok": false
+            "ok": true
           },
           "screen": {
             "head": {
               "x": 468.45129398112533,
-              "y": 411.71281292110206,
+              "y": 451.30254566553356,
               "depth": 8.4
             },
             "shoulderLeft": {
               "x": 488.2461603533411,
-              "y": 431.5076792933178,
+              "y": 471.0974120377492,
               "depth": 8.4
             },
             "shoulderRight": {
               "x": 448.6564276089096,
-              "y": 431.5076792933178,
+              "y": 471.0974120377492,
               "depth": 8.4
             }
           }
@@ -613,21 +612,22 @@
       "impactViews": {
         "host": {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": -1,
-            "y": 2.016635170013178,
+            "y": 2.5162627954946366,
             "z": 0.5500000000000005
           },
           "pivot": {
             "x": 5.5,
-            "y": 2.016635170013178,
+            "y": 2.5162627954946366,
             "z": 0.55
           },
           "yaw": -1.5707963267948966,
           "local": {
             "x": 5.5,
-            "y": 0.9166351700131782,
+            "y": 0.9162627954946366,
             "z": 0
           },
           "opponent": {
@@ -656,40 +656,41 @@
             }
           },
           "visible": {
-            "head": false,
+            "head": true,
             "shoulderLeft": true,
             "shoulderRight": false,
-            "ok": false
+            "ok": true
           },
           "screen": {
             "head": {
               "x": 468.4512939811254,
-              "y": 411.44638748128455,
+              "y": 451.00663581037634,
               "depth": 8.4
             },
             "shoulderLeft": {
               "x": 488.2461603533411,
-              "y": 431.2412538535003,
+              "y": 470.801502182592,
               "depth": 8.4
             },
             "shoulderRight": {
               "x": 448.65642760890967,
-              "y": 431.2412538535003,
+              "y": 470.801502182592,
               "depth": 8.4
             }
           }
         },
         "guest": {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": 13.9,
-            "y": 2.02,
+            "y": 2.52,
             "z": -0.5499999999999996
           },
           "pivot": {
             "x": 7.4,
-            "y": 2.02,
+            "y": 2.52,
             "z": -0.55
           },
           "yaw": 1.5707963267948966,
@@ -724,25 +725,25 @@
             }
           },
           "visible": {
-            "head": false,
+            "head": true,
             "shoulderLeft": true,
             "shoulderRight": false,
-            "ok": false
+            "ok": true
           },
           "screen": {
             "head": {
               "x": 468.45129398112533,
-              "y": 411.71281292110206,
+              "y": 451.30254566553356,
               "depth": 8.4
             },
             "shoulderLeft": {
               "x": 488.2461603533411,
-              "y": 431.5076792933178,
+              "y": 471.0974120377492,
               "depth": 8.4
             },
             "shoulderRight": {
               "x": 448.6564276089096,
-              "y": 431.5076792933178,
+              "y": 471.0974120377492,
               "depth": 8.4
             }
           }
@@ -753,64 +754,57 @@
           "t": 2,
           "act": "Idle",
           "hit": false,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         },
         {
-          "t": 34,
+          "t": 36,
           "act": "Idle",
           "hit": false,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         },
         {
           "t": 68,
           "act": "Idle",
           "hit": false,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         },
         {
           "t": 101,
+          "act": "Idle",
+          "hit": false,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 134,
+          "act": "Idle",
+          "hit": false,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 167,
           "act": "Windup",
           "hit": false,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         },
         {
-          "t": 950,
+          "t": 1081,
           "act": "Recovery",
           "hit": true,
-          "host": false,
-          "guest": false
-        },
-        {
-          "t": 1776,
-          "act": "Active",
-          "hit": true,
-          "host": false,
+          "host": true,
           "guest": true
         },
         {
-          "t": 1810,
-          "act": "Active",
-          "hit": true,
-          "host": false,
-          "guest": true
-        },
-        {
-          "t": 1843,
-          "act": "Active",
-          "hit": true,
-          "host": false,
-          "guest": true
-        },
-        {
-          "t": 1877,
+          "t": 1939,
           "act": "Recovery",
           "hit": true,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         }
       ]
     },
@@ -834,15 +828,16 @@
       "pre": [
         {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": 19.7,
-            "y": 2.019886189492827,
+            "y": 2.519886189492827,
             "z": 0.5500000000000005
           },
           "pivot": {
             "x": 26.2,
-            "y": 2.019886189492827,
+            "y": 2.519886189492827,
             "z": 0.55
           },
           "yaw": -1.5707963267948966,
@@ -877,40 +872,41 @@
             }
           },
           "visible": {
-            "head": false,
+            "head": true,
             "shoulderLeft": true,
             "shoulderRight": false,
-            "ok": false
+            "ok": true
           },
           "screen": {
             "head": {
               "x": 467.3891304196894,
-              "y": 412.379503940757,
+              "y": 452.9348399228575,
               "depth": 8.2
             },
             "shoulderLeft": {
               "x": 487.66679841073966,
-              "y": 432.6571719318072,
+              "y": 473.2125079139078,
               "depth": 8.2
             },
             "shoulderRight": {
               "x": 447.11146242863913,
-              "y": 432.6571719318072,
+              "y": 473.2125079139078,
               "depth": 8.2
             }
           }
         },
         {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": 34.4,
-            "y": 2.0196774934697896,
+            "y": 2.5196774934697896,
             "z": -0.5499999999999996
           },
           "pivot": {
             "x": 27.9,
-            "y": 2.0196774934697896,
+            "y": 2.5196774934697896,
             "z": -0.55
           },
           "yaw": 1.5707963267948966,
@@ -945,25 +941,25 @@
             }
           },
           "visible": {
-            "head": false,
+            "head": true,
             "shoulderLeft": true,
             "shoulderRight": false,
-            "ok": false
+            "ok": true
           },
           "screen": {
             "head": {
               "x": 467.38913041968937,
-              "y": 412.3625764660922,
+              "y": 452.91791244819274,
               "depth": 8.2
             },
             "shoulderLeft": {
               "x": 487.66679841073966,
-              "y": 432.6402444571425,
+              "y": 473.19558043924303,
               "depth": 8.2
             },
             "shoulderRight": {
               "x": 447.11146242863913,
-              "y": 432.6402444571425,
+              "y": 473.19558043924303,
               "depth": 8.2
             }
           }
@@ -972,15 +968,16 @@
       "impactViews": {
         "host": {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": 19.7,
-            "y": 2.019886189492827,
+            "y": 2.519886189492827,
             "z": 0.5500000000000005
           },
           "pivot": {
             "x": 26.2,
-            "y": 2.019886189492827,
+            "y": 2.519886189492827,
             "z": 0.55
           },
           "yaw": -1.5707963267948966,
@@ -1015,40 +1012,41 @@
             }
           },
           "visible": {
-            "head": false,
+            "head": true,
             "shoulderLeft": true,
             "shoulderRight": false,
-            "ok": false
+            "ok": true
           },
           "screen": {
             "head": {
               "x": 467.3891304196894,
-              "y": 412.379503940757,
+              "y": 452.9348399228575,
               "depth": 8.2
             },
             "shoulderLeft": {
               "x": 487.66679841073966,
-              "y": 432.6571719318072,
+              "y": 473.2125079139078,
               "depth": 8.2
             },
             "shoulderRight": {
               "x": 447.11146242863913,
-              "y": 432.6571719318072,
+              "y": 473.2125079139078,
               "depth": 8.2
             }
           }
         },
         "guest": {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": 34.4,
-            "y": 2.02,
+            "y": 2.52,
             "z": -0.5499999999999996
           },
           "pivot": {
             "x": 27.9,
-            "y": 2.02,
+            "y": 2.52,
             "z": -0.55
           },
           "yaw": 1.5707963267948966,
@@ -1083,25 +1081,25 @@
             }
           },
           "visible": {
-            "head": false,
+            "head": true,
             "shoulderLeft": true,
             "shoulderRight": false,
-            "ok": false
+            "ok": true
           },
           "screen": {
             "head": {
               "x": 467.38913041968937,
-              "y": 412.3887351874704,
+              "y": 452.944071169571,
               "depth": 8.2
             },
             "shoulderLeft": {
               "x": 487.66679841073966,
-              "y": 432.6664031785207,
+              "y": 473.22173916062127,
               "depth": 8.2
             },
             "shoulderRight": {
               "x": 447.11146242863913,
-              "y": 432.6664031785207,
+              "y": 473.22173916062127,
               "depth": 8.2
             }
           }
@@ -1112,36 +1110,71 @@
           "t": 2,
           "act": "Idle",
           "hit": false,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         },
         {
           "t": 34,
           "act": "Idle",
           "hit": false,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         },
         {
-          "t": 66,
+          "t": 68,
+          "act": "Idle",
+          "hit": false,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 100,
           "act": "Windup",
           "hit": false,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         },
         {
-          "t": 952,
-          "act": "Active",
-          "hit": true,
-          "host": false,
-          "guest": false
-        },
-        {
-          "t": 1760,
+          "t": 985,
           "act": "Recovery",
           "hit": true,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1857,
+          "act": "Windup",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1889,
+          "act": "Windup",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1923,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1957,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1990,
+          "act": "Recovery",
+          "hit": true,
+          "host": true,
+          "guest": true
         }
       ]
     },
@@ -1165,15 +1198,16 @@
       "pre": [
         {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": 0.55,
-            "y": 2.02,
+            "y": 2.52,
             "z": 8
           },
           "pivot": {
             "x": 0.55,
-            "y": 2.02,
+            "y": 2.52,
             "z": 1.5
           },
           "yaw": 0,
@@ -1216,32 +1250,33 @@
           "screen": {
             "head": {
               "x": 491.2153903091735,
-              "y": 413.09845356715715,
+              "y": 454.66767294881026,
               "depth": 8
             },
             "shoulderLeft": {
               "x": 512,
-              "y": 433.8830632579836,
+              "y": 475.45228263963673,
               "depth": 8
             },
             "shoulderRight": {
               "x": 470.43078061834694,
-              "y": 433.8830632579836,
+              "y": 475.45228263963673,
               "depth": 8
             }
           }
         },
         {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": -0.24999999999999925,
-            "y": 2.0199660987523385,
+            "y": 2.5199660987523385,
             "z": -6.5
           },
           "pivot": {
             "x": -0.25000000000000006,
-            "y": 2.0199660987523385,
+            "y": 2.5199660987523385,
             "z": -6.735557395310444e-17
           },
           "yaw": 3.141592653589793,
@@ -1284,17 +1319,17 @@
           "screen": {
             "head": {
               "x": 491.2153903091735,
-              "y": 413.09563507035443,
+              "y": 454.6648544520075,
               "depth": 8
             },
             "shoulderLeft": {
               "x": 512,
-              "y": 433.88024476118096,
+              "y": 475.449464142834,
               "depth": 8
             },
             "shoulderRight": {
               "x": 470.43078061834694,
-              "y": 433.88024476118096,
+              "y": 475.449464142834,
               "depth": 8
             }
           }
@@ -1303,15 +1338,16 @@
       "impactViews": {
         "host": {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": 0.55,
-            "y": 2.02,
+            "y": 2.52,
             "z": 8
           },
           "pivot": {
             "x": 0.55,
-            "y": 2.02,
+            "y": 2.52,
             "z": 1.5
           },
           "yaw": 0,
@@ -1354,32 +1390,33 @@
           "screen": {
             "head": {
               "x": 491.2153903091735,
-              "y": 413.09845356715715,
+              "y": 454.66767294881026,
               "depth": 8
             },
             "shoulderLeft": {
               "x": 512,
-              "y": 433.8830632579836,
+              "y": 475.45228263963673,
               "depth": 8
             },
             "shoulderRight": {
               "x": 470.43078061834694,
-              "y": 433.8830632579836,
+              "y": 475.45228263963673,
               "depth": 8
             }
           }
         },
         "guest": {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": -0.24999999999999925,
-            "y": 2.02,
+            "y": 2.52,
             "z": -6.5
           },
           "pivot": {
             "x": -0.25000000000000006,
-            "y": 2.02,
+            "y": 2.52,
             "z": -6.735557395310444e-17
           },
           "yaw": 3.141592653589793,
@@ -1422,17 +1459,17 @@
           "screen": {
             "head": {
               "x": 491.2153903091735,
-              "y": 413.09845356715715,
+              "y": 454.66767294881026,
               "depth": 8
             },
             "shoulderLeft": {
               "x": 512,
-              "y": 433.8830632579836,
+              "y": 475.45228263963673,
               "depth": 8
             },
             "shoulderRight": {
               "x": 470.43078061834694,
-              "y": 433.8830632579836,
+              "y": 475.45228263963673,
               "depth": 8
             }
           }
@@ -1447,7 +1484,7 @@
           "guest": true
         },
         {
-          "t": 35,
+          "t": 34,
           "act": "Idle",
           "hit": false,
           "host": true,
@@ -1461,21 +1498,21 @@
           "guest": true
         },
         {
-          "t": 99,
+          "t": 98,
           "act": "Windup",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 849,
+          "t": 887,
           "act": "Windup",
           "hit": true,
           "host": true,
           "guest": true
         },
         {
-          "t": 1572,
+          "t": 1607,
           "act": "Recovery",
           "hit": true,
           "host": true,
@@ -1503,21 +1540,22 @@
       "pre": [
         {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": -1,
-            "y": 2.0162605522746455,
+            "y": 2.5177567800087854,
             "z": 0.5500000000000005
           },
           "pivot": {
             "x": 5.5,
-            "y": 2.0162605522746455,
+            "y": 2.5177567800087854,
             "z": 0.55
           },
           "yaw": -1.5707963267948966,
           "local": {
             "x": 5.5,
-            "y": 0.9162605522746453,
+            "y": 0.9177567800087855,
             "z": 0
           },
           "opponent": {
@@ -1554,32 +1592,33 @@
           "screen": {
             "head": {
               "x": 492.2051336277843,
-              "y": 411.4167254489849,
+              "y": 451.12492870565524,
               "depth": 8.4
             },
             "shoulderLeft": {
               "x": 512,
-              "y": 431.21159182120067,
+              "y": 470.91979507787096,
               "depth": 8.4
             },
             "shoulderRight": {
               "x": 472.41026725556856,
-              "y": 431.21159182120067,
+              "y": 470.91979507787096,
               "depth": 8.4
             }
           }
         },
         {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": 13.9,
-            "y": 2.017743442421779,
+            "y": 2.517743442421779,
             "z": -0.24999999999999967
           },
           "pivot": {
             "x": 7.4,
-            "y": 2.017743442421779,
+            "y": 2.517743442421779,
             "z": -0.25000000000000006
           },
           "yaw": 1.5707963267948966,
@@ -1622,17 +1661,17 @@
           "screen": {
             "head": {
               "x": 492.2051336277842,
-              "y": 411.53413989821365,
+              "y": 451.1238726426451,
               "depth": 8.4
             },
             "shoulderLeft": {
               "x": 512,
-              "y": 431.32900627042943,
+              "y": 470.9187390148609,
               "depth": 8.4
             },
             "shoulderRight": {
               "x": 472.4102672555685,
-              "y": 431.32900627042943,
+              "y": 470.9187390148609,
               "depth": 8.4
             }
           }
@@ -1641,21 +1680,22 @@
       "impactViews": {
         "host": {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": -1,
-            "y": 2.0167964035647454,
+            "y": 2.517035776672419,
             "z": 0.5500000000000005
           },
           "pivot": {
             "x": 5.5,
-            "y": 2.0167964035647454,
+            "y": 2.517035776672419,
             "z": 0.55
           },
           "yaw": -1.5707963267948966,
           "local": {
             "x": 5.5,
-            "y": 0.9167964035647456,
+            "y": 0.9170357766724192,
             "z": 0
           },
           "opponent": {
@@ -1692,32 +1732,33 @@
           "screen": {
             "head": {
               "x": 492.2051336277843,
-              "y": 411.4591538677165,
+              "y": 451.067840046866,
               "depth": 8.4
             },
             "shoulderLeft": {
               "x": 512,
-              "y": 431.2540202399323,
+              "y": 470.8627064190818,
               "depth": 8.4
             },
             "shoulderRight": {
               "x": 472.41026725556856,
-              "y": 431.2540202399323,
+              "y": 470.8627064190818,
               "depth": 8.4
             }
           }
         },
         "guest": {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": 13.9,
-            "y": 2.02,
+            "y": 2.52,
             "z": -0.24999999999999967
           },
           "pivot": {
             "x": 7.4,
-            "y": 2.02,
+            "y": 2.52,
             "z": -0.25000000000000006
           },
           "yaw": 1.5707963267948966,
@@ -1760,17 +1801,17 @@
           "screen": {
             "head": {
               "x": 492.2051336277842,
-              "y": 411.71281292110206,
+              "y": 451.30254566553356,
               "depth": 8.4
             },
             "shoulderLeft": {
               "x": 512,
-              "y": 431.5076792933178,
+              "y": 471.0974120377492,
               "depth": 8.4
             },
             "shoulderRight": {
               "x": 472.4102672555685,
-              "y": 431.5076792933178,
+              "y": 471.0974120377492,
               "depth": 8.4
             }
           }
@@ -1778,63 +1819,56 @@
       },
       "samples": [
         {
-          "t": 2,
+          "t": 1,
           "act": "Idle",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 34,
+          "t": 35,
           "act": "Idle",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 68,
+          "t": 70,
           "act": "Idle",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 102,
+          "t": 103,
           "act": "Windup",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 974,
+          "t": 981,
           "act": "Recovery",
           "hit": true,
           "host": true,
           "guest": true
         },
         {
-          "t": 1805,
+          "t": 1801,
           "act": "Active",
           "hit": true,
           "host": true,
           "guest": true
         },
         {
-          "t": 1839,
+          "t": 1834,
           "act": "Active",
           "hit": true,
           "host": true,
           "guest": true
         },
         {
-          "t": 1872,
-          "act": "Active",
-          "hit": true,
-          "host": true,
-          "guest": true
-        },
-        {
-          "t": 1906,
+          "t": 1869,
           "act": "Recovery",
           "hit": true,
           "host": true,
@@ -1862,15 +1896,16 @@
       "pre": [
         {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": 19.7,
-            "y": 2.019886189492827,
+            "y": 2.519886189492827,
             "z": 0.5500000000000005
           },
           "pivot": {
             "x": 26.2,
-            "y": 2.019886189492827,
+            "y": 2.519886189492827,
             "z": 0.55
           },
           "yaw": -1.5707963267948966,
@@ -1913,38 +1948,39 @@
           "screen": {
             "head": {
               "x": 491.7223320089497,
-              "y": 412.379503940757,
+              "y": 452.9348399228575,
               "depth": 8.2
             },
             "shoulderLeft": {
               "x": 512,
-              "y": 432.6571719318072,
+              "y": 473.2125079139078,
               "depth": 8.2
             },
             "shoulderRight": {
               "x": 471.44466401789947,
-              "y": 432.6571719318072,
+              "y": 473.2125079139078,
               "depth": 8.2
             }
           }
         },
         {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": 34.4,
-            "y": 2.0197657879889013,
+            "y": 2.519766021966934,
             "z": -0.24999999999999967
           },
           "pivot": {
             "x": 27.9,
-            "y": 2.0197657879889013,
+            "y": 2.519766021966934,
             "z": -0.25000000000000006
           },
           "yaw": 1.5707963267948966,
           "local": {
             "x": 27.9,
-            "y": 0.9197657879889012,
+            "y": 0.9197660219669342,
             "z": 0.3
           },
           "opponent": {
@@ -1981,17 +2017,17 @@
           "screen": {
             "head": {
               "x": 491.7223320089497,
-              "y": 412.369738093868,
+              "y": 452.9250930540841,
               "depth": 8.2
             },
             "shoulderLeft": {
               "x": 512,
-              "y": 432.6474060849183,
+              "y": 473.20276104513437,
               "depth": 8.2
             },
             "shoulderRight": {
               "x": 471.4446640178994,
-              "y": 432.6474060849183,
+              "y": 473.20276104513437,
               "depth": 8.2
             }
           }
@@ -2000,15 +2036,16 @@
       "impactViews": {
         "host": {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": 19.7,
-            "y": 2.019886189492827,
+            "y": 2.519886189492827,
             "z": 0.5500000000000005
           },
           "pivot": {
             "x": 26.2,
-            "y": 2.019886189492827,
+            "y": 2.519886189492827,
             "z": 0.55
           },
           "yaw": -1.5707963267948966,
@@ -2051,32 +2088,33 @@
           "screen": {
             "head": {
               "x": 491.7223320089497,
-              "y": 412.379503940757,
+              "y": 452.9348399228575,
               "depth": 8.2
             },
             "shoulderLeft": {
               "x": 512,
-              "y": 432.6571719318072,
+              "y": 473.2125079139078,
               "depth": 8.2
             },
             "shoulderRight": {
               "x": 471.44466401789947,
-              "y": 432.6571719318072,
+              "y": 473.2125079139078,
               "depth": 8.2
             }
           }
         },
         "guest": {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": 34.4,
-            "y": 2.02,
+            "y": 2.52,
             "z": -0.24999999999999967
           },
           "pivot": {
             "x": 27.9,
-            "y": 2.02,
+            "y": 2.52,
             "z": -0.25000000000000006
           },
           "yaw": 1.5707963267948966,
@@ -2119,17 +2157,17 @@
           "screen": {
             "head": {
               "x": 491.7223320089497,
-              "y": 412.3887351874704,
+              "y": 452.944071169571,
               "depth": 8.2
             },
             "shoulderLeft": {
               "x": 512,
-              "y": 432.6664031785207,
+              "y": 473.22173916062127,
               "depth": 8.2
             },
             "shoulderRight": {
               "x": 471.4446640178994,
-              "y": 432.6664031785207,
+              "y": 473.22173916062127,
               "depth": 8.2
             }
           }
@@ -2137,35 +2175,63 @@
       },
       "samples": [
         {
-          "t": 2,
+          "t": 1,
           "act": "Idle",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 35,
+          "t": 34,
           "act": "Idle",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 69,
+          "t": 67,
           "act": "Windup",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 959,
+          "t": 981,
           "act": "Recovery",
           "hit": true,
           "host": true,
           "guest": true
         },
         {
-          "t": 1756,
+          "t": 1865,
+          "act": "Windup",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1898,
+          "act": "Windup",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1930,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1961,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1996,
           "act": "Recovery",
           "hit": true,
           "host": true,
@@ -2193,15 +2259,16 @@
       "pre": [
         {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": 0.55,
-            "y": 2.02,
+            "y": 2.52,
             "z": 8
           },
           "pivot": {
             "x": 0.55,
-            "y": 2.02,
+            "y": 2.52,
             "z": 1.5
           },
           "yaw": 0,
@@ -2236,40 +2303,41 @@
             }
           },
           "visible": {
-            "head": false,
+            "head": true,
             "shoulderLeft": false,
             "shoulderRight": true,
-            "ok": false
+            "ok": true
           },
           "screen": {
             "head": {
               "x": 441.3323270511898,
-              "y": 413.09845356715715,
+              "y": 454.66767294881026,
               "depth": 8
             },
             "shoulderLeft": {
               "x": 462.1169367420163,
-              "y": 433.8830632579836,
+              "y": 475.45228263963673,
               "depth": 8
             },
             "shoulderRight": {
               "x": 420.54771736036327,
-              "y": 433.8830632579836,
+              "y": 475.45228263963673,
               "depth": 8
             }
           }
         },
         {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": -0.8499999999999993,
-            "y": 2.02,
+            "y": 2.52,
             "z": -6.5
           },
           "pivot": {
             "x": -0.8500000000000001,
-            "y": 2.02,
+            "y": 2.52,
             "z": -6.735557395310444e-17
           },
           "yaw": 3.141592653589793,
@@ -2304,25 +2372,25 @@
             }
           },
           "visible": {
-            "head": false,
+            "head": true,
             "shoulderLeft": false,
             "shoulderRight": true,
-            "ok": false
+            "ok": true
           },
           "screen": {
             "head": {
               "x": 441.3323270511898,
-              "y": 413.09845356715715,
+              "y": 454.66767294881026,
               "depth": 8
             },
             "shoulderLeft": {
               "x": 462.1169367420163,
-              "y": 433.8830632579836,
+              "y": 475.45228263963673,
               "depth": 8
             },
             "shoulderRight": {
               "x": 420.54771736036327,
-              "y": 433.8830632579836,
+              "y": 475.45228263963673,
               "depth": 8
             }
           }
@@ -2331,15 +2399,16 @@
       "impactViews": {
         "host": {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": 0.55,
-            "y": 2.02,
+            "y": 2.52,
             "z": 8
           },
           "pivot": {
             "x": 0.55,
-            "y": 2.02,
+            "y": 2.52,
             "z": 1.5
           },
           "yaw": 0,
@@ -2374,40 +2443,41 @@
             }
           },
           "visible": {
-            "head": false,
+            "head": true,
             "shoulderLeft": false,
             "shoulderRight": true,
-            "ok": false
+            "ok": true
           },
           "screen": {
             "head": {
               "x": 441.3323270511898,
-              "y": 413.09845356715715,
+              "y": 454.66767294881026,
               "depth": 8
             },
             "shoulderLeft": {
               "x": 462.1169367420163,
-              "y": 433.8830632579836,
+              "y": 475.45228263963673,
               "depth": 8
             },
             "shoulderRight": {
               "x": 420.54771736036327,
-              "y": 433.8830632579836,
+              "y": 475.45228263963673,
               "depth": 8
             }
           }
         },
         "guest": {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": -0.8499999999999993,
-            "y": 2.02,
+            "y": 2.52,
             "z": -6.5
           },
           "pivot": {
             "x": -0.8500000000000001,
-            "y": 2.02,
+            "y": 2.52,
             "z": -6.735557395310444e-17
           },
           "yaw": 3.141592653589793,
@@ -2442,25 +2512,25 @@
             }
           },
           "visible": {
-            "head": false,
+            "head": true,
             "shoulderLeft": false,
             "shoulderRight": true,
-            "ok": false
+            "ok": true
           },
           "screen": {
             "head": {
               "x": 441.3323270511898,
-              "y": 413.09845356715715,
+              "y": 454.66767294881026,
               "depth": 8
             },
             "shoulderLeft": {
               "x": 462.1169367420163,
-              "y": 433.8830632579836,
+              "y": 475.45228263963673,
               "depth": 8
             },
             "shoulderRight": {
               "x": 420.54771736036327,
-              "y": 433.8830632579836,
+              "y": 475.45228263963673,
               "depth": 8
             }
           }
@@ -2471,43 +2541,43 @@
           "t": 2,
           "act": "Idle",
           "hit": false,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         },
         {
-          "t": 34,
+          "t": 35,
           "act": "Idle",
           "hit": false,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         },
         {
-          "t": 66,
+          "t": 69,
           "act": "Idle",
           "hit": false,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         },
         {
-          "t": 98,
+          "t": 102,
           "act": "Windup",
           "hit": false,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         },
         {
-          "t": 852,
+          "t": 847,
           "act": "Windup",
           "hit": true,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         },
         {
-          "t": 1640,
+          "t": 1626,
           "act": "Recovery",
           "hit": true,
           "host": true,
-          "guest": false
+          "guest": true
         }
       ]
     },
@@ -2531,21 +2601,22 @@
       "pre": [
         {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": -1,
-            "y": 2.017035776672419,
+            "y": 2.5162605522746455,
             "z": 0.5500000000000005
           },
           "pivot": {
             "x": 5.5,
-            "y": 2.017035776672419,
+            "y": 2.5162605522746455,
             "z": 0.55
           },
           "yaw": -1.5707963267948966,
           "local": {
             "x": 5.5,
-            "y": 0.9170357766724192,
+            "y": 0.9162605522746454,
             "z": 0
           },
           "opponent": {
@@ -2574,40 +2645,41 @@
             }
           },
           "visible": {
-            "head": false,
+            "head": true,
             "shoulderLeft": false,
             "shoulderRight": true,
-            "ok": false
+            "ok": true
           },
           "screen": {
             "head": {
               "x": 444.6974543344665,
-              "y": 411.4781073024345,
+              "y": 451.00645819341645,
               "depth": 8.4
             },
             "shoulderLeft": {
               "x": 464.4923207066822,
-              "y": 431.2729736746503,
+              "y": 470.80132456563217,
               "depth": 8.4
             },
             "shoulderRight": {
               "x": 424.9025879622508,
-              "y": 431.2729736746503,
+              "y": 470.80132456563217,
               "depth": 8.4
             }
           }
         },
         {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": 13.9,
-            "y": 2.02,
+            "y": 2.52,
             "z": -0.8499999999999996
           },
           "pivot": {
             "x": 7.4,
-            "y": 2.02,
+            "y": 2.52,
             "z": -0.8500000000000001
           },
           "yaw": 1.5707963267948966,
@@ -2642,25 +2714,25 @@
             }
           },
           "visible": {
-            "head": false,
+            "head": true,
             "shoulderLeft": false,
             "shoulderRight": true,
-            "ok": false
+            "ok": true
           },
           "screen": {
             "head": {
               "x": 444.69745433446644,
-              "y": 411.71281292110206,
+              "y": 451.30254566553356,
               "depth": 8.4
             },
             "shoulderLeft": {
               "x": 464.4923207066822,
-              "y": 431.5076792933178,
+              "y": 471.0974120377492,
               "depth": 8.4
             },
             "shoulderRight": {
               "x": 424.9025879622507,
-              "y": 431.5076792933178,
+              "y": 471.0974120377492,
               "depth": 8.4
             }
           }
@@ -2669,15 +2741,16 @@
       "impactViews": {
         "host": {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": -1,
-            "y": 2.0177567800087854,
+            "y": 2.5177567800087854,
             "z": 0.5500000000000005
           },
           "pivot": {
             "x": 5.5,
-            "y": 2.0177567800087854,
+            "y": 2.5177567800087854,
             "z": 0.55
           },
           "yaw": -1.5707963267948966,
@@ -2712,40 +2785,41 @@
             }
           },
           "visible": {
-            "head": false,
+            "head": true,
             "shoulderLeft": false,
             "shoulderRight": true,
-            "ok": false
+            "ok": true
           },
           "screen": {
             "head": {
               "x": 444.6974543344665,
-              "y": 411.53519596122374,
+              "y": 451.12492870565524,
               "depth": 8.4
             },
             "shoulderLeft": {
               "x": 464.4923207066822,
-              "y": 431.33006233343946,
+              "y": 470.91979507787096,
               "depth": 8.4
             },
             "shoulderRight": {
               "x": 424.9025879622508,
-              "y": 431.33006233343946,
+              "y": 470.91979507787096,
               "depth": 8.4
             }
           }
         },
         "guest": {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": 13.9,
-            "y": 2.02,
+            "y": 2.52,
             "z": -0.8499999999999996
           },
           "pivot": {
             "x": 7.4,
-            "y": 2.02,
+            "y": 2.52,
             "z": -0.8500000000000001
           },
           "yaw": 1.5707963267948966,
@@ -2780,25 +2854,25 @@
             }
           },
           "visible": {
-            "head": false,
+            "head": true,
             "shoulderLeft": false,
             "shoulderRight": true,
-            "ok": false
+            "ok": true
           },
           "screen": {
             "head": {
               "x": 444.69745433446644,
-              "y": 411.71281292110206,
+              "y": 451.30254566553356,
               "depth": 8.4
             },
             "shoulderLeft": {
               "x": 464.4923207066822,
-              "y": 431.5076792933178,
+              "y": 471.0974120377492,
               "depth": 8.4
             },
             "shoulderRight": {
               "x": 424.9025879622507,
-              "y": 431.5076792933178,
+              "y": 471.0974120377492,
               "depth": 8.4
             }
           }
@@ -2809,63 +2883,42 @@
           "t": 2,
           "act": "Idle",
           "hit": false,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         },
         {
           "t": 36,
           "act": "Idle",
           "hit": false,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         },
         {
-          "t": 70,
-          "act": "Idle",
-          "hit": false,
-          "host": false,
-          "guest": false
-        },
-        {
-          "t": 103,
+          "t": 68,
           "act": "Windup",
           "hit": false,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         },
         {
-          "t": 968,
+          "t": 975,
           "act": "Recovery",
           "hit": true,
-          "host": false,
-          "guest": false
-        },
-        {
-          "t": 1789,
-          "act": "Active",
-          "hit": true,
-          "host": false,
+          "host": true,
           "guest": true
         },
         {
-          "t": 1824,
+          "t": 1849,
           "act": "Active",
           "hit": true,
-          "host": false,
+          "host": true,
           "guest": true
         },
         {
-          "t": 1856,
-          "act": "Active",
-          "hit": true,
-          "host": false,
-          "guest": true
-        },
-        {
-          "t": 1890,
+          "t": 1883,
           "act": "Recovery",
           "hit": true,
-          "host": false,
+          "host": true,
           "guest": true
         }
       ]
@@ -2890,15 +2943,16 @@
       "pre": [
         {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": 19.7,
-            "y": 2.019886189492827,
+            "y": 2.519886189492827,
             "z": 0.5500000000000005
           },
           "pivot": {
             "x": 26.2,
-            "y": 2.019886189492827,
+            "y": 2.519886189492827,
             "z": 0.55
           },
           "yaw": -1.5707963267948966,
@@ -2933,40 +2987,41 @@
             }
           },
           "visible": {
-            "head": false,
+            "head": true,
             "shoulderLeft": false,
             "shoulderRight": true,
-            "ok": false
+            "ok": true
           },
           "screen": {
             "head": {
               "x": 443.0559288304291,
-              "y": 412.379503940757,
+              "y": 452.9348399228575,
               "depth": 8.2
             },
             "shoulderLeft": {
               "x": 463.3335968214793,
-              "y": 432.6571719318072,
+              "y": 473.2125079139078,
               "depth": 8.2
             },
             "shoulderRight": {
               "x": 422.7782608393788,
-              "y": 432.6571719318072,
+              "y": 473.2125079139078,
               "depth": 8.2
             }
           }
         },
         {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": 34.4,
-            "y": 2.02,
+            "y": 2.52,
             "z": -0.8499999999999996
           },
           "pivot": {
             "x": 27.9,
-            "y": 2.02,
+            "y": 2.52,
             "z": -0.8500000000000001
           },
           "yaw": 1.5707963267948966,
@@ -3001,25 +3056,25 @@
             }
           },
           "visible": {
-            "head": false,
+            "head": true,
             "shoulderLeft": false,
             "shoulderRight": true,
-            "ok": false
+            "ok": true
           },
           "screen": {
             "head": {
               "x": 443.055928830429,
-              "y": 412.3887351874704,
+              "y": 452.944071169571,
               "depth": 8.2
             },
             "shoulderLeft": {
               "x": 463.3335968214793,
-              "y": 432.6664031785207,
+              "y": 473.22173916062127,
               "depth": 8.2
             },
             "shoulderRight": {
               "x": 422.77826083937873,
-              "y": 432.6664031785207,
+              "y": 473.22173916062127,
               "depth": 8.2
             }
           }
@@ -3028,15 +3083,16 @@
       "impactViews": {
         "host": {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": 19.7,
-            "y": 2.019886189492827,
+            "y": 2.519886189492827,
             "z": 0.5500000000000005
           },
           "pivot": {
             "x": 26.2,
-            "y": 2.019886189492827,
+            "y": 2.519886189492827,
             "z": 0.55
           },
           "yaw": -1.5707963267948966,
@@ -3071,40 +3127,41 @@
             }
           },
           "visible": {
-            "head": false,
+            "head": true,
             "shoulderLeft": false,
             "shoulderRight": true,
-            "ok": false
+            "ok": true
           },
           "screen": {
             "head": {
               "x": 443.0559288304291,
-              "y": 412.379503940757,
+              "y": 452.9348399228575,
               "depth": 8.2
             },
             "shoulderLeft": {
               "x": 463.3335968214793,
-              "y": 432.6571719318072,
+              "y": 473.2125079139078,
               "depth": 8.2
             },
             "shoulderRight": {
               "x": 422.7782608393788,
-              "y": 432.6571719318072,
+              "y": 473.2125079139078,
               "depth": 8.2
             }
           }
         },
         "guest": {
           "offset": 0.55,
+          "lift": 0.5,
           "distance": 6.5,
           "position": {
             "x": 34.4,
-            "y": 2.02,
+            "y": 2.52,
             "z": -0.8499999999999996
           },
           "pivot": {
             "x": 27.9,
-            "y": 2.02,
+            "y": 2.52,
             "z": -0.8500000000000001
           },
           "yaw": 1.5707963267948966,
@@ -3139,25 +3196,25 @@
             }
           },
           "visible": {
-            "head": false,
+            "head": true,
             "shoulderLeft": false,
             "shoulderRight": true,
-            "ok": false
+            "ok": true
           },
           "screen": {
             "head": {
               "x": 443.055928830429,
-              "y": 412.3887351874704,
+              "y": 452.944071169571,
               "depth": 8.2
             },
             "shoulderLeft": {
               "x": 463.3335968214793,
-              "y": 432.6664031785207,
+              "y": 473.22173916062127,
               "depth": 8.2
             },
             "shoulderRight": {
               "x": 422.77826083937873,
-              "y": 432.6664031785207,
+              "y": 473.22173916062127,
               "depth": 8.2
             }
           }
@@ -3168,36 +3225,78 @@
           "t": 2,
           "act": "Idle",
           "hit": false,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         },
         {
           "t": 34,
           "act": "Idle",
           "hit": false,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         },
         {
-          "t": 68,
+          "t": 65,
           "act": "Windup",
           "hit": false,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         },
         {
-          "t": 957,
-          "act": "Recovery",
+          "t": 977,
+          "act": "Active",
           "hit": true,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         },
         {
-          "t": 1777,
+          "t": 1856,
+          "act": "Windup",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1888,
+          "act": "Windup",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1922,
+          "act": "Windup",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1956,
+          "act": "Windup",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1990,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 2025,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 2057,
           "act": "Recovery",
           "hit": true,
-          "host": false,
-          "guest": false
+          "host": true,
+          "guest": true
         }
       ]
     }
