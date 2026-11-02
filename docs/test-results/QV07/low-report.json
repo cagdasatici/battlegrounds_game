@@ -5,17 +5,17 @@
   {
    "id": "td.b1",
    "tier": "low",
-   "cuePeak": 18,
+   "cuePeak": 26,
    "hitPeaks": [
-    22,
-    40,
-    66
+    48,
+    66,
+    92
    ],
    "drained": true,
    "stoppedOnInterrupt": null,
    "render": {
-    "calls": 50,
-    "triangles": 91292
+    "calls": 73,
+    "triangles": 66346
    },
    "shot": "low-td.b1-hit.jpg"
   },
@@ -25,13 +25,13 @@
    "cuePeak": 28,
    "hitPeaks": [
     58,
-    88
+    92
    ],
    "drained": true,
    "stoppedOnInterrupt": null,
    "render": {
-    "calls": 50,
-    "triangles": 91292
+    "calls": 73,
+    "triangles": 66346
    },
    "shot": "low-td.b2-hit.jpg"
   },
@@ -40,14 +40,14 @@
    "tier": "low",
    "cuePeak": 14,
    "hitPeaks": [
-    24,
-    50
+    40,
+    66
    ],
    "drained": true,
    "stoppedOnInterrupt": null,
    "render": {
-    "calls": 50,
-    "triangles": 91292
+    "calls": 73,
+    "triangles": 66346
    },
    "shot": "low-td.b3-hit.jpg"
   },
@@ -58,29 +58,29 @@
    "hitPeaks": [
     32,
     58,
-    108
+    80
    ],
    "drained": true,
    "stoppedOnInterrupt": null,
    "render": {
-    "calls": 50,
-    "triangles": 91292
+    "calls": 71,
+    "triangles": 66344
    },
    "shot": "low-td.b4-hit.jpg"
   },
   {
    "id": "td.a1",
    "tier": "low",
-   "cuePeak": 20,
+   "cuePeak": 30,
    "hitPeaks": [
-    36,
-    64
+    46,
+    74
    ],
    "drained": true,
    "stoppedOnInterrupt": null,
    "render": {
-    "calls": 50,
-    "triangles": 91292
+    "calls": 73,
+    "triangles": 66346
    },
    "shot": "low-td.a1-hit.jpg"
   },
@@ -89,31 +89,31 @@
    "tier": "low",
    "cuePeak": 16,
    "hitPeaks": [
-    30,
-    48,
-    94
+    46,
+    64,
+    110
    ],
    "drained": true,
    "stoppedOnInterrupt": null,
    "render": {
-    "calls": 50,
-    "triangles": 91292
+    "calls": 73,
+    "triangles": 66346
    },
    "shot": "low-td.a2-hit.jpg"
   },
   {
    "id": "td.a3",
    "tier": "low",
-   "cuePeak": 14,
+   "cuePeak": 18,
    "hitPeaks": [
-    40,
-    66
+    44,
+    70
    ],
    "drained": true,
    "stoppedOnInterrupt": true,
    "render": {
-    "calls": 52,
-    "triangles": 91294
+    "calls": 73,
+    "triangles": 66346
    },
    "shot": "low-td.a3-hit.jpg"
   },
@@ -122,14 +122,14 @@
    "tier": "low",
    "cuePeak": 8,
    "hitPeaks": [
-    12,
-    42
+    40,
+    70
    ],
    "drained": true,
    "stoppedOnInterrupt": true,
    "render": {
-    "calls": 50,
-    "triangles": 91292
+    "calls": 71,
+    "triangles": 66344
    },
    "shot": "low-td.a4-hit.jpg"
   },
@@ -143,8 +143,8 @@
    "drained": true,
    "stoppedOnInterrupt": null,
    "render": {
-    "calls": 50,
-    "triangles": 91292
+    "calls": 71,
+    "triangles": 66344
    },
    "shot": "low-td.activate-hit.jpg"
   }

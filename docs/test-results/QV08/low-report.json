@@ -13,8 +13,8 @@
    "drained": true,
    "stoppedOnInterrupt": null,
    "render": {
-    "calls": 69,
-    "triangles": 62284
+    "calls": 73,
+    "triangles": 66346
    },
    "shot": "low-ea.b1-hit.jpg"
   },
@@ -29,8 +29,8 @@
    "drained": true,
    "stoppedOnInterrupt": null,
    "render": {
-    "calls": 67,
-    "triangles": 62282
+    "calls": 71,
+    "triangles": 66344
    },
    "shot": "low-ea.b2-hit.jpg"
   },
@@ -45,8 +45,8 @@
    "drained": true,
    "stoppedOnInterrupt": null,
    "render": {
-    "calls": 67,
-    "triangles": 62282
+    "calls": 71,
+    "triangles": 66344
    },
    "shot": "low-ea.b3-hit.jpg"
   },
@@ -60,8 +60,8 @@
    "drained": true,
    "stoppedOnInterrupt": null,
    "render": {
-    "calls": 67,
-    "triangles": 62282
+    "calls": 73,
+    "triangles": 66376
    },
    "shot": "low-ea.b4-hit.jpg"
   },
@@ -70,17 +70,17 @@
    "tier": "low",
    "cuePeak": 16,
    "hitPeaks": [
-    24,
-    42,
-    62,
-    96,
-    124
+    40,
+    58,
+    78,
+    112,
+    130
    ],
    "drained": true,
    "stoppedOnInterrupt": null,
    "render": {
-    "calls": 67,
-    "triangles": 62282
+    "calls": 71,
+    "triangles": 66344
    },
    "shot": "low-ea.a1-hit.jpg"
   },
@@ -89,45 +89,45 @@
    "tier": "low",
    "cuePeak": 18,
    "hitPeaks": [
-    28,
-    46,
-    80
+    44,
+    62,
+    96
    ],
    "drained": true,
    "stoppedOnInterrupt": null,
    "render": {
-    "calls": 67,
-    "triangles": 62282
+    "calls": 71,
+    "triangles": 66344
    },
    "shot": "low-ea.a2-hit.jpg"
   },
   {
    "id": "ea.a3",
    "tier": "low",
-   "cuePeak": 30,
+   "cuePeak": 34,
    "hitPeaks": [
-    94
+    86
    ],
    "drained": true,
    "stoppedOnInterrupt": true,
    "render": {
-    "calls": 69,
-    "triangles": 62284
+    "calls": 73,
+    "triangles": 66346
    },
    "shot": "low-ea.a3-hit.jpg"
   },
   {
    "id": "ea.a4",
    "tier": "low",
-   "cuePeak": 28,
+   "cuePeak": 38,
    "hitPeaks": [
-    92
+    125
    ],
    "drained": true,
    "stoppedOnInterrupt": true,
    "render": {
-    "calls": 69,
-    "triangles": 62284
+    "calls": 73,
+    "triangles": 66346
    },
    "shot": "low-ea.a4-hit.jpg"
   },
@@ -141,8 +141,8 @@
    "drained": true,
    "stoppedOnInterrupt": null,
    "render": {
-    "calls": 67,
-    "triangles": 62282
+    "calls": 71,
+    "triangles": 66344
    },
    "shot": "low-ea.activate-hit.jpg"
   }

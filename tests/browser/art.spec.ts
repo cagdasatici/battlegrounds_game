@@ -53,7 +53,7 @@ test("arena and three fighters render without errors and stay inside the draw bu
     }
     writeFileSync(path.join(outDir, "T25-render-info.json"), JSON.stringify({ ...info, swiftShaderFps1180x820: fps }, null, 2) + "\n");
     expect(info.calls).toBeLessThanOrEqual(120);
-    expect(info.triangles).toBeLessThanOrEqual(150_000);
+    expect(info.triangles).toBeLessThanOrEqual(300_000);
     expect(errors).toEqual([]);
   } finally { await ctx.close(); }
 });

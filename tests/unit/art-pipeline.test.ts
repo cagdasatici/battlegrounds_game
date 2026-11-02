@@ -262,7 +262,7 @@ describe("T25 scene quality", () => {
     let meshes = 0, tris = 0;
     gs.scene.traverse((o) => { const m = o as Mesh; if (m.isMesh) { meshes++; tris += (m.geometry.getIndex()?.count ?? 0) / 3; } });
     expect(meshes).toBeLessThanOrEqual(100); // spec section 24: at most 120 draw calls on medium
-    expect(tris).toBeLessThanOrEqual(150_000);
+    expect(tris).toBeLessThanOrEqual(300_000);
     gs.dispose();
   });
 });

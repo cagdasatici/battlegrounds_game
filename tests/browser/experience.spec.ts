@@ -131,6 +131,8 @@ test("UX02: practice adds and removes server bots from the visible controls", as
     await page.getByRole("button", { name: "Add bot", exact: true }).click();
     await expect(page.locator("[data-ui=practice]")).toContainText("1/2 active bots");
     await page.screenshot({ path: path.join(outDir, "UX03-practice.png") });
+    await page.getByLabel("Opponent difficulty").selectOption("easy");
+    await expect(page.locator("[data-ui=practice]")).toContainText("1/2 active bots · easy");
     await page.getByRole("button", { name: "Remove bots", exact: true }).click();
     await expect(page.locator("[data-ui=practice]")).toContainText("0/2 active bots");
     expect(errors).toEqual([]);
@@ -177,6 +179,32 @@ test("UX07: move guide explains base and awakened skills without casting; HUD ke
     await page.screenshot({ path: path.join(outDir, "UX07-awakened-guide.png") });
     await page.keyboard.press("Escape"); await expect(guide).toBeHidden();
     await page.screenshot({ path: path.join(outDir, "UX07-hud.png") });
+    expect(errors).toEqual([]);
+  } finally { await ctx.close(); }
+});
+
+test("UX08: returning to the bookmarked root uses the saved player session", async () => {
+  const { ctx, page, errors } = await open("&name=Arel");
+  try {
+    await page.click("[data-act=practice]"); await page.click("[data-act=ready]");
+    await page.waitForFunction(() => (window as unknown as { __eb?: unknown }).__eb !== undefined, undefined, { timeout: 30000 });
+    await page.keyboard.press("Escape"); await page.click("[data-leave]");
+    await expect(page.locator("[data-act=practice]")).toBeVisible();
+    await page.goto(`${base}/?debug=1`);
+    expect(new URL(page.url()).hash).toBe("");
+    await page.click("[data-act=practice]");
+    await expect(page.locator("[data-ui=room-status]")).toContainText("training dummy");
+    expect(errors).toEqual([]);
+  } finally { await ctx.close(); }
+});
+test("UX08: host setup includes Ember Artificer and starts the actual server fighter", async () => {
+  const { ctx, page, errors } = await open("&name=Arel");
+  try {
+    await page.getByRole("button", { name: "Host sparring", exact: true }).click();
+    await page.getByLabel("Your fighter").selectOption("ea");
+    await page.getByRole("button", { name: "Start match", exact: true }).click();
+    await page.waitForFunction(() => (window as unknown as { __eb?: unknown }).__eb !== undefined, undefined, { timeout: 30000 });
+    await expect.poll(async () => (await snap(page)).players.find(p => p.local)?.kitId).toBe("ea");
     expect(errors).toEqual([]);
   } finally { await ctx.close(); }
 });

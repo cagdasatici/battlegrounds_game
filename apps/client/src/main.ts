@@ -385,6 +385,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     const adaptive = new AdaptiveQuality(tier(settings.get().quality));
     g.setQuality(adaptive.level);
     const router = new PointerRouter(computeLayout({ x0: 0, y0: 0, W: window.innerWidth, H: window.innerHeight }), {
+      onFacingLockChange: on => { settings.update({ facingLock: on }); },
       isChargeSlot: (slot) => { const me = localOf(); return me?.kitId === "ea" && me.form === "Base" && slot === 3; },
       awakeningReady: () => { const me = localOf(); return me !== undefined && meterFraction(me.kitId, me.meter100 ?? 0) >= 1; },
       onMenu: () => { menuOpen = !menuOpen; },
@@ -441,15 +442,15 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     let lastSettings = settings.get();
     const onSettingsChange = (): void => {
       const nextSettings = settings.get();
+      const layoutChanged = nextSettings.handedness !== lastSettings.handedness || JSON.stringify(nextSettings.layouts) !== JSON.stringify(lastSettings.layouts);
       if (nextSettings.facingLock !== lastSettings.facingLock) router.facingLock = nextSettings.facingLock;
       router.autoRun = nextSettings.autoRun; router.quickUse = nextSettings.quickUse;
       router.sensitivity = settings.get().sensitivity;
       cam.setDistance(settings.get().cameraDistance);
       cam.reducedMotion = settings.get().reducedMotion;
-      if (nextSettings.quality !== lastSettings.quality) adaptive.setCeiling(tier(nextSettings.quality));
+      if (nextSettings.quality !== lastSettings.quality) { adaptive.setCeiling(tier(nextSettings.quality)); g.setQuality(adaptive.level); }
       lastSettings = nextSettings;
-      g.setQuality(adaptive.level);
-      relayout();
+      if (layoutChanged) relayout();
       settingsRef?.panel.refreshRuntime();
     };
     settingsOpenHooks.add(onSettingsOpen);

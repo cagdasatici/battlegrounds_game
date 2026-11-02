@@ -123,7 +123,7 @@ export class Lobby {
       this.add("p", "Three fighters. Four players. One sky-high showdown.");
       const actions = this.doc.createElement("div"); actions.className = "eb-home-actions"; home.append(actions); this.content = actions;
       this.add("h2", "Step into the arena");
-      this.add("p", `Connection: ${view.connection}`, { "data-ui": "status" });
+      this.add("p", "Practice, bot sparring and private matches.", { "data-ui": "status" });
       const names = this.doc.createElement("div");
       names.className = "eb-name-row";
       for (const n of ["Arel", "Nora"]) {

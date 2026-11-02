@@ -28,3 +28,11 @@ test("facing intent is optional, rate limited to 720 deg/s and never changes tra
   const r = new PointerRouter(layout()); r.facingLock = true; r.yaw = 1.2;
   expect(new IntentSampler(r, 1).sample(1)).toMatchObject({ facingLock: true, yaw: 1.2 });
 });
+
+test("Aim toggles notify saved preferences without releasing another held input; a new epoch clears run gestures", () => {
+  const seen: boolean[] = [], r = new PointerRouter(layout(), { onFacingLockChange: on => seen.push(on) });
+  const s = new IntentSampler(r, 1); r.keyHold("block", true); r.keyHold("facing", true);
+  expect(seen).toEqual([true]); expect(r.held("block")).toBe(true); r.keyHold("facing", false); r.keyHold("block", false);
+  r.setKeyboardMove(0, 1); s.sample(100); r.setKeyboardMove(0, 0); s.sample(101);
+  s.setEpoch(2); r.setKeyboardMove(0, 1); expect(s.sample(1)?.runHeld).toBe(false);
+});

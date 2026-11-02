@@ -69,6 +69,7 @@ async function open(name: string, kit: string): Promise<{ ctx: BrowserContext; p
   const errors: string[] = [];
   page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
   page.on("pageerror", (e) => errors.push(String(e)));
+      page.on("response", response => { if (response.status() >= 400) { const u = new URL(response.url()); errors.push(`HTTP ${response.status()} ${u.hostname}${u.pathname}`); } });
   const { token } = svc.invites.create({ ttlMs: 120_000, maxUses: 1 });
   await page.goto(`${base}/?room=match&name=${name}&kit=${kit}&debug=1&auto=1#invite=${token}`);
   await page.waitForFunction(() => (window as unknown as { __eb?: unknown }).__eb !== undefined, undefined, { timeout: 30_000 });
@@ -196,6 +197,7 @@ for (const tier of ["low", "medium"] as const) {
       const page = await ctx.newPage(), errors: string[] = [];
       page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
       page.on("pageerror", (e) => errors.push(String(e)));
+      page.on("response", response => { if (response.status() >= 400) { const u = new URL(response.url()); errors.push(`HTTP ${response.status()} ${u.hostname}${u.pathname}`); } });
       const { token } = svc.invites.create({ ttlMs: 120_000, maxUses: 1 });
       await page.goto(`${base}/?room=match&name=${name}&kit=${kit}&debug=1&auto=1#invite=${token}`);
       await page.waitForFunction(() => (window as unknown as { __eb?: unknown }).__eb !== undefined, undefined, { timeout: 30_000 });
@@ -289,6 +291,7 @@ for (const tier of ["low", "medium"] as const) {
       const page = await ctx.newPage(), errors: string[] = [];
       page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
       page.on("pageerror", (e) => errors.push(String(e)));
+      page.on("response", response => { if (response.status() >= 400) { const u = new URL(response.url()); errors.push(`HTTP ${response.status()} ${u.hostname}${u.pathname}`); } });
       const { token } = svc.invites.create({ ttlMs: 120_000, maxUses: 1 });
       await page.goto(`${base}/?room=match&name=${name}&kit=${kit}&debug=1&auto=1#invite=${token}`);
       await page.waitForFunction(() => (window as unknown as { __eb?: unknown }).__eb !== undefined, undefined, { timeout: 30_000 });
@@ -392,6 +395,7 @@ for (const tier of ["low", "medium"] as const) {
       const page = await ctx.newPage(), errors: string[] = [];
       page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
       page.on("pageerror", (e) => errors.push(String(e)));
+      page.on("response", response => { if (response.status() >= 400) { const u = new URL(response.url()); errors.push(`HTTP ${response.status()} ${u.hostname}${u.pathname}`); } });
       const { token } = svc.invites.create({ ttlMs: 120_000, maxUses: 1 });
       await page.goto(`${base}/?room=match&name=${name}&kit=${kit}&debug=1&auto=1#invite=${token}`);
       await page.waitForFunction(() => (window as unknown as { __eb?: unknown }).__eb !== undefined, undefined, { timeout: 30_000 });
@@ -475,6 +479,7 @@ for (const tier of ["low", "medium"] as const) {
       const page = await ctx.newPage(), errors: string[] = [];
       page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
       page.on("pageerror", (e) => errors.push(String(e)));
+      page.on("response", response => { if (response.status() >= 400) { const u = new URL(response.url()); errors.push(`HTTP ${response.status()} ${u.hostname}${u.pathname}`); } });
       const { token } = svc.invites.create({ ttlMs: 120_000, maxUses: 1 });
       await page.goto(`${base}/?room=match&name=${name}&kit=${kit}&debug=1&auto=1#invite=${token}`);
       await page.waitForFunction(() => (window as unknown as { __eb?: unknown }).__eb !== undefined, undefined, { timeout: 30_000 });

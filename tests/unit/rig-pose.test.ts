@@ -158,3 +158,14 @@ describe("QF03 Ember Artificer animation", () => {
     expect(ea.find((x) => x.id === "ea.a1")!.tracks[0]!.times[1]!).toBeCloseTo(0.3, 5);
   });
 });
+
+// UX08 audit: preserve natural knee-up tuck and planted landing while correcting shoulders/kicks.
+for (const kit of KITS) {
+  it(`${kit}: jump tucks knees forward and landing keeps feet below knees`, () => {
+    const clips = buildKitClips(kit), jump = fk(clips.find(c => c.id === "jump")!, 0), land = fk(clips.find(c => c.id === "land")!, 0);
+    for (const side of ["L", "R"] as const) {
+      expect(jump[`hip${side}`][2] - jump[`knee${side}`][2]).toBeGreaterThan(.2);
+      expect(land[`knee${side}`][1] - land[`ankle${side}`][1]).toBeGreaterThan(.2);
+    }
+  });
+}

@@ -112,8 +112,9 @@ for (const [W, H] of [[1024, 768], [1180, 820]] as const) {
     // Skill buttons: equipped name plus text readiness (not colour alone).
     const skills = await page.$$eval("[data-control^=skill]", (els) => els.map((e) => ({ text: (e as HTMLElement).innerText.replace(/\n/g, "|"), border: getComputedStyle(e).borderTopStyle })));
     expect(skills[0]).toEqual({ text: "1 Fault Strike|Ready", border: "solid" });
-    expect(skills[1]).toEqual({ text: "2 Undertow|3.2", border: "dashed" });
+    expect(skills[1]).toEqual({ text: "2 Undertow Spiral|3.2", border: "dashed" });
     expect(skills[3]).toEqual({ text: "4 Quake|12", border: "dashed" });
+    expect(await page.locator("[data-control^=skill]").evaluateAll(els => els.every(e => e.scrollWidth <= e.clientWidth))).toBe(true);
     mkdirSync(outDir, { recursive: true });
     await page.screenshot({ path: path.join(outDir, `QU01-hud-${W}x${H}.png`) });
     await page.goto(`${base}?qu01=blocked`);

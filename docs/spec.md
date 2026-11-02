@@ -1713,7 +1713,7 @@ Four player stress              p95 frame ≤33.3 ms for 5 minutes with overlapp
                                 JS heap steady state ≤150 MB where measurable; no upward trend >20 MB across
 Client memory
                                 10 room joins
-                                ≤120 draw calls and ≤150k visible triangles on medium; 512 by 512 typical character
+                                ≤120 draw calls and ≤300k visible triangles on medium (raised from 150k by decision 0048); 512 by 512 typical character
 GPU budget
                                 textures, 1024 maximum
                                 Low ≤0.75 million, medium ≤1.5 million, high ≤2.5 million; scale 0.6–1.5 relative to

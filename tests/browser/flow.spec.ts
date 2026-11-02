@@ -180,9 +180,9 @@ test("happy path to Ready, then HUD: meter, cooldown, rejection, scoreboard, kit
   test.setTimeout(150_000);
   const { ctx, page, errors } = await open("&name=Nora&kit=sv");
   try {
-    // Welcome: Play, local name presets (labels only), connection status.
+    // Welcome: Play, local name presets (labels only), and available modes.
     await page.waitForSelector("[data-act=play]");
-    await expect(page.locator("[data-ui=status]")).toContainText("offline");
+    await expect(page.locator("[data-ui=status]")).toContainText("Practice, bot sparring and private matches");
     await expect(page.locator("[data-act=name]")).toHaveCount(2);
     await page.click("[data-act=name][data-name=Arel]");
     await page.click("[data-act=play]");

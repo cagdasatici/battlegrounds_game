@@ -42,7 +42,7 @@ for (const view of ["overview", "spawn", "bridge", "front"]) {
         await page.evaluate(q => (window as unknown as { __art: { quality(q: string): void } }).__art.quality(q), quality);
         await page.waitForTimeout(150);
         const info = await page.evaluate(() => (window as unknown as { __art: ArtApi }).__art.info());
-        expect(info.calls).toBeLessThanOrEqual(120); expect(info.triangles).toBeLessThanOrEqual(150000);
+        expect(info.calls).toBeLessThanOrEqual(120); expect(info.triangles).toBeLessThanOrEqual(300000);
         await page.screenshot({ path: path.join(outDir, `UX05-${TAG}-${view}-${quality}.png`) });
         writeFileSync(path.join(outDir, `UX05-${TAG}-${view}-${quality}.json`), JSON.stringify(info));
       }
@@ -50,3 +50,21 @@ for (const view of ["overview", "spawn", "bridge", "front"]) {
     } finally { await page.close(); }
   });
 }
+
+test("UX08 four fighters in the dense east satellite view stay inside the render budget", async () => {
+  const page = await browser.newPage({ viewport: { width: 1180, height: 820 } });
+  try {
+    await page.goto(`${base}/art.html?view=sat&n=east`);
+    await page.waitForFunction(() => (window as unknown as { __art: ArtApi }).__art?.envState() === "ready");
+    await page.evaluate(() => (window as unknown as { __art: { fourth(): void } }).__art.fourth());
+    for (const quality of ["medium", "low"]) {
+      await page.evaluate(q => (window as unknown as { __art: { quality(q: string): void } }).__art.quality(q), quality);
+      await page.waitForTimeout(200);
+      const info = await page.evaluate(() => (window as unknown as { __art: ArtApi }).__art.info());
+      const breakdown = await page.evaluate(() => (window as unknown as { __art: { breakdown(): unknown } }).__art.breakdown());
+      writeFileSync(path.join(outDir, `UX08-four-fighters-${quality}.json`), JSON.stringify({ ...info, breakdown }));
+      await page.screenshot({ path: path.join(outDir, `UX08-four-fighters-${quality}.png`) });
+      expect(info.calls).toBeLessThanOrEqual(120); expect(info.triangles).toBeLessThanOrEqual(300000);
+    }
+  } finally { await page.close(); }
+});

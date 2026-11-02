@@ -423,28 +423,21 @@
           "guest": true
         },
         {
-          "t": 35,
-          "act": "Idle",
-          "hit": false,
-          "host": true,
-          "guest": true
-        },
-        {
-          "t": 67,
+          "t": 34,
           "act": "Windup",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 862,
+          "t": 786,
           "act": "Windup",
           "hit": true,
           "host": true,
           "guest": true
         },
         {
-          "t": 1594,
+          "t": 1499,
           "act": "Recovery",
           "hit": true,
           "host": true,
@@ -476,18 +469,18 @@
           "distance": 6.5,
           "position": {
             "x": -1,
-            "y": 2.5177567800087854,
+            "y": 2.517433357504845,
             "z": 0.5500000000000005
           },
           "pivot": {
             "x": 5.5,
-            "y": 2.5177567800087854,
+            "y": 2.517433357504845,
             "z": 0.55
           },
           "yaw": -1.5707963267948966,
           "local": {
             "x": 5.5,
-            "y": 0.9177567800087855,
+            "y": 0.9174333575048448,
             "z": 0
           },
           "opponent": {
@@ -524,17 +517,17 @@
           "screen": {
             "head": {
               "x": 468.4512939811254,
-              "y": 451.12492870565524,
+              "y": 451.0993202846661,
               "depth": 8.4
             },
             "shoulderLeft": {
               "x": 488.2461603533411,
-              "y": 470.91979507787096,
+              "y": 470.89418665688186,
               "depth": 8.4
             },
             "shoulderRight": {
               "x": 448.65642760890967,
-              "y": 470.91979507787096,
+              "y": 470.89418665688186,
               "depth": 8.4
             }
           }
@@ -616,18 +609,18 @@
           "distance": 6.5,
           "position": {
             "x": -1,
-            "y": 2.5162627954946366,
+            "y": 2.5177543776256686,
             "z": 0.5500000000000005
           },
           "pivot": {
             "x": 5.5,
-            "y": 2.5162627954946366,
+            "y": 2.5177543776256686,
             "z": 0.55
           },
           "yaw": -1.5707963267948966,
           "local": {
             "x": 5.5,
-            "y": 0.9162627954946366,
+            "y": 0.9177543776256687,
             "z": 0
           },
           "opponent": {
@@ -664,17 +657,17 @@
           "screen": {
             "head": {
               "x": 468.4512939811254,
-              "y": 451.00663581037634,
+              "y": 451.12473848624415,
               "depth": 8.4
             },
             "shoulderLeft": {
               "x": 488.2461603533411,
-              "y": 470.801502182592,
+              "y": 470.9196048584598,
               "depth": 8.4
             },
             "shoulderRight": {
               "x": 448.65642760890967,
-              "y": 470.801502182592,
+              "y": 470.9196048584598,
               "depth": 8.4
             }
           }
@@ -765,42 +758,84 @@
           "guest": true
         },
         {
-          "t": 68,
+          "t": 69,
           "act": "Idle",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 101,
-          "act": "Idle",
-          "hit": false,
-          "host": true,
-          "guest": true
-        },
-        {
-          "t": 134,
-          "act": "Idle",
-          "hit": false,
-          "host": true,
-          "guest": true
-        },
-        {
-          "t": 167,
+          "t": 102,
           "act": "Windup",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 1081,
-          "act": "Recovery",
+          "t": 832,
+          "act": "Windup",
           "hit": true,
           "host": true,
           "guest": true
         },
         {
-          "t": 1939,
+          "t": 1600,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1635,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1668,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1701,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1735,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1767,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1801,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1835,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1869,
           "act": "Recovery",
           "hit": true,
           "host": true,
@@ -832,18 +867,18 @@
           "distance": 6.5,
           "position": {
             "x": 19.7,
-            "y": 2.519886189492827,
+            "y": 2.5198103916950494,
             "z": 0.5500000000000005
           },
           "pivot": {
             "x": 26.2,
-            "y": 2.519886189492827,
+            "y": 2.5198103916950494,
             "z": 0.55
           },
           "yaw": -1.5707963267948966,
           "local": {
             "x": 26.2,
-            "y": 0.9198861894928269,
+            "y": 0.9198103916950495,
             "z": 0
           },
           "opponent": {
@@ -880,17 +915,17 @@
           "screen": {
             "head": {
               "x": 467.3891304196894,
-              "y": 452.9348399228575,
+              "y": 452.9286919125464,
               "depth": 8.2
             },
             "shoulderLeft": {
               "x": 487.66679841073966,
-              "y": 473.2125079139078,
+              "y": 473.2063599035967,
               "depth": 8.2
             },
             "shoulderRight": {
               "x": 447.11146242863913,
-              "y": 473.2125079139078,
+              "y": 473.2063599035967,
               "depth": 8.2
             }
           }
@@ -901,18 +936,18 @@
           "distance": 6.5,
           "position": {
             "x": 34.4,
-            "y": 2.5196774934697896,
+            "y": 2.5196236348792445,
             "z": -0.5499999999999996
           },
           "pivot": {
             "x": 27.9,
-            "y": 2.5196774934697896,
+            "y": 2.5196236348792445,
             "z": -0.55
           },
           "yaw": 1.5707963267948966,
           "local": {
             "x": 27.9,
-            "y": 0.9196774934697897,
+            "y": 0.9196236348792445,
             "z": 0
           },
           "opponent": {
@@ -949,17 +984,17 @@
           "screen": {
             "head": {
               "x": 467.38913041968937,
-              "y": 452.91791244819274,
+              "y": 452.91354394172254,
               "depth": 8.2
             },
             "shoulderLeft": {
               "x": 487.66679841073966,
-              "y": 473.19558043924303,
+              "y": 473.19121193277283,
               "depth": 8.2
             },
             "shoulderRight": {
               "x": 447.11146242863913,
-              "y": 473.19558043924303,
+              "y": 473.19121193277283,
               "depth": 8.2
             }
           }
@@ -1114,7 +1149,7 @@
           "guest": true
         },
         {
-          "t": 34,
+          "t": 35,
           "act": "Idle",
           "hit": false,
           "host": true,
@@ -1122,55 +1157,20 @@
         },
         {
           "t": 68,
-          "act": "Idle",
-          "hit": false,
-          "host": true,
-          "guest": true
-        },
-        {
-          "t": 100,
           "act": "Windup",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 985,
-          "act": "Recovery",
-          "hit": true,
-          "host": true,
-          "guest": true
-        },
-        {
-          "t": 1857,
+          "t": 848,
           "act": "Windup",
           "hit": true,
           "host": true,
           "guest": true
         },
         {
-          "t": 1889,
-          "act": "Windup",
-          "hit": true,
-          "host": true,
-          "guest": true
-        },
-        {
-          "t": 1923,
-          "act": "Active",
-          "hit": true,
-          "host": true,
-          "guest": true
-        },
-        {
-          "t": 1957,
-          "act": "Active",
-          "hit": true,
-          "host": true,
-          "guest": true
-        },
-        {
-          "t": 1990,
+          "t": 1547,
           "act": "Recovery",
           "hit": true,
           "host": true,
@@ -1484,35 +1484,35 @@
           "guest": true
         },
         {
-          "t": 34,
+          "t": 36,
           "act": "Idle",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 66,
+          "t": 69,
           "act": "Idle",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 98,
+          "t": 102,
           "act": "Windup",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 887,
+          "t": 849,
           "act": "Windup",
           "hit": true,
           "host": true,
           "guest": true
         },
         {
-          "t": 1607,
+          "t": 1638,
           "act": "Recovery",
           "hit": true,
           "host": true,
@@ -1544,18 +1544,18 @@
           "distance": 6.5,
           "position": {
             "x": -1,
-            "y": 2.5177567800087854,
+            "y": 2.51713266685639,
             "z": 0.5500000000000005
           },
           "pivot": {
             "x": 5.5,
-            "y": 2.5177567800087854,
+            "y": 2.51713266685639,
             "z": 0.55
           },
           "yaw": -1.5707963267948966,
           "local": {
             "x": 5.5,
-            "y": 0.9177567800087855,
+            "y": 0.9171326668563897,
             "z": 0
           },
           "opponent": {
@@ -1592,17 +1592,17 @@
           "screen": {
             "head": {
               "x": 492.2051336277843,
-              "y": 451.12492870565524,
+              "y": 451.07551175984395,
               "depth": 8.4
             },
             "shoulderLeft": {
               "x": 512,
-              "y": 470.91979507787096,
+              "y": 470.87037813205967,
               "depth": 8.4
             },
             "shoulderRight": {
               "x": 472.41026725556856,
-              "y": 470.91979507787096,
+              "y": 470.87037813205967,
               "depth": 8.4
             }
           }
@@ -1684,18 +1684,18 @@
           "distance": 6.5,
           "position": {
             "x": -1,
-            "y": 2.517035776672419,
+            "y": 2.517382162270253,
             "z": 0.5500000000000005
           },
           "pivot": {
             "x": 5.5,
-            "y": 2.517035776672419,
+            "y": 2.517382162270253,
             "z": 0.55
           },
           "yaw": -1.5707963267948966,
           "local": {
             "x": 5.5,
-            "y": 0.9170357766724192,
+            "y": 0.9173821622702527,
             "z": 0
           },
           "opponent": {
@@ -1732,17 +1732,17 @@
           "screen": {
             "head": {
               "x": 492.2051336277843,
-              "y": 451.067840046866,
+              "y": 451.0952666733556,
               "depth": 8.4
             },
             "shoulderLeft": {
               "x": 512,
-              "y": 470.8627064190818,
+              "y": 470.89013304557136,
               "depth": 8.4
             },
             "shoulderRight": {
               "x": 472.41026725556856,
-              "y": 470.8627064190818,
+              "y": 470.89013304557136,
               "depth": 8.4
             }
           }
@@ -1819,7 +1819,7 @@
       },
       "samples": [
         {
-          "t": 1,
+          "t": 2,
           "act": "Idle",
           "hit": false,
           "host": true,
@@ -1833,42 +1833,70 @@
           "guest": true
         },
         {
-          "t": 70,
+          "t": 68,
           "act": "Idle",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 103,
+          "t": 101,
+          "act": "Idle",
+          "hit": false,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 133,
           "act": "Windup",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 981,
-          "act": "Recovery",
+          "t": 927,
+          "act": "Windup",
           "hit": true,
           "host": true,
           "guest": true
         },
         {
-          "t": 1801,
+          "t": 1736,
           "act": "Active",
           "hit": true,
           "host": true,
           "guest": true
         },
         {
-          "t": 1834,
+          "t": 1770,
           "act": "Active",
           "hit": true,
           "host": true,
           "guest": true
         },
         {
-          "t": 1869,
+          "t": 1803,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1837,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1870,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1903,
           "act": "Recovery",
           "hit": true,
           "host": true,
@@ -1900,18 +1928,18 @@
           "distance": 6.5,
           "position": {
             "x": 19.7,
-            "y": 2.519886189492827,
+            "y": 2.5198102778845426,
             "z": 0.5500000000000005
           },
           "pivot": {
             "x": 26.2,
-            "y": 2.519886189492827,
+            "y": 2.5198102778845426,
             "z": 0.55
           },
           "yaw": -1.5707963267948966,
           "local": {
             "x": 26.2,
-            "y": 0.9198861894928269,
+            "y": 0.9198102778845423,
             "z": 0
           },
           "opponent": {
@@ -1948,17 +1976,17 @@
           "screen": {
             "head": {
               "x": 491.7223320089497,
-              "y": 452.9348399228575,
+              "y": 452.92868268129973,
               "depth": 8.2
             },
             "shoulderLeft": {
               "x": 512,
-              "y": 473.2125079139078,
+              "y": 473.20635067235,
               "depth": 8.2
             },
             "shoulderRight": {
               "x": 471.44466401789947,
-              "y": 473.2125079139078,
+              "y": 473.20635067235,
               "depth": 8.2
             }
           }
@@ -1969,18 +1997,18 @@
           "distance": 6.5,
           "position": {
             "x": 34.4,
-            "y": 2.519766021966934,
+            "y": 2.5196490329504013,
             "z": -0.24999999999999967
           },
           "pivot": {
             "x": 27.9,
-            "y": 2.519766021966934,
+            "y": 2.5196490329504013,
             "z": -0.25000000000000006
           },
           "yaw": 1.5707963267948966,
           "local": {
             "x": 27.9,
-            "y": 0.9197660219669342,
+            "y": 0.9196490329504013,
             "z": 0.3
           },
           "opponent": {
@@ -2017,17 +2045,17 @@
           "screen": {
             "head": {
               "x": 491.7223320089497,
-              "y": 452.9250930540841,
+              "y": 452.9156039963407,
               "depth": 8.2
             },
             "shoulderLeft": {
               "x": 512,
-              "y": 473.20276104513437,
+              "y": 473.193271987391,
               "depth": 8.2
             },
             "shoulderRight": {
               "x": 471.4446640178994,
-              "y": 473.20276104513437,
+              "y": 473.193271987391,
               "depth": 8.2
             }
           }
@@ -2175,63 +2203,28 @@
       },
       "samples": [
         {
-          "t": 1,
+          "t": 2,
           "act": "Idle",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 34,
-          "act": "Idle",
-          "hit": false,
-          "host": true,
-          "guest": true
-        },
-        {
-          "t": 67,
+          "t": 35,
           "act": "Windup",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 981,
-          "act": "Recovery",
-          "hit": true,
-          "host": true,
-          "guest": true
-        },
-        {
-          "t": 1865,
+          "t": 849,
           "act": "Windup",
           "hit": true,
           "host": true,
           "guest": true
         },
         {
-          "t": 1898,
-          "act": "Windup",
-          "hit": true,
-          "host": true,
-          "guest": true
-        },
-        {
-          "t": 1930,
-          "act": "Active",
-          "hit": true,
-          "host": true,
-          "guest": true
-        },
-        {
-          "t": 1961,
-          "act": "Active",
-          "hit": true,
-          "host": true,
-          "guest": true
-        },
-        {
-          "t": 1996,
+          "t": 1554,
           "act": "Recovery",
           "hit": true,
           "host": true,
@@ -2538,42 +2531,35 @@
       },
       "samples": [
         {
-          "t": 2,
+          "t": 3,
           "act": "Idle",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 35,
+          "t": 36,
           "act": "Idle",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 69,
-          "act": "Idle",
-          "hit": false,
-          "host": true,
-          "guest": true
-        },
-        {
-          "t": 102,
+          "t": 71,
           "act": "Windup",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 847,
-          "act": "Windup",
+          "t": 767,
+          "act": "Recovery",
           "hit": true,
           "host": true,
           "guest": true
         },
         {
-          "t": 1626,
+          "t": 1463,
           "act": "Recovery",
           "hit": true,
           "host": true,
@@ -2605,18 +2591,18 @@
           "distance": 6.5,
           "position": {
             "x": -1,
-            "y": 2.5162605522746455,
+            "y": 2.517132292238651,
             "z": 0.5500000000000005
           },
           "pivot": {
             "x": 5.5,
-            "y": 2.5162605522746455,
+            "y": 2.517132292238651,
             "z": 0.55
           },
           "yaw": -1.5707963267948966,
           "local": {
             "x": 5.5,
-            "y": 0.9162605522746454,
+            "y": 0.9171322922386511,
             "z": 0
           },
           "opponent": {
@@ -2653,17 +2639,17 @@
           "screen": {
             "head": {
               "x": 444.6974543344665,
-              "y": 451.00645819341645,
+              "y": 451.0754820978117,
               "depth": 8.4
             },
             "shoulderLeft": {
               "x": 464.4923207066822,
-              "y": 470.80132456563217,
+              "y": 470.87034847002735,
               "depth": 8.4
             },
             "shoulderRight": {
               "x": 424.9025879622508,
-              "y": 470.80132456563217,
+              "y": 470.87034847002735,
               "depth": 8.4
             }
           }
@@ -2880,14 +2866,14 @@
       },
       "samples": [
         {
-          "t": 2,
+          "t": 3,
           "act": "Idle",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 36,
+          "t": 35,
           "act": "Idle",
           "hit": false,
           "host": true,
@@ -2895,27 +2881,83 @@
         },
         {
           "t": 68,
+          "act": "Idle",
+          "hit": false,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 102,
+          "act": "Idle",
+          "hit": false,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 135,
           "act": "Windup",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 975,
-          "act": "Recovery",
+          "t": 930,
+          "act": "Windup",
           "hit": true,
           "host": true,
           "guest": true
         },
         {
-          "t": 1849,
+          "t": 1699,
           "act": "Active",
           "hit": true,
           "host": true,
           "guest": true
         },
         {
-          "t": 1883,
+          "t": 1732,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1764,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1797,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1830,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1863,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1898,
+          "act": "Active",
+          "hit": true,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 1930,
           "act": "Recovery",
           "hit": true,
           "host": true,
@@ -3229,74 +3271,39 @@
           "guest": true
         },
         {
-          "t": 34,
+          "t": 35,
           "act": "Idle",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 65,
+          "t": 69,
+          "act": "Idle",
+          "hit": false,
+          "host": true,
+          "guest": true
+        },
+        {
+          "t": 103,
           "act": "Windup",
           "hit": false,
           "host": true,
           "guest": true
         },
         {
-          "t": 977,
-          "act": "Active",
-          "hit": true,
-          "host": true,
-          "guest": true
-        },
-        {
-          "t": 1856,
+          "t": 844,
           "act": "Windup",
           "hit": true,
           "host": true,
           "guest": true
         },
         {
-          "t": 1888,
-          "act": "Windup",
-          "hit": true,
-          "host": true,
-          "guest": true
-        },
-        {
-          "t": 1922,
-          "act": "Windup",
-          "hit": true,
-          "host": true,
-          "guest": true
-        },
-        {
-          "t": 1956,
-          "act": "Windup",
-          "hit": true,
-          "host": true,
-          "guest": true
-        },
-        {
-          "t": 1990,
-          "act": "Active",
-          "hit": true,
-          "host": true,
-          "guest": true
-        },
-        {
-          "t": 2025,
-          "act": "Active",
-          "hit": true,
-          "host": true,
-          "guest": true
-        },
-        {
-          "t": 2057,
+          "t": 1545,
           "act": "Recovery",
           "hit": true,
           "host": true,
-          "guest": true
+          "guest": false
         }
       ]
     }

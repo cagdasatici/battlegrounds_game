@@ -1,66 +1,66 @@
 {
   "coldWelcome": {
     "responses": 7,
-    "rawBytes": 377499,
-    "gzipBytes": 118191,
-    "transferBytes": 381924,
-    "jsGzipBytes": 115713,
-    "msToInteractive": 1222,
+    "rawBytes": 403056,
+    "gzipBytes": 126419,
+    "transferBytes": 407483,
+    "jsGzipBytes": 121393,
+    "msToInteractive": 1212,
     "files": [
       {
         "path": "/",
-        "raw": 1017,
-        "gzip": 457,
-        "transfer": 1957
+        "raw": 1018,
+        "gzip": 460,
+        "transfer": 1958
       },
       {
-        "path": "/assets/main-ySi_2nfl.css",
-        "raw": 137,
-        "gzip": 136,
-        "transfer": 1123
+        "path": "/assets/main-BhyQLbyh.css",
+        "raw": 9657,
+        "gzip": 2681,
+        "transfer": 10645
       },
       {
-        "path": "/assets/schemas-_9SXt2jU.js",
-        "raw": 91527,
-        "gzip": 25815,
-        "transfer": 92531
+        "path": "/assets/sparring-BLBLm1IE.js",
+        "raw": 93828,
+        "gzip": 26876,
+        "transfer": 94832
       },
       {
-        "path": "/assets/main-DXdES4yn.js",
-        "raw": 282300,
-        "gzip": 89898,
-        "transfer": 283331
+        "path": "/assets/main-DA9ZYUEz.js",
+        "raw": 296034,
+        "gzip": 94517,
+        "transfer": 297065
       },
       {
         "path": "/asset-manifest.json",
-        "raw": 1061,
+        "raw": 1062,
         "gzip": 496,
-        "transfer": 1993
-      },
-      {
-        "path": "/api/version",
-        "raw": 77,
-        "gzip": 95,
-        "transfer": 989
+        "transfer": 1994
       },
       {
         "path": "/icons/icon-192.png",
         "raw": 1380,
         "gzip": 1294,
         "transfer": 0
+      },
+      {
+        "path": "/api/version",
+        "raw": 77,
+        "gzip": 95,
+        "transfer": 989
       }
     ]
   },
   "playToFirstFrame": {
-    "responses": 28,
-    "rawBytes": 7108327,
-    "gzipBytes": 2693868,
+    "responses": 29,
+    "rawBytes": 7114320,
+    "gzipBytes": 2696788,
     "transferBytes": 3068,
-    "msFromClick": 1199,
+    "msFromClick": 2342,
     "files": [
       {
-        "path": "/assets/gameRuntime-DBAIWqdU.js",
-        "gzip": 1868203
+        "path": "/assets/gameRuntime-YCPD1Lv4.js",
+        "gzip": 1869830
       },
       {
         "path": "/assets/islands.v1-BTPzerRx.json",
@@ -168,38 +168,42 @@
       },
       {
         "path": "/api/join-ticket",
-        "gzip": 161
+        "gzip": 160
+      },
+      {
+        "path": "/icons/icon-192.png",
+        "gzip": 1294
       }
     ]
   },
   "p1Cache": {
     "entries": 34,
-    "rawBytes": 10277561
+    "rawBytes": 10307730
   },
   "warmWelcome": {
-    "msToInteractive": 184,
+    "msToInteractive": 204,
     "requestsSeenByPage": 8,
     "paths": [
       "/",
-      "/assets/main-DXdES4yn.js",
-      "/assets/schemas-_9SXt2jU.js",
-      "/assets/main-ySi_2nfl.css",
+      "/assets/main-DA9ZYUEz.js",
+      "/assets/sparring-BLBLm1IE.js",
+      "/assets/main-BhyQLbyh.css",
       "/asset-manifest.json",
-      "/api/version",
-      "/icons/icon-192.png"
+      "/icons/icon-192.png",
+      "/api/version"
     ]
   },
   "cycles": [
     {
       "cycle": 1,
-      "heapUsedMB": 13.96,
-      "jsEventListeners": 61,
-      "domNodes": 316,
+      "heapUsedMB": 14.15,
+      "jsEventListeners": 63,
+      "domNodes": 434,
       "audioContextsCreated": 2,
       "audioContextsOpen": 0,
       "inMatch": {
-        "geometries": 53,
-        "calls": 55,
+        "geometries": 55,
+        "calls": 58,
         "fxActive": 0,
         "projectiles": 0,
         "urns": 8,
@@ -208,14 +212,14 @@
     },
     {
       "cycle": 2,
-      "heapUsedMB": 14.16,
-      "jsEventListeners": 61,
-      "domNodes": 316,
+      "heapUsedMB": 14.28,
+      "jsEventListeners": 63,
+      "domNodes": 434,
       "audioContextsCreated": 3,
       "audioContextsOpen": 0,
       "inMatch": {
-        "geometries": 53,
-        "calls": 55,
+        "geometries": 55,
+        "calls": 58,
         "fxActive": 0,
         "projectiles": 0,
         "urns": 8,
@@ -224,14 +228,14 @@
     },
     {
       "cycle": 3,
-      "heapUsedMB": 14.18,
-      "jsEventListeners": 61,
-      "domNodes": 316,
+      "heapUsedMB": 14.34,
+      "jsEventListeners": 63,
+      "domNodes": 434,
       "audioContextsCreated": 4,
       "audioContextsOpen": 0,
       "inMatch": {
-        "geometries": 53,
-        "calls": 55,
+        "geometries": 55,
+        "calls": 58,
         "fxActive": 0,
         "projectiles": 0,
         "urns": 8,
@@ -240,14 +244,14 @@
     },
     {
       "cycle": 4,
-      "heapUsedMB": 14.35,
-      "jsEventListeners": 61,
-      "domNodes": 316,
+      "heapUsedMB": 14.54,
+      "jsEventListeners": 63,
+      "domNodes": 434,
       "audioContextsCreated": 5,
       "audioContextsOpen": 0,
       "inMatch": {
-        "geometries": 53,
-        "calls": 55,
+        "geometries": 55,
+        "calls": 58,
         "fxActive": 0,
         "projectiles": 0,
         "urns": 8,
@@ -256,14 +260,14 @@
     },
     {
       "cycle": 5,
-      "heapUsedMB": 14.39,
-      "jsEventListeners": 61,
-      "domNodes": 316,
+      "heapUsedMB": 14.57,
+      "jsEventListeners": 63,
+      "domNodes": 434,
       "audioContextsCreated": 6,
       "audioContextsOpen": 0,
       "inMatch": {
-        "geometries": 53,
-        "calls": 55,
+        "geometries": 55,
+        "calls": 58,
         "fxActive": 0,
         "projectiles": 0,
         "urns": 8,
@@ -272,14 +276,14 @@
     },
     {
       "cycle": 6,
-      "heapUsedMB": 14.42,
-      "jsEventListeners": 61,
-      "domNodes": 316,
+      "heapUsedMB": 14.6,
+      "jsEventListeners": 63,
+      "domNodes": 434,
       "audioContextsCreated": 7,
       "audioContextsOpen": 0,
       "inMatch": {
-        "geometries": 53,
-        "calls": 55,
+        "geometries": 55,
+        "calls": 58,
         "fxActive": 0,
         "projectiles": 0,
         "urns": 8,
@@ -288,14 +292,14 @@
     },
     {
       "cycle": 7,
-      "heapUsedMB": 14.45,
-      "jsEventListeners": 61,
-      "domNodes": 316,
+      "heapUsedMB": 14.63,
+      "jsEventListeners": 63,
+      "domNodes": 434,
       "audioContextsCreated": 8,
       "audioContextsOpen": 0,
       "inMatch": {
-        "geometries": 53,
-        "calls": 55,
+        "geometries": 55,
+        "calls": 58,
         "fxActive": 0,
         "projectiles": 0,
         "urns": 8,
@@ -304,14 +308,14 @@
     },
     {
       "cycle": 8,
-      "heapUsedMB": 14.72,
-      "jsEventListeners": 61,
-      "domNodes": 316,
+      "heapUsedMB": 14.95,
+      "jsEventListeners": 63,
+      "domNodes": 434,
       "audioContextsCreated": 9,
       "audioContextsOpen": 0,
       "inMatch": {
-        "geometries": 53,
-        "calls": 55,
+        "geometries": 55,
+        "calls": 58,
         "fxActive": 0,
         "projectiles": 0,
         "urns": 8,
@@ -320,14 +324,14 @@
     },
     {
       "cycle": 9,
-      "heapUsedMB": 14.77,
-      "jsEventListeners": 61,
-      "domNodes": 316,
+      "heapUsedMB": 14.98,
+      "jsEventListeners": 63,
+      "domNodes": 434,
       "audioContextsCreated": 10,
       "audioContextsOpen": 0,
       "inMatch": {
-        "geometries": 53,
-        "calls": 55,
+        "geometries": 55,
+        "calls": 58,
         "fxActive": 0,
         "projectiles": 0,
         "urns": 8,
@@ -336,14 +340,14 @@
     },
     {
       "cycle": 10,
-      "heapUsedMB": 14.78,
-      "jsEventListeners": 61,
-      "domNodes": 316,
+      "heapUsedMB": 14.99,
+      "jsEventListeners": 63,
+      "domNodes": 434,
       "audioContextsCreated": 11,
       "audioContextsOpen": 0,
       "inMatch": {
-        "geometries": 53,
-        "calls": 55,
+        "geometries": 55,
+        "calls": 58,
         "fxActive": 0,
         "projectiles": 0,
         "urns": 8,
@@ -356,5 +360,5 @@
     "lefts": 11,
     "expected": 11
   },
-  "heapGrowthMB": 0.82
+  "heapGrowthMB": 0.84
 }

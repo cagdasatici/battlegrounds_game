@@ -25,9 +25,9 @@ setting changes no longer reset adaptive-quality windows. Original synthesized
 ambient music consumes one low-priority voice inside the existing 16-voice cap,
 uses an independent gain, and stops on visibility suspension/leave/disposal.
 
-UX06 supersedes decision 0019's blanket X-rotation flip. Hanging shoulder and
-hip rotations now use the authored sign; elbow/knee hinges and upright torso
-retain their previous sign. The old test selected either hand and could pass
+UX06 supersedes decision 0019's blanket X-rotation flip. Shoulder rotations now use the authored sign; elbow/knee hinges, hips and
+upright torso retain their previous sign. The kick hip is authored explicitly
+forward. Knee-up jump and planted-landing invariants protect crouching poses. The old test selected either hand and could pass
 on the guarding hand while the striking hand travelled backward. The new test
 requires the designated hand/foot to reach at least 0.2 m ahead of the chest at
 contact, and checks hinge direction in local limb space (world Z is invalid for
@@ -44,3 +44,16 @@ Fault Strike displays its existing 8 m wave rather than only the 3 m direct box.
 Furnace Drop displays only its current projected ground footprint in Active,
 following replicated movement; it does not predict an unreplicated destination.
 Other unreplicated rush endpoints remain without a guessed area marker.
+
+UX08 completes the owner-facing setup paths discovered during the revision:
+interactive host-only `pnpm admin:setup`, a private local scrypt hash consumed by
+`pnpm play`, and explicit reusable Game home/Admin addresses. It creates no
+admin default, HTTP setup endpoint, public host or always-on service. Explicit
+environment hash/disable settings retain precedence. Host setup now includes
+all three already-shipped kits. Changing difficulty with active practice bots
+replaces that bot group with the selected difficulty and confirms via owner
+replication; no direct client authority over the bots is introduced.
+
+Final render allocation: reduce dense CommonTree/Pine source meshes by 62% rather
+than 55%, keeping placements, textures and silhouettes. This reserves headroom
+for four rounded fighters in the dense east view (superseded: cap raised to 300k by decision 0048).

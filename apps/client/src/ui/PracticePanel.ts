@@ -10,6 +10,7 @@ export interface PracticeState { step: number; skillMask: number; dummyGuard: bo
 
 export class PracticePanel {
   private readonly root: HTMLElement;
+  private readonly onChange: (e: Event) => void;
   private readonly onClick: (e: Event) => void;
   private key = "";
   private cur: PracticeState = { step: 0, skillMask: 0, dummyGuard: false, dummyRagdoll: false };
@@ -42,6 +43,12 @@ export class PracticePanel {
       else return;
       this.setToggles({ ...this.intent });
     };
+    this.onChange = (e: Event): void => {
+      const target = e.target as HTMLSelectElement;
+      if (target.name !== "practice-difficulty" || !["easy", "medium", "hard"].includes(target.value) || !(this.cur.botCount ?? 0)) return;
+      this.setToggles({ ...this.intent, bots: Array.from({ length: this.cur.botCount ?? 0 }, () => target.value as Difficulty) });
+    };
+    this.root.addEventListener("change", this.onChange);
     this.root.addEventListener("click", this.onClick);
     parent.append(this.root);
     this.render(this.cur);
@@ -101,11 +108,12 @@ export class PracticePanel {
       b.disabled = action === "add" ? (st.botCount ?? 0) >= 2 : (st.botCount ?? 0) === 0;
       opponents.append(b);
     }
-    const status = this.doc.createElement("p"); status.setAttribute("role", "status"); status.textContent = `${st.botCount ?? 0}/2 active bots · dummy stays available`;
+    const status = this.doc.createElement("p"); status.setAttribute("role", "status"); status.textContent = `${st.botCount ?? 0}/2 active bots · ${st.botDifficulty ?? "easy"} · dummy stays available`;
     opponents.append(status); this.root.append(opponents);
   }
 
   dispose(): void {
+    this.root.removeEventListener("change", this.onChange);
     this.root.removeEventListener("click", this.onClick);
     this.root.remove();
   }

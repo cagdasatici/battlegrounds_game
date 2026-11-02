@@ -23,6 +23,7 @@ export interface RouterHooks {
   /** Whether the server meter is full (from the latest snapshot). Awakening never fires otherwise. */
   awakeningReady?: () => boolean;
   isChargeSlot?: (slot: SkillSlot) => boolean;
+  onFacingLockChange?: (on: boolean) => void;
   onMenu?: () => void;
   onFighter?: () => void;
   onScoreboard?: () => void;
@@ -153,7 +154,7 @@ export class PointerRouter {
       case "jump": this.edges.push({ kind: "jump" }); break;
       case "dash": this.edges.push({ kind: "dash" }); break;
       case "awaken": if (this.hooks.awakeningReady?.() === true) this.edges.push({ kind: "awaken" }); break;
-      case "facing": this.facingLock = !this.facingLock; break;
+      case "facing": this.facingLock = !this.facingLock; this.hooks.onFacingLockChange?.(this.facingLock); break;
       case "skill1": case "skill2": case "skill3": case "skill4":
         if (!this.quickUse && !this.hooks.isChargeSlot?.(Number(id.slice(5)) as SkillSlot)) this.deferredSkills.add(Number(id.slice(5)));
         else this.edges.push({ kind: "skillDown", slot: Number(id.slice(5)) as SkillSlot });

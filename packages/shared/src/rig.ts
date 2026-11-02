@@ -118,9 +118,9 @@ export function buildClip(id: string, loop: boolean, keys: readonly Key[]): Clip
       const e = k.pose[bone] ?? last;
       last = e;
       times.push(k.t);
-      // UX06: hanging shoulders/hips use +X toward -Z. Elbow/knee hinges and upright torso
-      // retain the authored opposite sign. A blanket flip sent striking hands/feet backwards.
-      const hanging = bone.startsWith("shoulder") || bone === "hipL" || bone === "hipR";
+      // UX06: shoulders use +X toward -Z; the torso, hips and hinges retain the authored
+      // opposite sign for natural crouches. The kicking hip is authored explicitly forward.
+      const hanging = bone.startsWith("shoulder");
       values.push(...eulerToQuat(hanging ? e[0] : -e[0], e[1], e[2]));
     }
     tracks.push({ bone, path: "rotation", times, values });
@@ -239,7 +239,7 @@ function phases(a: Archetype): Phases {
     case "kick":
       return {
         windup: { chest: [-0.15, 0, 0], hipR: [-0.6, 0, 0.1], kneeR: [1.2, 0, 0], shoulderL: [0.5, 0, -0.5], shoulderR: [0.8, 0, 0.5], elbowL: [-1, 0, 0], elbowR: [-1, 0, 0], hipL: [0.1, 0, -0.1], kneeL: [0.4, 0, 0] },
-        active: { chest: [-0.25, 0, 0], spine: [-0.1, 0, 0], hipR: [1.55, 0, 0.1], kneeR: [0.1, 0, 0], ankleR: [-0.4, 0, 0], shoulderL: [0.3, 0, -0.9], shoulderR: [0.6, 0, 0.9], elbowL: [-0.4, 0, 0], elbowR: [-0.4, 0, 0], hipL: [0.15, 0, -0.1], kneeL: [0.5, 0, 0] },
+        active: { chest: [-0.25, 0, 0], spine: [-0.1, 0, 0], hipR: [-1.55, 0, 0.1], kneeR: [0.1, 0, 0], ankleR: [-0.4, 0, 0], shoulderL: [0.3, 0, -0.9], shoulderR: [0.6, 0, 0.9], elbowL: [-0.4, 0, 0], elbowR: [-0.4, 0, 0], hipL: [0.15, 0, -0.1], kneeL: [0.5, 0, 0] },
         activeHips: [0, 0, -0.1],
       };
     case "palm":

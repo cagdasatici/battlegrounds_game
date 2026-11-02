@@ -9,13 +9,13 @@
    "hitPeaks": [
     32,
     58,
-    80
+    108
    ],
    "drained": true,
    "stoppedOnInterrupt": null,
    "render": {
-    "calls": 66,
-    "triangles": 119208
+    "calls": 89,
+    "triangles": 105728
    },
    "shot": "medium-td.b4-hit.jpg"
   },
@@ -24,33 +24,49 @@
    "tier": "medium",
    "cuePeak": 16,
    "hitPeaks": [
-    30,
-    48,
-    94
+    46,
+    64,
+    110
    ],
    "drained": true,
    "stoppedOnInterrupt": null,
    "render": {
-    "calls": 66,
-    "triangles": 119208
+    "calls": 92,
+    "triangles": 105732
    },
    "shot": "medium-td.a2-hit.jpg"
   },
   {
    "id": "td.a3",
    "tier": "medium",
-   "cuePeak": 14,
+   "cuePeak": 18,
    "hitPeaks": [
-    40,
+    44,
+    70
+   ],
+   "drained": true,
+   "stoppedOnInterrupt": true,
+   "render": {
+    "calls": 92,
+    "triangles": 105732
+   },
+   "shot": "medium-td.a3-hit.jpg"
+  },
+  {
+   "id": "td.a4",
+   "tier": "medium",
+   "cuePeak": 8,
+   "hitPeaks": [
+    36,
     66
    ],
    "drained": true,
    "stoppedOnInterrupt": true,
    "render": {
-    "calls": 68,
-    "triangles": 119210
+    "calls": 90,
+    "triangles": 105730
    },
-   "shot": "medium-td.a3-hit.jpg"
+   "shot": "medium-td.a4-hit.jpg"
   },
   {
    "id": "td.activate",
@@ -62,8 +78,8 @@
    "drained": true,
    "stoppedOnInterrupt": null,
    "render": {
-    "calls": 66,
-    "triangles": 119208
+    "calls": 90,
+    "triangles": 105730
    },
    "shot": "medium-td.activate-hit.jpg"
   }

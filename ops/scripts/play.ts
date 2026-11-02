@@ -9,6 +9,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { InviteStore } from "../../apps/server/src/auth/InviteStore.js";
 import { chooseOrigin, checkNodeMajor, inviteLink, parsePlayArgs, pickLanIp, type RunCommand } from "./lib/play.js";
+import { loadAdminPasswordHash } from "./lib/adminSetup.js";
 import { encodeQr, renderHalfBlocks } from "./lib/qr.js";
 
 const root = resolve(fileURLToPath(new URL("../../", import.meta.url)));
@@ -96,6 +97,11 @@ async function main(): Promise<void> {
   const env: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: "production", HOST: "127.0.0.1", PORT: String(port), PUBLIC_ORIGIN: origin, DATA_DIR: dataDir, BUILD_ID: buildId };
   if (allowHttp) env["EB_ALLOW_HTTP_ORIGIN"] = "1";
   if (lan) { env["HOST"] = "0.0.0.0"; env["EB_ALLOW_NONLOOPBACK"] = "1"; env["EB_LAN_HTTP"] = "1"; }
+  const adminHash = env["ADMIN_PASSWORD_HASH"] ?? (env["ADMIN_ENABLED"] === "0" ? null : loadAdminPasswordHash(dataDir));
+  if (adminHash) env["ADMIN_PASSWORD_HASH"] = adminHash;
+  say(`Game home (bookmark this): ${origin}/`);
+  say(`Admin: ${origin}/admin.html`);
+  if (!adminHash && env["ADMIN_ENABLED"] !== "0") say("Admin needs a password: run pnpm admin:setup on this host, then restart.");
   const child = spawn(join(root, "apps/server/node_modules/.bin/tsx"), ["src/main.ts"], { cwd: join(root, "apps/server"), env, stdio: "inherit" });
 
   let stopping = false;

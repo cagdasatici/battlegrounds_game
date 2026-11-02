@@ -209,13 +209,13 @@ test(`Q01: four-fighter workload ${LONG ? `long ${MINUTES} min` : "smoke"} recor
     mkdirSync(outDir, { recursive: true });
     writeFileSync(path.join(outDir, `${LONG ? "long" : "smoke"}-${tier}-run.json`), JSON.stringify(record, null, 2) + "\n");
     await host.page.screenshot({ path: path.join(outDir, `${LONG ? "long" : "smoke"}-host.png`) });
-    // QP02: peak particle, geometry and worst-frame record plus budget assertions (spec section 24: 120 calls, 150k triangles, pool cap).
+    // QP02: peak particle, geometry and worst-frame record plus budget assertions (spec section 24: 120 calls, 300k triangles, pool cap).
     const worst = samples.filter((s) => !s.excluded).map((s) => s.dtMs).sort((a, b) => b - a).slice(0, 5).map((v) => +v.toFixed(1));
     writeFileSync(path.join(outDir, `${LONG ? "long" : "smoke"}-${tier}-qp02.json`), JSON.stringify({ tier, maxDrawCalls: maxCalls, maxVisibleTriangles: maxTris,
       maxParticlesLive: maxFx, particleCapacity: fxCap, nonEssentialSpawnsShed: shed, worstFiveFramesMs: worst, medianFps: stats.medianFps, frameP95Ms: stats.frameP95Ms,
       environment: "Playwright Chromium on SwiftShader, Apple Mac; software raster, not an iPad" }, null, 2) + "\n");
     expect(maxCalls).toBeLessThanOrEqual(120);
-    expect(maxTris).toBeLessThanOrEqual(150_000);
+    expect(maxTris).toBeLessThanOrEqual(300_000);
     expect(maxFx).toBeLessThanOrEqual(fxCap);
     expect(maxFx).toBeGreaterThan(0);
     expect(missingEvents(events)).toEqual([]);

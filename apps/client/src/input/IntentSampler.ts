@@ -20,6 +20,7 @@ export class IntentSampler {
 
   /** Resync starts a new epoch; queued edges from the old epoch are discarded. */
   setEpoch(epoch: number): void {
+    this.run = false; this.highTicks = 0; this.forwardHigh = false; this.lastExcursion = -100;
     this.epoch = epoch;
     this.pending = [];
   }

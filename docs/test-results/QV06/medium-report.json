@@ -12,8 +12,8 @@
    "drained": true,
    "stoppedOnInterrupt": null,
    "render": {
-    "calls": 68,
-    "triangles": 119210
+    "calls": 91,
+    "triangles": 105730
    },
    "shot": "medium-sv.b1-hit.jpg"
   },
@@ -27,21 +27,21 @@
    "drained": true,
    "stoppedOnInterrupt": null,
    "render": {
-    "calls": 66,
-    "triangles": 119208
+    "calls": 90,
+    "triangles": 105730
    },
    "shot": "medium-sv.a1-hit.jpg"
   },
   {
    "id": "sv.a3",
    "tier": "medium",
-   "cuePeak": 20,
+   "cuePeak": 37,
    "hitPeaks": [],
    "drained": true,
    "stoppedOnInterrupt": true,
    "render": {
-    "calls": 68,
-    "triangles": 119210
+    "calls": 92,
+    "triangles": 105732
    },
    "shot": "medium-sv.a3-cue.jpg"
   },
@@ -53,8 +53,8 @@
    "drained": true,
    "stoppedOnInterrupt": null,
    "render": {
-    "calls": 66,
-    "triangles": 119208
+    "calls": 90,
+    "triangles": 105730
    },
    "shot": "medium-sv.activate-cue.jpg"
   }

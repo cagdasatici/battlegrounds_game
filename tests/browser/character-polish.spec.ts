@@ -46,7 +46,7 @@ for (const view of ["front", "side", "rear"]) {
         }, { q: quality, action });
         await page.waitForTimeout(250);
         const info = await page.evaluate(() => (window as unknown as { __art: ArtApi }).__art.info());
-        expect(info.calls).toBeLessThanOrEqual(120); expect(info.triangles).toBeLessThanOrEqual(150000);
+        expect(info.calls).toBeLessThanOrEqual(120); expect(info.triangles).toBeLessThanOrEqual(300000);
         await page.screenshot({ path: path.join(outDir, `UX06-${TAG}-${view}-${quality}-${action}.png`) });
       }
       expect(errors).toEqual([]);

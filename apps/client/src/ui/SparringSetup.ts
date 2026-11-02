@@ -1,3 +1,5 @@
+import { P0_KITS, type KitId } from "@eb/shared/protocol";
+import { KIT_LABEL } from "./Lobby.js";
 import { adoptCss } from "./adoptCss.js";
 import type { Difficulty, SparringSetupActions } from "@eb/shared/sparring";
 
@@ -17,7 +19,8 @@ export function mountSparringSetup(root: HTMLElement, actions: SparringSetupActi
   const legend = doc.createElement("legend"); legend.textContent = "Match setup"; controls.append(legend);
   const fighterLabel = doc.createElement("label"); fighterLabel.append("Your fighter");
   const fighter = doc.createElement("select");
-  for (const [value, text] of [["sv", "Stone Vanguard"], ["td", "Tide Duelist"]]) {
+  for (const value of P0_KITS) {
+    const text = KIT_LABEL[value];
     const option = doc.createElement("option"); option.value = value!; option.textContent = text!; fighter.append(option);
   }
   fighterLabel.append(fighter); controls.append(fighterLabel);
@@ -92,7 +95,7 @@ export function mountSparringSetup(root: HTMLElement, actions: SparringSetupActi
     pending = true; status.textContent = "Working…"; fallback.value = ""; fallbackLabel.hidden = true; refresh();
     try {
       if (kind === "start") {
-        await actions.start({ bots: [...bots] }, fighter.value === "td" ? "td" : "sv", listedBox.checked);
+        await actions.start({ bots: [...bots] }, P0_KITS.includes(fighter.value as KitId) ? fighter.value as KitId : "sv", listedBox.checked);
         if (disposed) return;
         active = true; status.textContent = "Match started. Invite friends if a space remains.";
       } else if (kind === "end") {

@@ -1,4 +1,4 @@
-import type { AdminApi } from "./api.js";
+import { AdminHttpError, type AdminApi } from "./api.js";
 
 /** WEB5 admin screens: plain DOM. Each mount returns a dispose that removes listeners, timers and nodes. */
 export type ScreenName = "status" | "invites" | "players" | "rooms" | "announcement";
@@ -49,6 +49,7 @@ function onAct(f: Frame, target: HTMLElement, handle: (act: string, id: string, 
 
 export const mountLogin = (root: HTMLElement, onLogin: (password: string) => Promise<void>): (() => void) => {
   const f = frame(root, "Admin sign-in", "login");
+  f.body.append(el(f.doc, "p", "First visit? Run pnpm admin:setup on the host and restart the game. Then sign in here with the password you chose."));
   const form = el(f.doc, "form");
   const label = el(f.doc, "label", "Password ");
   const input = el(f.doc, "input"); input.type = "password"; input.autocomplete = "current-password"; input.required = true; input.maxLength = 256; input.name = "password";
@@ -60,7 +61,7 @@ export const mountLogin = (root: HTMLElement, onLogin: (password: string) => Pro
     f.busy("login", async () => {
       submit.disabled = true; ok(f, "Signing in…");
       const pw = input.value; input.value = "";
-      try { await onLogin(pw); } catch { fail(f, "Sign-in"); }
+      try { await onLogin(pw); } catch (e) { if (e instanceof AdminHttpError && e.status === 404) ok(f, "Admin is not configured on this host. Run pnpm admin:setup there, then restart the game."); else fail(f, "Sign-in"); }
       if (f.alive()) submit.disabled = false;
     });
   }, { signal: f.events.signal });

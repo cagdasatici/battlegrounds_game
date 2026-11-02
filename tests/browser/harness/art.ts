@@ -58,6 +58,11 @@ let frames = 0, prev = performance.now();
 const loop = (now: number): void => { gs.render(Math.min(0.05, (now - prev) / 1000)); prev = now; frames++; requestAnimationFrame(loop); };
 requestAnimationFrame(loop);
 (window as unknown as { __art: unknown }).__art = {
+  fourth: () => {
+    const source = gs.viewFor("sv")!;
+    const pos = source.group.position;
+    gs.addFighter("fourth", "ea").setPose(pos.x + 1, pos.y, pos.z, source.group.rotation.y);
+  },
   frames: () => frames,
   info: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles }),
   act: (kit: "sv" | "td" | "ea", action: string, moveId = "") => gs.viewFor(kit)?.setAction(action, moveId, 30),

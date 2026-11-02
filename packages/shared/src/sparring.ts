@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DisplayNameSchema } from "./protocol.js";
+import { DisplayNameSchema, type KitId } from "./protocol.js";
 
 /** Hosted sparring contracts (local design, docs/sparring-plan.md). */
 export const SPARRING_ROOM_NAME = "sparring" as const;
@@ -59,7 +59,7 @@ export interface BotDecision {
   yaw: number;
 }
 export interface SparringSetupActions {
-  start(config: SparringConfig, kitId: "sv" | "td", listed?: boolean): Promise<void>;
+  start(config: SparringConfig, kitId: KitId, listed?: boolean): Promise<void>;
   copyLink(): Promise<string>;
   end(): Promise<void>;
 }

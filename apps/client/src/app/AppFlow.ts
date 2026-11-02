@@ -179,7 +179,7 @@ export class AppFlow {
     } finally { this.busy = false; }
   }
 
-  async hostSparring(config: SparringConfig, kit: "sv" | "td", listed = false): Promise<void> {
+  async hostSparring(config: SparringConfig, kit: KitId, listed = false): Promise<void> {
     if (this.busy || this.state.screen !== "welcome" || !this.deps.sparring) return;
     this.busy = true;
     const revision = this.revision;

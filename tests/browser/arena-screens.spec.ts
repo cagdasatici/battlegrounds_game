@@ -47,7 +47,7 @@ for (const [w, h] of [[1024, 768], [1180, 820]] as const) {
       const env = await page.evaluate(() => (window as unknown as { __art: ArtApi }).__art.envState());
       writeFileSync(path.join(outDir, `ART1-${TAG}-${w}x${h}.json`), JSON.stringify({ ...info, env }, null, 2) + "\n");
       expect(info.calls).toBeLessThanOrEqual(120);
-      expect(info.triangles).toBeLessThanOrEqual(150_000);
+      expect(info.triangles).toBeLessThanOrEqual(300_000);
       if (TAG !== "before") expect(env).toBe("ready");
       expect(errors).toEqual([]);
     } finally { await ctx.close(); }
@@ -65,7 +65,7 @@ for (const view of ["route", "reverse"] as const) {
       const info = await page.evaluate(() => (window as unknown as { __art: ArtApi }).__art.info());
       writeFileSync(path.join(outDir, `ART1-${TAG}-${view}.json`), JSON.stringify(info, null, 2) + "\n");
       expect(info.calls).toBeLessThanOrEqual(120);
-      expect(info.triangles).toBeLessThanOrEqual(150_000);
+      expect(info.triangles).toBeLessThanOrEqual(300_000);
       // QE01: the east landmark must be on screen in both gameplay angles (hiding it changes the frame) at medium and low.
       const withTrees = await page.screenshot();
       await page.evaluate(() => (window as unknown as { __art: { hide(p: string): void } }).__art.hide("env.CommonTree_1"));
@@ -114,7 +114,7 @@ test(`QE02 coverage grid (${QE02_TAG})`, async () => {
         rows.push({ id, tier, ...info });
         if (QE02_TAG === "after") {
           expect.soft(info.calls, `${id} ${tier} calls`).toBeLessThanOrEqual(120);
-          expect.soft(info.triangles, `${id} ${tier} triangles`).toBeLessThanOrEqual(150_000);
+          expect.soft(info.triangles, `${id} ${tier} triangles`).toBeLessThanOrEqual(300_000);
         }
       }
     }
@@ -163,7 +163,7 @@ for (const mode of ["blocked", "corrupt"] as const) {
       mkdirSync(path.join(outDir, "QE02"), { recursive: true });
       await page.screenshot({ path: path.join(outDir, "QE02", `fallback-${mode}-bridge-north.jpg`), type: "jpeg", quality: 82 });
       const info = await page.evaluate(() => (window as unknown as { __art: ArtApi }).__art.info());
-      expect(info.triangles).toBeLessThanOrEqual(150_000);
+      expect(info.triangles).toBeLessThanOrEqual(300_000);
       expect(errors).toEqual([]);
     } finally { await page.close(); }
   });
