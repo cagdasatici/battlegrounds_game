@@ -160,5 +160,5 @@ Execute one row per session using [the Quality 90 instructions](quality-90-plan.
 | QP02 | Peak combat and adaptive quality | QP01 Q01 | IMPLEMENTED (DEVICE CHECK PENDING) | 78b3bfd | docs/test-results/QP02.md |
 | QW01 | Production web and rematch acceptance | QP01 QA01 WEB5 | IMPLEMENTED (DEVICE CHECK PENDING) | d8c036a | docs/test-results/QW01.md |
 | QD01 | Two-iPad acceptance and human playtest | QP02 QW01 | BLOCKED | | docs/test-results/QD01.md | Missing: two physical iPads and two human players (owner-run). All automated prerequisites implemented |
-| FLAKE1 | Browser debug-probe and load flakes | QP02 | DONE | PENDING | docs/test-results/FLAKE1.md |
+| FLAKE1 | Browser debug-probe and load flakes | QP02 | DONE | 8e46984 | docs/test-results/FLAKE1.md |
 | QR01 | Measured score and release verdict | QD01 | BLOCKED | | docs/test-results/QR01.md | Missing: QD01 device and playtest results |
