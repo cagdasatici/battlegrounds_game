@@ -1,6 +1,6 @@
 # Deployment runbook (T28)
 
-Nothing here has been run against a real host. Everything marked HOST STEP needs a machine, a hostname and accounts that the owner chooses. Nothing in the repository deploys, buys or sends anything.
+The original T28 HOST STEPS below are a setup guide. The existing host was inspected on 2026-11-02; see OPS02 below and docs/test-results/OPS02.md for executed checks. Nothing in the repository deploys, buys or sends anything automatically.
 
 ## One-command start (T33a)
 
@@ -75,3 +75,23 @@ Known gap for T29: per-IP rate limiting uses the socket address, which is `127.0
 2. Which machine hosts (spec assumes the Mac Studio) and which service account.
 3. Hostname for `PUBLIC_ORIGIN`.
 4. Whether to fix the uWebSockets.js SSH lockfile URL (separate decision).
+
+## Minimal background hosting (OPS02)
+
+Keep one production Node process and the existing Cloudflare tunnel running under launchd. Serve the built client, login/API and WebSockets from that process. The HTTP service stays ready; RoomDirectory.ensure creates the authoritative practice/arena room on first join and coalesces concurrent creation. No simulation room is created merely by starting the service. Arena/practice use the existing Colyseus disposal lifecycle; hosted sparring deliberately preserves membership/reconnect lifetime and expires through its directory sweep. No container orchestrator, per-match process or terminal window is required.
+
+This is the existing host configuration: the game LaunchAgent points at `.worktrees/prod`, uses `~/eb-env`, starts at login and restarts through KeepAlive. The tunnel has its own system LaunchDaemon. The Mac's AC sleep setting was verified as 0. Closing terminals does not stop either job. A reboot still requires unlocking FileVault and logging in before the game LaunchAgent runs. Power loss, shutdown or loss of internet makes this host unavailable.
+
+The production entry now reads `DATA_DIR/admin-password.hash` written by `pnpm admin:setup`. Use the same DATA_DIR for setup and the service; restart after configuring a password. ADMIN_PASSWORD_HASH overrides the file; ADMIN_ENABLED=0 disables admin. Do not copy a password/hash into the plist or chat.
+
+After an approved release update and build in the production checkout, restart the existing job:
+
+```sh
+launchctl kickstart -k gui/$(id -u)/com.elementalbattlegrounds.server
+curl --fail http://127.0.0.1:2567/healthz
+curl --fail http://127.0.0.1:2567/api/version
+```
+
+A restart ends active matches. Confirm the intended BUILD_ID, then sign in at the Admin page using the password already configured. This session prepared the fix but did not update the public release or restart it. Existing integration tests verify real production joins; first-spawn latency on the owner's network was not measured.
+
+References: [Apple launchd jobs](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html), [Cloudflare macOS service](https://developers.cloudflare.com/tunnel/features/locally-managed-tunnels/as-a-service/macos/).

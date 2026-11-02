@@ -189,4 +189,4 @@ Execute one row per session using [the Quality 90 instructions](quality-90-plan.
 | Task | Title | Depends on | Status | Commit | Test report |
 |---|---|---|---|---|---|
 | OPS01 | Load host-local admin credential in production startup | UX08 WEB4 T28 | IMPLEMENTED, DEVICE CHECK PENDING | see git log (OPS01 commit) | docs/test-results/OPS01.md |
-| OPS02 | Verify minimal background hosting and on-demand room lifecycle | T28 OPS01 | TODO | pending | docs/test-results/OPS02.md |
+| OPS02 | Verify minimal background hosting and on-demand room lifecycle | T28 OPS01 | DONE | see git log (OPS02 commit) | docs/test-results/OPS02.md |
