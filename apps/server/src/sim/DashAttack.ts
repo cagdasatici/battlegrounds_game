@@ -1,4 +1,4 @@
-import { COMBAT } from "@eb/shared/config/combat";
+import { COMBAT, HIT_STUN } from "@eb/shared/config/combat";
 import type { Fighter } from "./ActionMachine.js";
 import type { HitCandidate } from "./HitResolver.js";
 import { m1Overlaps, type M1Pose } from "./M1.js";
@@ -29,7 +29,7 @@ export function dashCandidates(tick: number, fighters: readonly Fighter[], poseO
       out.push({
         attackerId: a.entityId, attackerGeneration: a.generation, castCounter: a.castCounter, hitIndex: 0, toi: 0,
         targetId: t.entityId, moveId: "dash.forward", originX: ap.x, originZ: ap.z, block: "B", counterable: true,
-        armorBreak: false, damage100: D.damage * 100, reaction: { kind: "stun", ticks: D.stunTicks }, maxHitsPerTarget: 1,
+        armorBreak: false, damage100: D.damage * 100, reaction: HIT_STUN.enabled ? { kind: "stun", ticks: D.stunTicks } : { kind: "none" }, maxHitsPerTarget: 1,
       });
     }
   }

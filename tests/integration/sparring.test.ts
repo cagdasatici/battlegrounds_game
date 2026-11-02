@@ -2,6 +2,7 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 import { Client, type Room } from "@colyseus/sdk";
 import { matchMaker } from "colyseus";
 import { startHarness, waitFor, players, loginClient, type Harness } from "../fixtures/harness.js";
+import { HIT_STUN } from "../../packages/shared/src/config/combat.js";
 import { ARENA } from "../../packages/shared/src/config/arena.js";
 import { computeContentHash } from "../../packages/shared/src/config/content.js";
 import { PROTOCOL_VERSION, type CombatEvent } from "../../packages/shared/src/protocol.js";
@@ -10,6 +11,9 @@ import type { SparringRoom } from "../../apps/server/src/rooms/SparringRoom.js";
 import type { Difficulty } from "../../packages/shared/src/sparring.js";
 
 let h: Harness;
+// Decision 0049: QA01 relies on the legacy on-hit freeze to make same-tick trades land exactly once.
+beforeAll(() => { HIT_STUN.enabled = true; });
+afterAll(() => { HIT_STUN.enabled = false; });
 beforeAll(async () => { h = await startHarness(); });
 afterAll(async () => { await h.stop(); });
 const hash = computeContentHash();

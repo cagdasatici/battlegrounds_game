@@ -1,3 +1,10 @@
+/**
+ * Generic on-hit freeze switch (owner requirement, decision 0049). When enabled is false, universal hits (M1 hits 1-3,
+ * forward dash attack) apply no Stunned lock and the client plays no hit-stop. Ability specific stunTicks and ragdolls are
+ * unaffected. Kept as a mutable object so tests can run the legacy behavior; production code never writes it.
+ */
+export const HIT_STUN: { enabled: boolean } = { enabled: false };
+
 /** Universal movement and combat values. Every number here is D (local design value), spec section 11. */
 export const COMBAT = {
   hp: 100,

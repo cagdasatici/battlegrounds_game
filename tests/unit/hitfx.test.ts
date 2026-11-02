@@ -1,4 +1,9 @@
-import { describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { HIT_STUN } from "../../packages/shared/src/config/combat.js";
+
+// Decision 0049: these tests cover the legacy on-hit freeze, which is disabled in production by HIT_STUN.enabled=false.
+beforeAll(() => { HIT_STUN.enabled = true; });
+afterAll(() => { HIT_STUN.enabled = false; });
 import type { Scene } from "three";
 import { EffectsPool, POOL_CAPACITY, SHED_ALL, SHED_HALF } from "../../apps/client/src/scene/EffectsPool.js";
 import { FighterView } from "../../apps/client/src/scene/FighterView.js";
@@ -150,6 +155,15 @@ describe("HitFx table and playback", () => {
     playHit(ev({ hitClass: "light" }), t.io);
     expect(t.pool.activeCount).toBe(10);
     expect(t.calls).toEqual(["flash:2:ff3b3b:90:0.3"]);
+  });
+  test("flag disabled: heavy hit plays no hitstop freeze (decision 0049)", () => {
+    HIT_STUN.enabled = false;
+    try {
+      const t = rig("1");
+      playHit(ev({ hitClass: "heavy" }), t.io);
+      expect(t.calls.some((c) => c.startsWith("freeze:"))).toBe(false);
+      expect(t.calls.some((c) => c.startsWith("flash:"))).toBe(true);
+    } finally { HIT_STUN.enabled = true; }
   });
   test("heavy hit: 24 sparks plus ring, hitstop on both, shake only when the local player is involved", () => {
     const a = rig("1");

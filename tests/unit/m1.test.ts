@@ -1,4 +1,9 @@
-import { describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { HIT_STUN } from "../../packages/shared/src/config/combat.js";
+
+// Decision 0049: these tests cover the legacy on-hit freeze, which is disabled in production by HIT_STUN.enabled=false.
+beforeAll(() => { HIT_STUN.enabled = true; });
+afterAll(() => { HIT_STUN.enabled = false; });
 import { COMBAT } from "../../packages/shared/src/config/combat.js";
 import { applyReaction } from "../../apps/server/src/sim/ActionMachine.js";
 import { CombatSystem } from "../../apps/server/src/sim/Combat.js";

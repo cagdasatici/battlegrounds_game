@@ -175,3 +175,4 @@ Execute one row per session using [the Quality 90 instructions](quality-90-plan.
 | UX06 | Character joints and movement refinement | UX05 | IMPLEMENTED (DEVICE CHECK PENDING) | 764e567 | docs/test-results/UX06.md |
 | UX07 | Ability descriptions and area readability | UX06 | IMPLEMENTED (DEVICE CHECK PENDING) | efd5c57 | docs/test-results/UX07.md |
 | UX08 | Complete local admin bootstrap and owner setup | UX01 UX07 | IMPLEMENTED (DEVICE CHECK PENDING) | see git log (UX08 commit) + decision 0048 triangle cap 300k; iPad fps NOT RUN | docs/test-results/UX08.md |
+| UX09 | Disable generic on-hit freeze behind HIT_STUN flag | UX08 | IMPLEMENTED (DEVICE CHECK PENDING) | see git log (UX09 commit); decision 0049; iPad check NOT RUN | tests/unit/hit-stun-flag.test.ts |

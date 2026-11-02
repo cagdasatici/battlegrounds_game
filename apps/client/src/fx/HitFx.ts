@@ -1,3 +1,4 @@
+import { HIT_STUN } from "@eb/shared/config/combat";
 import type { CombatEvent } from "@eb/shared/protocol";
 import { fromYaw } from "@eb/shared/schema";
 import type { CombatBus } from "../app/CombatBus.js";
@@ -161,7 +162,7 @@ export function playHit(e: CombatEvent, io: HitFxIo): void {
   if (plan.flash) {
     io.fighterOf(plan.flash.who === "target" ? victim : e.actorId)?.flash(plan.flash.color, plan.flash.ms, io.flashLevel());
   }
-  if (plan.freeze) {
+  if (plan.freeze && HIT_STUN.enabled) {
     io.fighterOf(victim)?.freeze(plan.freeze);
     io.fighterOf(e.actorId)?.freeze(plan.freeze);
   }

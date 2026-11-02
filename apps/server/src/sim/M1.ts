@@ -1,4 +1,4 @@
-import { COMBAT } from "@eb/shared/config/combat";
+import { COMBAT, HIT_STUN } from "@eb/shared/config/combat";
 import { beginCast, type Accept, type Fighter, type Reaction } from "./ActionMachine.js";
 import { launchVector } from "./Knockback.js";
 import { OffensiveBuffer } from "./OffensiveBuffer.js";
@@ -55,7 +55,7 @@ export function damageOf(index: 0 | 1 | 2 | 3, variant: FourthVariant | null): n
 }
 
 export function reactionOf(index: 0 | 1 | 2 | 3, variant: FourthVariant | null): Reaction {
-  if (index < 3) return { kind: "stun", ticks: M.stunTicks };
+  if (index < 3) return HIT_STUN.enabled ? { kind: "stun", ticks: M.stunTicks } : { kind: "none" };
   // Downslam ragdoll duration is not listed in spec 11; D: reuse the fourth hit ragdoll 72.
   return { kind: "ragdoll", ticks: variant === "uppercut" ? M.miniUppercut.ragdollTicks : M.finisherRagdollTicks };
 }
