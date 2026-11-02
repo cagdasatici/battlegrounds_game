@@ -48,7 +48,15 @@ const cam = (x: number, y: number, z: number, px: number, py: number, pz: number
 cam(0, 2.6, 12.5, 0, 1.1, 6);
 
 let frames = 0, prev = performance.now();
-const loop = (now: number): void => { gs.render(Math.min(0.05, (now - prev) / 1000)); prev = now; frames++; requestAnimationFrame(loop); };
+// Optional moving Ember Orb: fed to the real ProjectileViews exactly as the game loop feeds replicated projectiles.
+let orb: { x0: number; z: number; t0: number; full: boolean } | null = null;
+const loop = (now: number): void => {
+  if (orb) {
+    const tk = tick(), x = orb.x0 + ((tk - orb.t0) / 60) * 4;
+    gs.projectiles.sync(x > 6 ? [] : [["1", { entityId: 1, ownerId: 1, spawnTick: orb.t0, x: Math.round(x * 100), y: 130, z: Math.round(orb.z * 100), vx: 400, vy: 0, vz: 0, chargeClass: orb.full ? "full" : "light", reflectionCount: 0, remainingTicks: 30 }]], tk, tk + 8);
+  }
+  gs.render(Math.min(0.05, (now - prev) / 1000)); prev = now; frames++; requestAnimationFrame(loop);
+};
 requestAnimationFrame(loop);
 
 (window as unknown as { __fx: unknown }).__fx = {
@@ -69,6 +77,7 @@ requestAnimationFrame(loop);
   event: (e: Partial<CombatEvent>) => { emit({ eventId: `e${seq++}`, tick: tick(), kind: "hit", actorId: "sv", targetId: "td", lifeId: 1, ...e } as CombatEvent); },
   fx: () => ({ active: gs.effects.activeCount, capacity: gs.effects.capacity, glow: (gs.effects as unknown as { glowStats?: () => unknown }).glowStats?.() ?? null }),
   shakes: () => shakes.slice(),
+  orb: (on: boolean, x0 = -4, z = 6, full = true) => { orb = on ? { x0, z, t0: tick(), full } : null; if (!on) gs.projectiles.sync([], 0, 0); },
   remove: (id: string) => { players.delete(id); gs.removeFighter(id); },
   dispose: () => { dispose(); bus.dispose(); gs.dispose(); },
 };

@@ -174,9 +174,9 @@ class Slots {
   }
 }
 
-export interface FlashSpec { x: number; y: number; z: number; color: number; size: number; grow?: number; life: number; delay?: number; owner?: string }
-export interface RingSpec { x: number; y: number; z: number; color: number; radius: number; from?: number; life: number; delay?: number; normal?: { x: number; y: number; z: number }; owner?: string }
-export interface StreakSpec { x: number; y: number; z: number; vx: number; vy: number; vz: number; color: number; length: number; width: number; life: number; gravity?: number; delay?: number; owner?: string }
+export interface FlashSpec { x: number; y: number; z: number; color: number; size: number; grow?: number; life: number; delay?: number; owner?: string; vx?: number; vy?: number; vz?: number }
+export interface RingSpec { x: number; y: number; z: number; color: number; radius: number; from?: number; life: number; delay?: number; normal?: { x: number; y: number; z: number }; owner?: string; vx?: number; vy?: number; vz?: number }
+export interface StreakSpec { x: number; y: number; z: number; vx: number; vy: number; vz: number; color: number; length: number; width: number; life: number; gravity?: number; delay?: number; owner?: string; /** Orientation for a streak that has no velocity (a streak lying on the ground). */ dir?: { x: number; y: number; z: number } }
 export interface LightSpec { x: number; y: number; z: number; color: number; intensity: number; life: number }
 
 const tmpColor = new Color();
@@ -235,7 +235,7 @@ export class GlowLayer {
     const i = p.claim();
     this.base(p, i, s.x, s.y, s.z, s.color, s.life, s.delay, s.owner);
     p.s0[i] = s.size * 0.4; p.s1[i] = s.size * (s.grow ?? 1.4);
-    p.vx[i] = 0; p.vy[i] = 0; p.vz[i] = 0; p.grav[i] = 0;
+    p.vx[i] = s.vx ?? 0; p.vy[i] = s.vy ?? 0; p.vz[i] = s.vz ?? 0; p.grav[i] = 0;
     return true;
   }
 
@@ -247,7 +247,7 @@ export class GlowLayer {
     p.s0[i] = s.from ?? s.radius * 0.15; p.s1[i] = s.radius;
     const n = s.normal ?? { x: 0, y: 1, z: 0 };
     p.nx[i] = n.x; p.ny[i] = n.y; p.nz[i] = n.z;
-    p.vx[i] = 0; p.vy[i] = 0; p.vz[i] = 0; p.grav[i] = 0;
+    p.vx[i] = s.vx ?? 0; p.vy[i] = s.vy ?? 0; p.vz[i] = s.vz ?? 0; p.grav[i] = 0;
     return true;
   }
 
@@ -258,7 +258,7 @@ export class GlowLayer {
     this.base(p, i, s.x, s.y, s.z, s.color, s.life, s.delay, s.owner);
     p.s0[i] = s.width; p.len[i] = s.length;
     p.vx[i] = s.vx; p.vy[i] = s.vy; p.vz[i] = s.vz; p.grav[i] = s.gravity ?? 0;
-    p.nx[i] = 0; p.ny[i] = 1; p.nz[i] = 0;
+    p.nx[i] = s.dir?.x ?? 0; p.ny[i] = s.dir?.y ?? 1; p.nz[i] = s.dir?.z ?? 0;
     return true;
   }
 

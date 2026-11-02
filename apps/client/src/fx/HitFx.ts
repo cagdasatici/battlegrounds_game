@@ -4,6 +4,7 @@ import { fromYaw } from "@eb/shared/schema";
 import type { CombatBus } from "../app/CombatBus.js";
 import type { EffectsPool } from "../scene/EffectsPool.js";
 import type { PresentationDeps } from "./index.js";
+import { playFinisherImpact, scanFinisher } from "./Signatures.js";
 import { THEME, elementOf, elementOfMove, impactPower, playBlockRipple, playCounterFlash, playImpactBurst, playKoBlast, shakeFor, type Theme } from "./Impact.js";
 
 /**
@@ -132,6 +133,7 @@ export function playHit(e: CombatEvent, io: HitFxIo): void {
     const killing = e.targetHp100 === 0;
     const power = impactPower(e.damage100, e.hitClass === "heavy", universalOf(e.moveId) === "m1.4", killing);
     if ((e.damage100 ?? 0) > 0 || universalOf(e.moveId) !== undefined) playImpactBurst(fx, { at: o, groundY, dir, theme, power });
+    if (universalOf(e.moveId) === "m1.4") playFinisherImpact(fx, io.kitOf?.(e.actorId), o, groundY, dir, power); // UX10b: element-themed finisher
     shake = shakeFor(power);
   } else if (e.kind === "block") {
     const power = impactPower(e.damage100, false, false, false);
@@ -278,10 +280,12 @@ export const HitFx = {
     };
     const off = bus.on((e) => { playHit(e, io); });
     const seen = new Map<string, MotionSeen>();
+    const swings = new Map<string, string>();
     let raf = 0, alive = true;
     const frame = (): void => {
       if (!alive) return;
       scanMotion(effects, deps.players(), seen);
+      scanFinisher(effects, deps.players(), swings, deps.surfaceHeight);
       raf = requestAnimationFrame(frame);
     };
     if (typeof requestAnimationFrame === "function") raf = requestAnimationFrame(frame);
@@ -290,6 +294,8 @@ export const HitFx = {
       if (typeof cancelAnimationFrame === "function") cancelAnimationFrame(raf);
       off();
       seen.clear();
+      swings.clear();
+      effects.glow.clearAll(); // room leave or scene teardown: nothing keeps glowing
     };
   },
 };

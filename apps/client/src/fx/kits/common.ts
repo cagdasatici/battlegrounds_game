@@ -5,6 +5,7 @@ import type { CombatEvent } from "@eb/shared/protocol";
 import type { CombatBus } from "../../app/CombatBus.js";
 import type { EffectsPool } from "../../scene/EffectsPool.js";
 import type { PresentationDeps } from "../index.js";
+import { eventPower, playSignatureActive, playSignatureImpact, playSignatureWindup } from "../Signatures.js";
 
 /**
  * Shared machinery for the per-kit ability effects (FX4-sv, FX4-td, FX4-ea). A kit supplies a recipe table; this module
@@ -138,17 +139,22 @@ export function scanPlayers(fx: EffectsPool, players: Map<string, unknown>, seen
   for (const [id, v] of players) {
     live.add(id);
     const p = v as PlayerLike;
-    if (p.action !== "Windup" && p.action !== "Active" && p.action !== "Awakening") { seen.delete(id); continue; }
+    const prev = seen.get(id);
+    // UX10b: charge glows are owned by the caster; leaving Windup (interrupt, death, hand-over to Active) ends them at once.
+    if (p.action !== "Windup" && p.action !== "Active" && p.action !== "Awakening") { if (prev?.startsWith("Windup:")) fx.glow?.clearOwner(id); seen.delete(id); continue; }
     const t = recipeFor(p.moveId);
     if (!t) continue;
     const key = `${p.action}:${p.moveId}:${p.actionStartTick ?? 0}`;
-    if (seen.get(id) === key) continue;
+    if (prev === key) continue;
+    if (prev?.startsWith("Windup:")) fx.glow?.clearOwner(id);
     seen.set(id, key);
     const at = { x: p.x / 100, y: p.y / 100, z: p.z / 100 };
     const yaw = fromYaw(p.facingYaw ?? 0);
-    if (p.action === "Windup") playWindup(fx, t, at, yaw, surface); else playActive(fx, t, at, yaw, surface); // Awakening plays the kit activation recipe once
+    const groundY = (surface ?? flatAtFeet)(at.x, at.z, at.y) ?? at.y - ARENA.capsule.centreAboveSurface;
+    if (p.action === "Windup") { playWindup(fx, t, at, yaw, surface); playSignatureWindup(fx, p.moveId!, at, yaw, groundY, id); }
+    else { playActive(fx, t, at, yaw, surface); playSignatureActive(fx, p.moveId!, at, yaw, groundY); } // Awakening plays the kit activation recipe once
   }
-  for (const id of [...seen.keys()]) if (!live.has(id)) seen.delete(id);
+  for (const id of [...seen.keys()]) if (!live.has(id)) { if (seen.get(id)?.startsWith("Windup:")) fx.glow?.clearOwner(id); seen.delete(id); }
 }
 
 /**
@@ -176,6 +182,7 @@ export function onHit(fx: EffectsPool, e: CombatEvent, chest: (id: string) => Po
   const at = e.position ?? chest(e.targetId ?? e.actorId);
   if (!t || !at) return;
   if (t.playHit) t.playHit(fx, e, at, e.targetId ? chest(e.actorId) : undefined); else playImpact(fx, t, at);
+  playSignatureImpact(fx, e.moveId, at, at.y - ARENA.capsule.centreAboveSurface, eventPower(e)); // UX10b: element-themed burst on top of the shared impact
 }
 
 /** Builds a kit's `attach`: bus hit impacts plus a per-frame scan for windup and active. The disposer cancels both. */

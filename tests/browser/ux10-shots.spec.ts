@@ -37,6 +37,9 @@ const SHOWS: Array<{ name: string; actor: string; moveId: string; windupMs: numb
   { name: "sv-b1-fault-strike", actor: "sv", moveId: "sv.b1", windupMs: 330, activeMs: 120, hit: { damage100: 2000, hitClass: "heavy" } },
   { name: "td-b4-mirror-current", actor: "td", moveId: "td.b4", windupMs: 250, activeMs: 100, hit: { damage100: 1500, hitClass: "heavy" } },
   { name: "ea-b1-cinder-array", actor: "ea", moveId: "ea.b1", windupMs: 160, activeMs: 250, hit: { damage100: 1200, hitClass: "heavy" } },
+  { name: "sv-b4-rising-pillar", actor: "sv", moveId: "sv.b4", windupMs: 200, activeMs: 110, hit: { damage100: 1500, hitClass: "heavy" } },
+  { name: "td-b2-undertow-spiral", actor: "td", moveId: "td.b2", windupMs: 200, activeMs: 100, hit: { damage100: 1400, hitClass: "heavy" } },
+  { name: "ea-a3-furnace-ray", actor: "ea", moveId: "ea.a3", windupMs: 350, activeMs: 120, hit: { damage100: 1800, hitClass: "heavy" } },
 ];
 
 for (const show of SHOWS) {
@@ -50,6 +53,7 @@ for (const show of SHOWS) {
       await page.waitForFunction(() => ((window as unknown as { __fx?: Fx }).__fx?.frames() ?? 0) > 20, undefined, { timeout: 30_000 });
       await page.evaluate(() => (window as unknown as { __fx: Fx }).__fx.quality("high"));
       const victim = show.actor === "td" ? "sv" : "td";
+      await page.evaluate(() => (window as unknown as { __fx: Fx }).__fx.cam(0, 2.6, 12.5, 0, 1.1, 6));
       await page.evaluate(([a, v]) => { const f = (window as unknown as { __fx: Fx }).__fx; f.place("sv", "sv", -1.5, 6, 0); f.place("td", "td", 1.5, 6, 0); f.place("ea", "ea", -1.5, 9, 0); f.place("sv2", "sv", 1.5, 9, 0); f.face(a!, 0, 6); f.face(v!, 0, 6); f.face("sv", 1.5, 6); f.face("td", -1.5, 6); f.face("ea", 1.5, 9); f.face("sv2", -1.5, 9); }, [show.actor, victim]);
       const snap = async (tag: string): Promise<void> => { await page.screenshot({ path: path.join(outDir, `${show.name}-${phase}-${tag}.png`) }); };
       await page.evaluate(([a, m]) => (window as unknown as { __fx: Fx }).__fx.act(a!, "Windup", m!, 40), [show.actor, show.moveId]);
@@ -68,3 +72,27 @@ for (const show of SHOWS) {
     } finally { await ctx.close(); }
   });
 }
+
+test(`${phase}: ea ember orb projectile launch and trail, and the m1 finisher`, async () => {
+  const ctx = await browser.newContext({ viewport: { width: 1100, height: 700 } });
+  const page = await ctx.newPage();
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  try {
+    await page.goto(`${base}/fx.html`);
+    await page.waitForFunction(() => ((window as unknown as { __fx?: Fx }).__fx?.frames() ?? 0) > 20, undefined, { timeout: 30_000 });
+    await page.evaluate(() => { const f = (window as unknown as { __fx: Fx & { orb(on: boolean, x0?: number, z?: number, full?: boolean): void } }).__fx; f.quality("high"); f.orb(true, -2.5, 6, true); });
+    await page.waitForTimeout(110);
+    await page.screenshot({ path: path.join(outDir, `ea-b3-ember-orb-${phase}-1-launch.png`) });
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: path.join(outDir, `ea-b3-ember-orb-${phase}-2-trail.png`) });
+    await page.evaluate(() => (window as unknown as { __fx: Fx & { orb(on: boolean): void } }).__fx.orb(false));
+    // M1 finisher by the ember fighter on the stone fighter.
+    await page.evaluate(() => { const f = (window as unknown as { __fx: Fx }).__fx; f.act("ea", "Active", "m1.4", 12); });
+    await page.waitForTimeout(90);
+    await page.evaluate(() => (window as unknown as { __fx: Fx }).__fx.event({ actorId: "ea", targetId: "td", moveId: "m1.4", damage100: 600, hitClass: "heavy", position: { x: 1.5, y: 1.2, z: 6 } }));
+    await page.waitForTimeout(80);
+    await page.screenshot({ path: path.join(outDir, `ea-m1-finisher-${phase}.png`) });
+    expect(errors).toEqual([]);
+  } finally { await ctx.close(); }
+});

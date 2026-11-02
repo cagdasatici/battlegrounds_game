@@ -71,7 +71,7 @@ export class GameScene {
   readonly scene = new Scene();
   readonly camera = new PerspectiveCamera(CAMERA.fovDeg, 1, CAMERA.near, CAMERA.far);
   readonly effects = new EffectsPool();
-  readonly projectiles = new ProjectileViews(this.scene);
+  readonly projectiles = new ProjectileViews(this.scene, this.effects);
   readonly urns = new UrnViews(this.scene);
   private readonly contacts = new Map<string, Mesh<PlaneGeometry, MeshBasicMaterial>>();
   private readonly contactTexture = makeContactTexture();
