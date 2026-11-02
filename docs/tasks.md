@@ -156,7 +156,7 @@ Execute one row per session using [the Quality 90 instructions](quality-90-plan.
 | QV09 | Universal attacks and contextual outcomes | QV01 QV06 QV07 QV08 | IMPLEMENTED, DEVICE CHECK PENDING | 00afaca | docs/test-results/QV09.md |
 | QS01 | Original kit and defensive audio | QV09 | IMPLEMENTED, DEVICE CHECK PENDING | 22db7e9 | docs/test-results/QS01.md |
 | QU01 | Touch HUD and first match | QC01 QA01 | IMPLEMENTED (DEVICE CHECK PENDING) | 511e38b | docs/test-results/QU01.md |
-| QP01 | Production load and join cycles | QE02 QF03 QV09 QS01 QU01 | IMPLEMENTED (DEVICE CHECK PENDING) | pending | docs/test-results/QP01.md |
+| QP01 | Production load and join cycles | QE02 QF03 QV09 QS01 QU01 | IMPLEMENTED (DEVICE CHECK PENDING) | d3d8d97 | docs/test-results/QP01.md |
 | QP02 | Peak combat and adaptive quality | QP01 Q01 | TODO | | docs/test-results/QP02.md |
 | QW01 | Production web and rematch acceptance | QP01 QA01 WEB5 | TODO | | docs/test-results/QW01.md |
 | QD01 | Two-iPad acceptance and human playtest | QP02 QW01 | TODO | | docs/test-results/QD01.md |
