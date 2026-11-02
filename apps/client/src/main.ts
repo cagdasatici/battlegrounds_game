@@ -257,13 +257,16 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     ({ updateVisible: updater.state.visible, seated: players().size, capacity: MAX_CLIENTS, connection: room ? "online" : "offline", mode: flow.mode === "practice" ? "practice" : "play" });
   let setupPending = false;
   const sparControls = document.createElement("div");
+  sparControls.className = "eb-overlay";
   sparControls.style.cssText = "position:fixed;inset:0;z-index:20;overflow:auto;background:#0b1118;display:none;padding:16px;box-sizing:border-box";
   const closeSetup = document.createElement("button");
+  closeSetup.className = "eb-overlay-close";
   closeSetup.textContent = "Back to game";
   closeSetup.style.cssText = "min-height:48px;font:inherit";
   closeSetup.onclick = () => { sparControls.style.display = "none"; };
   sparControls.append(closeSetup);
   const sparButton = document.createElement("button");
+  sparButton.className = "eb-launcher";
   sparButton.textContent = "Host sparring";
   sparButton.style.cssText = "position:fixed;right:16px;top:16px;z-index:21;min-height:48px;font:600 17px system-ui";
   sparButton.onclick = () => {
@@ -274,8 +277,10 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   app.append(sparControls, sparButton);
   // WEB3: room list. The panel exists only while open; its timer and listeners go with it.
   const roomsHost = document.createElement("div");
+  roomsHost.className = "eb-overlay";
   roomsHost.style.cssText = "position:fixed;inset:0;z-index:20;overflow:auto;background:#0b1118;display:none;padding:16px;box-sizing:border-box";
   const closeRooms = document.createElement("button");
+  closeRooms.className = "eb-overlay-close";
   closeRooms.textContent = "Back to game";
   closeRooms.style.cssText = "min-height:48px;font:inherit";
   let disposeRooms: (() => void) | null = null;
@@ -283,6 +288,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   closeRooms.onclick = hideRooms;
   roomsHost.append(closeRooms);
   const roomsButton = document.createElement("button");
+  roomsButton.className = "eb-launcher";
   roomsButton.textContent = "Find a room";
   roomsButton.style.cssText = "position:fixed;right:16px;top:76px;z-index:21;min-height:48px;font:600 17px system-ui";
   roomsButton.onclick = () => {

@@ -167,11 +167,11 @@ export const mountRooms: Mount = (root, api) => {
   const create = el(f.doc, "button", "Create room"); create.type = "submit";
   const list = el(f.doc, "ul");
   const botLabel = el(f.doc, "label", "Bots ");
-  const count = el(f.doc, "select"); count.name = "bots";
+  const count = el(f.doc, "select"); count.name = "bots"; count.setAttribute("aria-label", "Bots");
   for (let n = 0; n <= 3; n++) { const o = el(f.doc, "option", String(n)); o.value = String(n); count.append(o); }
   botLabel.append(count);
   const difficultyLabel = el(f.doc, "label", "Bot difficulty ");
-  const difficulty = el(f.doc, "select"); difficulty.name = "difficulty";
+  const difficulty = el(f.doc, "select"); difficulty.name = "difficulty"; difficulty.setAttribute("aria-label", "Bot difficulty");
   for (const value of ["easy", "medium", "hard"]) { const o = el(f.doc, "option", value); o.value = value; difficulty.append(o); }
   difficultyLabel.append(difficulty);
   form.append(l, botLabel, difficultyLabel, el(f.doc, "p", "Four fighters maximum, including bots. Close a room to change its opponents."), create); f.body.append(form, list);

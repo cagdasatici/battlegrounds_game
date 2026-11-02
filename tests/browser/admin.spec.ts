@@ -119,8 +119,12 @@ test("rooms: create, unlist, list again, close", async () => {
     await nav(page, "rooms").click();
     await expect(page.locator("li", { hasText: "Play (arena)" })).toBeVisible();
     await page.getByLabel("Room name").fill("Friday");
+    await page.getByLabel("Bots", { exact: true }).selectOption("2");
+    await page.getByLabel("Bot difficulty").selectOption("hard");
+    await page.screenshot({ path: "docs/test-results/UX03-admin.png", fullPage: true });
     await btn(page, "Create room").click();
     const row = page.locator("li", { hasText: "Friday" });
+    await expect(row).toContainText("2 bots");
     await expect(row).toContainText("listed");
     await row.getByRole("button", { name: "Unlist" }).click();
     await expect(row).toContainText("unlisted");

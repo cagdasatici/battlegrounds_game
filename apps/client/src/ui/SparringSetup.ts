@@ -31,6 +31,7 @@ export function mountSparringSetup(root: HTMLElement, actions: SparringSetupActi
   };
   const add = button("Add opponent", controls);
   const start = button("Start match", controls);
+  start.className = "eb-primary";
   panel.append(controls);
   const running = doc.createElement("div"); running.hidden = true;
   const copy = button("Copy guest link", running);

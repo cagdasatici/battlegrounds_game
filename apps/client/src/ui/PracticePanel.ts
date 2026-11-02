@@ -23,8 +23,8 @@ export class PracticePanel {
     this.root = doc.createElement("div");
     this.root.dataset["ui"] = "practice";
     // Top centre, below the safe-area inset; the touch controls sit at the screen sides and bottom.
-    this.root.style.cssText = "position:fixed;top:calc(max(8px,env(safe-area-inset-top)) + 46px);left:50%;transform:translateX(-50%);z-index:20;"
-      + "width:min(300px,34vw);max-height:48vh;overflow:auto;padding:8px 10px;border-radius:12px;box-sizing:border-box;"
+    this.root.style.cssText = "position:fixed;top:calc(max(8px,env(safe-area-inset-top)) + 46px);left:max(16px,env(safe-area-inset-left));z-index:20;"
+      + "width:min(280px,30vw);max-height:46vh;overflow:auto;padding:8px 10px;border-radius:12px;box-sizing:border-box;"
       + "background:#0b1118d9;color:#fff;font:13px system-ui;pointer-events:auto";
     this.onClick = (e: Event): void => {
       const action = (e.target as HTMLElement | null)?.closest?.("button[data-bots]") as HTMLElement | null;
@@ -68,7 +68,9 @@ export class PracticePanel {
       li.style.cssText = `opacity:${r.status === "todo" ? 0.6 : 1};font-weight:${r.status === "current" ? 700 : 400}`;
       list.append(li);
     }
-    this.root.append(list);
+    const checklist = this.doc.createElement("details");
+    const summary = this.doc.createElement("summary"); summary.textContent = `Training checklist · ${Math.min(st.step, 7)}/7`;
+    checklist.append(summary, list); this.root.append(checklist);
     const hint = this.doc.createElement("p");
     hint.dataset["ui"] = "practice-hint";
     hint.textContent = v.hint;

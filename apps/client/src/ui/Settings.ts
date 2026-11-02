@@ -3,6 +3,7 @@
  * here reaches the server. Delegated listeners are removed in dispose(); open() releases held inputs through the
  * injected callback. Original text and styling.
  */
+import "./experience.css";
 import { computeLayout, type ControlId, type SafeRect } from "../input/ControlLayout.js";
 import {
   currentEdit, editControl, resetControl, resolveLayout, viewportClass,
@@ -69,6 +70,7 @@ export class SettingsPanel {
     this.msg.dataset["ui"] = "settings-message";
     this.msg.setAttribute("role", "status");
     this.note = doc.createElement("p");
+    this.note.dataset["ui"] = "settings-match-note";
     this.io = doc.createElement("textarea");
     this.io.dataset["ui"] = "settings-json";
     this.io.rows = 4;
@@ -146,43 +148,60 @@ export class SettingsPanel {
   }
 
   private build(): void {
-    this.el("h2", "Settings");
-    this.note.textContent = "The arena continues while this menu is open.";
-    this.root.append(this.note);
+    this.root.setAttribute("role", "dialog"); this.root.setAttribute("aria-modal", "true"); this.root.setAttribute("aria-label", "Settings");
+    const shell = this.el("div", "", { class: "eb-settings-shell" });
+    const header = this.el("header", "", { class: "eb-settings-header" }, shell);
+    const heading = this.el("div", "", {}, header);
+    this.el("h2", "Settings", {}, heading);
+    this.el("p", "Make the arena feel like yours. Changes save automatically.", {}, heading);
+    this.el("button", "Close", { "data-act": "close" }, header);
+    this.note.textContent = "The arena continues while this menu is open."; shell.append(this.note);
+    const grid = this.el("div", "", { class: "eb-settings-grid" }, shell);
+    const card = (title: string, description: string): HTMLElement => {
+      const section = this.el("section", "", { class: "eb-settings-card" }, grid);
+      this.el("h3", title, {}, section); this.el("p", description, {}, section); return section;
+    };
+    const camera = card("Camera & movement", "Tune your view and how you move.");
+    const visuals = card("Graphics & comfort", "Balance detail, clarity and performance.");
+    const audio = card("Sound", "Set the atmosphere and hear each impact.");
+    const controls = card("Touch & combat", "Arrange your controls and choose your feedback.");
     for (const s of SLIDERS) {
       const [lo, hi] = RANGES[s.k];
-      const row = this.el("label", s.label);
-      row.style.cssText = "display:flex;align-items:center;gap:12px;min-height:44px;justify-content:space-between";
-      const r = this.el("input", "", { type: "range", min: String(lo), max: String(hi), step: String(s.step), "data-k": s.k, "aria-label": s.label }, row);
-      r.style.cssText = "width:50%;min-height:44px";
+      const parent = s.k === "effectsVolume" || s.k === "musicVolume" ? audio : s.k === "flashLevel" ? visuals : camera;
+      const row = this.el("label", s.label, { class: "eb-setting-row" }, parent);
+      this.el("output", "", { "data-value": s.k, "aria-hidden": "true" }, row);
+      this.el("input", "", { type: "range", min: String(lo), max: String(hi), step: String(s.step), "data-k": s.k, "aria-label": s.label }, row);
     }
     for (const t of TOGGLES) {
-      const b = this.el("button", t.label, { "data-toggle": t.k, "aria-pressed": "false" });
-      b.style.display = "block"; b.style.margin = "6px 0"; b.style.width = "100%";
+      const parent = t.k === "reducedMotion" ? visuals : t.k === "facingLock" || t.k === "autoRun" ? camera : controls;
+      this.el("button", t.label, { "data-toggle": t.k, "aria-pressed": "false", class: "eb-setting-toggle" }, parent);
     }
-    const hand = this.el("button", "Left hand layout", { "data-toggle": "hand", "aria-pressed": "false" });
-    hand.style.display = "block"; hand.style.margin = "6px 0"; hand.style.width = "100%";
-    const q = this.el("div", "Graphics quality ");
-    for (const v of ["low", "medium", "high"]) { const b = this.el("button", v, { "data-quality": v, "aria-pressed": "false" }, q); b.style.minWidth = "80px"; b.style.margin = "0 4px"; }
-    const ct = this.el("div", "Combat text ");
-    for (const v of ["all", "mine", "off"]) { const b = this.el("button", v, { "data-combattext": v, "aria-pressed": "false" }, ct); b.style.minWidth = "80px"; b.style.margin = "0 4px"; }
-    const act = this.el("div");
-    act.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;margin:12px 0";
-    this.el("button", "Edit touch layout", { "data-act": "edit" }, act);
-    this.el("button", "Reset all settings", { "data-act": "reset-all" }, act);
-    this.el("button", "Close", { "data-act": "close" }, act);
-    this.el("h3", "Export or import");
-    this.root.append(this.io);
-    const ioa = this.el("div");
-    ioa.style.cssText = "display:flex;gap:8px;margin:8px 0";
+    this.el("button", "Left hand layout", { "data-toggle": "hand", "aria-pressed": "false", class: "eb-setting-toggle" }, controls);
+    this.el("p", "Graphics quality", {}, visuals);
+    const q = this.el("div", "", { class: "eb-segment", role: "group", "aria-label": "Graphics quality" }, visuals);
+    for (const v of ["low", "medium", "high"]) this.el("button", v, { "data-quality": v, "aria-pressed": "false" }, q);
+    this.el("p", "Combat text", {}, controls);
+    const ct = this.el("div", "", { class: "eb-segment", role: "group", "aria-label": "Combat text" }, controls);
+    for (const v of ["all", "mine", "off"]) this.el("button", v, { "data-combattext": v, "aria-pressed": "false" }, ct);
+    this.el("button", "Edit touch layout", { "data-act": "edit" }, controls);
+    const tools = this.el("details", "", { class: "eb-settings-card", open: "" }, shell);
+    this.el("summary", "Profiles, backup & reset", {}, tools);
+    this.el("p", "Export your preferences or paste a saved profile to restore it.", {}, tools);
+    tools.append(this.io); this.io.setAttribute("aria-label", "Settings backup");
+    const ioa = this.el("div", "", { class: "eb-settings-tools" }, tools);
     this.el("button", "Export", { "data-act": "export" }, ioa);
     this.el("button", "Import", { "data-act": "import" }, ioa);
-    this.root.append(this.msg);
+    this.el("button", "Reset all settings", { "data-act": "reset-all" }, ioa);
+    shell.append(this.msg);
   }
 
   /** Writes current values into the controls. */
   private sync(): void {
     const s = this.store.get();
+    for (const o of this.root.querySelectorAll<HTMLElement>("[data-value]")) {
+      const k = o.dataset["value"] as (typeof SLIDERS)[number]["k"];
+      o.textContent = k === "cameraDistance" ? `${s[k].toFixed(1)} m` : k === "sensitivity" ? `${s[k].toFixed(2)}×` : `${Math.round(s[k] * 100)}%`;
+    }
     for (const r of this.root.querySelectorAll<HTMLInputElement>("input[data-k]")) r.value = String(s[r.dataset["k"] as (typeof SLIDERS)[number]["k"]]);
     for (const b of this.root.querySelectorAll<HTMLElement>("button[data-toggle]")) {
       const k = b.dataset["toggle"]!;

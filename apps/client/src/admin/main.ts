@@ -9,7 +9,8 @@ if (host) {
   const h1 = document.createElement("h1"); h1.textContent = "Battlegrounds admin";
   const nav = document.createElement("nav");
   const view = document.createElement("div");
-  app.append(h1, nav, view);
+  const back = document.createElement("a"); back.href = "/"; back.textContent = "← Back to game";
+  app.append(back, h1, nav, view);
   host.replaceChildren(app);
   let dispose: (() => void) | null = null;
   let signedIn = false;

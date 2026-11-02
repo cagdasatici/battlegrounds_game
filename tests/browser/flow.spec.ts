@@ -128,7 +128,7 @@ test.describe("five error states, each with plain text and Retry or Back", () =>
     } finally { await ctx.close(); }
   });
 
-  test("INVITE_INVALID: rejected session, and Play without any invitation sends no request", async () => {
+  test("INVITE_INVALID: rejected session, and Play without invitation validates the saved session", async () => {
     const a = await open("&name=Arel");
     try {
       await a.page.waitForSelector("[data-act=play]");
@@ -145,7 +145,7 @@ test.describe("five error states, each with plain text and Retry or Back", () =>
       await b.page.waitForSelector("[data-act=play]");
       await b.page.click("[data-act=play]");
       await expect(errorBox(b.page)).toHaveAttribute("data-code", "INVITE_INVALID");
-      expect(calls).toEqual([]);
+      expect(calls.some(u => u.endsWith("/api/csrf"))).toBe(true);
     } finally { await b.ctx.close(); }
   });
 
@@ -281,7 +281,7 @@ test("T27 Settings from Welcome and from the match menu; arena keeps running", a
     await page.waitForSelector("[data-act=play]");
     await page.click("[data-act=settings]");
     await expect(page.locator("[data-ui=settings]")).toBeVisible();
-    await expect(page.locator("[data-ui=settings] p")).toBeHidden(); // note only while a match runs
+    await expect(page.locator("[data-ui=settings-match-note]")).toBeHidden(); // note only while a match runs
     await page.click("button[data-act=close]");
     await page.click("[data-act=play]");
     await page.click("[data-act=ready]");

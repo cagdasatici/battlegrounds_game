@@ -12,3 +12,6 @@ body { margin: 0; background: #0b1118; color: #fff; font: 16px system-ui, sans-s
 .adm .err { color: #ffb4b4; }
 .adm pre { white-space: pre-wrap; word-break: break-all; font-size: 12px; max-height: 240px; overflow: auto; background: #101a24; padding: 8px; border-radius: 8px; }
 .adm .link { user-select: all; word-break: break-all; background: #101a24; padding: 8px; border-radius: 8px; }
+
+body{background:radial-gradient(ellipse at top left,#22483e,#0a1719 70%);min-height:100vh;color:#edf4ee}
+.adm{max-width:980px;padding:36px 24px}.adm h1{font-size:36px;letter-spacing:-.045em;margin:12px 0 28px}.adm section{background:#ffffff05;border:1px solid #ffffff1c;border-radius:24px;padding:24px}.adm nav{gap:8px;margin-bottom:24px}.adm button,.adm input,.adm select{border:1px solid #ffffff26;border-radius:12px;background:#142e29;font-size:14px}.adm button{cursor:pointer}.adm button:hover{border-color:#c7f38b}.adm button[aria-current=page],.adm button[type=submit]{background:#c7f38b;color:#182717;border-color:#c7f38b}.adm li{padding:16px;background:#ffffff04;border:1px solid #ffffff12;border-radius:14px}.adm label{color:#b9ccc6}.adm input,.adm select{margin-left:8px;max-width:100%}.adm a{color:#c7f38b}.adm [role=status]{color:#a9c7bc}.adm button:focus-visible,.adm input:focus-visible,.adm select:focus-visible{outline:3px solid #74d4ca;outline-offset:3px}

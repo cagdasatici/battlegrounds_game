@@ -2,6 +2,7 @@
  * Welcome, lobby and error screens (T18c, spec section 6). Original text only; plain language for children, no stack
  * traces. One delegated click listener on the root, removed in dispose(). Display and intent only.
  */
+import "./experience.css";
 import { P0_KITS, type KitId } from "@eb/shared/protocol";
 import { EA_DEFS, SV_DEFS, TD_DEFS } from "@eb/shared/config/kits/index";
 import type { FlowError, FlowState } from "../app/AppFlow.js";
@@ -52,6 +53,7 @@ export interface LobbyActions {
 
 export class Lobby {
   private readonly root: HTMLElement;
+  private content: HTMLElement;
   private selected: KitId;
   private name: string;
   private last: { st: FlowState; view: LobbyView } | null = null;
@@ -64,6 +66,7 @@ export class Lobby {
     this.name = init.name;
     this.root = doc.createElement("div");
     this.root.className = "eb-screen";
+    this.content = this.root;
     this.root.style.cssText = "position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#0b1118;color:#fff;font:16px system-ui;text-align:center;padding:16px;box-sizing:border-box";
     this.onClick = (e: Event): void => {
       const b = (e.target as HTMLElement | null)?.closest?.("button[data-act]") as HTMLElement | null;
@@ -92,22 +95,35 @@ export class Lobby {
     el.textContent = text;
     for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
     if (tag === "button") el.style.cssText = "min-width:220px;min-height:48px;font:600 17px system-ui;border-radius:12px;border:2px solid #9fd3ff;background:#1d2b3a;color:#fff";
-    this.root.append(el);
+    this.content.append(el);
     return el;
   }
 
   render(st: FlowState, view: LobbyView): void {
     this.last = { st, view };
     this.root.replaceChildren();
+    this.content = this.doc.createElement("div");
+    this.content.className = "eb-lobby-body";
+    this.root.append(this.content);
     this.root.dataset["screen"] = st.screen;
     this.root.style.display = st.screen === "match" ? "none" : "flex";
     if (st.screen === "match") return;
     if (st.screen === "boot") { this.add("h1", "Elemental Battlegrounds"); this.add("p", "Preparing arena…"); return; }
     if (st.screen === "welcome") {
+      this.content.className = "eb-home";
+      const hero = this.doc.createElement("div"); hero.className = "eb-hero"; this.content.append(hero);
+      const home = this.content; this.content = hero;
+      this.add("span", "THE FLOATING ISLES", { class: "eb-eyebrow" });
       this.add("h1", "Elemental Battlegrounds");
+      this.add("p", "Find your element. Own the arena.");
+      const art = this.doc.createElement("div"); art.className = "eb-hero-art"; art.setAttribute("aria-hidden", "true");
+      for (let i = 0; i < 3; i++) art.append(this.doc.createElement("i")); hero.append(art);
+      this.add("p", "Three fighters. Four players. One sky-high showdown.");
+      const actions = this.doc.createElement("div"); actions.className = "eb-home-actions"; home.append(actions); this.content = actions;
+      this.add("h2", "Step into the arena");
       this.add("p", `Connection: ${view.connection}`, { "data-ui": "status" });
       const names = this.doc.createElement("div");
-      names.style.cssText = "display:flex;gap:12px;justify-content:center";
+      names.className = "eb-name-row";
       for (const n of ["Arel", "Nora"]) {
         const b = this.doc.createElement("button");
         b.dataset["act"] = "name"; b.dataset["name"] = n; b.textContent = n;
@@ -115,8 +131,8 @@ export class Lobby {
         b.style.cssText = `min-width:120px;min-height:44px;font:600 16px system-ui;border-radius:12px;color:#fff;background:#1d2b3a;border:3px solid ${n === this.name ? "#ffd479" : "#9fd3ff55"}`;
         names.append(b);
       }
-      this.root.append(names);
-      this.add("p", "Your name is only a label. An invitation from a grown-up lets you in.", { "data-ui": "presets" });
+      this.content.append(names);
+      this.add("p", "Choose your player profile. Your invitation unlocks online play.", { "data-ui": "presets" });
       this.add("button", "Play", { "data-act": "play" });
       this.add("button", "How to play", { "data-act": "guide" });
       this.add("button", "Practice", { "data-act": "practice" });
@@ -147,7 +163,7 @@ export class Lobby {
       b.style.cssText = `min-width:180px;min-height:48px;font:600 16px system-ui;border-radius:12px;color:#fff;border:3px solid ${k === this.selected ? "#ffd479" : "#9fd3ff55"};background:#1d2b3a`;
       row.append(b);
     }
-    this.root.append(row);
+    this.content.append(row);
     this.add("p", `Moves: ${baseMoveLabels(this.selected).join(", ")}`, { "data-ui": "moves" });
     this.add("p", practice ? "Awakening: finish the first steps and the practice room fills your meter." : "Awakening: land and take hits to fill the meter, then press Awaken.", { "data-ui": "awakening" });
     this.add("button", "Ready", { "data-act": "ready" });
