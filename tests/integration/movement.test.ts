@@ -74,3 +74,16 @@ describe("T06 authoritative movement over a real Colyseus connection", () => {
     await a.leave();
   });
 });
+
+test("facing lock: two real clients observe server-approved stationary camera-facing turn", async () => {
+  const code = freshCode(), a = await loginClient(h, "Aim test"), b = await loginClient(h, "Observer");
+  const ra = await a.join(code), rb = await b.join(code);
+  try {
+    await waitFor(() => a.welcome !== null && b.welcome !== null);
+    a.send("ready", { kitId: "sv", contentHash: a.localContentHash });
+    await waitFor(() => [...players(ra).values()].some(p => p.displayName === "Aim test" && p.ready));
+    let seq = 0;
+    for (let i = 0; i < 16; i++) { a.send("input", pkt(a.welcome!.epoch, ++seq, { yaw: 1.5, facingLock: true })); await sleep(33); }
+    await waitFor(() => Math.abs([...players(rb).values()].find(p => p.displayName === "Aim test")?.facingYaw - Math.round(1.5 / (2 * Math.PI) * 1024)) < 10, 3000, "observer sees camera-facing aim");
+  } finally { await a.leave(); await b.leave(); }
+});

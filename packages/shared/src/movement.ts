@@ -20,6 +20,8 @@ export interface MoveIntent {
   run: boolean;
   guard: boolean;
   jumpPressed: boolean;
+  /** Optional camera-facing intent; rate-limited by the same authority step. */
+  aimYaw?: number;
 }
 
 export const NEUTRAL_MOVE: Readonly<MoveIntent> = { moveX: 0, moveZ: 0, run: false, guard: false, jumpPressed: false };
@@ -53,7 +55,7 @@ export function sanitizeIntent(i: MoveIntent): MoveIntent {
   let z = Number.isFinite(i.moveZ) ? i.moveZ : 0;
   const len = Math.hypot(x, z);
   if (len > 1) { x /= len; z /= len; }
-  return { moveX: x, moveZ: z, run: i.run === true, guard: i.guard === true, jumpPressed: i.jumpPressed === true };
+  return { moveX: x, moveZ: z, run: i.run === true, guard: i.guard === true, jumpPressed: i.jumpPressed === true, ...(Number.isFinite(i.aimYaw) ? { aimYaw: i.aimYaw } : {}) };
 }
 
 const TURN_RATE = (540 * Math.PI) / 180; // rad/s, spec section 7 facing lock off (D)
@@ -100,7 +102,9 @@ export function integrateMovement(s: MoveState, rawIntent: MoveIntent, tick: num
     s.vy += m.gravity * MOVE_DT;
   }
 
-  if (i.moveX !== 0 || i.moveZ !== 0) {
+  if (i.aimYaw !== undefined) {
+    s.facingYaw = turnToward(s.facingYaw, i.aimYaw, 4 * Math.PI * MOVE_DT);
+  } else if (i.moveX !== 0 || i.moveZ !== 0) {
     // Local forward is -Z: yaw 0 faces -Z, so yaw = atan2(-x, -z).
     s.facingYaw = turnToward(s.facingYaw, Math.atan2(-i.moveX, -i.moveZ), TURN_RATE * MOVE_DT);
   }

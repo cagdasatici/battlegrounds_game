@@ -109,6 +109,7 @@ export const Sfx = {
       raf = requestAnimationFrame(frame);
       if (audio.isUnlocked && !audio.isSuspended) {
         audio.setEffectsVolume(effects());
+        audio.setMusicVolume((deps.settings.get() as { musicVolume?: number }).musicVolume ?? 0);
         scanSustainAudio(audio, deps.players(), deps.serverTick?.(), deps.localId(), live);
       } else if (live.size > 0) { audio.stopAllLoops(); live.clear(); }
     };

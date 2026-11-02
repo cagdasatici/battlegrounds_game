@@ -253,6 +253,10 @@ test("QS01 game: real input hit makes a voice after the Play gesture, then nothi
     await page.waitForSelector("[data-act=practice]");
     const pre = await probe();
     expect(pre?.unlocked ?? false).toBe(false);
+    // UX04 supplies ambient music. Mute it so this case continues to prove combat voices, not the backing track.
+    await page.click("[data-act=settings]");
+    await page.locator("[data-k=musicVolume]").fill("0");
+    await page.click("button[data-act=close]");
     await page.click("[data-act=practice]");
     await expect(page.locator("[data-ui=room-status]")).toContainText("training dummy");
     await page.click("[data-act=ready]");

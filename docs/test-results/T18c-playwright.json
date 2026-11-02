@@ -1,1 +1,19 @@
-{}
+{
+  "serverOfflineRetryRecovered": true,
+  "cooldownTextAfterTap": "9.9",
+  "cooldownEndTicks": [
+    0,
+    0,
+    857,
+    0
+  ],
+  "pendingKitAfterChange": "not shown",
+  "respawnSecondsSeen": [
+    "3",
+    "2"
+  ],
+  "t27InMatchSettings": {
+    "ticksAdvancedWhileOpen": true,
+    "leftHandMirrorsHud": true
+  }
+}

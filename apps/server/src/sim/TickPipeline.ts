@@ -203,7 +203,7 @@ export class TickPipeline {
       const scaled = castScale !== null && castScale > 0 && castScale < 1 && f !== undefined && f.action !== "Idle";
       const mScale = scaled ? castScale : 1;
       this.intents.set(seat.entityId, locked ? NEUTRAL_MOVE
-        : { moveX: h.moveX * mScale, moveZ: h.moveZ * mScale, run: scaled ? false : h.runHeld, guard: f?.action === "Guard" || h.blockHeld, jumpPressed: sc.jumpPressed });
+        : { moveX: h.moveX * mScale, moveZ: h.moveZ * mScale, run: scaled ? false : h.runHeld, guard: f?.action === "Guard" || h.blockHeld, jumpPressed: sc.jumpPressed, ...(h.facingLock ? { aimYaw: h.yaw } : {}) });
     }
     this.d.movement()?.step(tick, (id) => this.intents.get(id) ?? NEUTRAL_MOVE, (id) => this.dashOverride(id),
       (id) => this.d.abilities.facingOverrideOf(id), (id) => this.d.abilities.freezesVertical(id, tick));

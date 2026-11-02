@@ -20,8 +20,8 @@
     "listenersBeforeDispose": {
       "click": 2,
       "input": 2,
-      "keydown": 1,
-      "keyup": 1,
+      "keydown": 2,
+      "keyup": 2,
       "pointerdown": 1,
       "pointermove": 1,
       "pointerup": 1,

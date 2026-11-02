@@ -22,6 +22,7 @@ type Owner = ControlId | "camera" | "ignored";
 export interface RouterHooks {
   /** Whether the server meter is full (from the latest snapshot). Awakening never fires otherwise. */
   awakeningReady?: () => boolean;
+  isChargeSlot?: (slot: SkillSlot) => boolean;
   onMenu?: () => void;
   onFighter?: () => void;
   onScoreboard?: () => void;
@@ -40,6 +41,9 @@ export class PointerRouter {
   yaw = 0;
   pitch = 0;
   facingLock = false;
+  autoRun = false;
+  quickUse = true;
+  private readonly deferredSkills = new Set<number>();
   /** Camera drag multiplier from Settings (T27). Local presentation only. */
   sensitivity = 1;
   disabled = false;
@@ -151,7 +155,9 @@ export class PointerRouter {
       case "awaken": if (this.hooks.awakeningReady?.() === true) this.edges.push({ kind: "awaken" }); break;
       case "facing": this.facingLock = !this.facingLock; break;
       case "skill1": case "skill2": case "skill3": case "skill4":
-        this.edges.push({ kind: "skillDown", slot: Number(id.slice(5)) as SkillSlot }); break;
+        if (!this.quickUse && !this.hooks.isChargeSlot?.(Number(id.slice(5)) as SkillSlot)) this.deferredSkills.add(Number(id.slice(5)));
+        else this.edges.push({ kind: "skillDown", slot: Number(id.slice(5)) as SkillSlot });
+        break;
       case "menu": this.hooks.onMenu?.(); this.releaseAll(); break;
       case "fighter": this.hooks.onFighter?.(); break;
       case "scoreboard": this.hooks.onScoreboard?.(); break;
@@ -168,8 +174,10 @@ export class PointerRouter {
     if (this.holders.get(o) !== pointerId) return;
     this.holders.delete(o);
     if (o === "joystick") { this.moveX = 0; this.moveZ = 0; }
-    if (!cancelled && o.startsWith("skill")) {
-      this.edges.push({ kind: "skillUp", slot: Number(o.slice(5)) as SkillSlot });
+    if (o.startsWith("skill")) {
+      const slot = Number(o.slice(5)) as SkillSlot;
+      if (this.deferredSkills.delete(slot)) { if (!cancelled) this.edges.push({ kind: "skillDown", slot }); }
+      if (!cancelled) this.edges.push({ kind: "skillUp", slot });
     }
   }
 

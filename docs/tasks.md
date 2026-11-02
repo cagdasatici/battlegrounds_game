@@ -169,8 +169,8 @@ Execute one row per session using [the Quality 90 instructions](quality-90-plan.
 |---|---|---|---|---|---|
 | UX01 | Discoverable admin and configurable bot rooms | WEB5 BOT4 | IMPLEMENTED (DEVICE CHECK PENDING) | ae871ef | docs/test-results/UX01.md |
 | UX02 | Add opponents from practice | UX01 | IMPLEMENTED (DEVICE CHECK PENDING) | 19338be | docs/test-results/UX02.md |
-| UX03 | Menu and settings visual redesign | UX02 | IMPLEMENTED (DEVICE CHECK PENDING) | see git log UX03 | docs/test-results/UX03.md |
-| UX04 | Settings runtime and feedback | UX03 | TODO | | docs/test-results/UX04.md |
+| UX03 | Menu and settings visual redesign | UX02 | IMPLEMENTED (DEVICE CHECK PENDING) | 935da97 | docs/test-results/UX03.md |
+| UX04 | Settings runtime and feedback | UX03 | IMPLEMENTED (DEVICE CHECK PENDING) | see git log UX04 | docs/test-results/UX04.md |
 | UX05 | Environment graphics refinement | UX04 | TODO | | docs/test-results/UX05.md |
 | UX06 | Character joints and movement refinement | UX05 | TODO | | docs/test-results/UX06.md |
 | UX07 | Ability descriptions and area readability | UX06 | TODO | | docs/test-results/UX07.md |

@@ -276,7 +276,7 @@ export class GameLoop {
         this.lastSig = this.signature();
         this.heldSample = tick;
         this.heldIntent = {
-          moveX: pkt.moveX, moveZ: pkt.moveZ, run: pkt.runHeld, guard: pkt.blockHeld,
+          moveX: pkt.moveX, moveZ: pkt.moveZ, run: pkt.runHeld, guard: pkt.blockHeld, ...(pkt.facingLock ? { aimYaw: pkt.yaw } : {}),
           jumpPressed: pkt.edges.some((e) => e.kind === "jump"),
         };
       }

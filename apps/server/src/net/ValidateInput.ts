@@ -5,6 +5,7 @@ import { TokenBucket } from "./RateLimits.js";
 export interface HeldIntent {
   moveX: number; moveZ: number; yaw: number; pitch: number;
   attackHeld: boolean; blockHeld: boolean; jumpHeld: boolean; runHeld: boolean;
+  facingLock?: boolean;
   chargeHeldSlot: 0 | 1 | 2 | 3 | 4;
 }
 export interface QueuedEdge { edge: Edge; arrivalTick: number; seq: number }
@@ -69,7 +70,7 @@ export class InputChannel {
     this.held = {
       moveX: p.moveX * k, moveZ: p.moveZ * k, yaw: p.yaw, pitch: clamp(p.pitch, -Math.PI / 2, Math.PI / 2),
       attackHeld: p.attackHeld, blockHeld: p.blockHeld, jumpHeld: p.jumpHeld, runHeld: p.runHeld,
-      chargeHeldSlot: p.chargeHeldSlot,
+      chargeHeldSlot: p.chargeHeldSlot, facingLock: p.facingLock === true,
     };
     this.lastReceivedSeq = p.seq;
     this.lastInputTick = tick;

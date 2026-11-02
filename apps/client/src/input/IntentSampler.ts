@@ -8,6 +8,10 @@ import type { LocalEdge, PointerRouter } from "./PointerRouter.js";
 import { cameraRelativeToWorld } from "../scene/CameraRig.js";
 
 export class IntentSampler {
+  private run = false;
+  private highTicks = 0;
+  private lastExcursion = -100;
+  private forwardHigh = false;
   private seq = 0;
   private edgeId = 0;
   private pending: Edge[] = [];
@@ -33,6 +37,17 @@ export class IntentSampler {
     const blockHeld = r.held("block");
     // Server treats moveX/moveZ as world space (T06): rotate the camera relative stick by camera yaw.
     const world = cameraRelativeToWorld(r.moveX, r.moveZ, r.yaw);
+    const magnitude = Math.hypot(r.moveX, r.moveZ);
+    const forward = r.moveZ >= 0.9;
+    if (r.autoRun) {
+      this.highTicks = magnitude >= 0.9 ? this.highTicks + 1 : 0;
+      if (this.highTicks >= 6) this.run = true;
+      if (magnitude < 0.75) this.run = false;
+    } else {
+      if (forward && !this.forwardHigh) { this.run = sampleTick - this.lastExcursion <= 18; this.lastExcursion = sampleTick; }
+      if (magnitude < 0.2) this.run = false;
+    }
+    this.forwardHigh = forward;
     const raw = {
       v: 1 as const,
       epoch: this.epoch,
@@ -46,7 +61,8 @@ export class IntentSampler {
       attackHeld: r.held("attack") && !blockHeld,
       blockHeld,
       jumpHeld: r.held("jump"),
-      runHeld: false, // auto run is decided by the server from move magnitude (section 13)
+      runHeld: this.run && !blockHeld,
+      facingLock: r.facingLock,
       chargeHeldSlot: r.chargeHeldSlot,
       edges,
     };
@@ -55,6 +71,7 @@ export class IntentSampler {
 
   /** Neutral packet sent immediately on cancel; carries no edges. */
   neutral(sampleTick: number): InputPacket | null {
+    this.run = false; this.highTicks = 0; this.forwardHigh = false; this.lastExcursion = -100;
     return parseInputPacket({
       v: 1, epoch: this.epoch, seq: ++this.seq >>> 0, sampleTick: sampleTick >>> 0,
       moveX: 0, moveZ: 0, yaw: this.router.yaw, pitch: this.router.pitch,

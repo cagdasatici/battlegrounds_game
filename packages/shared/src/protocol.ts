@@ -42,6 +42,7 @@ export const InputPacketSchema = z.strictObject({
   blockHeld: z.boolean(),
   jumpHeld: z.boolean(),
   runHeld: z.boolean(),
+  facingLock: z.boolean().optional(),
   chargeHeldSlot: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
   edges: z.array(EdgeSchema).max(MAX_EDGES_PER_PACKET),
 });

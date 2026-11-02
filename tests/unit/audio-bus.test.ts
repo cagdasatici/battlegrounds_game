@@ -210,3 +210,15 @@ describe("QS01 sustain scan follows replicated state", () => {
     expect(live.size).toBe(0);
   });
 });
+
+test("music: independent voice, mute stops it, suspension and disposal clean it up, total cap retained", () => {
+  const t = mk(); t.bus.setMusicVolume(1); expect(t.bus.musicPlaying).toBe(false);
+  t.bus.unlock(); t.bus.setEffectsVolume(0); t.bus.setMusicVolume(.5);
+  expect(t.bus.musicPlaying).toBe(true); expect(t.bus.activeVoices).toBe(1);
+  t.bus.setMusicVolume(0); expect(t.bus.musicPlaying).toBe(false); expect(t.state.stopped).toBe(1);
+  t.bus.setMusicVolume(.5); t.bus.suspend(); expect(t.bus.musicPlaying).toBe(false);
+  t.bus.resume(); t.bus.setMusicVolume(.5);
+  for (let i = 0; i < 30; i++) t.bus.play("block", 0, 0);
+  expect(t.bus.activeVoices).toBe(16);
+  t.bus.dispose(); expect(t.bus.musicPlaying).toBe(false); expect(t.state.closed).toBe(true);
+});

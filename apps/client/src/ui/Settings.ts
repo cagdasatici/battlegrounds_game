@@ -15,6 +15,7 @@ import {
 export interface SettingsHooks {
   /** Safe rectangle of the viewport right now (visualViewport plus env insets). */
   safeRect(): SafeRect;
+  qualityStatus?(): string;
   /** Called on open so the caller can release every held input and send neutral intent. */
   onOpen?(): void;
   onClose?(): void;
@@ -52,7 +53,20 @@ export class SettingsPanel {
   private drag: { id: ControlId; pid: number; sx: number; sy: number; cx: number; cy: number; el: HTMLElement } | null = null;
   private readonly onClick: (e: Event) => void;
   /** Keys typed into the panel must not drive the fighter (keyboard router listens on window). */
-  private readonly onKey: (e: Event) => void = (e) => { if (this.isOpen) e.stopPropagation(); };
+  private readonly onKey: (e: Event) => void = (e) => {
+    if (!this.isOpen) return;
+    e.stopPropagation();
+    const key = e as KeyboardEvent;
+    if (e.type !== "keydown") return;
+    if (key.key === "Escape") { e.preventDefault(); if (this.editing) this.endEdit(); else this.close(); }
+    if (key.key === "Tab") {
+      const host = this.editing ? this.editor : this.root;
+      const nodes = [...host.querySelectorAll<HTMLElement>("button:not(:disabled),input,select,textarea,summary")].filter(el => el.getClientRects().length > 0);
+      const first = nodes[0], last = nodes[nodes.length - 1];
+      if (key.shiftKey && this.doc.activeElement === first) { e.preventDefault(); last?.focus(); }
+      else if (!key.shiftKey && this.doc.activeElement === last) { e.preventDefault(); first?.focus(); }
+    }
+  };
   private readonly onInput: (e: Event) => void;
   private readonly onDown: (e: PointerEvent) => void;
   private readonly onMove: (e: PointerEvent) => void;
@@ -88,6 +102,8 @@ export class SettingsPanel {
     this.root.addEventListener("input", this.onInput);
     this.root.addEventListener("keydown", this.onKey);
     this.root.addEventListener("keyup", this.onKey);
+    this.editor.addEventListener("keydown", this.onKey);
+    this.editor.addEventListener("keyup", this.onKey);
     this.editor.addEventListener("click", this.onClick);
     this.editor.addEventListener("input", this.onInput);
     this.editor.addEventListener("pointerdown", this.onDown);
@@ -98,6 +114,11 @@ export class SettingsPanel {
     this.sync();
   }
 
+  refreshRuntime(): void {
+    const status = this.root.querySelector<HTMLElement>("[data-ui=quality-status]");
+    if (status) status.textContent = this.hooks.qualityStatus?.() ?? "Your choice applies when you enter the arena.";
+  }
+
   get isVisible(): boolean { return this.isOpen; }
 
   open(): void {
@@ -106,7 +127,8 @@ export class SettingsPanel {
     this.hooks.onOpen?.();
     this.note.style.display = this.hooks.inMatch?.() ? "block" : "none";
     this.root.style.display = "block";
-    this.sync();
+    this.sync(); this.refreshRuntime();
+    this.root.querySelector<HTMLButtonElement>("[data-act=close]")?.focus();
   }
 
   close(): void {
@@ -125,6 +147,8 @@ export class SettingsPanel {
     this.root.removeEventListener("input", this.onInput);
     this.root.removeEventListener("keydown", this.onKey);
     this.root.removeEventListener("keyup", this.onKey);
+    this.editor.removeEventListener("keydown", this.onKey);
+    this.editor.removeEventListener("keyup", this.onKey);
     this.editor.removeEventListener("click", this.onClick);
     this.editor.removeEventListener("input", this.onInput);
     this.editor.removeEventListener("pointerdown", this.onDown);
@@ -180,6 +204,8 @@ export class SettingsPanel {
     this.el("p", "Graphics quality", {}, visuals);
     const q = this.el("div", "", { class: "eb-segment", role: "group", "aria-label": "Graphics quality" }, visuals);
     for (const v of ["low", "medium", "high"]) this.el("button", v, { "data-quality": v, "aria-pressed": "false" }, q);
+    this.el("p", "", { "data-ui": "quality-status", role: "status" }, visuals);
+    this.el("p", "Quick Use casts on press; turn it off to cast on release. Hold Ember Orb to charge in either mode.", {}, controls);
     this.el("p", "Combat text", {}, controls);
     const ct = this.el("div", "", { class: "eb-segment", role: "group", "aria-label": "Combat text" }, controls);
     for (const v of ["all", "mine", "off"]) this.el("button", v, { "data-combattext": v, "aria-pressed": "false" }, ct);
@@ -218,6 +244,7 @@ export class SettingsPanel {
     const k = t?.dataset?.["k"];
     if (t && k) {
       if (!this.store.update({ [k]: Number(t.value) } as Partial<Settings>)) this.say("That value is out of range.");
+      else this.say("Saved · applied immediately.");
       return;
     }
     const sel = t?.dataset?.["edit"];
@@ -238,10 +265,10 @@ export class SettingsPanel {
     if (!b) return;
     const s = this.store.get();
     const tg = b.dataset["toggle"];
-    if (tg === "hand") { this.store.update({ handedness: s.handedness === "left" ? "right" : "left" }); return; }
-    if (tg) { this.store.update({ [tg]: !s[tg as (typeof TOGGLES)[number]["k"]] } as Partial<Settings>); return; }
+    if (tg === "hand") { this.say("Touch layout updated."); this.store.update({ handedness: s.handedness === "left" ? "right" : "left" }); return; }
+    if (tg) { this.say(`${TOGGLES.find(t => t.k === tg)?.label ?? tg}: ${s[tg as (typeof TOGGLES)[number]["k"]] ? "off" : "on"} · saved`); this.store.update({ [tg]: !s[tg as (typeof TOGGLES)[number]["k"]] } as Partial<Settings>); return; }
     if (b.dataset["combattext"]) { this.store.update({ combatText: b.dataset["combattext"] as Settings["combatText"] }); return; }
-    if (b.dataset["quality"]) { this.store.update({ quality: b.dataset["quality"] as Settings["quality"] }); return; }
+    if (b.dataset["quality"]) { this.store.update({ quality: b.dataset["quality"] as Settings["quality"] }); this.refreshRuntime(); this.say(`Graphics ${b.dataset["quality"]} selected · saved`); return; }
     switch (b.dataset["act"]) {
       case "close": this.close(); break;
       case "edit": this.beginEdit(); break;

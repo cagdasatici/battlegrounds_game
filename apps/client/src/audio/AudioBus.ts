@@ -44,6 +44,9 @@ interface Voice { priority: Priority; start: number; end: number; stop: () => vo
 export class AudioBus {
   private ctx: AudioContextLike | null = null;
   private master: GainLike | null = null;
+  private mix: NodeLike | null = null;
+  private music: GainLike | null = null;
+  private musicBuffer: BufferLike | null = null;
   private noise: BufferLike | null = null;
   private voices: Voice[] = [];
   private unlocked = false;
@@ -71,6 +74,7 @@ export class AudioBus {
       const d = buf.getChannelData(0);
       let s = 12345; // deterministic xorshift noise
       for (let i = 0; i < len; i++) { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; d[i] = ((s >>> 0) / 0xffffffff) * 2 - 1; }
+      this.mix = comp;
       this.ctx = ctx; this.master = master; this.noise = buf; this.unlocked = true;
       void ctx.resume().catch(() => {});
       ctx.onstatechange = () => { if (ctx.state !== undefined && ctx.state !== "running") this.stopAllLoops(); };
@@ -82,6 +86,34 @@ export class AudioBus {
     this.effects = Math.min(1, Math.max(0, v));
     if (this.master) this.master.gain.value = this.effects;
   }
+
+  /** Original eight-second ambient melody, one low-priority voice independent of effects volume. */
+  setMusicVolume(value: number): void {
+    const v = Math.min(1, Math.max(0, value)), ctx = this.ctx;
+    if (v === 0) { this.stopLoop("__music"); return; }
+    if (!ctx || !this.mix || this.isSuspended) return;
+    if (this.music) this.music.gain.value = v;
+    this.prune();
+    if (this.hasLoop("__music") || this.voices.length >= MAX_VOICES) return;
+    if (!this.musicBuffer) {
+      const rate = 16000, duration = 8;
+      this.musicBuffer = ctx.createBuffer(1, rate * duration, rate);
+      const samples = this.musicBuffer.getChannelData(0);
+      const notes = [220, 261.625565, 329.627557, 391.995436, 329.627557, 261.625565, 293.664768, 246.941651];
+      for (let i = 0; i < samples.length; i++) {
+        const t = i / rate, local = t % 1, f = notes[Math.floor(t)]!;
+        const envelope = Math.sin(Math.PI * local) ** 2;
+        const pad = (Math.sin(2 * Math.PI * 110 * t) + Math.sin(2 * Math.PI * 165 * t)) * Math.sin(Math.PI * t / duration) ** 2;
+        samples[i] = 0.035 * envelope * Math.sin(2 * Math.PI * f * t) + 0.012 * pad;
+      }
+    }
+    const out = ctx.createGain(); out.gain.value = v; out.connect(this.mix); this.music = out;
+    const source = ctx.createBufferSource(); source.buffer = this.musicBuffer; source.loop = true; source.connect(out); source.start();
+    this.voices.push({ priority: 2, start: ctx.currentTime, end: Infinity, loopKey: "__music", out,
+      stop: () => { try { source.stop(); } catch { /* already stopped */ } source.disconnect(); out.disconnect(); if (this.music === out) this.music = null; } });
+  }
+
+  get musicPlaying(): boolean { return this.hasLoop("__music"); }
 
   /** Returns true when a voice was started. distM is listener-to-source distance in metres. */
   play(kind: SoundKind, priority: Priority, distM: number): boolean {
@@ -226,7 +258,8 @@ export class AudioBus {
   dispose(): void {
     for (const v of this.voices) v.stop();
     this.voices = [];
-    this.master?.disconnect();
+    this.master?.disconnect(); this.mix?.disconnect();
+    this.mix = null; this.music = null; this.musicBuffer = null;
     const c = this.ctx;
     if (c) c.onstatechange = null;
     this.ctx = null; this.master = null; this.unlocked = false;

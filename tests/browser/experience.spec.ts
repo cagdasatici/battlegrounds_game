@@ -136,3 +136,26 @@ test("UX02: practice adds and removes server bots from the visible controls", as
     expect(errors).toEqual([]);
   } finally { await ctx.close(); }
 });
+
+test("UX04: settings affect live input, graphics status and music, survive closing and reopening", async () => {
+  const { ctx, page, errors } = await open("&name=Arel");
+  try {
+    await page.click("[data-act=practice]"); await page.click("[data-act=ready]");
+    await page.waitForFunction(() => (window as unknown as { __eb?: unknown }).__eb !== undefined, undefined, { timeout: 30000 });
+    await page.keyboard.press("Escape"); await page.click("[data-settings]");
+    const panel = page.locator("[data-ui=settings]");
+    for (const toggle of ["autoRun", "quickUse", "facingLock"]) await panel.locator(`[data-toggle=${toggle}]`).click();
+    await panel.locator("[data-quality=high]").click();
+    await expect(panel.locator("[data-ui=quality-status]")).toContainText("software rendering");
+    await expect(panel.locator("[data-ui=settings-message]")).toContainText("Graphics high selected");
+    await page.screenshot({ path: path.join(outDir, "UX04-settings.png") });
+    await panel.locator("[data-act=close]").click();
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __eb: { snapshot(): { preferences: unknown } } }).__eb.snapshot().preferences)).toEqual({ autoRun: true, quickUse: false, facingLock: true });
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __ebAudio: { audio: { musicPlaying: boolean } } }).__ebAudio.audio.musicPlaying)).toBe(true);
+    await page.keyboard.press("Escape"); await page.click("[data-settings]");
+    await panel.locator("[data-k=musicVolume]").fill("0");
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __ebAudio: { audio: { musicPlaying: boolean } } }).__ebAudio.audio.musicPlaying)).toBe(false);
+    await page.keyboard.press("Escape"); await expect(panel).toBeHidden();
+    expect(errors).toEqual([]);
+  } finally { await ctx.close(); }
+});

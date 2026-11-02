@@ -151,6 +151,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     onOpen: () => { for (const f of settingsOpenHooks) f(); },
     inMatch: () => matchCleanups.length > 0,
     safeRect: () => readSafeRect(window, safeProbe),
+    qualityStatus: () => gs ? `Rendering: ${gs.qualityLevel}${softwareGl ? " · software rendering limits this device to Low" : " · adapts to keep combat smooth"}` : "Your choice applies when you enter the arena.",
   };
   const settingsOpenHooks = new Set<() => void>();
   const settingsChangeHooks = new Set<() => void>();
@@ -372,6 +373,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     const adaptive = new AdaptiveQuality(tier(settings.get().quality));
     g.setQuality(adaptive.level);
     const router = new PointerRouter(computeLayout({ x0: 0, y0: 0, W: window.innerWidth, H: window.innerHeight }), {
+      isChargeSlot: (slot) => { const me = localOf(); return me?.kitId === "ea" && me.form === "Base" && slot === 3; },
       awakeningReady: () => { const me = localOf(); return me !== undefined && meterFraction(me.kitId, me.meter100 ?? 0) >= 1; },
       onMenu: () => { menuOpen = !menuOpen; },
       onScoreboard: () => { showBoard = !showBoard; },
@@ -417,19 +419,26 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     let lastLayout = currentLayout();
     router.setLayout(lastLayout);
     router.facingLock = settings.get().facingLock;
+    router.autoRun = settings.get().autoRun; router.quickUse = settings.get().quickUse;
     router.sensitivity = settings.get().sensitivity;
     // Repaint now rather than on the next HUD interval tick, so the visible HUD never lags the hit-test layout.
     const relayout = (): void => { lastLayout = currentLayout(); router.setLayout(lastLayout); hudKey = ""; drawHud(); placeSparButton(lastLayout); };
     matchCleanups.push(() => { placeSparButton(null); });
     // Opening Settings releases every held input; the arena keeps running (spec section 6).
     const onSettingsOpen = (): void => { router.releaseAll(); };
+    let lastSettings = settings.get();
     const onSettingsChange = (): void => {
+      const nextSettings = settings.get();
+      if (nextSettings.facingLock !== lastSettings.facingLock) router.facingLock = nextSettings.facingLock;
+      router.autoRun = nextSettings.autoRun; router.quickUse = nextSettings.quickUse;
       router.sensitivity = settings.get().sensitivity;
       cam.setDistance(settings.get().cameraDistance);
       cam.reducedMotion = settings.get().reducedMotion;
-      adaptive.setCeiling(tier(settings.get().quality));
+      if (nextSettings.quality !== lastSettings.quality) adaptive.setCeiling(tier(nextSettings.quality));
+      lastSettings = nextSettings;
       g.setQuality(adaptive.level);
       relayout();
+      settingsRef?.panel.refreshRuntime();
     };
     settingsOpenHooks.add(onSettingsOpen);
     settingsChangeHooks.add(onSettingsChange);
@@ -467,7 +476,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       readState: (): LoopState => ({ serverTick: (r.state as { serverTick?: number }).serverTick ?? 0, players: players().entries(), projectiles: (r.state as LoopState).projectiles ?? [], urns: (r.state as LoopState).urns ?? [] }),
       sendInput: (p) => { rc.send("input", p); },
       sendPing: (p) => { rc.send("ping", p); },
-      onFrameTime: (ms) => { const q = adaptive.push(ms); if (q) g.setQuality(q); },
+      onFrameTime: (ms) => { const q = adaptive.push(ms); if (q) { g.setQuality(q); settingsRef?.panel.refreshRuntime(); } },
     });
     matchCleanups.push(() => loop.dispose());
 
@@ -507,6 +516,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       const key = JSON.stringify([st, lastLayout.s, window.innerWidth, window.innerHeight]);
       if (key === hudKey) return;
       hudKey = key;
+      hud.setOpacity(settings.get().layouts[viewportClass(lastLayout.safe.W)].opacity);
       hud.render(lastLayout, st);
     };
     const hudTimer = window.setInterval(drawHud, 100);
@@ -531,6 +541,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
           reconciles: loop.reconcileCount,
           hitMoveIds: [...debugHitMoves],
           eventCounts: { ...debugEventCounts },
+          preferences: { autoRun: router.autoRun, quickUse: router.quickUse, facingLock: router.facingLock },
           render: glRenderer ? { geometries: glRenderer.info.memory.geometries, calls: glRenderer.info.render.calls, triangles: glRenderer.info.render.triangles, tier: adaptive.level } : null,
           telegraphs: telegraphs?.snapshot() ?? null,
           fx: { active: g.effects.activeCount, capacity: g.effects.capacity, shed: g.effects.shedCount, flashing: [...players().keys()].filter((id) => g.viewFor(id)?.flashing), shaking: cam.shaking },

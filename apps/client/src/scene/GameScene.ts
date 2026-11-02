@@ -100,6 +100,7 @@ export class GameScene {
     this.resize();
   }
 
+  get qualityLevel(): Quality { return this.quality; }
   get envStatus(): "none" | "loading" | "ready" | "failed" { return this.envState; }
 
   /**
