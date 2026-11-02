@@ -155,7 +155,7 @@ Execute one row per session using [the Quality 90 instructions](quality-90-plan.
 | QV08 | Artificer ability and awakening coverage | QF03 QV05 ORB2 | TODO | | docs/test-results/QV08.md |
 | QV09 | Universal attacks and contextual outcomes | QV01 QV06 QV07 QV08 | TODO | | docs/test-results/QV09.md |
 | QS01 | Original kit and defensive audio | QV09 | TODO | | docs/test-results/QS01.md |
-| QU01 | Touch HUD and first match | QC01 QA01 | IMPLEMENTED (DEVICE CHECK PENDING) | pending | docs/test-results/QU01.md |
+| QU01 | Touch HUD and first match | QC01 QA01 | IMPLEMENTED (DEVICE CHECK PENDING) | 511e38b | docs/test-results/QU01.md |
 | QP01 | Production load and join cycles | QE02 QF03 QV09 QS01 QU01 | TODO | | docs/test-results/QP01.md |
 | QP02 | Peak combat and adaptive quality | QP01 Q01 | TODO | | docs/test-results/QP02.md |
 | QW01 | Production web and rematch acceptance | QP01 QA01 WEB5 | TODO | | docs/test-results/QW01.md |
