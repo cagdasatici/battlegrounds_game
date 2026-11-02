@@ -91,7 +91,8 @@ export interface ClipTrack {
   /** rotation: quaternion xyzw per key; translation: absolute local position per key. */
   readonly values: number[];
 }
-export interface ClipData { readonly id: string; readonly duration: number; readonly loop: boolean; readonly tracks: ClipTrack[] }
+export interface ClipPhases { windupEnd: number; activeStart: number; recoveryStart: number }
+export interface ClipData { phases?: ClipPhases; readonly id: string; readonly duration: number; readonly loop: boolean; readonly tracks: ClipTrack[] }
 
 export function eulerToQuat(x: number, y: number, z: number): [number, number, number, number] {
   const c1 = Math.cos(x / 2), c2 = Math.cos(y / 2), c3 = Math.cos(z / 2);
@@ -117,8 +118,10 @@ export function buildClip(id: string, loop: boolean, keys: readonly Key[]): Clip
       const e = k.pose[bone] ?? last;
       last = e;
       times.push(k.t);
-      // Poses are authored with +X = limb swings back; the rig convention (decision 0019) is +X = forward (-Z).
-      values.push(...eulerToQuat(-e[0], e[1], e[2]));
+      // UX06: hanging shoulders/hips use +X toward -Z. Elbow/knee hinges and upright torso
+      // retain the authored opposite sign. A blanket flip sent striking hands/feet backwards.
+      const hanging = bone.startsWith("shoulder") || bone === "hipL" || bone === "hipR";
+      values.push(...eulerToQuat(hanging ? e[0] : -e[0], e[1], e[2]));
     }
     tracks.push({ bone, path: "rotation", times, values });
   }
@@ -172,12 +175,12 @@ export interface KitStyle {
 }
 export const KIT_STYLE: Readonly<Record<KitId, KitStyle>> = {
   // Stone: wide, low, planted, one shoulder dropped under the mantle.
-  sv: { weight: 1.3, tempo: 1.15, idle: { hipL: [-0.12, 0, -0.2], hipR: [0.12, 0, 0.2], kneeL: [0.3, 0, 0], kneeR: [0.3, 0, 0], chest: [0.08, -0.15, 0.05], shoulderL: [0.1, 0, -0.35], shoulderR: [0.25, 0, 0.25], elbowL: [-0.7, 0, 0], elbowR: [-0.9, 0, 0] } },
+  sv: { weight: 1.3, tempo: 1.15, idle: { hipL: [-0.12, 0, -0.2], hipR: [0.12, 0, 0.2], kneeL: [0.3, 0, 0], kneeR: [0.3, 0, 0], chest: [0.08, -0.15, 0.05], shoulderL: [-0.12, 0, -0.25], shoulderR: [0.1, 0, 0.25], elbowL: [-0.85, 0, 0], elbowR: [-0.9, 0, 0] } },
   // Tide: narrow and upright, sweeping cross-body stance (QF02): chest and spine twist across the hips, leading right shoulder
   // forward with the open palm, left arm swept back, weight on the back foot.
   td: { weight: 0.9, tempo: 0.95, idle: { chest: [-0.02, 0.4, 0.04], spine: [0, 0.18, 0], shoulderR: [1.0, 0.3, 0.05], elbowR: [-0.7, 0, 0], handR: [-0.1, 0, 0], shoulderL: [0.1, 0, -0.75], elbowL: [-0.7, 0, 0], hipL: [-0.3, 0.12, -0.05], hipR: [0.22, 0.12, 0.1], kneeR: [0.38, 0, 0] } },
   // Ember (QF03): compact and hunched under the furnace pack, insulated left forearm held across the body, right gauntlet ready.
-  ea: { weight: 1, tempo: 1, idle: { shoulderL: [0.8, 0.3, -0.05], elbowL: [-1.5, 0, 0], shoulderR: [0.6, 0, 0.2], elbowR: [-1.1, 0, 0], chest: [0.14, 0.05, 0], spine: [0.06, 0, 0], head: [-0.1, 0, 0], hipL: [-0.15, 0, -0.1], hipR: [0.15, 0, 0.1], kneeL: [0.32, 0, 0], kneeR: [0.32, 0, 0] } },
+  ea: { weight: 1, tempo: 1, idle: { shoulderL: [0.3, 0.3, -0.05], elbowL: [-1.25, 0, 0], shoulderR: [0.6, 0, 0.2], elbowR: [-1.1, 0, 0], chest: [0.14, 0.05, 0], spine: [0.06, 0, 0], head: [-0.1, 0, 0], hipL: [-0.15, 0, -0.1], hipR: [0.15, 0, 0.1], kneeL: [0.32, 0, 0], kneeR: [0.32, 0, 0] } },
 };
 
 /**
@@ -189,7 +192,7 @@ const GUARD_OVERLAY: Partial<Record<KitId, { pose: Pose; extraDrop: number }>> =
   // QF02: the Duelist guards in a long, narrow cross-body line: torso twisted, hips staggered front to back.
   td: { pose: { chest: [0.12, 0.45, 0], spine: [0.15, 0.2, 0], hipL: [-0.5, 0.15, -0.1], hipR: [0.35, 0.15, 0.1], kneeL: [0.6, 0, 0], kneeR: [0.5, 0, 0] }, extraDrop: 0.02 },
   // QF03: the Artificer guards behind the insulated left forearm, hunched forward so the furnace pack rides high.
-  ea: { pose: { shoulderL: [1.45, 0.6, 0.05], elbowL: [-2.2, 0, 0], spine: [0.3, 0, 0], chest: [0.22, 0, 0], head: [0.15, 0, 0] }, extraDrop: 0.03 },
+  ea: { pose: { shoulderL: [1.05, -0.3, 0.05], elbowL: [-1.8, 0, 0], spine: [0.3, 0, 0], chest: [0.22, 0, 0], head: [0.15, 0, 0] }, extraDrop: 0.03 },
 };
 /** Time (unscaled seconds) of the sv.b1 weight-shift key; it must stay before the shared windup key at 0.3 s. */
 export const SV_B1_SHIFT_T = 0.14;
@@ -230,7 +233,7 @@ function phases(a: Archetype): Phases {
     case "strike":
       return {
         windup: R_STRIKE_BACK, windupHips: [0, -0.08, 0.04],
-        active: { chest: [0.1, -0.6, 0], spine: [0.1, -0.3, 0], shoulderR: [1.5, -0.2, 0.1], elbowR: [-0.1, 0, 0], shoulderL: [0.5, 0, -0.4], elbowL: [-1.4, 0, 0], hipL: [0.3, 0, -0.1], kneeL: [0.2, 0, 0], hipR: [-0.5, 0, 0.1], kneeR: [0.55, 0, 0] },
+        active: { chest: [0.1, -0.25, 0], spine: [0.1, -0.1, 0], shoulderR: [1.5, 0, 0.1], elbowR: [-0.1, 0, 0], shoulderL: [0.5, 0, -0.4], elbowL: [-1.4, 0, 0], hipL: [0.3, 0, -0.1], kneeL: [0.2, 0, 0], hipR: [-0.5, 0, 0.1], kneeR: [0.55, 0, 0] },
         activeHips: [0, -0.1, -0.1],
       };
     case "kick":
@@ -338,8 +341,8 @@ const walkPose = (ph: number, amp: number, lean: number): Pose => {
     spine: [lean, -s * 0.12, 0], chest: [lean * 0.6, s * 0.15, 0], head: [-lean * 0.5, 0, 0],
     hipL: [s * amp, 0, -0.04], kneeL: [Math.max(0, -c) * amp * 1.3 + 0.1, 0, 0], ankleL: [-s * amp * 0.3, 0, 0],
     hipR: [-s * amp, 0, 0.04], kneeR: [Math.max(0, c) * amp * 1.3 + 0.1, 0, 0], ankleR: [s * amp * 0.3, 0, 0],
-    shoulderL: [-s * amp * 0.9 + 0.15, 0, -0.1], elbowL: [-0.5 - amp * 0.5, 0, 0],
-    shoulderR: [s * amp * 0.9 + 0.15, 0, 0.1], elbowR: [-0.5 - amp * 0.5, 0, 0],
+    shoulderL: [-s * amp * 0.65 + 0.1, 0, -0.1], elbowL: [-0.5 - amp * 0.5, 0, 0],
+    shoulderR: [s * amp * 0.65 + 0.1, 0, 0.1], elbowR: [-0.5 - amp * 0.5, 0, 0],
   } as Pose);
 };
 function cycle(id: string, dur: number, amp: number, lean: number, bob: number): ClipData {
@@ -383,7 +386,7 @@ function moveClip(id: string, kit: KitId): ClipData {
   for (const e of ph.extra ?? []) { keys.push({ t: sc(e.t), pose: merge(base, mirrored ? mirror(e.pose) : e.pose), ...(e.hips ? { hips: e.hips } : {}) }); end = e.t; }
   keys.push({ t: sc(end + 0.12), pose: blendPose(ak, base, 0.35), hips: ph.activeHips ?? [0, 0, 0] });
   keys.push({ t: sc(end + 0.45), pose: base });
-  return buildClip(id, false, keys);
+  return { ...buildClip(id, false, keys), phases: { windupEnd: sc(0.3), activeStart: sc(0.42), recoveryStart: sc(end + 0.12) } };
 }
 
 /** The deterministic clip set for one kit: base clips, M1 chain and that kit's ability ids. */

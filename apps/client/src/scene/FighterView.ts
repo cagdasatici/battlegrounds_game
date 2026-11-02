@@ -25,6 +25,7 @@ export class FighterView {
   private readonly mixer: AnimationMixer;
   private active: AnimationAction | null = null;
   private phaseTicks = 0;
+  private phaseAge = 0;
   private last: { x: number; y: number; z: number; yaw: number } | null = null;
   private vel = { speed: 0, vy: 0, forward: 0, right: 0 };
   private disposed = false;
@@ -78,6 +79,7 @@ export class FighterView {
   setLod(lod: Lod): void { if (!this.disposed) this.rig.setLod(lod); }
   /** QF01: shows the Awakened amber seams (replicated form === "Awakened"). Presentation only. */
   setAwakened(on: boolean): void { if (!this.disposed) this.rig.setAwakened(on); }
+  get clipTime(): number { return this.active?.time ?? 0; }
   get meshCount(): number { return this.rig.meshes.length; }
   hasClip(id: string): boolean { return this.rig.clips.has(id); }
 
@@ -88,7 +90,8 @@ export class FighterView {
   }
 
   /** Replicated action text, current move id and (optional) action length in server ticks for retiming. */
-  setAction(text: string, moveId = "", phaseTicks = 0): void {
+  setAction(text: string, moveId = "", phaseTicks = 0, elapsedTicks = 0): void {
+    if (text !== this.actionText || moveId !== this.moveId) this.phaseAge = Math.max(0, elapsedTicks / TICK_RATE);
     this.actionText = text;
     this.moveId = moveId;
     this.phaseTicks = phaseTicks;
@@ -118,6 +121,18 @@ export class FighterView {
     else if ((this.currentClip === "getup" || this.currentClip === "land") && locomotion && this.active !== null && this.active.time < this.active.getClip().duration - 0.02) next = this.currentClip;
     if (next !== this.currentClip) this.play(next, loop);
     this.mixer.timeScale = this.frozenFrames > 0 ? 0 : 1;
+    const phase = this.rig.phases.get(this.currentClip);
+    const timed = phase && this.active && this.phaseTicks > 0 && ["Windup", "Active", "Recovery"].includes(this.actionText);
+    if (timed && this.active) {
+      if (this.frozenFrames === 0) this.phaseAge += dtSec;
+      const t = Math.min(1, this.phaseAge / (this.phaseTicks / TICK_RATE));
+      const start = this.actionText === "Windup" ? 0 : this.actionText === "Active" ? phase.activeStart : phase.recoveryStart;
+      const end = this.actionText === "Windup" ? phase.windupEnd : this.actionText === "Active" ? phase.recoveryStart : this.active.getClip().duration;
+      this.active.paused = true; this.active.time = start + (end - start) * t;
+    } else if (this.active) {
+      this.active.paused = false;
+      if (c.clip === "walk" || c.clip === "run") this.active.timeScale = Math.max(.65, Math.min(1.5, this.vel.speed / (c.clip === "walk" ? 6 : 9)));
+    }
     this.mixer.update(dtSec);
     if (this.frozenFrames > 0) this.frozenFrames -= 1;
     if (this.flashLeftMs > 0) {

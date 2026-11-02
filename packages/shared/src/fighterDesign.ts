@@ -72,6 +72,7 @@ function body(): P[] {
     const hp = `hip${s}` as BoneName, kn = `knee${s}` as BoneName, an = `ankle${s}` as BoneName;
     out.push(
       part(`upperArm${s}`, "limb", sh, [0, 0, 0], ARM_UPPER, "cloth"),
+      part(`elbowJoint${s}`, "sphere", el, [0, 0, 0], [0.061], "skin"),
       part(`foreArm${s}`, "limb", el, [0, 0, 0], ARM_LOWER, "skin"),
       part(`hand${s}`, "box", ha, [0, -0.05, 0], [0.09, 0.1, 0.05], "skin", { bevel: 0.02 }),
       part(`thumb${s}`, "capsule", ha, [-x * 0.052, -0.035, -0.012], [0.017, 0.045], "skin", { rot: [0, 0, -x * 0.35], fine: true }),

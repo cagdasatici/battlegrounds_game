@@ -47,12 +47,15 @@ describe("rig pose directions (fighters face -Z)", () => {
       for (const c of clips) {
         for (let k = 0; k < c.tracks[0]!.times.length; k++) {
           const w = fk(c, k);
-          for (const s of ["L", "R"] as const) {
-            const shin = extend(w[`hip${s}` as BoneName], w[`knee${s}` as BoneName], 0.38);
-            expect(w[`ankle${s}` as BoneName][2], `${c.id} key ${k} knee${s}`).toBeGreaterThanOrEqual(shin[2] - 0.02);
-            const fore = extend(w[`shoulder${s}` as BoneName], w[`elbow${s}` as BoneName], 0.26);
-            // Only meaningful while the upper arm hangs; with the arm raised sideways the elbow hinge is no longer the Z axis.
-            if (w[`shoulder${s}` as BoneName][1] - w[`elbow${s}` as BoneName][1] > 0.2) expect(w[`hand${s}` as BoneName][2], `${c.id} key ${k} elbow${s}`).toBeLessThanOrEqual(fore[2] + 0.03);
+          for (const side of ["L", "R"] as const) {
+            // Hinge direction is local to the limb, not world Z (raised/crouched legs rotate the hinge plane).
+            for (const joint of ["knee", "elbow"] as const) {
+              const track = c.tracks.find(t => t.bone === `${joint}${side}` && t.path === "rotation")!;
+              const x = track.values[k * 4]!, y = track.values[k * 4 + 1]!, z = track.values[k * 4 + 2]!;
+              expect(y).toBeCloseTo(0); expect(z).toBeCloseTo(0);
+              if (joint === "knee") expect(x, `${c.id} key ${k} knee${side}`).toBeLessThanOrEqual(.001);
+              else expect(x, `${c.id} key ${k} elbow${side}`).toBeGreaterThanOrEqual(-.001);
+            }
           }
         }
       }
@@ -61,13 +64,10 @@ describe("rig pose directions (fighters face -Z)", () => {
       // m1.4 is a kick (MOVE_ARCHETYPE), so its striking limb is a foot, not a hand.
       for (const id of ["m1.1", "m1.2", "m1.3", "m1.4"]) {
         const c = clips.find((x) => x.id === id)!;
-        let best = Infinity;
-        for (let k = 0; k < c.tracks[0]!.times.length; k++) {
-          const w = fk(c, k);
-          best = Math.min(best, (id === "m1.4" ? Math.min(w.ankleL[2], w.ankleR[2]) : Math.min(w.handL[2], w.handR[2])) - w.chest[2]);
-        }
-        // Kicks reach less far in the authored poses (sv/ea only about 0.01 to 0.11 m); the 0.25 m bar is for hands.
-        expect(best, id).toBeLessThan(id === "m1.4" ? 0 : -0.25);
+        const k = c.tracks[0]!.times.findIndex(t => Math.abs(t - c.phases!.activeStart) < .001);
+        const w = fk(c, k);
+        const striking = id === "m1.4" ? w.ankleR : id === "m1.2" ? w.handL : w.handR;
+        expect(striking[2] - w.chest[2], `${id}: designated striking limb`).toBeLessThan(-.2);
       }
     });
     it(`${kit}: dashFront leans forward`, () => {

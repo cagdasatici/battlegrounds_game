@@ -192,7 +192,7 @@ export class GameLoop {
       }
       if (p.owner === undefined) this.remoteAction.set(key, p.action);
       const view = this.d.scene.viewFor(key);
-      view?.setAction(p.action, p.moveId ?? "", Math.max(0, (p.actionEndTick ?? 0) - (p.actionStartTick ?? 0)));
+      view?.setAction(p.action, p.moveId ?? "", Math.max(0, (p.actionEndTick ?? 0) - (p.actionStartTick ?? 0)), Math.max(0, st.serverTick - (p.actionStartTick ?? st.serverTick)));
       view?.setAwakened(p.form === "Awakened");
     }
     for (const key of [...this.known.keys()]) {

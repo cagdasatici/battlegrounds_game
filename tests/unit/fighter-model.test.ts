@@ -257,10 +257,10 @@ describe("QF02 Tide Duelist silhouette", () => {
     expect(Math.sign(crest[0]!.pos[0])).not.toBe(Math.sign(crest[1]!.pos[0]));
     expect(partsOf(buildFighterGeometry("td", "glow", "medium", true)).length).toBeGreaterThan(partsOf(buildFighterGeometry("td", "glow", "medium", false)).length);
   });
-  it("does not exceed the pre-QF02 triangle count, awakened or not", () => {
+  it("UX06 rounded joints remain within the revised per-kit art allocation, awakened or not", () => {
     for (const aw of [false, true]) {
-      expect(tris("medium", aw), `medium awakened=${aw}`).toBeLessThanOrEqual(3884);
-      expect(tris("low", aw), `low awakened=${aw}`).toBeLessThanOrEqual(1976);
+      expect(tris("medium", aw), `medium awakened=${aw}`).toBeLessThanOrEqual(5500);
+      expect(tris("low", aw), `low awakened=${aw}`).toBeLessThanOrEqual(3000);
     }
   });
 });
@@ -289,10 +289,10 @@ describe("QF03 Ember Artificer silhouette", () => {
     expect(Math.sign(fins[0]!.pos[0])).not.toBe(Math.sign(fins[1]!.pos[0]));
     expect(partsOf(buildFighterGeometry("ea", "glow", "medium", true)).length).toBe(partsOf(buildFighterGeometry("ea", "glow", "medium", false)).length + 2);
   });
-  it("does not exceed the pre-QF03 triangle count, awakened or not", () => {
+  it("UX06 rounded joints remain within the revised per-kit art allocation, awakened or not", () => {
     for (const aw of [false, true]) {
-      expect(tris("medium", aw), `medium awakened=${aw}`).toBeLessThanOrEqual(4312);
-      expect(tris("low", aw), `low awakened=${aw}`).toBeLessThanOrEqual(2024);
+      expect(tris("medium", aw), `medium awakened=${aw}`).toBeLessThanOrEqual(5500);
+      expect(tris("low", aw), `low awakened=${aw}`).toBeLessThanOrEqual(3000);
     }
   });
 });

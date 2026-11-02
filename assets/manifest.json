@@ -6,8 +6,8 @@
       "id": "fighter.sv",
       "kind": "fighter",
       "path": "assets/fighters/sv.gltf",
-      "sha256": "d036b4f29fc2e35f8657b42523a48160d4856503ab818ad658e44458dfe3fb84",
-      "byteSize": 561843,
+      "sha256": "fd259b97cda3c275384f6fd2789590f88c94371c5c7699f2287bff58ff34fe9d",
+      "byteSize": 619125,
       "license": "Project-original work; no third-party material; rights held by the project owner",
       "author": "Elemental Battlegrounds project (code authored in repository by Claude Code under owner direction)",
       "source": "repo:ops/scripts/art-gltf.ts from packages/shared/src/rig.ts and fighterDesign.ts",
@@ -67,8 +67,8 @@
       "id": "fighter.td",
       "kind": "fighter",
       "path": "assets/fighters/td.gltf",
-      "sha256": "f889fb4bc1d4640dcd452dd0a624572e0e09378f08e2f5920fc1e3811515b0fb",
-      "byteSize": 521063,
+      "sha256": "2fc72f267817d1f2ebf1d1b84ec2210f43d3b3ef839c99dc52ad71c35a230787",
+      "byteSize": 578346,
       "license": "Project-original work; no third-party material; rights held by the project owner",
       "author": "Elemental Battlegrounds project (code authored in repository by Claude Code under owner direction)",
       "source": "repo:ops/scripts/art-gltf.ts from packages/shared/src/rig.ts and fighterDesign.ts",
@@ -78,7 +78,7 @@
         "min": [
           -0.33295,
           -0.905,
-          -0.185
+          -0.18465
         ],
         "max": [
           0.385,
@@ -125,8 +125,8 @@
       "id": "fighter.ea",
       "kind": "fighter",
       "path": "assets/fighters/ea.gltf",
-      "sha256": "9c079c3939d4b46b4dbb093bda580737462bd9d1453930a6cd04dee7ea3984dc",
-      "byteSize": 549336,
+      "sha256": "6815b26eee0e456da61fa5ddea2a71cbe1a36c716710f3fa90933f6fbdd60994",
+      "byteSize": 606618,
       "license": "Project-original work; no third-party material; rights held by the project owner",
       "author": "Elemental Battlegrounds project (code authored in repository by Claude Code under owner direction)",
       "source": "repo:ops/scripts/art-gltf.ts from packages/shared/src/rig.ts and fighterDesign.ts",
@@ -136,7 +136,7 @@
         "min": [
           -0.36,
           -0.905,
-          -0.185
+          -0.18465
         ],
         "max": [
           0.352,

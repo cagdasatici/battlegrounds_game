@@ -12,10 +12,10 @@ import {
 } from "three";
 import type { KitId } from "@eb/shared/protocol";
 import { FIGHTER_DESIGNS, type PartDef } from "@eb/shared/fighterDesign";
-import { BONES, BONE_NAMES, boneRestWorld, buildKitClips, type BoneName, type ClipData } from "@eb/shared/rig";
+import { BONES, BONE_NAMES, boneRestWorld, buildKitClips, type BoneName, type ClipData, type ClipPhases } from "@eb/shared/rig";
 
 /** Outline thickness in metres, added to every part dimension for the back-face hull. */
-export const OUTLINE = 0.022;
+export const OUTLINE = 0.012;
 /** Total width of the two-bone blend at elbows, knees, shoulders and hips (metres); half on each side of the joint. */
 export const JOINT_BAND = 0.06;
 export const KIT_ATLAS_SIZE = 512;
@@ -96,7 +96,8 @@ function partGeometry(p: PartDef, grow: number, d: Detail): BufferGeometry {
     case "box": {
       const w = (s[0] ?? 0.1) + grow * 2, h = (s[1] ?? 0.1) + grow * 2, dp = (s[2] ?? 0.1) + grow * 2;
       const bevel = (p.bevel ?? Math.min(0.03, Math.min(w, h, dp) * 0.3)) + grow;
-      return roundedBox(w, h, dp, bevel, d.boxSeg);
+      const roundedCore = ["head", "hair", "chest", "belly", "pelvis", "handL", "handR", "footL", "footR"].includes(p.name);
+      return roundedBox(w, h, dp, bevel, roundedCore ? d.boxSeg + 1 : d.boxSeg);
     }
     case "sphere": return new SphereGeometry((s[0] ?? 0.1) + grow, d.sphW, d.sphH);
     case "capsule": return new CapsuleGeometry((s[0] ?? 0.05) + grow, s[1] ?? 0.2, d.capCap, d.capRad);
@@ -263,6 +264,7 @@ export interface FighterRig {
   readonly skeleton: Skeleton;
   readonly meshes: SkinnedMesh[];
   readonly clips: Map<string, AnimationClip>;
+  readonly phases: Map<string, ClipPhases>;
   /** Swaps every mesh to the geometry of another level of detail in place (same skeleton, no extra draw calls). */
   setLod(lod: Lod): void;
   /** QF01: shows or hides the Awakened-only glow seams by rebuilding the glow geometry in place (still three passes). */
@@ -303,9 +305,10 @@ export function buildFighterRig(kit: KitId, ramp: DataTexture, opts: { outline: 
   // Every mesh shares the one skeleton; the owner places root and meshes as siblings in one group.
   for (const mesh of meshes) mesh.bind(skeleton, new Matrix4());
   const clips = new Map<string, AnimationClip>();
-  for (const c of buildKitClips(kit)) clips.set(c.id, toClip(c));
+  const phases = new Map<string, ClipPhases>();
+  for (const c of buildKitClips(kit)) { clips.set(c.id, toClip(c)); if (c.phases) phases.set(c.id, c.phases); }
   return {
-    root, bones, skeleton, meshes, clips,
+    root, bones, skeleton, meshes, clips, phases,
     setLod: (next) => {
       if (next === lod) return;
       lod = next;

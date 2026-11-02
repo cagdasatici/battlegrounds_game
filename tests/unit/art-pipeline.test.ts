@@ -266,3 +266,20 @@ describe("T25 scene quality", () => {
     gs.dispose();
   });
 });
+
+it("UX06 attack poses follow authoritative phase windows; a long windup never reaches contact", () => {
+  const ramp = makeToonRamp(), v = new FighterView("sv", ramp);
+  const data = buildKitClips("sv").find(c => c.id === "sv.b1")!;
+  v.setAction("Windup", "sv.b1", 120);
+  for (let i = 0; i < 180; i++) v.update(1 / 60);
+  expect(v.clipTime).toBeCloseTo(data.phases!.windupEnd);
+  expect(v.clipTime).toBeLessThan(data.phases!.activeStart);
+  v.setAction("Active", "sv.b1", 6); v.update(.01);
+  expect(v.clipTime).toBeGreaterThanOrEqual(data.phases!.activeStart);
+  expect(v.clipTime).toBeLessThanOrEqual(data.phases!.recoveryStart);
+  v.setAction("Recovery", "sv.b1", 10);
+  for (let i = 0; i < 20; i++) v.update(1 / 60);
+  expect(v.clipTime).toBeCloseTo(data.duration);
+  v.setAction("Dead"); v.update(.02); expect(v.currentClip).toBe("death");
+  v.dispose(); ramp.dispose();
+});
