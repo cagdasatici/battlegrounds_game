@@ -1,0 +1,58 @@
+{
+  "runSeconds": 30,
+  "players": 4,
+  "hits": 77,
+  "kos": 1,
+  "maxAwakenedAtOnce": 2,
+  "stepTick": {
+    "n": 1801,
+    "p50": 0.321,
+    "p95": 0.597,
+    "p99": 0.825,
+    "max": 3.118
+  },
+  "patchSerialize": {
+    "n": 584,
+    "p50": 0.182,
+    "p95": 0.246,
+    "p99": 0.317,
+    "max": 0.497
+  },
+  "overloadEvents": 0,
+  "upstreamPerPlayer": [
+    {
+      "steadyKBps": 4.65,
+      "burstKB1s": 4.8
+    },
+    {
+      "steadyKBps": 4.65,
+      "burstKB1s": 4.8
+    },
+    {
+      "steadyKBps": 4.65,
+      "burstKB1s": 4.8
+    },
+    {
+      "steadyKBps": 4.65,
+      "burstKB1s": 4.8
+    }
+  ],
+  "downstreamPerPlayer": [
+    {
+      "steadyKBps": 3.27,
+      "burstKB1s": 4.39
+    },
+    {
+      "steadyKBps": 3.26,
+      "burstKB1s": 4.39
+    },
+    {
+      "steadyKBps": 3.26,
+      "burstKB1s": 4.39
+    },
+    {
+      "steadyKBps": 3.26,
+      "burstKB1s": 4.39
+    }
+  ]
+}

@@ -2,54 +2,54 @@
   "runSeconds": 30,
   "players": 4,
   "stepTick": {
-    "n": 1801,
-    "p50": 0.376,
-    "p95": 0.668,
-    "p99": 0.994,
-    "max": 2.806
+    "n": 1799,
+    "p50": 0.299,
+    "p95": 0.531,
+    "p99": 0.812,
+    "max": 2.703
   },
   "schedulerCallback": {
-    "n": 1776,
-    "p50": 0.387,
-    "p95": 0.692,
-    "p99": 1.006,
-    "max": 2.816
+    "n": 1753,
+    "p50": 0.309,
+    "p95": 0.571,
+    "p99": 0.85,
+    "max": 2.707
   },
   "overloadEvents": 0,
   "upstreamPerPlayer": [
     {
-      "steadyKBps": 4.67,
+      "steadyKBps": 4.61,
       "burstKB1s": 4.75
     },
     {
-      "steadyKBps": 4.67,
+      "steadyKBps": 4.61,
       "burstKB1s": 4.75
     },
     {
-      "steadyKBps": 4.67,
+      "steadyKBps": 4.61,
       "burstKB1s": 4.75
     },
     {
-      "steadyKBps": 4.67,
+      "steadyKBps": 4.61,
       "burstKB1s": 4.75
     }
   ],
   "downstreamPerPlayer": [
     {
-      "steadyKBps": 2.94,
-      "burstKB1s": 3.52
+      "steadyKBps": 2.91,
+      "burstKB1s": 3.54
     },
     {
-      "steadyKBps": 2.94,
-      "burstKB1s": 3.52
+      "steadyKBps": 2.91,
+      "burstKB1s": 3.54
     },
     {
-      "steadyKBps": 2.94,
-      "burstKB1s": 3.52
+      "steadyKBps": 2.91,
+      "burstKB1s": 3.54
     },
     {
-      "steadyKBps": 2.94,
-      "burstKB1s": 3.52
+      "steadyKBps": 2.91,
+      "burstKB1s": 3.54
     }
   ]
 }

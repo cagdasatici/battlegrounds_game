@@ -8,6 +8,13 @@ import { Color, IcosahedronGeometry, InstancedMesh, Matrix4, MeshBasicMaterial, 
 
 export type PoolTier = "low" | "medium" | "high";
 export const POOL_CAPACITY: Readonly<Record<PoolTier, number>> = { low: 200, medium: 600, high: 1000 };
+/**
+ * QP02 load shedding. Above SHED_HALF of capacity every second non-essential spawn is dropped, above SHED_ALL none is
+ * admitted, so a pile-up of overlapping signatures keeps free slots for essential particles (beam body, flares) instead
+ * of the oldest particle being overwritten. Counters, not randomness: the policy is deterministic and testable.
+ */
+export const SHED_HALF = 0.6;
+export const SHED_ALL = 0.85;
 
 /** Longest single step update() simulates. A slow frame (CPU raster, background tab) must not kill a short-lived effect before it is drawn once. */
 export const MAX_STEP_SEC = 0.05;
@@ -24,6 +31,8 @@ export interface Particle {
   color: number;
   /** Downward acceleration in m/s^2 (negative rises). */
   gravity?: number;
+  /** Warning-adjacent or beam body particle: never shed, only overwritten when the pool is completely full. Default false (decorative). */
+  essential?: boolean;
 }
 
 export class EffectsPool {
@@ -33,6 +42,8 @@ export class EffectsPool {
   private cap = 0;
   private cursor = 0;
   private alive = 0;
+  private shedTick = 0;
+  private shedTotal = 0;
   // Per slot state: position, velocity, age, life, start size, gravity.
   private px = new Float32Array(0); private py = new Float32Array(0); private pz = new Float32Array(0);
   private vx = new Float32Array(0); private vy = new Float32Array(0); private vz = new Float32Array(0);
@@ -45,6 +56,8 @@ export class EffectsPool {
   get size(): number { return this.disposers.length; }
   get activeCount(): number { return this.alive; }
   get capacity(): number { return this.cap; }
+  /** Non-essential spawns dropped by the shed policy since the pool was configured. */
+  get shedCount(): number { return this.shedTotal; }
 
   register(dispose: () => void): void { this.disposers.push(dispose); }
 
@@ -57,6 +70,7 @@ export class EffectsPool {
     this.cap = n;
     this.cursor = 0;
     this.alive = 0;
+    this.shedTotal = 0;
     for (const k of ["px", "py", "pz", "vx", "vy", "vz", "age", "life", "sz", "grav"] as const) this[k] = new Float32Array(n);
     const mesh = new InstancedMesh(new IcosahedronGeometry(0.5, 0), new MeshBasicMaterial({ color: 0xffffff, fog: false }), n);
     mesh.name = "fx.pool";
@@ -74,6 +88,10 @@ export class EffectsPool {
   spawn(p: Particle): boolean {
     const mesh = this.mesh;
     if (!mesh || p.life <= 0) return false;
+    if (!p.essential) {
+      const fill = this.alive / this.cap;
+      if (fill >= SHED_ALL || (fill >= SHED_HALF && (this.shedTick++ & 1) === 0)) { this.shedTotal += 1; return false; }
+    }
     const i = this.cursor;
     this.cursor = (this.cursor + 1) % this.cap;
     if (!(this.age[i]! < this.life[i]!)) this.alive += 1;

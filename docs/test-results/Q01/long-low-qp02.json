@@ -1,0 +1,18 @@
+{
+  "tier": "low",
+  "maxDrawCalls": 69,
+  "maxVisibleTriangles": 68242,
+  "maxParticlesLive": 155,
+  "particleCapacity": 200,
+  "nonEssentialSpawnsShed": 694,
+  "worstFiveFramesMs": [
+    250,
+    116.8,
+    116.8,
+    116.8,
+    116.7
+  ],
+  "medianFps": 15.037593984962406,
+  "frameP95Ms": 100,
+  "environment": "Playwright Chromium on SwiftShader, Apple Mac; software raster, not an iPad"
+}

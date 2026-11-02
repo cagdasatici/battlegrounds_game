@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { Scene } from "three";
-import { EffectsPool, POOL_CAPACITY } from "../../apps/client/src/scene/EffectsPool.js";
+import { EffectsPool, POOL_CAPACITY, SHED_ALL, SHED_HALF } from "../../apps/client/src/scene/EffectsPool.js";
 import { FighterView } from "../../apps/client/src/scene/FighterView.js";
 import { makeToonRamp } from "../../apps/client/src/scene/FighterModel.js";
 import { CameraRig } from "../../apps/client/src/scene/CameraRig.js";
@@ -18,8 +18,30 @@ describe("EffectsPool", () => {
       const pool = new EffectsPool();
       pool.configure(new Scene(), tier);
       expect(pool.capacity).toBe(POOL_CAPACITY[tier]);
-      for (let i = 0; i < POOL_CAPACITY[tier] + 50; i++) pool.spawn(P);
+      for (let i = 0; i < POOL_CAPACITY[tier] + 50; i++) pool.spawn({ ...P, essential: true });
       expect(pool.activeCount).toBe(POOL_CAPACITY[tier]);
+      pool.dispose();
+    }
+  });
+  test("QP02 shed policy: decorative spawns thin out above 60% and stop above 85%, essential spawns are never shed", () => {
+    for (const tier of ["low", "medium", "high"] as const) {
+      const cap = POOL_CAPACITY[tier], pool = new EffectsPool();
+      pool.configure(new Scene(), tier);
+      for (let i = 0; i < cap * 2; i++) pool.spawn(P);
+      // Fill stops at SHED_ALL; half-rate thinning between SHED_HALF and SHED_ALL means fewer than cap * 0.85 + 1 live.
+      expect(pool.activeCount).toBeLessThanOrEqual(Math.ceil(cap * SHED_ALL));
+      expect(pool.activeCount).toBeGreaterThan(Math.floor(cap * SHED_HALF));
+      expect(pool.shedCount).toBeGreaterThan(cap);
+      const before = pool.activeCount;
+      expect(pool.spawn(P)).toBe(false);
+      expect(pool.spawn({ ...P, essential: true })).toBe(true);
+      expect(pool.activeCount).toBe(before + 1);
+      // Below the threshold nothing is shed.
+      pool.configure(new Scene(), tier === "low" ? "medium" : "low");
+      const shed0 = pool.shedCount;
+      for (let i = 0; i < Math.floor(pool.capacity * SHED_HALF); i++) pool.spawn(P);
+      expect(pool.shedCount).toBe(shed0);
+      expect(pool.activeCount).toBe(Math.floor(pool.capacity * SHED_HALF));
       pool.dispose();
     }
   });

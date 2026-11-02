@@ -44,7 +44,7 @@ docs/implementation-plan.md (fix packets R01 to R16, execution order). Notes hol
 | T27 | Settings and layout editor | T07 T18e | IMPLEMENTED (DEVICE CHECK PENDING) | 2281bc6 | docs/test-results/T27.md | decisions/0013. Playwright 34/34. D05 D06 NOT RUN. Several settings stored, not yet consumed |
 | T28 | Production hosting | T04 T18e | IMPLEMENTED (DEVICE CHECK PENDING) | 3778216 | docs/test-results/T28.md | decisions/0011. Local build/serve/health/two-client verified; TLS, host, iPad remote checks NOT RUN (no host chosen) |
 | T29 | Security hardening | T22 T28 | IMPLEMENTED (DEVICE CHECK PENDING) | 1b980e1 | docs/test-results/T29.md | decisions/0030. CSP, 5/30 per min, WS origin, invalid-message drop. Safari/iPad, TLS NOT RUN |
-| T30 | Performance pass | T24 T26 T27 | IN PROGRESS | pending | docs/test-results/T30.md | decisions/0031. Adaptive quality controller done and unit tested. Section 24 budget measurements (tick, network, memory, draw calls with final art, iPad) NOT RUN |
+| T30 | Performance pass | T24 T26 T27 | IN PROGRESS | pending | docs/test-results/T30.md | decisions/0031. Adaptive quality controller done and unit tested. Section 24 budget measurements (tick, network, memory, draw calls with final art, iPad) NOT RUN. QP02 measured peak combat server tick, serializer and bytes (docs/test-results/QP02.md); iPad rows remain NOT RUN |
 | T31 | Fidelity calibration | T18e T27 | IMPLEMENTED (DEVICE CHECK PENDING) | 779475b | docs/test-results/T31.md | decisions/0017. Layout JSON + ledger done; all O01-O08 NOT RUN. test:browser: 1 intermittent T27 flow test failure |
 | T33a | Owner ops kit: one-command start | T28 | IMPLEMENTED (DEVICE CHECK PENDING) | d3c3333 | docs/test-results/T33a.md | `pnpm play`; QR encoder + origin logic unit-tested; Tailscale path and iPad scan NOT RUN |
 | T32 | Release candidate | T29 T30 T31 | BLOCKED | | docs/test-results/T32.md | Missing: DEV1 owner iPad session and T30 device rows. Automated gates pass |
@@ -157,7 +157,7 @@ Execute one row per session using [the Quality 90 instructions](quality-90-plan.
 | QS01 | Original kit and defensive audio | QV09 | IMPLEMENTED, DEVICE CHECK PENDING | 22db7e9 | docs/test-results/QS01.md |
 | QU01 | Touch HUD and first match | QC01 QA01 | IMPLEMENTED (DEVICE CHECK PENDING) | 511e38b | docs/test-results/QU01.md |
 | QP01 | Production load and join cycles | QE02 QF03 QV09 QS01 QU01 | IMPLEMENTED (DEVICE CHECK PENDING) | d3d8d97 | docs/test-results/QP01.md |
-| QP02 | Peak combat and adaptive quality | QP01 Q01 | TODO | | docs/test-results/QP02.md |
+| QP02 | Peak combat and adaptive quality | QP01 Q01 | IMPLEMENTED (DEVICE CHECK PENDING) | pending | docs/test-results/QP02.md |
 | QW01 | Production web and rematch acceptance | QP01 QA01 WEB5 | IMPLEMENTED (DEVICE CHECK PENDING) | d8c036a | docs/test-results/QW01.md |
 | QD01 | Two-iPad acceptance and human playtest | QP02 QW01 | TODO | | docs/test-results/QD01.md |
 | QR01 | Measured score and release verdict | QD01 | TODO | | docs/test-results/QR01.md |

@@ -28,6 +28,7 @@ interface Dev { close(): Promise<void>; listen(): Promise<unknown> }
 interface Snap {
   localEntityId: number | null; serverTick: number; eventCounts: Record<string, number>;
   render: { calls: number; triangles: number; tier: string } | null;
+  fx?: { active: number; capacity: number; shed?: number };
   projectiles: { id: string; reflectionCount: number }[];
   players: { entityId: number; name: string; kitId: string; action: string; hp100: number; ready: boolean; form?: string; kills: number; deaths: number }[];
 }
@@ -128,10 +129,11 @@ test(`Q01: four-fighter workload ${LONG ? `long ${MINUTES} min` : "smoke"} recor
     const startIdx = await host.page.evaluate(() => (window as unknown as { __q: { samples: unknown[] } }).__q.samples.length);
     const t0 = Date.now();
     const events = emptyEvents();
-    let maxCalls = 0, maxTris = 0, tier = "unknown", reflected = 0;
+    let maxCalls = 0, maxTris = 0, tier = "unknown", reflected = 0, maxFx = 0, fxCap = 0, shed = 0;
     const sample = async (): Promise<Snap> => {
       const s = await snap(host.page);
       if (s.render) { maxCalls = Math.max(maxCalls, s.render.calls); maxTris = Math.max(maxTris, s.render.triangles); tier = s.render.tier; }
+      if (s.fx) { maxFx = Math.max(maxFx, s.fx.active); fxCap = s.fx.capacity; shed = s.fx.shed ?? shed; }
       const forms = s.players.filter((p) => p.form === "Awakened").length;
       if (forms >= 2) events.overlapAwakening = Math.max(events.overlapAwakening, 1);
       return s;
@@ -142,6 +144,8 @@ test(`Q01: four-fighter workload ${LONG ? `long ${MINUTES} min` : "smoke"} recor
       place(room, A, 0, 1.5); place(room, B, 0, 0, Math.PI);
     };
     const cycle = async (): Promise<void> => {
+      // A respawned fighter is protected, and protected targets neither block nor take damage (no events), so wait it out each cycle.
+      await until(async () => [...room.combat.all()].every((f) => room.sim.tick > f.protectedUntilTick + 2), 8000, "spawn protection over");
       reset();
       for (const [id, page, kit] of [[A, host.page, "td"], [B, guest!.page, "ea"]] as const) {
         const f = room.combat.get(id)!; if (f.form !== "Awakened") f.meter100 = meterRequired100(kit);
@@ -149,15 +153,26 @@ test(`Q01: four-fighter workload ${LONG ? `long ${MINUTES} min` : "smoke"} recor
       }
       await until(async () => { await sample(); return events.overlapAwakening >= 1; }, 5000, "overlapping awakened fighters");
       // Real dash by keyboard fallback on the host.
-      await host.page.keyboard.down("KeyQ"); await sleep(60); await host.page.keyboard.up("KeyQ");
-      await until(async () => (await sample()).players.find((p) => p.entityId === A)?.action === "Dash", 3000, "dash seen");
+      // The dash is short and polling is slow under software raster, so press again (cooldown permitting) until one is observed.
+      await until(async () => {
+        await host.page.keyboard.down("KeyQ"); await sleep(60); await host.page.keyboard.up("KeyQ");
+        for (let k = 0; k < 6; k++) { if ((await sample()).players.find((p) => p.entityId === A)?.action === "Dash") return true; }
+        return false;
+      }, 12_000, "dash seen");
       events.dash++;
       await sleep(900); reset();
       // Block: guest holds guard while the host chain lands.
       await guest!.page.keyboard.down("KeyF");
       const b0 = (await snap(guest!.page)).eventCounts["block"] ?? 0;
-      await hold(host.page, "attack", 1500);
-      await until(async () => { await sample(); return ((await snap(guest!.page)).eventCounts["block"] ?? 0) > b0; }, 4000, "block event");
+      // Re-swing (and re-place) until the server confirms a block: a later cycle may start with a dash cooldown or a drifted stance.
+      await until(async () => {
+        // Swing only at a guest who is up: a knocked-down fighter cannot guard, and further hits would keep it down.
+        const act = (await snap(guest!.page)).players.find((p) => p.entityId === B)?.action;
+        if (act === "Ragdolled" || act === "Dead" || act === "Knockdown") { await sleep(300); return false; }
+        reset(); await hold(host.page, "attack", 1200); await sample(); return ((await snap(guest!.page)).eventCounts["block"] ?? 0) > b0; }, 15_000, "block event").catch(async (e: unknown) => {
+        const g = (await snap(guest!.page)).players.find((p) => p.entityId === B), f = room.combat.get(B)!;
+        throw new Error(`${String(e)} | guest action=${g?.action} hp=${g?.hp100} form=${g?.form} protectedUntil=${f.protectedUntilTick} tick=${room.sim.tick} pos=${JSON.stringify(room.movement!.position(B))} vy=${room.movement!.get(B)!.state.vy}`);
+      });
       await guest!.page.keyboard.up("KeyF");
       events.block++;
       // Reflection: authoritative orb spawned and reflected through the shipped projectile system (synthetic fixture).
@@ -176,7 +191,7 @@ test(`Q01: four-fighter workload ${LONG ? `long ${MINUTES} min` : "smoke"} recor
       events.ko++;
       await until(async () => { await sample(); return (await snap(guest!.page)).players.find((p) => p.entityId === B)!.action !== "Dead"; }, 12_000, "guest respawn");
     };
-    do { await cycle(); } while (LONG && Date.now() - t0 < MINUTES * 60_000);
+    do { await cycle(); console.log("QP02 cycle done", Date.now() - t0); } while (LONG && Date.now() - t0 < MINUTES * 60_000);
 
     // Server-confirmed counts come from the client event bus on the host (hit) and agree across clients on damage.
     const sh = await snap(host.page), sg = await snap(guest.page);
@@ -194,6 +209,15 @@ test(`Q01: four-fighter workload ${LONG ? `long ${MINUTES} min` : "smoke"} recor
     mkdirSync(outDir, { recursive: true });
     writeFileSync(path.join(outDir, `${LONG ? "long" : "smoke"}-${tier}-run.json`), JSON.stringify(record, null, 2) + "\n");
     await host.page.screenshot({ path: path.join(outDir, `${LONG ? "long" : "smoke"}-host.png`) });
+    // QP02: peak particle, geometry and worst-frame record plus budget assertions (spec section 24: 120 calls, 150k triangles, pool cap).
+    const worst = samples.filter((s) => !s.excluded).map((s) => s.dtMs).sort((a, b) => b - a).slice(0, 5).map((v) => +v.toFixed(1));
+    writeFileSync(path.join(outDir, `${LONG ? "long" : "smoke"}-${tier}-qp02.json`), JSON.stringify({ tier, maxDrawCalls: maxCalls, maxVisibleTriangles: maxTris,
+      maxParticlesLive: maxFx, particleCapacity: fxCap, nonEssentialSpawnsShed: shed, worstFiveFramesMs: worst, medianFps: stats.medianFps, frameP95Ms: stats.frameP95Ms,
+      environment: "Playwright Chromium on SwiftShader, Apple Mac; software raster, not an iPad" }, null, 2) + "\n");
+    expect(maxCalls).toBeLessThanOrEqual(120);
+    expect(maxTris).toBeLessThanOrEqual(150_000);
+    expect(maxFx).toBeLessThanOrEqual(fxCap);
+    expect(maxFx).toBeGreaterThan(0);
     expect(missingEvents(events)).toEqual([]);
     expect(reflected).toBeGreaterThan(0);
     expect(stats.sampleCount).toBeGreaterThan(30);

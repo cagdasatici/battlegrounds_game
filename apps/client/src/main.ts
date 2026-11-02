@@ -516,7 +516,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
         /** Test-only: sets the player-controlled camera yaw so both fighters can face each other. */
         setCameraYaw: (y: number) => { router.yaw = y; },
         /** Test-only: saturates the pooled particle buffer so telegraph retention can be checked. */
-        floodFx: (n: number) => { for (let i = 0; i < n; i++) g.effects.spawn({ x: 0, y: 3, z: 0, vx: 0, vy: 0, vz: 0, life: 30, size: 0.1, color: 0xffffff }); },
+        floodFx: (n: number) => { for (let i = 0; i < n; i++) g.effects.spawn({ x: 0, y: 3, z: 0, vx: 0, vy: 0, vz: 0, life: 30, size: 0.1, color: 0xffffff, essential: true }); },
         snapshot: () => ({
           localEntityId: loop.localEntityId,
           serverTick: (r.state as { serverTick?: number }).serverTick ?? 0,
@@ -527,7 +527,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
           eventCounts: { ...debugEventCounts },
           render: glRenderer ? { geometries: glRenderer.info.memory.geometries, calls: glRenderer.info.render.calls, triangles: glRenderer.info.render.triangles, tier: adaptive.level } : null,
           telegraphs: telegraphs?.snapshot() ?? null,
-          fx: { active: g.effects.activeCount, capacity: g.effects.capacity, flashing: [...players().keys()].filter((id) => g.viewFor(id)?.flashing), shaking: cam.shaking },
+          fx: { active: g.effects.activeCount, capacity: g.effects.capacity, shed: g.effects.shedCount, flashing: [...players().keys()].filter((id) => g.viewFor(id)?.flashing), shaking: cam.shaking },
           corrections: { ...loop.correctionCounts },
           camera: (() => {
             const f = loop.framing;
