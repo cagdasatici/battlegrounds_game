@@ -132,3 +132,33 @@ test("QV04: Undertow Spiral ribbon appears only after a confirmed capture hit an
     for (const x of [A, B]) expect(x.errors).toEqual([]);
   } finally { await A.ctx.close(); await B.ctx.close().catch(() => undefined); }
 });
+
+test("QV05: Furnace Ray is sustained for the whole replicated Active phase, then stops on interruption and drains", async () => {
+  test.setTimeout(120_000);
+  const A = await open("Eli", "ea");
+  const B = await open("Sven", "sv");
+  try {
+    await until(async () => (await snap(B.page)).players.filter((p) => p.ready).length === 2, 15000, "both ready");
+    const listings = await matchMaker.query({ name: "arena" });
+    const arena = matchMaker.getLocalRoomById(listings[0]!.roomId) as unknown as ArenaRoom;
+    const aId = await until(async () => (await snap(A.page)).localEntityId, 10000, "A id");
+    const fa = arena.combat.get(aId)!;
+    const set = (action: string, len: number) => { const tick = arena.sim.tick; fa.action = action as never; fa.moveId = action === "Idle" ? "" : "ea.a3"; fa.actionStartTick = tick; fa.actionEndTick = action === "Idle" ? Number.MAX_SAFE_INTEGER : tick + len; };
+    const fxActive = (p: Page) => snap(p).then((s) => s.fx.active);
+    await until(async () => (await fxActive(B.page)) === 0, 8000, "quiet pool");
+    set("Active", 1000);
+    // Sustained: particles live 0.1 s, so seeing them across 1.2 s means the beam is being re-emitted, not fired once.
+    const samples: number[] = [];
+    for (let i = 0; i < 8; i++) { await sleep(150); samples.push(await fxActive(B.page)); }
+    expect(samples.filter((n) => n > 0).length).toBeGreaterThanOrEqual(7);
+    expect(Math.max(...samples)).toBeLessThanOrEqual(200);
+    // Authoritative interruption ends the beam; the observer pool drains.
+    set("Stunned", 1000);
+    await until(async () => (await fxActive(B.page)) === 0, 8000, "beam drains after interruption");
+    // Active end: a short Active window ends the beam by itself.
+    set("Active", 40);
+    await until(async () => (await fxActive(B.page)) > 0, 8000, "short beam seen");
+    await until(async () => (await fxActive(B.page)) === 0, 8000, "beam drains after active end");
+    for (const x of [A, B]) expect(x.errors).toEqual([]);
+  } finally { await A.ctx.close(); await B.ctx.close().catch(() => undefined); }
+});

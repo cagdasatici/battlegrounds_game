@@ -86,12 +86,16 @@ export class EffectsPool {
   /** Advances every live particle by dtSec of render time. */
   update(dtSec: number): void {
     const mesh = this.mesh;
-    if (!mesh || this.alive === 0 || !(dtSec > 0)) return;
+    if (!mesh || !(dtSec > 0)) return;
+    let live = 0;
     for (let i = 0; i < this.cap; i++) {
       if (!(this.age[i]! < this.life[i]!)) continue;
       const a = this.age[i]! + dtSec;
       this.age[i] = a;
-      if (a >= this.life[i]!) { this.alive -= 1; this.write(i, 0); continue; }
+      // A dead slot must read age >= life exactly (float32 rounding of `a` could otherwise revive it), and the live count is
+      // recounted every update so it can never drift (a drifted count froze stuck particles in browser runs).
+      if (a >= this.life[i]!) { this.age[i] = this.life[i]!; this.write(i, 0); continue; }
+      live += 1;
       const vy = this.vy[i]! - this.grav[i]! * dtSec;
       this.vy[i] = vy;
       this.px[i] = this.px[i]! + this.vx[i]! * dtSec;
@@ -99,6 +103,7 @@ export class EffectsPool {
       this.pz[i] = this.pz[i]! + this.vz[i]! * dtSec;
       this.write(i, 1 - a / this.life[i]!);
     }
+    this.alive = live;
   }
 
   private write(i: number, scale: number): void {

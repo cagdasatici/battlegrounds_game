@@ -24,13 +24,23 @@ export interface Recipe {
   /** Optional kit-specific reaction to a confirmed bus `hit`. Replaces the generic impact when set; `hitCount` is its particle budget. */
   playHit?: (fx: EffectsPool, e: CombatEvent, at: Pos, actorAt: Pos | undefined) => void;
   hitCount?: number;
+  /** QV05: optional per-frame emitter while the replicated action is Active (needs the replicated tick). `sustainPeak` is its worst-case live particles. */
+  sustain?: (fx: EffectsPool, c: SustainCtx) => void;
+  sustainPeak?: number;
+}
+
+/** What a sustained Active effect may read. Replicated state only; `state` is per actor and cleared when the Active phase ends. */
+export interface SustainCtx {
+  at: Pos; yaw: number; tick: number; startTick: number; endTick: number;
+  cover?: ((ox: number, oy: number, oz: number, fx: number, fz: number, max: number) => number) | undefined;
+  state: { start: number; lastEmit: number; lastPulse: number };
 }
 
 export const LOW_QUALITY_CAP = 100;
 export const DECAL_PARTS = 12, GLOW_PARTS = 6;
 
 /** Particles one recipe can spawn across windup, active and impact. */
-export const recipeParticles = (t: Recipe): number => DECAL_PARTS + (t.windup.glow ? GLOW_PARTS : 0) + t.active.count + t.impact.count + (t.hitCount ?? 0);
+export const recipeParticles = (t: Recipe): number => DECAL_PARTS + (t.windup.glow ? GLOW_PARTS : 0) + t.active.count + t.impact.count + (t.hitCount ?? 0) + (t.sustainPeak ?? 0);
 
 /** Ground decal radius from an ability definition's shape, clamped so huge boxes still draw a readable ring. */
 export function decalRadiusFor(defs: readonly { id: string; shape: { kind: string; r?: number; w?: number; radius?: number } }[], moveId: string): number {
@@ -126,6 +136,25 @@ export function scanPlayers(fx: EffectsPool, players: Map<string, unknown>, seen
   for (const id of [...seen.keys()]) if (!live.has(id)) seen.delete(id);
 }
 
+/**
+ * QV05: runs each recipe's `sustain` once per frame for every actor in the Active phase and forgets actors that left it
+ * (interruption, death, active end, leave). Without a replicated tick nothing is sustained.
+ */
+export function scanSustain(fx: EffectsPool, players: Map<string, unknown>, st: Map<string, SustainCtx["state"]>, recipeFor: (moveId: string | undefined) => Recipe | undefined, tick: number | undefined, cover?: SustainCtx["cover"]): void {
+  for (const [id, v] of players) {
+    const p = v as PlayerLike & { actionEndTick?: number };
+    const t = p.action === "Active" ? recipeFor(p.moveId) : undefined;
+    const end = p.actionEndTick ?? 0;
+    if (!t?.sustain || tick === undefined || tick >= end) { st.delete(id); continue; }
+    const key = `${id}`;
+    let s = st.get(key);
+    const start = p.actionStartTick ?? 0;
+    if (!s || s.start !== start) { s = { start, lastEmit: -1, lastPulse: -1 }; st.set(key, s); }
+    t.sustain(fx, { at: { x: p.x / 100, y: p.y / 100, z: p.z / 100 }, yaw: fromYaw(p.facingYaw ?? 0), tick, startTick: start, endTick: end, cover, state: s });
+  }
+  for (const id of [...st.keys()]) if (!players.has(id)) st.delete(id);
+}
+
 export function onHit(fx: EffectsPool, e: CombatEvent, chest: (id: string) => Pos | undefined, recipeFor: (moveId: string | undefined) => Recipe | undefined): void {
   if (e.kind !== "hit") return;
   const t = recipeFor(e.moveId);
@@ -146,10 +175,12 @@ export function makeKitFx(recipeFor: (moveId: string | undefined) => Recipe | un
       };
       const off = bus.on((e) => { onHit(fx, e, chest, recipeFor); });
       const seen = new Map<string, string>();
+      const sustained = new Map<string, SustainCtx["state"]>();
       let raf = 0, alive = true;
       const frame = (): void => {
         if (!alive) return;
         scanPlayers(fx, deps.players(), seen, recipeFor, deps.surfaceHeight);
+        scanSustain(fx, deps.players(), sustained, recipeFor, deps.serverTick?.(), deps.cover);
         raf = requestAnimationFrame(frame);
       };
       if (typeof requestAnimationFrame === "function") raf = requestAnimationFrame(frame);
@@ -158,6 +189,7 @@ export function makeKitFx(recipeFor: (moveId: string | undefined) => Recipe | un
         if (typeof cancelAnimationFrame === "function") cancelAnimationFrame(raf);
         off();
         seen.clear();
+        sustained.clear();
       };
     },
   };
