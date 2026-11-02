@@ -168,7 +168,7 @@ test("QV05: Furnace Ray is sustained for the whole replicated Active phase, then
 // ---- QV06: Vanguard ability and awakening coverage -------------------------------------------------------------
 // Fixture (synthetic, labelled): fighter placement, camera yaw and the server fighter's action/moveId are set by the test; hits are
 // server-broadcast combat events. Replication, rendering, pooling and cleanup are real. Stills are SwiftShader desktop Chromium, not a device.
-const outDir6 = path.join(root, "docs/test-results/QV06");
+const outDir6 = path.join(root, process.env.QV09_POLISH ? "docs/test-results/QV09/polish" : "docs/test-results/QV06"); // QV09 polish recaptures go beside QV09 so the original stills stay as the before set
 interface Row { id: string; action: "Active" | "Awakening"; hits: number[]; sustained?: boolean }
 const ROWS: Row[] = [
   { id: "sv.b1", action: "Active", hits: [2000] }, { id: "sv.b2", action: "Active", hits: [], sustained: true }, { id: "sv.b3", action: "Active", hits: [] },
@@ -224,6 +224,7 @@ for (const tier of ["low", "medium"] as const) {
         if (tier === "medium" && !MEDIUM_ROWS.has(row.id)) continue;
         apply(); idle(); ft.hp100 = 10000;
         await until(async () => (await fxOf()) === 0, 15000, `${row.id} quiet pool`);
+        if (row.id === "td.a4") place(aId, 2, 8, -Math.PI / 2); // QV09 polish: the dash starts 4 m behind the target and really moves, so the trail exists
         const tick = arena.sim.tick;
         fa.action = row.action as never; fa.moveId = row.id; fa.actionStartTick = tick; fa.actionEndTick = tick + (row.action === "Awakening" ? 30 : 1000);
         const cue = await until(async () => { const n = await fxOf(); return n > 0 ? n : false; }, 8000, `${row.id} cue`);
@@ -259,7 +260,8 @@ for (const tier of ["low", "medium"] as const) {
 // ---- QV07: Duelist ability and awakening coverage -------------------------------------------------------------
 // Fixture (synthetic, labelled): fighter placement, camera yaw and the server fighter's action/moveId are set by the test; hits are
 // server-broadcast combat events. Replication, rendering, pooling and cleanup are real. Stills are SwiftShader desktop Chromium, not a device.
-const outDir7 = path.join(root, "docs/test-results/QV07");
+const RIPTIDE_LUNGE = 8; // td.a4 lunge ring particle count (RIPTIDE.lunge)
+const outDir7 = path.join(root, process.env.QV09_POLISH ? "docs/test-results/QV09/polish" : "docs/test-results/QV07"); // QV09 polish recaptures go beside QV09 so the original stills stay as the before set
 interface Row7 { id: string; action: "Active" | "Awakening"; hits: number[]; sustained?: boolean; counter?: boolean }
 // A hit of 0 damage is sent as a server "capture" event, as the real pipeline reports captures; everything else is a "hit".
 const ROWS7: Row7[] = [
@@ -268,7 +270,7 @@ const ROWS7: Row7[] = [
   { id: "td.a3", action: "Active", hits: [1200, 2600], sustained: true }, { id: "td.a4", action: "Active", hits: [0, 2200], sustained: true },
   { id: "td.activate", action: "Awakening", hits: [2000] },
 ];
-const MEDIUM7 = new Set(["td.b4", "td.a2", "td.a3", "td.activate"]);
+const MEDIUM7 = new Set(["td.b4", "td.a2", "td.a3", "td.a4", "td.activate"]); // QV09 polish: td.a4 added (moving-caster trail)
 for (const tier of ["low", "medium"] as const) {
   test(`QV07 ${tier}: every Duelist move and the activation show a cue on an observer, react to confirmed hits only, and drain`, async () => {
     test.setTimeout(600_000);
@@ -321,6 +323,14 @@ for (const tier of ["low", "medium"] as const) {
         const t0 = Date.now();
         const s0 = await snap(O.page), file = `${tier}-${row.id}-cue.jpg`;
         await O.page.screenshot({ path: path.join(outDir7, file), type: "jpeg", quality: 82 });
+        let trailPeak: number | null = null;
+        if (row.id === "td.a4") { // QV09 polish: move the caster 4 m east through Active and capture the trail mid-dash
+          for (let st = 1; st <= 16; st++) {
+            place(aId, 2 + st * 0.25, 8, -Math.PI / 2); await sleep(45);
+            if (st === 9) { trailPeak = await fxOf(); await O.page.screenshot({ path: path.join(outDir7, `${tier}-td.a4-trail.jpg`), type: "jpeg", quality: 82 }); }
+          }
+          expect(trailPeak).toBeGreaterThan(RIPTIDE_LUNGE); // more than the lunge ring alone is alive mid-dash
+        }
         const hitPeaks: number[] = [];
         let shot = file;
         for (const dmg of row.hits) {
@@ -354,7 +364,7 @@ for (const tier of ["low", "medium"] as const) {
 // ---- QV08: Artificer ability and awakening coverage -------------------------------------------------------------
 // Fixture (synthetic, labelled): fighter placement, camera yaw and the server fighter's action/moveId are set by the test; hits are
 // server-broadcast combat events. Replication, rendering, pooling and cleanup are real. Stills are SwiftShader desktop Chromium, not a device.
-const outDir8 = path.join(root, "docs/test-results/QV08");
+const outDir8 = path.join(root, process.env.QV09_POLISH ? "docs/test-results/QV09/polish" : "docs/test-results/QV08"); // QV09 polish recaptures go beside QV09 so the original stills stay as the before set
 interface Row8 { id: string; action: "Active" | "Awakening"; hits: number[]; sustained?: boolean; counter?: boolean }
 // A hit of 0 damage is sent as a server "capture" event, as the real pipeline reports captures; everything else is a "hit".
 const ROWS8: Row8[] = [

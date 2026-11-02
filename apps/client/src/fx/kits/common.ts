@@ -33,7 +33,7 @@ export interface Recipe {
 export interface SustainCtx {
   at: Pos; yaw: number; tick: number; startTick: number; endTick: number;
   cover?: ((ox: number, oy: number, oz: number, fx: number, fz: number, max: number) => number) | undefined;
-  state: { start: number; lastEmit: number; lastPulse: number; px?: number; pz?: number }; // px/pz: QV07 last seen position for motion trails
+  state: { start: number; lastEmit: number; lastPulse: number; px?: number; pz?: number; n?: number }; // px/pz: QV07 last seen position for motion trails; n: QV09 emit counter (beam generation parity, independent of frame rate)
 }
 
 export const LOW_QUALITY_CAP = 100;
@@ -50,6 +50,15 @@ export function decalRadiusFor(defs: readonly { id: string; shape: { kind: strin
 }
 
 export type Pos = { x: number; y: number; z: number };
+
+/**
+ * QV09 polish: continuous beam body from pooled spheres. Particles sit along the aim at `n` evenly spaced stations; the stations of
+ * the odd generation are shifted by half a step, so two consecutive emits interleave and the union spacing is len / (2n).
+ * Pure placement maths (no spawning); `gen` comes from the replicated tick, never from wall time.
+ */
+/** Generation (0/1) of the emit being drawn: alternates per emit, counted in the per-actor state so a slow frame rate cannot repeat a parity. */
+export const beamGen = (state: SustainCtx["state"]): number => { state.n = (state.n ?? 0) + 1; return state.n & 1; };
+export const beamStation = (i: number, n: number, len: number, gen: number): number => ((i + 0.25 + 0.5 * gen) / n) * len;
 
 /** Forward/perpendicular frame at a position for a heading; `pt(f, l)` is f metres ahead and l metres to the right. */
 export function frameOf(at: Pos, yaw: number): { dx: number; dz: number; px: number; pz: number; pt: (f: number, l: number) => { x: number; z: number } } {

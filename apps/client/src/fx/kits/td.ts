@@ -86,11 +86,11 @@ const ring = (fx: EffectsPool, at: Pos, n: number, radius: number, life: number,
 };
 
 /** td.b1 Current Bind: a looping ribbon thrown to the 2.4 m grab point; each strike pulses a tight ring on the victim, the 8 HP release surges outward. */
-export const BIND = { loop: 12, lead: 6, reach: 2.4, pulse: 8, surge: 16, wrap: 10 } as const;
+export const BIND = { loop: 18, lead: 8, reach: 2.4, pulse: 8, surge: 16, wrap: 10, loopSize: 0.4, leadSize: 0.32 } as const;
 export function playCurrentBind(fx: EffectsPool, at: Pos, yaw: number): void {
   const f = frameOf(at, yaw), c = f.pt(BIND.reach, 0);
-  for (let i = 0; i < BIND.loop; i++) { const a = (i / BIND.loop) * Math.PI * 2; fx.spawn({ x: c.x + Math.cos(a) * 0.55, y: at.y + 0.5 + i * 0.05, z: c.z + Math.sin(a) * 0.55, vx: -Math.sin(a) * 2.5, vy: 0.3, vz: Math.cos(a) * 2.5, life: 0.45, size: 0.2, color: i % 2 ? AQUA : EDGE }); }
-  for (let i = 0; i < BIND.lead; i++) fx.spawn({ x: at.x + f.dx * 0.4, y: at.y + 0.6, z: at.z + f.dz * 0.4, vx: f.dx * BIND.reach / 0.2, vy: 0, vz: f.dz * BIND.reach / 0.2, life: 0.2 + i * 0.01, size: 0.16, color: EDGE });
+  for (let i = 0; i < BIND.loop; i++) { const a = (i / BIND.loop) * Math.PI * 2; fx.spawn({ x: c.x + Math.cos(a) * 0.55, y: at.y + 0.5 + i * 0.04, z: c.z + Math.sin(a) * 0.55, vx: -Math.sin(a) * 2.5, vy: 0.3, vz: Math.cos(a) * 2.5, life: 0.5, size: BIND.loopSize, color: i % 2 ? AQUA : EDGE }); }
+  for (let i = 0; i < BIND.lead; i++) fx.spawn({ x: at.x + f.dx * 0.4, y: at.y + 0.6, z: at.z + f.dz * 0.4, vx: f.dx * BIND.reach / 0.2, vy: 0, vz: f.dz * BIND.reach / 0.2, life: 0.25 + i * 0.01, size: BIND.leadSize, color: EDGE });
 }
 export function playBindHit(fx: EffectsPool, e: CombatEvent, at: Pos): void {
   const dmg = e.damage100 ?? 0;
@@ -126,10 +126,10 @@ export function playMirrorHit(fx: EffectsPool, e: CombatEvent, at: Pos): void {
 }
 
 /** td.a1 Cascade Chain: five linked water rings along the 2.5 m reach; each chain strike snaps a ring on the victim, the 10 HP finisher bursts. */
-export const CHAIN = { links: 5, per: 4, reach: 2.5, snap: 6, burst: 18 } as const;
+export const CHAIN = { links: 5, per: 6, reach: 2.5, snap: 6, burst: 18, size: 0.38 } as const;
 export function playCascadeChain(fx: EffectsPool, at: Pos, yaw: number): void {
   const f = frameOf(at, yaw);
-  for (let l = 0; l < CHAIN.links; l++) { const c = f.pt(((l + 1) / CHAIN.links) * CHAIN.reach, 0); for (let i = 0; i < CHAIN.per; i++) { const a = (i / CHAIN.per) * Math.PI * 2 + l; fx.spawn({ x: c.x + Math.cos(a) * 0.3, y: at.y + 0.6 + Math.sin(a) * 0.3, z: c.z + f.px * Math.cos(a) * 0.3, vx: f.dx * 1.5, vy: 0, vz: f.dz * 1.5, life: 0.3 + l * 0.05, size: 0.18, color: l % 2 ? AQUA : EDGE }); } }
+  for (let l = 0; l < CHAIN.links; l++) { const c = f.pt(((l + 1) / CHAIN.links) * CHAIN.reach, 0); for (let i = 0; i < CHAIN.per; i++) { const a = (i / CHAIN.per) * Math.PI * 2 + l; fx.spawn({ x: c.x + Math.cos(a) * 0.3, y: at.y + 0.6 + Math.sin(a) * 0.3, z: c.z + f.px * Math.cos(a) * 0.3, vx: f.dx * 1.5, vy: 0, vz: f.dz * 1.5, life: 0.35 + l * 0.05, size: CHAIN.size, color: l % 2 ? AQUA : EDGE }); } }
 }
 export function playChainHit(fx: EffectsPool, e: CombatEvent, at: Pos): void {
   if ((e.damage100 ?? 0) >= 1000) { for (let i = 0; i < CHAIN.burst; i++) { const a = (i / CHAIN.burst) * Math.PI * 2; fx.spawn({ x: at.x, y: at.y, z: at.z, vx: Math.cos(a) * 6, vy: 2 + (i % 3), vz: Math.sin(a) * 6, life: 0.45, size: 0.3, color: i % 2 ? FOAM : DEEP, gravity: 6 }); } return; }
@@ -153,14 +153,14 @@ export function playDeepfallHit(fx: EffectsPool, e: CombatEvent, at: Pos): void 
 }
 
 /** td.a3 Split Tide: two probes at activeStart+[0,17]. The first sweeps a modest crescent over the 3 m range, the second (26 HP) a wider, heavier one. Pulses come from the replicated tick, so a skipped frame still draws the latest due probe once. */
-export const SPLIT = { offsets: def("td.a3").hitOffsets ?? [], first: 14, second: 22, reach: def("td.a3").range, hit: 8, release: 16 } as const;
+export const SPLIT = { offsets: def("td.a3").hitOffsets ?? [], first: 18, second: 26, firstSize: 0.4, secondSize: 0.55, reach: def("td.a3").range, hit: 8, release: 16 } as const;
 export function playSplitTide(fx: EffectsPool, c: SustainCtx): void {
   const i = duePulse(c, SPLIT.offsets);
   if (i < 0) return;
   const n = i === 0 ? SPLIT.first : SPLIT.second, span = i === 0 ? 1.4 : 2.4;
   for (let k = 0; k < n; k++) {
     const a = c.yaw + ((k + 0.5) / n - 0.5) * span, [vx, vz] = forwardOf(a);
-    fx.spawn({ x: c.at.x + vx * 0.5, y: c.at.y + 0.5 + (k % 3) * 0.2, z: c.at.z + vz * 0.5, vx: vx * SPLIT.reach / 0.25, vy: 0.2, vz: vz * SPLIT.reach / 0.25, life: 0.25, size: i === 0 ? 0.22 : 0.3, color: i === 0 ? AQUA : DEEP });
+    fx.spawn({ x: c.at.x + vx * 0.5, y: c.at.y + 0.5 + (k % 3) * 0.2, z: c.at.z + vz * 0.5, vx: vx * SPLIT.reach / 0.25, vy: 0.2, vz: vz * SPLIT.reach / 0.25, life: 0.25, size: i === 0 ? SPLIT.firstSize : SPLIT.secondSize, color: i === 0 ? AQUA : DEEP });
   }
 }
 export function playSplitHit(fx: EffectsPool, e: CombatEvent, at: Pos): void {
@@ -172,15 +172,15 @@ export function playSplitHit(fx: EffectsPool, e: CombatEvent, at: Pos): void {
  * td.a4 Riptide Pursuit: a lunge ring at the start of Active, then (ranged branch) a spray trail left behind the caster as it dashes up to 9 m.
  * The trail is drawn only while the replicated position moves, so the close branch (no travel) shows just the lunge. Capture wraps the victim; the 22/27 HP finish is a heavy release splash.
  */
-export const RIPTIDE = { lunge: 8, trailPer: 3, trailEvery: 2, trailLife: 0.3, wrap: 12, finish: 20, minStep: 0.05 } as const;
+export const RIPTIDE = { lunge: 8, trailPer: 4, trailEvery: 2, trailLife: 0.35, trailSize: 0.45, lungeSize: 0.35, wrap: 12, finish: 20, minStep: 0.05 } as const;
 export function playRiptidePursuit(fx: EffectsPool, c: SustainCtx): void {
   const first = c.state.lastEmit < 0;
-  if (first) { c.state.lastEmit = c.tick; c.state.px = c.at.x; c.state.pz = c.at.z; ring(fx, c.at, RIPTIDE.lunge, 0.6, 0.3, 0.22, EDGE, 0.5); return; }
+  if (first) { c.state.lastEmit = c.tick; c.state.px = c.at.x; c.state.pz = c.at.z; ring(fx, c.at, RIPTIDE.lunge, 0.6, 0.3, RIPTIDE.lungeSize, EDGE, 0.5); return; }
   const moved = Math.hypot(c.at.x - (c.state.px ?? c.at.x), c.at.z - (c.state.pz ?? c.at.z)), dx = c.at.x - (c.state.px ?? c.at.x), dz = c.at.z - (c.state.pz ?? c.at.z);
   if (moved < RIPTIDE.minStep || c.tick - c.state.lastEmit < RIPTIDE.trailEvery) return;
   const ux = dx / moved, uz = dz / moved;
   c.state.lastEmit = c.tick; c.state.px = c.at.x; c.state.pz = c.at.z;
-  for (let i = 0; i < RIPTIDE.trailPer; i++) fx.spawn({ x: c.at.x - ux * 0.3, y: c.at.y + 0.3 + i * 0.3, z: c.at.z - uz * 0.3, vx: -ux * 2, vy: 0.4, vz: -uz * 2, life: RIPTIDE.trailLife, size: 0.3, color: i % 2 ? AQUA : FOAM });
+  for (let i = 0; i < RIPTIDE.trailPer; i++) fx.spawn({ x: c.at.x - ux * 0.3, y: c.at.y + 0.3 + i * 0.25, z: c.at.z - uz * 0.3, vx: -ux * 2, vy: 0.4, vz: -uz * 2, life: RIPTIDE.trailLife, size: RIPTIDE.trailSize, color: i % 2 ? AQUA : FOAM });
 }
 export function playRiptideHit(fx: EffectsPool, e: CombatEvent, at: Pos): void {
   if ((e.damage100 ?? 0) >= 2200) { for (let i = 0; i < RIPTIDE.finish; i++) { const a = (i / RIPTIDE.finish) * Math.PI * 2; fx.spawn({ x: at.x, y: at.y, z: at.z, vx: Math.cos(a) * 7, vy: 2 + (i % 4), vz: Math.sin(a) * 7, life: 0.5, size: 0.32, color: i % 2 ? FOAM : DEEP, gravity: 7 }); } return; }

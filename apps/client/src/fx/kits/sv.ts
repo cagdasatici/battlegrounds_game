@@ -2,7 +2,7 @@ import { forwardOf } from "@eb/shared/math";
 import { SV_DEFS } from "@eb/shared/config/kits/index";
 import type { EffectsPool } from "../../scene/EffectsPool.js";
 import type { CombatEvent } from "@eb/shared/protocol";
-import { decalRadiusFor, frameOf, makeKitFx, onHit as onHitWith, scanPlayers as scanWith, type ActiveStyle, type Pos, type Recipe, type SustainCtx } from "./common.js";
+import { beamGen, beamStation, decalRadiusFor, frameOf, makeKitFx, onHit as onHitWith, scanPlayers as scanWith, type ActiveStyle, type Pos, type Recipe, type SustainCtx } from "./common.js";
 
 /**
  * Stone Vanguard ability effects (FX4-sv). Stone language: fans of thrown chips and circular fractures in the ground.
@@ -85,14 +85,14 @@ export function playGravelFlurry(fx: EffectsPool, c: SustainCtx): void {
 }
 
 /** sv.b3 Rift Palm: a flat bright crescent thrown from the palm, 2 m reach (the reflect surface), with a pale centre line. */
-export const PALM = { arc: 10, line: 4, reach: 2, life: 0.3 } as const;
+export const PALM = { arc: 18, line: 6, reach: 2, life: 0.4, arcSize: 0.65, lineSize: 0.85 } as const;
 export function playRiftPalm(fx: EffectsPool, at: Pos, yaw: number): void {
   const f = frameOf(at, yaw);
   for (let i = 0; i < PALM.arc; i++) {
     const a = yaw + ((i + 0.5) / PALM.arc - 0.5) * 1.6, [vx, vz] = forwardOf(a);
-    fx.spawn({ x: at.x + f.dx * 0.6, y: at.y + 0.45, z: at.z + f.dz * 0.6, vx: vx * (PALM.reach - 0.6) / PALM.life, vy: 0, vz: vz * (PALM.reach - 0.6) / PALM.life, life: PALM.life, size: 0.34, color: PALE });
+    fx.spawn({ x: at.x + f.dx * 0.6, y: at.y + 0.45, z: at.z + f.dz * 0.6, vx: vx * (PALM.reach - 0.6) / PALM.life, vy: 0, vz: vz * (PALM.reach - 0.6) / PALM.life, life: PALM.life, size: PALM.arcSize, color: PALE });
   }
-  for (let i = 0; i < PALM.line; i++) fx.spawn({ x: at.x + f.dx * (0.6 + i * 0.35), y: at.y + 0.45, z: at.z + f.dz * (0.6 + i * 0.35), vx: 0, vy: 0, vz: 0, life: 0.2, size: 0.5, color: AMBER });
+  for (let i = 0; i < PALM.line; i++) fx.spawn({ x: at.x + f.dx * (0.6 + i * 0.28), y: at.y + 0.45, z: at.z + f.dz * (0.6 + i * 0.28), vx: 0, vy: 0, vz: 0, life: 0.3, size: PALM.lineSize, color: AMBER });
 }
 
 /** sv.b4 Rising Pillar: a column of slabs rising 1.6 m ahead (the launch point) over a cracked ring on the ground. */
@@ -137,17 +137,18 @@ export function playSkybreak(fx: EffectsPool, at: Pos, yaw: number): void {
 
 /** sv.a3 Horizon Break: a wide pale core inside an amber sheath along the aim, clipped at the first cover, re-emitted every 3 ticks of the 6 tick Active window. */
 const BEAM = def("sv.a3").shape;
-export const HORIZON = { core: 8, sheath: 12, emitTicks: 3, life: 0.35, originForward: 0.6, length: BEAM.kind === "beam" ? BEAM.length : 32, radius: BEAM.kind === "beam" ? BEAM.radius : 3 } as const;
+export const HORIZON = { core: 26, sheath: 11, coreSize: 1.4, sheathSize: 1.0, emitTicks: 3, life: 0.4, originForward: 0.6, length: BEAM.kind === "beam" ? BEAM.length : 32, radius: BEAM.kind === "beam" ? BEAM.radius : 3 } as const;
 export function playHorizonBreak(fx: EffectsPool, c: SustainCtx): void {
   if (c.state.lastEmit >= 0 && c.tick - c.state.lastEmit < HORIZON.emitTicks) return;
   c.state.lastEmit = c.tick;
   const f = frameOf(c.at, c.yaw), ox = c.at.x + f.dx * HORIZON.originForward, oz = c.at.z + f.dz * HORIZON.originForward, oy = c.at.y + 1;
   const len = c.cover ? Math.min(HORIZON.length, c.cover(ox, oy - 0.6, oz, f.dx, f.dz, HORIZON.length)) : HORIZON.length;
   if (len <= 0) return;
-  for (let i = 0; i < HORIZON.core; i++) { const d = ((i + 0.5) / HORIZON.core) * len; fx.spawn({ x: ox + f.dx * d, y: oy, z: oz + f.dz * d, vx: 0, vy: 0, vz: 0, life: HORIZON.life, size: 0.9, color: PALE }); }
+  const gen = beamGen(c.state); // QV09: continuous core, two interleaved emits
+  for (let i = 0; i < HORIZON.core; i++) { const d = beamStation(i, HORIZON.core, len, gen); fx.spawn({ x: ox + f.dx * d, y: oy, z: oz + f.dz * d, vx: 0, vy: 0, vz: 0, life: HORIZON.life, size: HORIZON.coreSize, color: PALE }); }
   for (let i = 0; i < HORIZON.sheath; i++) {
-    const d = ((i + 0.5) / HORIZON.sheath) * len, s = i % 2 ? 1 : -1, w = HORIZON.radius * 0.8 * (0.5 + (i % 3) / 4);
-    fx.spawn({ x: ox + f.dx * d + f.px * s * w, y: oy + (i % 3) * 0.3 - 0.3, z: oz + f.dz * d + f.pz * s * w, vx: 0, vy: 0.4, vz: 0, life: HORIZON.life, size: 0.7, color: AMBER });
+    const d = beamStation(i, HORIZON.sheath, len, gen), s = i % 2 ? 1 : -1, w = 0.6 + (i % 3) * 0.3;
+    fx.spawn({ x: ox + f.dx * d + f.px * s * w, y: oy + (i % 3) * 0.2 - 0.2, z: oz + f.dz * d + f.pz * s * w, vx: 0, vy: 0.4, vz: 0, life: HORIZON.life, size: HORIZON.sheathSize, color: AMBER });
   }
 }
 
@@ -170,20 +171,20 @@ export function playOrbitHit(fx: EffectsPool, e: CombatEvent, at: Pos): void {
 }
 
 /** sv.x1 Echo Tap: a bright tap ring at the contact, then a wider dim echo ring (two radii, two lifetimes). */
-export const ECHO = { tap: 8, echo: 10, tapR: 0.5, echoR: 1.5, at: 1.5 } as const;
+export const ECHO = { tap: 12, echo: 16, tapR: 0.5, echoR: 1.5, at: 1.5, tapSize: 0.6, echoSize: 0.5, tapLife: 0.3, echoLife: 0.6 } as const;
 export function playEchoTap(fx: EffectsPool, at: Pos, yaw: number): void {
   const c = frameOf(at, yaw).pt(ECHO.at, 0);
-  for (let i = 0; i < ECHO.tap; i++) { const a = (i / ECHO.tap) * Math.PI * 2; fx.spawn({ x: c.x, y: at.y + 0.1, z: c.z, vx: Math.cos(a) * ECHO.tapR / 0.2, vy: 0, vz: Math.sin(a) * ECHO.tapR / 0.2, life: 0.2, size: 0.36, color: PALE }); }
-  for (let i = 0; i < ECHO.echo; i++) { const a = (i / ECHO.echo) * Math.PI * 2; fx.spawn({ x: c.x, y: at.y + 0.1, z: c.z, vx: Math.cos(a) * ECHO.echoR / 0.5, vy: 0, vz: Math.sin(a) * ECHO.echoR / 0.5, life: 0.5, size: 0.24, color: AMBER }); }
+  for (let i = 0; i < ECHO.tap; i++) { const a = (i / ECHO.tap) * Math.PI * 2; fx.spawn({ x: c.x, y: at.y + 0.1, z: c.z, vx: Math.cos(a) * ECHO.tapR / ECHO.tapLife, vy: 0, vz: Math.sin(a) * ECHO.tapR / ECHO.tapLife, life: ECHO.tapLife, size: ECHO.tapSize, color: PALE }); }
+  for (let i = 0; i < ECHO.echo; i++) { const a = (i / ECHO.echo) * Math.PI * 2; fx.spawn({ x: c.x, y: at.y + 0.1, z: c.z, vx: Math.cos(a) * ECHO.echoR / ECHO.echoLife, vy: 0, vz: Math.sin(a) * ECHO.echoR / ECHO.echoLife, life: ECHO.echoLife, size: ECHO.echoSize, color: AMBER }); }
 }
 
 /** sv.x2 Gale Rebuff: low gust streaks toward the wall; the capture (0 damage) pins dust at the captive, the scheduled release (40 HP) throws a fan away from the caster. */
-export const GALE = { streaks: 12, release: 16, pin: 6, reach: 2.4 } as const;
+export const GALE = { streaks: 20, lanes: 5, release: 16, pin: 6, reach: 2.4, life: 0.4, size: 0.55 } as const;
 export function playGale(fx: EffectsPool, at: Pos, yaw: number): void {
   const f = frameOf(at, yaw);
   for (let i = 0; i < GALE.streaks; i++) {
-    const l = ((i % 4) - 1.5) * 0.35, h = 0.5 + Math.floor(i / 4) * 0.4;
-    fx.spawn({ x: at.x + f.px * l + f.dx * 0.5, y: at.y + h, z: at.z + f.pz * l + f.dz * 0.5, vx: f.dx * GALE.reach / 0.3, vy: 0, vz: f.dz * GALE.reach / 0.3, life: 0.3, size: 0.26, color: PALE });
+    const l = ((i % GALE.lanes) - (GALE.lanes - 1) / 2) * 0.35, h = 0.4 + Math.floor(i / GALE.lanes) * 0.35;
+    fx.spawn({ x: at.x + f.px * l + f.dx * 0.5, y: at.y + h, z: at.z + f.pz * l + f.dz * 0.5, vx: f.dx * GALE.reach / GALE.life, vy: 0, vz: f.dz * GALE.reach / GALE.life, life: GALE.life, size: GALE.size, color: PALE });
   }
 }
 export function playGaleHit(fx: EffectsPool, e: CombatEvent, at: Pos, actorAt: Pos | undefined): void {
@@ -239,7 +240,7 @@ export const SV_RECIPES: Readonly<Record<string, SvRecipe>> = {
   "sv.b4": { ...r("sv.b4", false, "fracture", PILLAR.slabs + PILLAR.ring, SLATE, 2, 14), playActive: playRisingPillar },
   "sv.a1": { ...r("sv.a1", false, "ring", REVERSAL.inward + REVERSAL.core, DUST, 3, 0), playActive: playStillpointResponse, playHit: playStillpointHit, hitCount: REVERSAL.hit },
   "sv.a2": { ...r("sv.a2", false, "fracture", SKYBREAK.lanes * SKYBREAK.ranks, SLATE, 10, 20), playActive: playSkybreak },
-  "sv.a3": { ...r("sv.a3", true, "fan", 0, OCHRE, 32, 12), sustain: playHorizonBreak, sustainPeak: (HORIZON.core + HORIZON.sheath) * 2 },
+  "sv.a3": { ...r("sv.a3", true, "fan", 0, OCHRE, 32, 8), sustain: playHorizonBreak, sustainPeak: (HORIZON.core + HORIZON.sheath) * 2 },
   "sv.a4": { ...r("sv.a4", false, "fracture", ORBIT.ring, SLATE, 4, 0), playActive: playOrbit, playHit: playOrbitHit, hitCount: ORBIT.release },
   "sv.x1": { ...r("sv.x1", false, "fan", ECHO.tap + ECHO.echo, AMBER, 2.5, 8), playActive: playEchoTap },
   "sv.x2": { ...r("sv.x2", false, "fan", GALE.streaks, DUST, 2.4, 0), playActive: playGale, playHit: playGaleHit, hitCount: GALE.release },

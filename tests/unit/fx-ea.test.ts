@@ -72,7 +72,7 @@ describe("QV05 Furnace Ray signature", () => {
     playFurnaceRay(fx, ctx({ tick: 101 })); // pulse 0 already flared at tick 100 below; here only the beam body
     const core = ps.filter((p) => p.color === 0xfff1b0), sheath = ps.filter((p) => p.color === 0xff7a1a);
     expect(core.length).toBe(FURNACE.core); expect(sheath.length).toBe(FURNACE.sheath);
-    expect(Math.max(...core.map((p) => p.size))).toBeLessThan(Math.min(...sheath.map((p) => p.size)));
+    expect(Math.min(...core.map((p) => p.size))).toBeGreaterThanOrEqual(Math.max(...sheath.map((p) => p.size))); // QV09: a continuous core with a thin rim, not a fat amber sheath
     const w = (p: P) => Math.abs(p.x);
     expect(w(sheath[0]!)).toBeGreaterThan(w(sheath[sheath.length - 1]!)); // taper
     expect(core.every((p) => Math.abs(p.x) < 1e-6)).toBe(true);
@@ -194,7 +194,7 @@ describe("QV08 Artificer move coverage (one table over the kit)", () => {
     playSolarVent(fx, ctx(100)); expect(flares()).toBe(SOLAR.flare);
     playSolarVent(fx, ctx(101)); expect(flares()).toBe(SOLAR.flare); // no new pulse, throttled body
     playSolarVent(fx, ctx(120)); expect(flares()).toBe(SOLAR.flare * 2);
-    expect(Math.max(...out.map((p) => Math.abs(p.x)))).toBeGreaterThan(1.5); // 3 m radius reads wider than the 1 m ray
+    expect(Math.max(...out.map((p) => p.size))).toBeGreaterThan(1.2); // QV09: wider than the ray core (the halo hugs a continuous core now)
     const c = rec(), st2 = { start: 0, lastEmit: -1, lastPulse: -1 };
     playSolarVent(c.fx, { ...ctx(100), state: st2, cover: () => 6 });
     expect(Math.max(...c.out.filter((p) => p.color === 0xfff7d6).map((p) => Math.abs((p as unknown as { z: number }).z)))).toBeLessThan(6.7);
@@ -206,5 +206,44 @@ describe("QV08 Artificer move coverage (one table over the kit)", () => {
   test("activation: one column on the Awakening phase, pulse hits scorch their victims, nothing replays", () => {
     const { out, fx } = rec(); onHit(fx, ev({ moveId: "ea.activate", damage100: 1600 }), () => undefined);
     expect(out.length).toBe(ACTIVATE.hit);
+  });
+});
+
+describe("QV09 polish: Furnace Ray and Solar Vent read as one continuous beam", () => {
+  type P = { x: number; y: number; z: number; life: number; color: number; size: number };
+  const run = (play: typeof playSolarVent, emitTicks: number, len: number | undefined) => {
+    const ps: P[] = [], fx = { spawn: (p: P) => { ps.push(p); return true; } } as unknown as EffectsPool, st = { start: 0, lastEmit: -1, lastPulse: -1 };
+    const c = (tick: number): SustainCtx => ({ at: { x: 0, y: 0, z: 0 }, yaw: 0, tick, startTick: 1000, endTick: 1300, cover: len === undefined ? undefined : () => len, state: st });
+    play(fx, c(1001)); play(fx, c(1001 + emitTicks)); // two consecutive emits (flares are on other colours)
+    return ps;
+  };
+  const gapsOf = (zs: number[]) => { const s = [...zs].sort((a, b) => a - b); return s.slice(1).map((v, i) => v - s[i]!); };
+  test("Solar Vent core: interleaved emits leave no gap wider than 75% of the particle size; sheath is a halo no wider than the beam core plus 0.5 m", () => {
+    const ps = run(playSolarVent, SOLAR.emitTicks, undefined), core = ps.filter((p) => p.color === 0xfff7d6), sheath = ps.filter((p) => p.color === 0xffa526);
+    expect(core.length).toBe(SOLAR.core * 2);
+    expect(Math.min(...core.map((p) => p.size))).toBeGreaterThanOrEqual(1.0);
+    expect(Math.max(...gapsOf(core.map((p) => p.z)))).toBeLessThanOrEqual(0.75 * SOLAR.coreSize);
+    expect(Math.max(...core.map((p) => p.size))).toBeGreaterThanOrEqual(1.6); // far end is larger so it still reads at distance
+    expect(Math.max(...sheath.map((p) => Math.abs(p.x)))).toBeLessThanOrEqual(SOLAR.coreSize / 2 + 0.5);
+    expect(Math.max(...core.map((p) => Math.abs(p.z)))).toBeGreaterThan(SOLAR.length * 0.9); // reaches the far end
+  });
+  test("Furnace Ray core: same continuity rule over 24 m", () => {
+    const ps = run(playFurnaceRay, FURNACE.emitTicks, undefined), core = ps.filter((p) => p.color === 0xfff1b0);
+    expect(core.length).toBe(FURNACE.core * 2);
+    expect(Math.min(...core.map((p) => p.size))).toBeGreaterThanOrEqual(0.9);
+    expect(Math.max(...gapsOf(core.map((p) => p.z)))).toBeLessThanOrEqual(0.75 * FURNACE.coreSize);
+  });
+  test("interleaving does not depend on the tick: emits 2 x emitTicks apart (a slow frame rate) still alternate", () => {
+    const ps = run(playSolarVent, SOLAR.emitTicks * 2, undefined), core = ps.filter((p) => p.color === 0xfff7d6);
+    expect(Math.max(...gapsOf(core.map((p) => p.z)))).toBeLessThanOrEqual(0.75 * SOLAR.coreSize);
+  });
+  test("continuity survives a cover clip (spacing scales with the clipped length)", () => {
+    const ps = run(playSolarVent, SOLAR.emitTicks, 12), core = ps.filter((p) => p.color === 0xfff7d6);
+    expect(Math.max(...gapsOf(core.map((p) => p.z)))).toBeLessThanOrEqual(0.75 * SOLAR.coreSize);
+  });
+  test("live beam particles stay within the low cap: at most two emits are alive at once and the recipes fit 100", () => {
+    expect(Math.ceil(SOLAR.life * 60 / SOLAR.emitTicks)).toBeLessThanOrEqual(2); expect(Math.ceil(FURNACE.life * 60 / FURNACE.emitTicks)).toBeLessThanOrEqual(2);
+    expect(recipeParticles(EA_RECIPES["ea.a4"]!)).toBeLessThanOrEqual(LOW_QUALITY_CAP); expect(recipeParticles(EA_RECIPES["ea.a3"]!)).toBeLessThanOrEqual(LOW_QUALITY_CAP);
+    expect(LOW_QUALITY_CAP).toBeLessThanOrEqual(POOL_CAPACITY.low);
   });
 });

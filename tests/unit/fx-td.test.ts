@@ -4,7 +4,7 @@ import { TD_DEFS } from "../../packages/shared/src/config/kits/td.js";
 import { EffectsPool, POOL_CAPACITY } from "../../apps/client/src/scene/EffectsPool.js";
 import { FighterView } from "../../apps/client/src/scene/FighterView.js";
 import { makeToonRamp } from "../../apps/client/src/scene/FighterModel.js";
-import { BIND, CAST, DEEPFALL, LOW_QUALITY_CAP, MIRROR, RIPTIDE, SPLIT, TD_RECIPES, UNDERTOW, onHit, onTdEvent, recipeFor, recipeParticles, scanPlayers } from "../../apps/client/src/fx/kits/td.js";
+import { BIND, CAST, CHAIN, DEEPFALL, LOW_QUALITY_CAP, MIRROR, RIPTIDE, SPLIT, TD_RECIPES, UNDERTOW, onHit, onTdEvent, recipeFor, recipeParticles, scanPlayers } from "../../apps/client/src/fx/kits/td.js";
 import type { CombatEvent } from "../../packages/shared/src/protocol.js";
 import { scanSustain, type SustainCtx } from "../../apps/client/src/fx/kits/common.js";
 
@@ -181,5 +181,37 @@ describe("QV07 Duelist move coverage (one table over the kit)", () => {
     scanPlayers(fx, p, seen); scanSustain(fx, p, st, recipeFor, 12);
     expect(st.size).toBe(1); scanSustain(fx, new Map(), st, recipeFor, 13); scanPlayers(fx, new Map(), seen);
     expect(st.size).toBe(0); expect(seen.size).toBe(0);
+  });
+});
+
+describe("QV09 polish: Duelist cues sized to read at the observer camera", () => {
+  type P = { x: number; y: number; z: number; life: number; color: number; size: number };
+  const rec = (): { out: P[]; fx: EffectsPool } => { const out: P[] = []; return { out, fx: { spawn: (p: P) => { out.push(p); return true; } } as unknown as EffectsPool }; };
+  const at = { x: 0, y: 0, z: 0 };
+  test("Current Bind, Cascade Chain: minimum particle size and count", () => {
+    const b = rec(); TD_RECIPES["td.b1"]!.playActive!(b.fx, at, 0, () => 0);
+    expect(b.out.length).toBe(BIND.loop + BIND.lead); expect(BIND.loop).toBeGreaterThanOrEqual(18);
+    expect(Math.min(...b.out.map((p) => p.size))).toBeGreaterThanOrEqual(0.3);
+    const c = rec(); TD_RECIPES["td.a1"]!.playActive!(c.fx, at, 0, () => 0);
+    expect(c.out.length).toBe(CHAIN.links * CHAIN.per); expect(CHAIN.per).toBeGreaterThanOrEqual(6);
+    expect(Math.min(...c.out.map((p) => p.size))).toBeGreaterThanOrEqual(0.35);
+  });
+  test("Split Tide: both probes at least 0.4 / 0.55 m wide with 18 / 26 particles, within the cap", () => {
+    const st = { start: 0, lastEmit: -1, lastPulse: -1 } as SustainCtx["state"], { out, fx } = rec();
+    const ctx = (tick: number): SustainCtx => ({ at, yaw: 0, tick, startTick: 100, endTick: 118, cover: undefined, state: st });
+    TD_RECIPES["td.a3"]!.sustain!(fx, ctx(100)); const n1 = out.length, s1 = Math.min(...out.map((p) => p.size));
+    TD_RECIPES["td.a3"]!.sustain!(fx, ctx(117));
+    expect(n1).toBeGreaterThanOrEqual(18); expect(s1).toBeGreaterThanOrEqual(0.4);
+    expect(out.length - n1).toBeGreaterThanOrEqual(26); expect(Math.min(...out.slice(n1).map((p) => p.size))).toBeGreaterThanOrEqual(0.55);
+  });
+  test("Riptide trail: a moving caster leaves a trail of at least 4 particles of 0.45 m each step, a still caster none; recipes fit the cap", () => {
+    const st = { start: 0, lastEmit: -1, lastPulse: -1 } as SustainCtx["state"], { out, fx } = rec();
+    const ctx = (tick: number, x: number): SustainCtx => ({ at: { x, y: 0, z: 0 }, yaw: 0, tick, startTick: 50, endTick: 80, cover: undefined, state: st });
+    TD_RECIPES["td.a4"]!.sustain!(fx, ctx(50, 0));
+    const lunge = out.length; TD_RECIPES["td.a4"]!.sustain!(fx, ctx(52, 0)); expect(out.length).toBe(lunge);
+    TD_RECIPES["td.a4"]!.sustain!(fx, ctx(54, 0.6));
+    const trail = out.slice(lunge);
+    expect(trail.length).toBeGreaterThanOrEqual(4); expect(Math.min(...trail.map((p) => p.size))).toBeGreaterThanOrEqual(0.45);
+    for (const id of ["td.b1", "td.a1", "td.a3", "td.a4"]) expect(recipeParticles(TD_RECIPES[id]!), id).toBeLessThanOrEqual(LOW_QUALITY_CAP);
   });
 });

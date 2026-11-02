@@ -5,7 +5,7 @@ import { EffectsPool, POOL_CAPACITY } from "../../apps/client/src/scene/EffectsP
 import { FighterView } from "../../apps/client/src/scene/FighterView.js";
 import { makeToonRamp } from "../../apps/client/src/scene/FighterModel.js";
 import { LOW_QUALITY_CAP, decalRadiusFor, recipeParticles, scanSustain, type SustainCtx } from "../../apps/client/src/fx/kits/common.js";
-import { ACTIVATE, FAULT_FOOTPRINT, FAULT_HIT, FAULT_LAYERS, FLURRY, GALE, HORIZON, ORBIT, REVERSAL, SKYBREAK, SV_RECIPES, URN, duePulse, onHit, playFaultStrike, recipeFor, scanPlayers } from "../../apps/client/src/fx/kits/sv.js";
+import { ACTIVATE, FAULT_FOOTPRINT, FAULT_HIT, FAULT_LAYERS, FLURRY, ECHO, GALE, HORIZON, ORBIT, PALM, REVERSAL, SKYBREAK, SV_RECIPES, URN, duePulse, onHit, playEchoTap, playFaultStrike, playGale, playHorizonBreak, playRiftPalm, recipeFor, scanPlayers } from "../../apps/client/src/fx/kits/sv.js";
 import type { CombatEvent } from "../../packages/shared/src/protocol.js";
 
 const Scene = function (): Scene { const g = new FighterView("td", makeToonRamp()).group; g.clear(); return g as unknown as Scene; } as unknown as new () => Scene;
@@ -202,5 +202,36 @@ describe("QV06 Vanguard move coverage (one table over the kit)", () => {
     // Other kits' awakening is ignored by the Vanguard table.
     const f2 = pool(); scanPlayers(f2, new Map<string, unknown>([["1", { x: 0, y: 90, z: 0, action: "Awakening", moveId: "td.activate", actionStartTick: 1 }]]), new Map());
     expect(f2.activeCount).toBe(0);
+  });
+});
+
+describe("QV09 polish: Vanguard cues sized to read at the observer camera", () => {
+  type P = { x: number; y: number; z: number; life: number; color: number; size: number };
+  const rec = (): { out: P[]; fx: EffectsPool } => { const out: P[] = []; return { out, fx: { spawn: (p: P) => { out.push(p); return true; } } as unknown as EffectsPool }; };
+  const gapsOf = (zs: number[]) => { const s = [...zs].sort((a, b) => a - b); return s.slice(1).map((v, i) => v - s[i]!); };
+  test("Horizon Break: continuous wide core (two interleaved emits leave gaps under 75% of the size), amber halo, fits the cap", () => {
+    const { out, fx } = rec(), st = { start: 0, lastEmit: -1, lastPulse: -1 };
+    const c = (tick: number): SustainCtx => ({ at: { x: 0, y: 0, z: 0 }, yaw: 0, tick, startTick: 500, endTick: 506, state: st });
+    playHorizonBreak(fx, c(500)); playHorizonBreak(fx, c(500 + HORIZON.emitTicks));
+    const core = out.filter((p) => p.color === 0xf4ead2);
+    expect(core.length).toBe(HORIZON.core * 2);
+    expect(Math.min(...core.map((p) => p.size))).toBeGreaterThanOrEqual(1.4);
+    expect(Math.max(...gapsOf(core.map((p) => p.z)))).toBeLessThanOrEqual(0.75 * HORIZON.coreSize);
+    expect(out.filter((p) => p.color === 0xffb347).length).toBe(HORIZON.sheath * 2);
+    expect(recipeParticles(SV_RECIPES["sv.a3"]!)).toBeLessThanOrEqual(LOW_QUALITY_CAP);
+  });
+  test("Rift Palm, Echo Tap and Gale: minimum particle size and count (regression floor)", () => {
+    const palm = rec(); playRiftPalm(palm.fx, { x: 0, y: 0, z: 0 }, 0);
+    expect(palm.out.length).toBe(PALM.arc + PALM.line); expect(PALM.arc).toBeGreaterThanOrEqual(18);
+    expect(Math.min(...palm.out.map((p) => p.size))).toBeGreaterThanOrEqual(0.6); expect(Math.min(...palm.out.map((p) => p.life))).toBeGreaterThanOrEqual(0.3);
+    const echo = rec(); playEchoTap(echo.fx, { x: 0, y: 0, z: 0 }, 0);
+    expect(echo.out.length).toBe(ECHO.tap + ECHO.echo); expect(ECHO.tap).toBeGreaterThanOrEqual(12); expect(ECHO.echo).toBeGreaterThanOrEqual(16);
+    expect(Math.min(...echo.out.map((p) => p.size))).toBeGreaterThanOrEqual(0.5);
+    // ring spacing: neighbours on the echo ring (radius 1.5 m) are closer than 1.2x the particle size
+    expect((2 * Math.PI * ECHO.echoR) / ECHO.echo).toBeLessThanOrEqual(1.2 * ECHO.echoSize);
+    const gale = rec(); playGale(gale.fx, { x: 0, y: 0, z: 0 }, 0);
+    expect(gale.out.length).toBe(GALE.streaks); expect(GALE.streaks).toBeGreaterThanOrEqual(20);
+    expect(Math.min(...gale.out.map((p) => p.size))).toBeGreaterThanOrEqual(0.5);
+    for (const id of ["sv.b3", "sv.x1", "sv.x2"]) expect(recipeParticles(SV_RECIPES[id]!), id).toBeLessThanOrEqual(LOW_QUALITY_CAP);
   });
 });

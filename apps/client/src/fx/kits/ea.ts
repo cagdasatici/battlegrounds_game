@@ -4,7 +4,7 @@ import type { EffectsPool } from "../../scene/EffectsPool.js";
 import type { CombatEvent } from "@eb/shared/protocol";
 import type { CombatBus } from "../../app/CombatBus.js";
 import type { PresentationDeps } from "../index.js";
-import { decalRadiusFor, frameOf, makeKitFx, type SustainCtx, onHit as onHitWith, scanPlayers as scanWith, type ActiveStyle, type Pos, type Recipe } from "./common.js";
+import { beamGen, beamStation, decalRadiusFor, frameOf, makeKitFx, type SustainCtx, onHit as onHitWith, scanPlayers as scanWith, type ActiveStyle, type Pos, type Recipe } from "./common.js";
 
 /**
  * Ember Artificer ability effects (FX4-ea). Heat language: expanding rings, rising heat particles and ember streams.
@@ -30,7 +30,7 @@ const r = (id: string, glow: boolean, style: ActiveStyle, count: number, color: 
  */
 const RAY = EA_DEFS.find((d) => d.id === "ea.a3")!;
 const RAY_LEN = RAY.shape.kind === "beam" ? RAY.shape.length : 24;
-export const FURNACE = { emitTicks: 4, life: 0.12, core: 12, sheath: 12, flare: 8, flareLife: 0.25, originForward: 0.6, originUp: 0.4, pulses: RAY.hitOffsets, length: RAY_LEN } as const;
+export const FURNACE = { emitTicks: 4, life: 0.12, core: 20, sheath: 8, coreSize: 0.9, sheathSize: 0.8, grow: 0.5, flare: 6, flareLife: 0.25, originForward: 0.6, originUp: 0.4, pulses: RAY.hitOffsets, length: RAY_LEN } as const;
 const CORE = 0xfff1b0, SHEATH = 0xff7a1a;
 export function playFurnaceRay(fx: EffectsPool, c: SustainCtx): void {
   const [dx, dz] = forwardOf(c.yaw);
@@ -45,18 +45,20 @@ export function playFurnaceRay(fx: EffectsPool, c: SustainCtx): void {
     c.state.lastPulse = last;
     for (let i = 0; i < FURNACE.flare; i++) {
       const d = ((i + 0.5) / FURNACE.flare) * len;
-      fx.spawn({ x: ox + dx * d, y: oy, z: oz + dz * d, vx: 0, vy: 0.8, vz: 0, life: FURNACE.flareLife, size: 0.6, color: GOLD });
+      fx.spawn({ x: ox + dx * d, y: oy, z: oz + dz * d, vx: 0, vy: 0.8, vz: 0, life: FURNACE.flareLife, size: 0.9, color: GOLD });
     }
   }
   if (c.state.lastEmit >= 0 && c.tick - c.state.lastEmit < FURNACE.emitTicks) return;
   c.state.lastEmit = c.tick;
+  // QV09: one continuous bright core (interleaved generations), with a thin tapering orange rim hugging it.
+  const gen = beamGen(c.state);
   for (let i = 0; i < FURNACE.core; i++) {
-    const d = (((i + 0.5) / FURNACE.core) ** 1.5) * len;
-    fx.spawn({ x: ox + dx * d, y: oy, z: oz + dz * d, vx: 0, vy: 0, vz: 0, life: FURNACE.life, size: 0.5, color: CORE });
+    const d = beamStation(i, FURNACE.core, len, gen);
+    fx.spawn({ x: ox + dx * d, y: oy, z: oz + dz * d, vx: 0, vy: 0, vz: 0, life: FURNACE.life, size: FURNACE.coreSize * (1 + FURNACE.grow * d / len), color: CORE }); // grows with distance so the far end still reads
   }
   for (let i = 0; i < FURNACE.sheath; i++) {
-    const k = (i + 0.5) / FURNACE.sheath, d = (k ** 1.5) * len, half = 0.8 * (1 - k) + 0.12, side = i % 2 === 0 ? half : -half; // tapers with distance
-    fx.spawn({ x: ox + dx * d + px * side, y: oy, z: oz + dz * d + pz * side, vx: 0, vy: 0, vz: 0, life: FURNACE.life, size: 0.75, color: SHEATH });
+    const d = beamStation(i, FURNACE.sheath, len, gen), k = d / len, half = 0.55 * (1 - k) + 0.2, side = i % 2 === 0 ? half : -half; // tapers with distance
+    fx.spawn({ x: ox + dx * d + px * side, y: oy, z: oz + dz * d + pz * side, vx: 0, vy: 0, vz: 0, life: FURNACE.life, size: FURNACE.sheathSize, color: SHEATH });
   }
 }
 
@@ -143,7 +145,7 @@ export function playCometHit(fx: EffectsPool, e: CombatEvent, at: Pos): void {
  * emitTicks along the aim, ending at the first cover (client cover query, same as the warning). Pulses (10, server schedule)
  * flare. It stops when the replicated action leaves Active or the tick reaches the active end; particles live at most `life`.
  */
-export const SOLAR = { emitTicks: 4, life: 0.14, core: 14, sheath: 14, flare: 10, flareLife: 0.28, pulses: def("ea.a4").hitOffsets ?? [], length: 36, halfWidth: 2.2, hit: 6 } as const;
+export const SOLAR = { emitTicks: 5, life: 0.16, core: 26, sheath: 12, coreSize: 1.0, sheathSize: 1.1, grow: 0.8, flare: 6, flareLife: 0.28, pulses: def("ea.a4").hitOffsets ?? [], length: 36, halfWidth: 0.4, hit: 6 } as const;
 const WHITE = 0xfff7d6, AMBER = 0xffa526;
 export function playSolarVent(fx: EffectsPool, c: SustainCtx): void {
   const [dx, dz] = forwardOf(c.yaw), px = -dz, pz = dx;
@@ -154,14 +156,16 @@ export function playSolarVent(fx: EffectsPool, c: SustainCtx): void {
   for (let i = c.state.lastPulse + 1; i < SOLAR.pulses.length && c.startTick + SOLAR.pulses[i]! <= c.tick; i++) due = i;
   if (due >= 0) {
     c.state.lastPulse = due;
-    for (let i = 0; i < SOLAR.flare; i++) { const d = ((i + 0.5) / SOLAR.flare) * len; fx.spawn({ x: ox + dx * d, y: oy, z: oz + dz * d, vx: 0, vy: 1, vz: 0, life: SOLAR.flareLife, size: 0.9, color: GOLD }); }
+    for (let i = 0; i < SOLAR.flare; i++) { const d = ((i + 0.5) / SOLAR.flare) * len; fx.spawn({ x: ox + dx * d, y: oy, z: oz + dz * d, vx: 0, vy: 1, vz: 0, life: SOLAR.flareLife, size: 1.1, color: GOLD }); }
   }
   if (c.state.lastEmit >= 0 && c.tick - c.state.lastEmit < SOLAR.emitTicks) return;
   c.state.lastEmit = c.tick;
-  for (let i = 0; i < SOLAR.core; i++) { const d = (((i + 0.5) / SOLAR.core) ** 1.4) * len; fx.spawn({ x: ox + dx * d, y: oy, z: oz + dz * d, vx: 0, vy: 0, vz: 0, life: SOLAR.life, size: 0.8, color: WHITE }); }
+  // QV09: continuous pale core (interleaved generations) with a wider amber halo hugging it, not blobs spread across the arena.
+  const gen = beamGen(c.state);
+  for (let i = 0; i < SOLAR.core; i++) { const d = beamStation(i, SOLAR.core, len, gen); fx.spawn({ x: ox + dx * d, y: oy, z: oz + dz * d, vx: 0, vy: 0, vz: 0, life: SOLAR.life, size: SOLAR.coreSize * (1 + SOLAR.grow * d / len), color: WHITE }); }
   for (let i = 0; i < SOLAR.sheath; i++) {
-    const k = (i + 0.5) / SOLAR.sheath, d = (k ** 1.4) * len, half = SOLAR.halfWidth * (1 - 0.5 * k) , side = i % 2 === 0 ? half : -half;
-    fx.spawn({ x: ox + dx * d + px * side, y: oy, z: oz + dz * d + pz * side, vx: 0, vy: 0, vz: 0, life: SOLAR.life, size: 1.2, color: AMBER });
+    const d = beamStation(i, SOLAR.sheath, len, gen), side = i % 2 === 0 ? SOLAR.halfWidth : -SOLAR.halfWidth;
+    fx.spawn({ x: ox + dx * d + px * side, y: oy, z: oz + dz * d + pz * side, vx: 0, vy: 0, vz: 0, life: SOLAR.life, size: SOLAR.sheathSize * (1 + SOLAR.grow * d / len), color: AMBER });
   }
 }
 export function playSolarHit(fx: EffectsPool, _e: CombatEvent, at: Pos): void { burst(fx, at, SOLAR.hit, 3, 0.25, 0.22, 1, GOLD, WHITE); }
