@@ -281,7 +281,9 @@ export class GameLoop {
         };
       }
     }
-    pred.step(tick, this.heldIntent, this.heldSample);
+    // DJ01: mirror the server rule (air jump only while the last replicated action is Idle) so prediction matches authority.
+    const held = this.lastAction !== "Idle" ? { ...this.heldIntent, airJumpBlocked: true } : this.heldIntent;
+    pred.step(tick, held, this.heldSample);
   }
 
   // ---- presentation -------------------------------------------------------------------------------------

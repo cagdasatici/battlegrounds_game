@@ -6,6 +6,7 @@ import {
 import type { CombatBus } from "../app/CombatBus.js";
 import type { CombatEvent } from "@eb/shared/protocol";
 import type { PresentationDeps } from "./index.js";
+import { newAirJumps } from "./AirJump.js";
 
 interface Pos { x: number; z: number }
 
@@ -99,6 +100,7 @@ export const Sfx = {
     if ((globalThis as { navigator?: { userActivation?: { hasBeenActive?: boolean } } }).navigator?.userActivation?.hasBeenActive) unlock();
     const heard = new Set<string>(); // defensive eventId dedupe on top of CombatBus
     const live = new Set<string>();
+    const airSeen = new Map<string, boolean>(); // DJ01: edge detector for the replicated air-jump flag
     const off = bus.on((e) => {
       if (heard.has(e.eventId)) return;
       heard.add(e.eventId);
@@ -121,6 +123,12 @@ export const Sfx = {
         audio.setEffectsVolume(effects());
         audio.setMusicVolume((deps.settings.get() as { musicVolume?: number }).musicVolume ?? 0);
         scanSustainAudio(audio, deps.players(), deps.serverTick?.(), deps.localId(), live);
+        const players = deps.players();
+        const me = posOf(players, deps.localId());
+        for (const id of newAirJumps(players, airSeen)) {
+          const at = posOf(players, id);
+          audio.play("airJump", PRIORITY_OTHER, me && at ? Math.hypot(me.x - at.x, me.z - at.z) : 0);
+        }
       } else if (live.size > 0) { audio.stopAllLoops(); live.clear(); }
     };
     if (typeof requestAnimationFrame === "function") raf = requestAnimationFrame(frame);

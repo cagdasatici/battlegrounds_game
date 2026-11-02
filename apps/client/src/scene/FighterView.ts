@@ -34,10 +34,13 @@ export class FighterView {
   private flashLeftMs = 0;
   private flashTotalMs = 0;
   private frozenFrames = 0;
+  private tuckLeftS = 0;
+  private tuckTotalS = 0;
 
   constructor(readonly kitId: KitId, ramp: DataTexture, opts: { outline?: boolean; lod?: Lod } = {}) {
     this.rig = buildFighterRig(kitId, ramp, { outline: opts.outline ?? true, ...(opts.lod ? { lod: opts.lod } : {}) });
     this.group.add(this.rig.root, ...this.rig.meshes);
+    this.group.rotation.order = "YXZ"; // yaw first, so the DJ01 flip pitches about the fighter's own right axis
     this.mixer = new AnimationMixer(this.group);
     this.play("idle", true);
   }
@@ -52,6 +55,14 @@ export class FighterView {
     this.flashLeftMs = ms; this.flashTotalMs = ms;
     this.applyFlash();
   }
+  /** DJ01 air jump: a quick forward tumble of the whole rig for `seconds` of render time. Visual only; ends by itself. */
+  tuck(seconds: number): void {
+    if (this.disposed || !(seconds > 0)) return;
+    this.tuckLeftS = seconds; this.tuckTotalS = seconds;
+  }
+  /** Current flip pitch in radians (0 when not tumbling); test and debug hook. */
+  get tuckPitch(): number { return this.group.rotation.x; }
+
   get flashing(): boolean { return this.flashLeftMs > 0; }
   /** Emissive multiplier currently applied (0 when idle). */
   get flashAmount(): number { return this.flashLeftMs > 0 ? this.flashLevel * (this.flashLeftMs / this.flashTotalMs) : 0; }
@@ -134,6 +145,11 @@ export class FighterView {
       if (c.clip === "walk" || c.clip === "run") this.active.timeScale = Math.max(.65, Math.min(1.5, this.vel.speed / (c.clip === "walk" ? 6 : 9)));
     }
     this.mixer.update(dtSec);
+    if (this.tuckLeftS > 0) {
+      this.tuckLeftS = Math.max(0, this.tuckLeftS - dtSec);
+      const k = 1 - this.tuckLeftS / this.tuckTotalS;
+      this.group.rotation.x = this.tuckLeftS > 0 ? -Math.PI * 2 * (1 - (1 - k) * (1 - k)) : 0; // ease-out full turn, lands upright
+    }
     if (this.frozenFrames > 0) this.frozenFrames -= 1;
     if (this.flashLeftMs > 0) {
       this.flashLeftMs = Math.max(0, this.flashLeftMs - dtSec * 1000);

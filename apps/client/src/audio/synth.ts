@@ -6,7 +6,7 @@ export type SoundKind =
   | "swing" | "swingFinisher"
   | "awakenStone" | "awakenWater" | "awakenHeat"
   | "hitSpecialStone" | "hitSpecialWater" | "hitSpecialHeat"
-  | "capture" | "release" | "respawn";
+  | "capture" | "release" | "respawn" | "airJump";
 
 /** QS01: sustained beds for channelled abilities, one per element. */
 export type LoopKind = "loopStone" | "loopWater" | "loopHeat";
@@ -36,6 +36,10 @@ export const RECIPES: Record<SoundKind, Recipe> = {
   hitLight: r([
     { src: "noise", f0: 3000, f1: 1200, filter: "bandpass", gain: 0.5, attack: 0.002, dur: 0.08 },
     { src: "osc", wave: "triangle", f0: 220, f1: 110, gain: 0.4, attack: 0.002, dur: 0.09 },
+  ]),
+  airJump: r([
+    { src: "osc", wave: "triangle", f0: 360, f1: 720, gain: 0.25, attack: 0.004, dur: 0.12 },
+    { src: "noise", f0: 2400, f1: 4200, filter: "highpass", gain: 0.2, attack: 0.002, dur: 0.1 },
   ]),
   hitHeavy: r([
     { src: "noise", f0: 1800, f1: 300, filter: "lowpass", gain: 0.7, attack: 0.002, dur: 0.22 },

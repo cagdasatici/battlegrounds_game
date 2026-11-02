@@ -11,7 +11,7 @@ export type Form = "Base" | "Awakened";
 export const PLAYER_PUBLIC_FIELDS = [
   "entityId", "lifeId", "kitId", "displayName", "x", "y", "z", "vx", "vy", "vz", "facingYaw", "hp100",
   "action", "actionStartTick", "actionEndTick", "moveId", "form", "formEndTick", "meter100",
-  "awakenedUsedMask", "contextSpent", "connected", "ready", "protectedUntilTick",
+  "awakenedUsedMask", "contextSpent", "airJumpUsed", "connected", "ready", "protectedUntilTick",
   "kills", "deaths", "assists",
 ] as const;
 

@@ -58,7 +58,8 @@ describe("shared integrateMovement (pure)", () => {
   });
   test("jump buffer: press up to 6 ticks before landing fires on landing; 7 expires", () => {
     for (const [early, ok] of [[6, true], [7, false]] as const) {
-      const s = initialMoveState(); s.grounded = false;
+      // DJ01: with the air jump still available an airborne press is an air jump, so exhaust it to test the ground buffer.
+      const s = initialMoveState(); s.grounded = false; s.airJumpsUsed = 1;
       integrateMovement(s, mv({ jumpPressed: true }), 200);
       for (let t = 201; t < 200 + early; t++) integrateMovement(s, mv(), t);
       s.grounded = true;

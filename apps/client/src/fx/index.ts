@@ -2,6 +2,7 @@ import type { Camera, Scene } from "three";
 import type { CombatBus } from "../app/CombatBus.js";
 import type { EffectsPool } from "../scene/EffectsPool.js";
 import type { FighterView } from "../scene/FighterView.js";
+import { AirJumpFx } from "./AirJump.js";
 import { AttackTelegraphs } from "./AttackTelegraphs.js";
 import { CombatText } from "./CombatText.js";
 import { HitFx } from "./HitFx.js";
@@ -31,6 +32,6 @@ export interface PresentationDeps {
 
 /** Attaches every presentation module to the bus; the returned disposer detaches them all. */
 export function registerPresentation(bus: CombatBus, deps: PresentationDeps): () => void {
-  const ds = [HitFx.attach(bus, deps), CombatText.attach(bus, deps), Sfx.attach(bus, deps), SvFx.attach(bus, deps), TdFx.attach(bus, deps), EaFx.attach(bus, deps), AttackTelegraphs.attach(bus, deps)];
+  const ds = [HitFx.attach(bus, deps), CombatText.attach(bus, deps), Sfx.attach(bus, deps), SvFx.attach(bus, deps), TdFx.attach(bus, deps), EaFx.attach(bus, deps), AttackTelegraphs.attach(bus, deps), AirJumpFx.attach(bus, deps)];
   return () => { for (const d of ds) d(); };
 }

@@ -116,6 +116,7 @@ export class TickPipeline {
     p.x = quantizeCm(pos[0]); p.y = quantizeCm(pos[1]); p.z = quantizeCm(pos[2]);
     p.vx = i16(b.state.vx); p.vy = i16(b.state.vy); p.vz = i16(b.state.vz);
     p.facingYaw = quantizeYaw(b.state.facingYaw);
+    p.airJumpUsed = b.state.airJumpsUsed > 0 && !b.state.grounded;
   }
 
   private grounded(id: number): boolean {
@@ -203,7 +204,7 @@ export class TickPipeline {
       const scaled = castScale !== null && castScale > 0 && castScale < 1 && f !== undefined && f.action !== "Idle";
       const mScale = scaled ? castScale : 1;
       this.intents.set(seat.entityId, locked ? NEUTRAL_MOVE
-        : { moveX: h.moveX * mScale, moveZ: h.moveZ * mScale, run: scaled ? false : h.runHeld, guard: f?.action === "Guard" || h.blockHeld, jumpPressed: sc.jumpPressed, ...(h.facingLock ? { aimYaw: h.yaw } : {}) });
+        : { moveX: h.moveX * mScale, moveZ: h.moveZ * mScale, run: scaled ? false : h.runHeld, guard: f?.action === "Guard" || h.blockHeld, jumpPressed: sc.jumpPressed, ...(f && f.action !== "Idle" ? { airJumpBlocked: true } : {}), ...(h.facingLock ? { aimYaw: h.yaw } : {}) });
     }
     this.d.movement()?.step(tick, (id) => this.intents.get(id) ?? NEUTRAL_MOVE, (id) => this.dashOverride(id),
       (id) => this.d.abilities.facingOverrideOf(id), (id) => this.d.abilities.freezesVertical(id, tick));

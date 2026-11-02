@@ -43,7 +43,7 @@ for (const [width, height] of [[1024, 768], [1180, 820]]) {
     const labels = await page.evaluate(() => (window as unknown as { labels: string[][] }).labels);
     expect(labels).toHaveLength(3);
     for (const label of labels.flat()) await expect(guide).toContainText(label);
-    for (const text of ['stick', 'Drag open space', 'Hold Strike', 'Hold Guard', 'Tap Dash', 'Tap Jump', 'skills 1–4', 'Tap Awaken', 'Facing lock', 'Menu']) await expect(guide).toContainText(text);
+    for (const text of ['stick', 'Drag open space', 'Hold Strike', 'Hold Guard', 'Tap Dash', 'Tap Jump', 'double jump', 'skills 1–4', 'Tap Awaken', 'Facing lock', 'Menu']) await expect(guide).toContainText(text);
     await expect(guide).toContainText('Practice uses a stationary dummy. Try Guard or Ragdoll while you learn.');
     await expect(guide).not.toContainText('Host sparring');
     await page.screenshot({ path: path.join(root, `docs/test-results/HELP1-touch-${width}.png`), fullPage: true });
@@ -51,7 +51,7 @@ for (const [width, height] of [[1024, 768], [1180, 820]]) {
     await expect(page.getByRole('button', { name: 'Keyboard', exact: true })).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page.getByRole('button', { name: 'Keyboard', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    for (const text of ['WASD: move', 'Left mouse: hold to Strike', 'F: hold Guard', 'Q: Dash', 'Space: Jump', '1–4: use skills', 'G: Awaken', 'Shift: toggle facing lock', 'Esc: open the menu']) await expect(guide).toContainText(text);
+    for (const text of ['WASD: move', 'Left mouse: hold to Strike', 'F: hold Guard', 'Q: Dash', 'Space: Jump', 'double jump', '1–4: use skills', 'G: Awaken', 'Shift: toggle facing lock', 'Esc: open the menu']) await expect(guide).toContainText(text);
     await page.screenshot({ path: path.join(root, `docs/test-results/HELP1-keyboard-${width}.png`), fullPage: true });
     await page.keyboard.press('Tab');
     await page.screenshot({ path: path.join(root, `docs/test-results/HELP1-actions-${width}.png`) });

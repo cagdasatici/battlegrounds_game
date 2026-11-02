@@ -4,7 +4,7 @@
  * applied by the caller's character controller after `integrateMovement` returns a desired translation.
  * All timers are integer ticks; dt is fixed and never supplied by a client.
  */
-import { COMBAT } from "./config/combat.js";
+import { COMBAT, DOUBLE_JUMP_COUNT, DOUBLE_JUMP_VELOCITY_SCALE } from "./config/combat.js";
 import { TICK_RATE } from "./protocol.js";
 
 export const MOVE_DT = 1 / TICK_RATE;
@@ -22,6 +22,11 @@ export interface MoveIntent {
   jumpPressed: boolean;
   /** Optional camera-facing intent; rate-limited by the same authority step. */
   aimYaw?: number;
+  /**
+   * DJ01: true while the fighter is in an action that forbids the air jump (cast, guard action, awakening); a held guard intent also blocks it. The server derives it
+   * from authoritative state and the client prediction mirrors the last replicated action. Never sent by a client.
+   */
+  airJumpBlocked?: boolean;
 }
 
 export const NEUTRAL_MOVE: Readonly<MoveIntent> = { moveX: 0, moveZ: 0, run: false, guard: false, jumpPressed: false };
@@ -36,11 +41,13 @@ export interface MoveState {
   jumpPressTick: number;
   /** True after a jump until the body is grounded again; prevents double jump. */
   jumpedSinceGrounded: boolean;
+  /** DJ01: air jumps spent since the body was last grounded (limit DOUBLE_JUMP_COUNT). */
+  airJumpsUsed: number;
   facingYaw: number;
 }
 
 export function initialMoveState(facingYaw = 0): MoveState {
-  return { vx: 0, vy: 0, vz: 0, grounded: false, lastGroundedTick: -1, jumpPressTick: -1, jumpedSinceGrounded: false, facingYaw };
+  return { vx: 0, vy: 0, vz: 0, grounded: false, lastGroundedTick: -1, jumpPressTick: -1, jumpedSinceGrounded: false, airJumpsUsed: 0, facingYaw };
 }
 
 /** Speed for the requested gait. Guard wins over run. */
@@ -55,7 +62,7 @@ export function sanitizeIntent(i: MoveIntent): MoveIntent {
   let z = Number.isFinite(i.moveZ) ? i.moveZ : 0;
   const len = Math.hypot(x, z);
   if (len > 1) { x /= len; z /= len; }
-  return { moveX: x, moveZ: z, run: i.run === true, guard: i.guard === true, jumpPressed: i.jumpPressed === true, ...(Number.isFinite(i.aimYaw) ? { aimYaw: i.aimYaw } : {}) };
+  return { moveX: x, moveZ: z, run: i.run === true, guard: i.guard === true, jumpPressed: i.jumpPressed === true, ...(i.airJumpBlocked === true ? { airJumpBlocked: true } : {}), ...(Number.isFinite(i.aimYaw) ? { aimYaw: i.aimYaw } : {}) };
 }
 
 const TURN_RATE = (540 * Math.PI) / 180; // rad/s, spec section 7 facing lock off (D)
@@ -71,12 +78,12 @@ function turnToward(from: number, to: number, maxDelta: number): number {
  * Advances velocity by one tick and returns the desired translation for the character controller.
  * Mutates `s`. `tick` is the current logical tick. Grounded state is from the previous controller pass.
  */
-export function integrateMovement(s: MoveState, rawIntent: MoveIntent, tick: number): { dx: number; dy: number; dz: number; jumped: boolean } {
+export function integrateMovement(s: MoveState, rawIntent: MoveIntent, tick: number): { dx: number; dy: number; dz: number; jumped: boolean; airJumped: boolean } {
   const i = sanitizeIntent(rawIntent);
   const m = COMBAT.movement;
   const cap = COMBAT.capsule;
   if (i.jumpPressed) s.jumpPressTick = tick;
-  if (s.grounded) { s.lastGroundedTick = tick; s.jumpedSinceGrounded = false; }
+  if (s.grounded) { s.lastGroundedTick = tick; s.jumpedSinceGrounded = false; s.airJumpsUsed = 0; }
 
   // Horizontal: approach desired velocity by acceleration*dt; 30 percent authority in the air.
   const speed = gaitSpeed(i);
@@ -87,7 +94,7 @@ export function integrateMovement(s: MoveState, rawIntent: MoveIntent, tick: num
   if (dl <= accel) { s.vx = tx; s.vz = tz; } else { s.vx += (dvx / dl) * accel; s.vz += (dvz / dl) * accel; }
 
   // Jump: buffered press within window, grounded or within coyote window, one jump per grounding.
-  let jumped = false;
+  let jumped = false, airJumped = false;
   const buffered = s.jumpPressTick >= 0 && tick - s.jumpPressTick <= cap.jumpBufferTicks;
   const coyote = s.lastGroundedTick >= 0 && tick - s.lastGroundedTick <= cap.coyoteTicks;
   if (buffered && coyote && !s.jumpedSinceGrounded) {
@@ -96,6 +103,12 @@ export function integrateMovement(s: MoveState, rawIntent: MoveIntent, tick: num
     s.jumpedSinceGrounded = true;
     s.grounded = false;
     jumped = true;
+  } else if (i.jumpPressed && !s.grounded && !i.guard && !i.airJumpBlocked && s.airJumpsUsed < DOUBLE_JUMP_COUNT) {
+    // DJ01 air jump: only on the fresh press tick (never buffered), once per airtime, vertical velocity SET (not added).
+    s.vy = cap.jumpSpeed * DOUBLE_JUMP_VELOCITY_SCALE;
+    s.jumpPressTick = -1;
+    s.airJumpsUsed += 1;
+    airJumped = true;
   } else if (s.grounded) {
     s.vy = Math.max(0, s.vy); // resting contact: no accumulated fall speed
   } else {
@@ -108,7 +121,7 @@ export function integrateMovement(s: MoveState, rawIntent: MoveIntent, tick: num
     // Local forward is -Z: yaw 0 faces -Z, so yaw = atan2(-x, -z).
     s.facingYaw = turnToward(s.facingYaw, Math.atan2(-i.moveX, -i.moveZ), TURN_RATE * MOVE_DT);
   }
-  return { dx: s.vx * MOVE_DT, dy: s.vy * MOVE_DT, dz: s.vz * MOVE_DT, jumped };
+  return { dx: s.vx * MOVE_DT, dy: s.vy * MOVE_DT, dz: s.vz * MOVE_DT, jumped, airJumped };
 }
 
 /**

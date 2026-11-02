@@ -32,14 +32,14 @@ export function mountHowToPlay(root: HTMLElement, options: {
     "Guard: hold the Guard button.", "Use a skill: tap a numbered skill button.",
     "Push the stick to move.", "Drag open space to look around.",
     "Hold Strike to string attacks together.", "Hold Guard to block.",
-    "Tap Dash to dash in your movement direction.", "Tap Jump to jump.",
+    "Tap Dash to dash in your movement direction.", "Tap Jump to jump, then tap Jump again in the air to double jump.",
     "Use skills 1–4 for your fighter’s moves.", "Tap Awaken when the meter is ready.",
     "Tap Facing lock (the Aim button) to toggle facing lock.", "Tap Menu to open the menu.",
   ];
   const keyboard = [
     "Move: WASD.", "Aim: press Shift to lock or unlock facing.", "Strike: hold left mouse.", "Guard: hold F.", "Use a skill: press 1, 2, 3 or 4.",
     "WASD: move.", "Left mouse: hold to Strike.", "F: hold Guard to block.",
-    "Q: Dash in your movement direction.", "Space: Jump.", "1–4: use skills.",
+    "Q: Dash in your movement direction.", "Space: Jump, press again in the air to double jump.", "1–4: use skills.",
     "G: Awaken when the meter is ready.", "Shift: toggle facing lock.", "Esc: open the menu.",
   ];
   const buttons: HTMLButtonElement[] = [];
