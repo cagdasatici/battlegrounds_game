@@ -124,3 +124,31 @@ export function playCounterFlash(fx: EffectsPool, at: Pt, groundY: number): void
   sparkBurst(fx, at, 0xffe27a, 18, 7, 0.35, { width: 0.05, length: 0.7 });
   g.light({ ...at, color: 0xffcc33, intensity: 24, life: 0.25 });
 }
+
+/**
+ * Special (ability) hit: layered on top of playImpactBurst. A white-hot starburst of four long crossing flares, a vertical
+ * element pillar, a ring on each axis, a radial spray of fast streaks and heavy debris, and a strong light pulse.
+ * `power` is the same server-driven number; it only scales size and count.
+ */
+export function playSpecialImpact(fx: EffectsPool, i: ImpactInput): void {
+  const g = fx.glow, { at, theme } = i, p = Math.max(1, i.power);
+  g.flash({ ...at, color: 0xffffff, size: 2.2 * p + 0.8, grow: 1.9, life: 0.2 });
+  g.flash({ ...at, color: theme.accent, size: 3.4 * p + 0.8, grow: 1.6, life: 0.42 });
+  g.flash({ ...at, color: theme.dark, size: 4.6 * p, grow: 1.3, life: 0.55 });
+  const flares = scaled(fx, 8, 4); // crossing flares: long thin streaks fired outward in a horizontal-ish star
+  for (let k = 0; k < flares; k++) {
+    const a = (k / flares) * TAU + rnd(-0.1, 0.1), s = rnd(14, 20) * p;
+    g.streak({ x: at.x, y: at.y, z: at.z, vx: Math.cos(a) * s, vy: rnd(-1, 2), vz: Math.sin(a) * s, color: k % 2 ? theme.core : theme.accent, length: rnd(1.6, 2.6) * p, width: 0.11, life: rnd(0.22, 0.34), gravity: 0 });
+  }
+  const pillar = scaled(fx, 10, 3); // element pillar rising from the ground under the contact
+  for (let k = 0; k < pillar; k++) {
+    const a = rnd(0, TAU), r = rnd(0, 0.6);
+    g.streak({ x: at.x + Math.cos(a) * r, y: i.groundY, z: at.z + Math.sin(a) * r, vx: 0, vy: rnd(8, 13), vz: 0, color: k % 2 ? theme.core : theme.accent, length: rnd(1.6, 3.2), width: 0.12, life: rnd(0.35, 0.6) });
+  }
+  const axes = [{ x: 0, y: 1, z: 0 }, { x: 1, y: 0, z: 0 }, { x: 0, y: 0, z: 1 }];
+  axes.forEach((normal, k) => g.ring({ ...at, color: k === 0 ? theme.core : theme.accent, radius: 2.4 + 0.9 * p, from: 0.15, life: 0.34 + 0.06 * k, delay: 0.04 * k, normal }));
+  g.ring({ x: at.x, y: i.groundY + 0.06, z: at.z, color: theme.dark, radius: 3.4 + 1.2 * p, life: 0.55 });
+  sparkBurst(fx, at, theme.core, 26 + 10 * p, 11 + 4 * p, 0.5, { width: 0.06, length: 1, up: 2, chunks: 10 + 4 * p });
+  sparkBurst(fx, at, theme.accent, 16, 7, 0.65, { width: 0.09, length: 0.5, chunks: 12, gravity: 12 });
+  g.light({ ...at, color: theme.accent, intensity: 60 * p, life: 0.45 });
+}

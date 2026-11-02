@@ -20,7 +20,7 @@ function airborne() {
 
 describe("DJ01 registry", () => {
   test("numbers are the decided D values", () => {
-    expect(DOUBLE_JUMP_VELOCITY_SCALE).toBe(0.85);
+    expect(DOUBLE_JUMP_VELOCITY_SCALE).toBe(1.25);
     expect(DOUBLE_JUMP_COUNT).toBe(1);
   });
 });

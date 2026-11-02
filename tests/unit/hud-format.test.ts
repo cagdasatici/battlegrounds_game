@@ -23,7 +23,7 @@ describe("rejection text (spec section 9)", () => {
     expect(rejectionText("STATE")).toBe("Recovering");
     expect(rejectionText("COOLDOWN")).toBe("Cooling down");
     expect(rejectionText("METER")).toBe("Need full meter");
-    expect(rejectionText("FORM")).toBe("Cannot use now");
+    expect(rejectionText("FORM")).toBe("Already used this awakening");
     expect(rejectionText("INVALID")).toBe("Cannot use now");
     expect(rejectionText(undefined)).toBe("Cannot use now");
   });

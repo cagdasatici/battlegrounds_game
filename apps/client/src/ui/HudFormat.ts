@@ -21,6 +21,7 @@ export function rejectionText(reason: RejectReason | undefined): string {
     case "STATE": return "Recovering";
     case "COOLDOWN": return "Cooling down";
     case "METER": return "Need full meter";
+    case "FORM": return "Already used this awakening";
     default: return "Cannot use now";
   }
 }

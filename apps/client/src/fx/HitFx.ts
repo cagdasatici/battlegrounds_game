@@ -5,7 +5,7 @@ import type { CombatBus } from "../app/CombatBus.js";
 import type { EffectsPool } from "../scene/EffectsPool.js";
 import type { PresentationDeps } from "./index.js";
 import { playFinisherImpact, scanFinisher } from "./Signatures.js";
-import { THEME, elementOf, elementOfMove, impactPower, playBlockRipple, playCounterFlash, playImpactBurst, playKoBlast, shakeFor, type Theme } from "./Impact.js";
+import { THEME, elementOf, elementOfMove, impactPower, playBlockRipple, playCounterFlash, playImpactBurst, playKoBlast, playSpecialImpact, shakeFor, type Theme } from "./Impact.js";
 
 /**
  * Hit impact effects (FX1, decision 0024). Every confirmed contact reads differently per outcome: sparks, rings, shield
@@ -42,6 +42,9 @@ export function universalOf(moveId: string | undefined): Universal | undefined {
   const c = /^(?:sv|td|ea)\.(wall|pickup|throw)$/.exec(moveId);
   return c ? (c[1] as Universal) : undefined;
 }
+
+/** Slotted ability ids (sv.b1, td.a3, ea.activate ...), excluding the shared context moves. */
+const isSpecialMove = (moveId: string | undefined): boolean => moveId !== undefined && /^(?:sv|td|ea)\.(?:[ba][1-4]|activate)$/.test(moveId);
 
 const DUST = 0xb8a58c, OCHRE = 0xd9a441, PALE = 0xe8f4ff, CYAN = 0x5fd8ff;
 
@@ -135,6 +138,10 @@ export function playHit(e: CombatEvent, io: HitFxIo): void {
     if ((e.damage100 ?? 0) > 0 || universalOf(e.moveId) !== undefined) playImpactBurst(fx, { at: o, groundY, dir, theme, power });
     if (universalOf(e.moveId) === "m1.4") playFinisherImpact(fx, io.kitOf?.(e.actorId), o, groundY, dir, power); // UX10b: element-themed finisher
     shake = shakeFor(power);
+    if (isSpecialMove(e.moveId) && (e.damage100 ?? 0) > 0) { // owner feedback: ability hits must read far bigger than M1
+      playSpecialImpact(fx, { at: o, groundY, dir, theme, power: Math.max(1, power) * 1.25 });
+      shake = shakeFor(power * 1.5);
+    }
   } else if (e.kind === "block") {
     const power = impactPower(e.damage100, false, false, false);
     playBlockRipple(fx, o, dir ? { x: -dir.x, z: -dir.z } : { x: 0, z: 1 }, power);

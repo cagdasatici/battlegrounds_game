@@ -61,7 +61,7 @@ describe("DJ01 double jump over real Colyseus clients", () => {
     const until = Date.now() + 1500;
     while (Date.now() < until && !(t.body.state.grounded && Date.now() > until - 1000)) { maxY = Math.max(maxY, t.body.rb.translation().y); expect(t.body.state.airJumpsUsed).toBeLessThanOrEqual(1); await sleep(8); }
     expect(maxY - y0).toBeGreaterThan(2.0); // two stacked jumps; a single jump peaks near 1.4 m
-    expect(maxY - y0).toBeLessThan(3.3);
+    expect(maxY - y0).toBeLessThan(4.2);
     await t.landed();
     await waitFor(() => t.seenByB()?.airJumpUsed === false, 2000, "B sees flag cleared on landing");
     await t.a.leave(); await t.b.leave();

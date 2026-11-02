@@ -6,7 +6,7 @@
 export const HIT_STUN: { enabled: boolean } = { enabled: false };
 
 /** Double jump (DJ01, decision 0051, explicit user requirement). Both are D (local design values). */
-export const DOUBLE_JUMP_VELOCITY_SCALE = 0.85;
+export const DOUBLE_JUMP_VELOCITY_SCALE = 1.25;
 export const DOUBLE_JUMP_COUNT = 1;
 
 /** Universal movement and combat values. Every number here is D (local design value), spec section 11. */
@@ -14,8 +14,8 @@ export const COMBAT = {
   hp: 100,
   hp100Max: 10000,
   movement: {
-    walk: 7,
-    run: 11,
+    walk: 9,
+    run: 14,
     guard: 3,
     acceleration: 70,
     airControl: 0.3,
