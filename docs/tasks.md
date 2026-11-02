@@ -190,3 +190,9 @@ Execute one row per session using [the Quality 90 instructions](quality-90-plan.
 |---|---|---|---|---|---|
 | OPS01 | Load host-local admin credential in production startup | UX08 WEB4 T28 | IMPLEMENTED, DEVICE CHECK PENDING | see git log (OPS01 commit) | docs/test-results/OPS01.md |
 | OPS02 | Verify minimal background hosting and on-demand room lifecycle | T28 OPS01 | DONE | see git log (OPS02 commit) | docs/test-results/OPS02.md |
+
+## Owner visual overhaul (approved 2026-11-02)
+
+| Task | Title | Depends on | Status | Commit | Test report | Notes |
+|---|---|---|---|---|---|---|
+| VIS01 | Combat readability, elemental trails, shaped beams, arena art, lighting and fighter finish | UX10c UX05 UX06 DJ01 | IMPLEMENTED (DEVICE CHECK PENDING) | 9623b26 | docs/test-results/VIS01.md | Owner authorized one-session scope and main push; decision 0052. Existing gameplay changes preserved. Physical iPad NOT RUN |
