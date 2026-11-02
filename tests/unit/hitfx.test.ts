@@ -246,9 +246,11 @@ describe("QV09 universal table", () => {
     const t = rig(); // attacker chest at x 0, victim at x 2: the fan heads toward +x
     const vxs: number[] = [];
     const spawn = t.pool.spawn.bind(t.pool);
-    t.pool.spawn = (p) => { vxs.push(p.vx); return spawn(p); };
+    // FLAKE1: the round burst (life 0.2) has random-direction particles, so only the spray (life 0.22) is judged; counting all vx > 2 failed about 1 run in 5.
+    t.pool.spawn = (p) => { if (p.life === 0.22) vxs.push(p.vx); return spawn(p); };
     playHit(ev({ moveId: "m1.2", position: { x: 2, y: 1, z: 0 } }), t.io);
-    expect(vxs.filter((v) => v > 2).length).toBe(10);
+    expect(vxs.length).toBe(10);
+    expect(vxs.every((v) => v > 2)).toBe(true);
   });
   test("universalOf recognises only m1 steps and shared context moves", () => {
     expect(["m1.1", "m1.4.finisher", "sv.wall", "td.pickup", "ea.throw"].map(universalOf)).toEqual(["m1.1", "m1.4", "wall", "pickup", "throw"]);

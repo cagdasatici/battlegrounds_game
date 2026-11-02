@@ -143,7 +143,8 @@ describe("T20 Ember Artificer over a real Colyseus connection", () => {
     await sleep(80);
     expect((await x.tap(2)).accepted).toBe(true);
     const cast = x.room.abilities.castOf(x.aId)!;
-    await waitFor(() => x.room.sim.tick === cast.activeStart + 2, 2000, "two active ticks in");
+    // FLAKE1: `>=`, not `===`: the fixed clock can step several ticks in one event-loop turn under CPU load, which skipped the exact tick and timed out.
+    await waitFor(() => x.room.sim.tick >= cast.activeStart + 2, 2000, "two active ticks in");
     const early = await x.tap(2);
     expect(early.accepted).toBe(false);
     expect(early.reason).toBe("STATE");

@@ -50,7 +50,7 @@ test.beforeAll(async () => {
   const v = req("vite") as { createServer(c: unknown): Promise<Dev> };
   vite = await v.createServer({
     root: path.join(root, "apps/client"), configFile: false, logLevel: "error",
-    server: {
+    server: { hmr: false, watch: null,
       port: vitePort, strictPort: true, host: "127.0.0.1", fs: { strict: false },
       proxy: {
         "/api": { target }, "/matchmake": { target },

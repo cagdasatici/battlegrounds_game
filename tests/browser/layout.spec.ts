@@ -22,7 +22,7 @@ test.beforeAll(async () => {
   server = await vite.createServer({
     root: path.join(here, "harness"),
     configFile: false,
-    server: { port: 0, host: "127.0.0.1", fs: { strict: false } },
+    server: { hmr: false, watch: null, port: 0, host: "127.0.0.1", fs: { strict: false } },
     logLevel: "error",
   });
   await server.listen();

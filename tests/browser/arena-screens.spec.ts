@@ -23,7 +23,7 @@ let base = "";
 
 test.beforeAll(async () => {
   const vite = req("vite") as { createServer(c: unknown): Promise<Dev> };
-  server = await vite.createServer({ root: path.join(here, "harness"), configFile: false, server: { port: 0, host: "127.0.0.1", fs: { strict: false } }, logLevel: "error" });
+  server = await vite.createServer({ root: path.join(here, "harness"), configFile: false, server: { hmr: false, watch: null, port: 0, host: "127.0.0.1", fs: { strict: false } }, logLevel: "error" });
   await server.listen();
   base = server.resolvedUrls!.local[0]!;
   browser = await chromium.launch({ executablePath: CHROMIUM, args: GL_ARGS });

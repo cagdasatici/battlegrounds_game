@@ -29,7 +29,7 @@ window.ready = true;
 
 test.beforeAll(async () => {
   const vite = req("vite") as { createServer(c: unknown): Promise<Dev> };
-  server = await vite.createServer({ root, configFile: false, logLevel: "error", optimizeDeps: { noDiscovery: true }, server: { host: "127.0.0.1", port: 0 },
+  server = await vite.createServer({ root, configFile: false, logLevel: "error", optimizeDeps: { noDiscovery: true }, server: { hmr: false, watch: null, host: "127.0.0.1", port: 0 },
     plugins: [{ name: "bot3-local-fixture", configureServer(s: { middlewares: { use(fn: (q: { url?: string }, r: { setHeader(k: string, v: string): void; end(s: string): void }, next: () => void) => void): void } }) {
       s.middlewares.use((q, r, next) => { if (q.url !== "/bot3") return next(); r.setHeader("Content-Type", "text/html"); r.end(fixture); });
     } }],

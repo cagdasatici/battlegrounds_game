@@ -9,7 +9,7 @@ interface Dev { close(): Promise<void>; listen(): Promise<unknown>; resolvedUrls
 let server: Dev, browser: Browser, base: string;
 test.beforeAll(async () => {
   const vite = req("vite");
-  server = await vite.createServer({ root, configFile: false, optimizeDeps: { noDiscovery: true }, server: { port: 0, host: "127.0.0.1", fs: { strict: false } }, logLevel: "error",
+  server = await vite.createServer({ root, configFile: false, optimizeDeps: { noDiscovery: true }, server: { hmr: false, watch: null, port: 0, host: "127.0.0.1", fs: { strict: false } }, logLevel: "error",
     plugins: [{ name: "guide-fixture", configureServer(s: { middlewares: { use(fn: (req: { url: string }, res: { setHeader(k: string, v: string): void; end(s: string): void }, next: () => void) => void): void } }) {
       s.middlewares.use((req, res, next) => {
         if (!req.url.startsWith("/guide-fixture")) return next();

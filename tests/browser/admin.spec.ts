@@ -30,7 +30,7 @@ test.beforeAll(async () => {
   const target = `http://127.0.0.1:${gamePort}`;
   const v = req("vite") as { createServer(c: unknown): Promise<Dev> };
   vite = await v.createServer({ root: path.join(root, "apps/client"), configFile: false, logLevel: "error",
-    server: { port: vitePort, strictPort: true, host: "127.0.0.1", fs: { strict: false }, proxy: { "/api": { target } } } });
+    server: { hmr: false, watch: null, port: vitePort, strictPort: true, host: "127.0.0.1", fs: { strict: false }, proxy: { "/api": { target } } } });
   await vite.listen();
   browser = await chromium.launch({ ...(process.env["EB_CHROMIUM"] ? { executablePath: process.env["EB_CHROMIUM"] } : {}) });
 });
