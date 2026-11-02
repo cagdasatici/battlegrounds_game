@@ -85,3 +85,55 @@ describe("hudModel extras", () => {
     expect(m.awakenReady).toBe(true);
   });
 });
+
+import { BlockNotice, equippedSkillNames, shortSkillLabel, skillStatus, BLOCK_FEEDBACK_MS } from "../../apps/client/src/ui/HudFormat.js";
+import { MIN_GAP_PX, placeSparringRect, rectGap, validateLayout } from "../../apps/client/src/input/ControlLayout.js";
+
+describe("QU01 skill buttons and block feedback", () => {
+  test("short labels, readiness text and equipped names", () => {
+    expect(shortSkillLabel("Fault Strike")).toBe("Fault Strike");
+    expect(shortSkillLabel("Undertow Spiral")).toBe("Undertow");
+    expect(shortSkillLabel("")).toBe("");
+    expect(skillStatus("")).toEqual({ ready: true, text: "Ready" });
+    expect(skillStatus("3.2")).toEqual({ ready: false, text: "3.2" });
+    expect(equippedSkillNames("sv", "Base")).toHaveLength(4);
+    expect(equippedSkillNames("sv", "Base").every((n) => n !== "")).toBe(true);
+    expect(equippedSkillNames("zz", "Base")).toEqual(["", "", "", ""]);
+  });
+  test("hudModel shows name plus status, and Blocked on the Guard button only when confirmed", () => {
+    const L = computeLayout({ x0: 0, y0: 0, W: 1024, H: 768 });
+    const st = { name: "A", hp: 100, maxHp: 100, meter: 0, facingLock: false, portrait: false, skills: ["Fault Strike", "Rock", "Wall", "Quake"], cooldowns: ["", "3.2", "", ""] };
+    const m = hudModel(L, st);
+    const s1 = m.boxes.find((b) => b.id === "skill1")!, s2 = m.boxes.find((b) => b.id === "skill2")!;
+    expect([s1.label, s1.sub, s1.ready]).toEqual(["1 Fault Strike", "Ready", true]);
+    expect([s2.label, s2.sub, s2.ready]).toEqual(["2 Rock", "3.2", false]);
+    expect(m.boxes.find((b) => b.id === "block")!.label).toBe("Guard");
+    expect(hudModel(L, { ...st, blocked: true }).boxes.find((b) => b.id === "block")!.label).toBe("Blocked!");
+  });
+  test("BlockNotice is inactive until a block is confirmed, then expires", () => {
+    const n = new BlockNotice();
+    expect(n.active(0)).toBe(false);
+    n.confirm(1000);
+    expect(n.active(1000 + BLOCK_FEEDBACK_MS - 1)).toBe(true);
+    expect(n.active(1000 + BLOCK_FEEDBACK_MS)).toBe(false);
+  });
+});
+
+describe("QU01 sparring button rectangle", () => {
+  test("zero intersection and >= 8 px from every control at both iPad viewports", () => {
+    for (const [W, H] of [[1024, 768], [1180, 820]] as const) {
+      const L = computeLayout({ x0: 0, y0: 0, W, H });
+      expect(validateLayout(L)).toEqual([]);
+      const r = placeSparringRect(L)!;
+      expect(r, `${W}x${H}`).not.toBeNull();
+      expect(r.left >= 0 && r.top >= 0 && r.left + r.width <= W && r.top + r.height <= H).toBe(true);
+      for (const c of Object.values(L.controls)) {
+        const w = c.interactive ? c.hw : c.vw, h = c.interactive ? c.hh : c.vh;
+        expect(rectGap(r, { left: c.cx - w / 2, top: c.cy - h / 2, width: w, height: h }), `${W}x${H} ${c.id}`).toBeGreaterThanOrEqual(MIN_GAP_PX);
+      }
+    }
+  });
+  test("returns null instead of overlapping when nothing fits", () => {
+    expect(placeSparringRect(computeLayout({ x0: 0, y0: 0, W: 1024, H: 768 }), 5000)).toBeNull();
+  });
+});

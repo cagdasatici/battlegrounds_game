@@ -3,6 +3,7 @@
  * estimated server tick. Display only: the server settles every discrepancy.
  */
 import { meterFraction } from "@eb/shared/awakening";
+import { EA_DEFS, SV_DEFS, TD_DEFS } from "@eb/shared/config/kits/index";
 import { COMBAT } from "@eb/shared/config/combat";
 import { TICK_RATE, type RejectReason } from "@eb/shared/protocol";
 
@@ -70,4 +71,34 @@ export function formTimerText(form: string, formEndTick: number, nowTick: number
 export function stillpointText(remainingTicks: number): string {
   const t = cooldownLabel(remainingTicks, 0);
   return t === "" ? "" : `Stillpoint ${t}`;
+}
+
+/** Short on-button skill name: whole label up to 12 characters, else its first word (never empty). */
+export function shortSkillLabel(label: string): string {
+  const t = label.trim();
+  if (t.length <= 12) return t;
+  const first = t.split(/\s+/)[0] ?? t;
+  return first.length <= 12 ? first : `${first.slice(0, 11)}.`;
+}
+
+/** Readiness text for a skill button: "Ready" or the cooldown label. Text and shape, never colour alone. */
+export function skillStatus(cooldown: string): { ready: boolean; text: string } {
+  return cooldown === "" ? { ready: true, text: "Ready" } : { ready: false, text: cooldown };
+}
+
+export const BLOCK_FEEDBACK_MS = 800;
+
+/** Server-confirmed block feedback: shown only after a "block" combat event, for 0.8 s. Display only. */
+export class BlockNotice {
+  private until = 0;
+  confirm(nowMs: number): void { this.until = nowMs + BLOCK_FEEDBACK_MS; }
+  active(nowMs: number): boolean { return nowMs < this.until; }
+}
+
+const KIT_DEFS: Readonly<Record<string, typeof SV_DEFS>> = { sv: SV_DEFS, td: TD_DEFS, ea: EA_DEFS };
+
+/** Equipped short skill names for slots 1 to 4 of a kit and form; unknown kit gives four empty names. */
+export function equippedSkillNames(kitId: string, form: string): string[] {
+  const defs = KIT_DEFS[kitId] ?? [];
+  return [1, 2, 3, 4].map((slot) => shortSkillLabel(defs.find((d) => d.slot === slot && d.form === (form === "Awakened" ? "Awakened" : "Base"))?.label ?? ""));
 }

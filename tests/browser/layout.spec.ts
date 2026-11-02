@@ -89,3 +89,37 @@ for (const [W, H] of [[1024, 768], [1180, 820]] as const) {
     await page.close();
   });
 }
+
+// QU01: sparring and score actions are separate measured rectangles; skill buttons show names and readiness; Blocked shows on Guard.
+for (const [W, H] of [[1024, 768], [1180, 820]] as const) {
+  test(`QU01 sparring/score rectangles do not intersect any control at ${W}x${H}`, async () => {
+    const page = await browser.newPage({ viewport: { width: W, height: H }, hasTouch: true });
+    await page.goto(`${base}?qu01=1`);
+    await page.waitForSelector("[data-spar]");
+    const rects: { id: string; l: number; t: number; r: number; b: number }[] = await page.$$eval("[data-control],[data-spar]", (els) =>
+      els.map((e) => {
+        const x = e.getBoundingClientRect(); const h = e as HTMLElement;
+        return { id: h.dataset["control"] ?? "sparring", l: x.left, t: x.top, r: x.right, b: x.bottom };
+      }));
+    const spar = rects.find((q) => q.id === "sparring")!, score = rects.find((q) => q.id === "scoreboard")!;
+    expect(spar.l >= 0 && spar.t >= 0 && spar.r <= W && spar.b <= H).toBe(true);
+    for (const q of rects) {
+      if (q.id === "sparring") continue;
+      const gap = Math.max(q.l - spar.r, spar.l - q.r, q.t - spar.b, spar.t - q.b);
+      expect(gap, `sparring vs ${q.id}`).toBeGreaterThanOrEqual(8);
+    }
+    expect(spar.r <= score.l - 8 || spar.b <= score.t - 8 || spar.l >= score.r + 8 || spar.t >= score.b + 8).toBe(true);
+    // Skill buttons: equipped name plus text readiness (not colour alone).
+    const skills = await page.$$eval("[data-control^=skill]", (els) => els.map((e) => ({ text: (e as HTMLElement).innerText.replace(/\n/g, "|"), border: getComputedStyle(e).borderTopStyle })));
+    expect(skills[0]).toEqual({ text: "1 Fault Strike|Ready", border: "solid" });
+    expect(skills[1]).toEqual({ text: "2 Undertow|3.2", border: "dashed" });
+    expect(skills[3]).toEqual({ text: "4 Quake|12", border: "dashed" });
+    mkdirSync(outDir, { recursive: true });
+    await page.screenshot({ path: path.join(outDir, `QU01-hud-${W}x${H}.png`) });
+    await page.goto(`${base}?qu01=blocked`);
+    await page.waitForSelector("[data-control=block]");
+    expect(await page.locator("[data-control=block]").innerText()).toBe("Blocked!");
+    expect(await page.locator("[data-hud=block-feedback]").isVisible()).toBe(true);
+    await page.close();
+  });
+}

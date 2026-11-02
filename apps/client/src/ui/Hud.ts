@@ -3,7 +3,7 @@
  * all values shown (HP, meter) come from server snapshots supplied by the caller.
  */
 import type { ControlId, Layout, SafeRect } from "../input/ControlLayout.js";
-import type { ScoreRow } from "./HudFormat.js";
+import { shortSkillLabel, skillStatus, type ScoreRow } from "./HudFormat.js";
 
 export interface HudState {
   name: string;
@@ -17,6 +17,10 @@ export interface HudState {
   meterText?: string;
   /** Four slot texts from cooldownEndTicks (empty string = ready). */
   cooldowns?: readonly string[];
+  /** Four equipped short skill names for the current form. When given, skill buttons show name and readiness. */
+  skills?: readonly string[];
+  /** True for a short window after the server confirmed a block of the local player's guard. */
+  blocked?: boolean;
   formText?: string;
   stillpointText?: string;
   rejection?: string | null;
@@ -29,7 +33,7 @@ export interface HudState {
   kitMenu?: { kits: readonly { id: string; label: string }[]; current: string; pending: string } | null;
 }
 
-export interface HudBox { id: ControlId; left: number; top: number; width: number; height: number; round: boolean; label: string }
+export interface HudBox { id: ControlId; left: number; top: number; width: number; height: number; round: boolean; label: string; sub?: string; ready?: boolean }
 export interface HudModel { boxes: HudBox[]; panel: null | "rotate" | "enlarge"; hpText: string; meterPct: number; awakenReady: boolean; meterText: string }
 
 const LABELS: Record<ControlId, string> = {
@@ -49,10 +53,20 @@ function boxLabel(id: ControlId, st: HudState, meterText: string): string {
 export function hudModel(layout: Layout, st: HudState): HudModel {
   const meter = Math.min(1, Math.max(0, st.meter));
   const meterText = st.meterText ?? (meter >= 1 ? "Ready" : `${Math.round(meter * 100)}%`);
-  const boxes = Object.values(layout.controls).map((c) => ({
-    id: c.id, left: c.cx - c.vw / 2, top: c.cy - c.vh / 2, width: c.vw, height: c.vh,
-    round: c.shape === "circle", label: boxLabel(c.id, st, meterText),
-  }));
+  const boxes: HudBox[] = Object.values(layout.controls).map((c) => {
+    const box: HudBox = {
+      id: c.id, left: c.cx - c.vw / 2, top: c.cy - c.vh / 2, width: c.vw, height: c.vh,
+      round: c.shape === "circle", label: boxLabel(c.id, st, meterText),
+    };
+    const slot = c.id === "skill1" ? 0 : c.id === "skill2" ? 1 : c.id === "skill3" ? 2 : c.id === "skill4" ? 3 : -1;
+    if (slot >= 0 && st.skills) {
+      const s = skillStatus(st.cooldowns?.[slot] ?? "");
+      box.label = `${slot + 1} ${shortSkillLabel(st.skills[slot] ?? "")}`.trim();
+      box.sub = s.text; box.ready = s.ready;
+    }
+    if (c.id === "block" && st.blocked) { box.label = "Blocked!"; box.ready = true; }
+    return box;
+  });
   const panel = st.portrait ? "rotate" : layout.tooSmall ? "enlarge" : null;
   return {
     boxes, panel, meterText,
@@ -80,6 +94,7 @@ export class Hud {
 
   private readonly info: HTMLElement;
   private readonly toast: HTMLElement;
+  private readonly badge: HTMLElement;
   private readonly death: HTMLElement;
   private readonly board: HTMLElement;
   private readonly kitPanel: HTMLElement;
@@ -104,6 +119,8 @@ export class Hud {
       return el;
     };
     this.info = mk("info", "left:50%;top:8px;transform:translateX(-50%);text-shadow:0 1px 2px #000;white-space:pre");
+    this.badge = mk("block-feedback", "left:50%;top:44%;transform:translateX(-50%);background:#e8b84af0;color:#111;padding:6px 18px;border-radius:14px;font-size:20px");
+    this.badge.textContent = "Blocked!";
     this.toast = mk("rejection", "left:50%;top:56%;transform:translateX(-50%);background:#000a;padding:6px 14px;border-radius:14px");
     this.death = mk("respawn", "inset:0;align-items:center;justify-content:center;flex-direction:column;background:#300a;font-size:26px;text-align:center");
     this.board = mk("scoreboard", "right:12px;top:60px;background:#0b1118ee;border:2px solid #9fd3ff88;border-radius:10px;padding:8px 12px;min-width:220px");
@@ -141,6 +158,7 @@ export class Hud {
     const line = [st.formText, st.stillpointText].filter((t) => t !== undefined && t !== "").join("   ");
     this.info.style.display = line ? "block" : "none";
     this.info.textContent = line;
+    this.badge.style.display = st.blocked ? "block" : "none";
     this.toast.style.display = st.rejection ? "block" : "none";
     this.toast.textContent = st.rejection ?? "";
     const d = st.respawn;
@@ -198,10 +216,24 @@ export class Hud {
       el.style.width = `${b.width}px`;
       el.style.height = `${b.height}px`;
       el.style.borderRadius = b.round ? "50%" : "10px";
-      el.textContent = b.id === "health" ? `${b.label} ${m.hpText}` : b.label;
+      if (b.sub !== undefined) {
+        el.replaceChildren(
+          Object.assign(this.doc.createElement("span"), { textContent: b.label }),
+          Object.assign(this.doc.createElement("span"), { textContent: b.ready ? "Ready" : b.sub }),
+        );
+        Object.assign(el.style, { flexDirection: "column", lineHeight: "1.15", fontSize: "10px", whiteSpace: "nowrap", textAlign: "center", overflow: "hidden" });
+        el.style.borderStyle = b.ready ? "solid" : "dashed";
+        el.style.borderWidth = b.ready ? "3px" : "2px";
+      } else {
+        el.textContent = b.id === "health" ? `${b.label} ${m.hpText}` : b.label;
+      }
+      if (b.id === "block") {
+        el.style.background = st.blocked ? "#e8b84acc" : "#1d2b3acc";
+        el.style.borderColor = st.blocked ? "#fff" : "#9fd3ff88";
+      }
       const o = (layout as { opacity?: number }).opacity ?? this.opacity;
       el.style.opacity = String(o);
-      if (b.id.startsWith("skill")) el.style.opacity = String(b.label.length > 1 ? o * 0.6 : o);
+      if (b.id.startsWith("skill")) el.style.opacity = String(b.ready === true || b.label.length === 1 ? o : o * 0.6);
       if (b.id === "facing") el.style.background = st.facingLock ? "#3a7bd5cc" : "#1d2b3acc";
       if (b.id === "awaken") el.style.opacity = String(m.awakenReady ? o : o * 0.65);
       if (b.id === "health") this.fill(el, st.maxHp > 0 ? st.hp / st.maxHp : 0);

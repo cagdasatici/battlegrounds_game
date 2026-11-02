@@ -146,3 +146,33 @@ export function validateLayout(layout: Layout): LayoutIssue[] {
   }
   return issues;
 }
+
+export interface PlainRect { left: number; top: number; width: number; height: number }
+
+/** Gap between two axis-aligned rectangles (negative = overlap depth). */
+export function rectGap(a: PlainRect, b: PlainRect): number {
+  const dx = Math.max(b.left - (a.left + a.width), a.left - (b.left + b.width));
+  const dy = Math.max(b.top - (a.top + a.height), a.top - (b.top + b.height));
+  return dx > 0 && dy > 0 ? Math.hypot(dx, dy) : Math.max(dx, dy);
+}
+
+/**
+ * Measured rectangle for the host's sparring button during a match. Scans the top row, then the second row, from the right
+ * edge leftwards for the first spot at least MIN_GAP_PX from every control's hit target (circles use their bounding square,
+ * which is conservative). Returns null if nothing fits, and the caller hides the button rather than overlap a control.
+ */
+export function placeSparringRect(layout: Layout, width = 150, height = MIN_TARGET_PX): PlainRect | null {
+  const { x0, y0, W, H } = layout.safe;
+  const targets: PlainRect[] = Object.values(layout.controls).map((c) => {
+    const w = c.interactive ? c.hw : c.vw, h = c.interactive ? c.hh : c.vh;
+    return { left: c.cx - w / 2, top: c.cy - h / 2, width: w, height: h };
+  });
+  for (const top of [y0 + MIN_GAP_PX, y0 + MIN_GAP_PX + height + MIN_GAP_PX]) {
+    for (let left = x0 + W - width - MIN_GAP_PX; left >= x0 + MIN_GAP_PX; left -= 4) {
+      const r = { left, top, width, height };
+      if (top + height > y0 + H) continue;
+      if (targets.every((t) => rectGap(r, t) >= MIN_GAP_PX)) return r;
+    }
+  }
+  return null;
+}

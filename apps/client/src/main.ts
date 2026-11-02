@@ -20,7 +20,7 @@ import { CaptureCam } from "./fx/CaptureCam.js";
 import { AdaptiveQuality } from "./app/AdaptiveQuality.js";
 import { GameLoop, type LoopPlayer, type LoopState } from "./app/GameLoop.js";
 import { SettingsStore } from "./app/SettingsStore.js";
-import { computeLayout, type Layout } from "./input/ControlLayout.js";
+import { computeLayout, placeSparringRect, type Layout } from "./input/ControlLayout.js";
 import { resolveLayout, viewportClass } from "./input/LayoutEdit.js";
 import { attachKeyboardRouter } from "./input/KeyboardRouter.js";
 import { IntentSampler } from "./input/IntentSampler.js";
@@ -32,7 +32,7 @@ import { CameraRig, fighterMarkers, framingOk, projectPoint } from "./scene/Came
 import { GameScene, hasWebGL2, isSoftwareRenderer, type Quality } from "./scene/GameScene.js";
 import { Hud, readSafeRect } from "./ui/Hud.js";
 import {
-  RejectionNotice, cooldownLabel, formTimerText, meterLabel, respawnSecondsLeft, scoreboardRows, stillpointText,
+  BlockNotice, RejectionNotice, cooldownLabel, equippedSkillNames, formTimerText, meterLabel, respawnSecondsLeft, scoreboardRows, stillpointText,
 } from "./ui/HudFormat.js";
 import { mountHowToPlay } from "./ui/HowToPlay.js";
 import { KIT_LABEL, Lobby, type LobbyView } from "./ui/Lobby.js";
@@ -293,6 +293,14 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   };
   app.append(roomsHost, roomsButton);
   cleanups.push(() => { hideRooms(); roomsHost.remove(); roomsButton.remove(); });
+  // In a match the sparring button gets its own measured rectangle clear of every control (QU01); outside a match it keeps the lobby spot.
+  const placeSparButton = (layout: Layout | null): void => {
+    const r = layout ? placeSparringRect(layout) : null;
+    const st = sparButton.style;
+    if (layout && r) { st.left = `${r.left}px`; st.top = `${r.top}px`; st.width = `${r.width}px`; st.height = `${r.height}px`; st.right = "auto"; st.visibility = ""; }
+    else if (layout) st.visibility = "hidden";
+    else { st.left = ""; st.top = "16px"; st.width = ""; st.height = ""; st.right = "16px"; st.visibility = ""; }
+  };
   const setupActions: import("@eb/shared/sparring").SparringSetupActions = {
     start: async (config, kit, listed) => {
       setupPending = true;
@@ -350,6 +358,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     const welcome = rc.welcome as WelcomeMessage;
     let showBoard = false, menuOpen = false, kitMenu = false;
     let ko: { tick: number; by: string } | null = null;
+    const blockNotice = new BlockNotice();
     const settings = activeSettings();
     const tier = (q: Quality): Quality => (softwareGl ? "low" : q);
     const adaptive = new AdaptiveQuality(tier(settings.get().quality));
@@ -373,7 +382,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     bus.on((e: CombatEvent) => {
       const me = localOf();
       if (!me || e.targetId !== String(me.entityId)) return;
-      if (e.kind === "ko") ko = { tick: e.tick, by: e.actorId === e.targetId ? "the arena" : players().get(e.actorId)?.displayName ?? "a rival" };
+      if (e.kind === "block") blockNotice.confirm(performance.now());
+      else if (e.kind === "ko") ko = { tick: e.tick, by: e.actorId === e.targetId ? "the arena" : players().get(e.actorId)?.displayName ?? "a rival" };
       else if (e.kind === "respawn") ko = null;
     });
 
@@ -401,7 +411,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     router.facingLock = settings.get().facingLock;
     router.sensitivity = settings.get().sensitivity;
     // Repaint now rather than on the next HUD interval tick, so the visible HUD never lags the hit-test layout.
-    const relayout = (): void => { lastLayout = currentLayout(); router.setLayout(lastLayout); hudKey = ""; drawHud(); };
+    const relayout = (): void => { lastLayout = currentLayout(); router.setLayout(lastLayout); hudKey = ""; drawHud(); placeSparButton(lastLayout); };
+    matchCleanups.push(() => { placeSparButton(null); });
     // Opening Settings releases every held input; the arena keeps running (spec section 6).
     const onSettingsOpen = (): void => { router.releaseAll(); };
     const onSettingsChange = (): void => {
@@ -472,6 +483,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       const st = {
         name: me?.displayName ?? lobby.displayName, hp: (me?.hp100 ?? 10000) / 100, maxHp: 100, meter: ml.fraction, meterText: ml.text,
         facingLock: router.facingLock, portrait: window.innerHeight > window.innerWidth,
+        skills: equippedSkillNames(me?.kitId ?? opts.kitId, me?.form ?? "Base"),
+        blocked: blockNotice.active(performance.now()),
         cooldowns: [0, 1, 2, 3].map((i) => cooldownLabel(me?.cooldownEndTicks?.[i] ?? 0, now)),
         formText: me ? formTimerText(me.form, me.formEndTick, now) : "",
         stillpointText: stillpointText(me?.owner?.lethalCounterRemaining ?? 0),
@@ -491,6 +504,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     const hudTimer = window.setInterval(drawHud, 100);
     matchCleanups.push(() => window.clearInterval(hudTimer));
     drawHud();
+    placeSparButton(lastLayout);
 
     r.send("ready", { kitId: kit, contentHash: rc.localContentHash });
     loop.start();
