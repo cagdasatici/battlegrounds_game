@@ -256,6 +256,101 @@ for (const tier of ["low", "medium"] as const) {
 }
 
 
+// ---- QV07: Duelist ability and awakening coverage -------------------------------------------------------------
+// Fixture (synthetic, labelled): fighter placement, camera yaw and the server fighter's action/moveId are set by the test; hits are
+// server-broadcast combat events. Replication, rendering, pooling and cleanup are real. Stills are SwiftShader desktop Chromium, not a device.
+const outDir7 = path.join(root, "docs/test-results/QV07");
+interface Row7 { id: string; action: "Active" | "Awakening"; hits: number[]; sustained?: boolean; counter?: boolean }
+// A hit of 0 damage is sent as a server "capture" event, as the real pipeline reports captures; everything else is a "hit".
+const ROWS7: Row7[] = [
+  { id: "td.b1", action: "Active", hits: [0, 400, 800] }, { id: "td.b2", action: "Active", hits: [500, 2400] }, { id: "td.b3", action: "Active", hits: [0, 900] },
+  { id: "td.b4", action: "Active", hits: [600, 1600], counter: true }, { id: "td.a1", action: "Active", hits: [400, 1000] }, { id: "td.a2", action: "Active", hits: [0, 2000, 6900] },
+  { id: "td.a3", action: "Active", hits: [1200, 2600], sustained: true }, { id: "td.a4", action: "Active", hits: [0, 2200], sustained: true },
+  { id: "td.activate", action: "Awakening", hits: [2000] },
+];
+const MEDIUM7 = new Set(["td.b4", "td.a2", "td.a3", "td.activate"]);
+for (const tier of ["low", "medium"] as const) {
+  test(`QV07 ${tier}: every Duelist move and the activation show a cue on an observer, react to confirmed hits only, and drain`, async () => {
+    test.setTimeout(600_000);
+    mkdirSync(outDir7, { recursive: true });
+    const names = { A: "Tara", T: "Nora", O: "Sven" } as const;
+    const openT = async (name: string, kit: string) => {
+      const ctx = await browser.newContext({ viewport: { width: 1024, height: 768 }, hasTouch: true });
+      await ctx.addInitScript(({ s, spoof }) => {
+        try { for (const n of ["Sven", "Nora", "Tara", "default"]) localStorage.setItem(`eb.settings.v1.${n}`, JSON.stringify(s)); } catch { /* storage unavailable */ }
+        if (spoof) for (const C of [WebGLRenderingContext, WebGL2RenderingContext]) {
+          const orig = C.prototype.getParameter;
+          C.prototype.getParameter = function (this: WebGLRenderingContext, p: number) { return p === 0x9246 ? "ANGLE (Apple, Apple M-series GPU, Metal) [QV07 fixture]" : orig.call(this, p); } as never;
+        }
+      }, { s: { ...defaultSettings(), quality: tier }, spoof: tier !== "low" });
+      const page = await ctx.newPage(), errors: string[] = [];
+      page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
+      page.on("pageerror", (e) => errors.push(String(e)));
+      const { token } = svc.invites.create({ ttlMs: 120_000, maxUses: 1 });
+      await page.goto(`${base}/?room=match&name=${name}&kit=${kit}&debug=1&auto=1#invite=${token}`);
+      await page.waitForFunction(() => (window as unknown as { __eb?: unknown }).__eb !== undefined, undefined, { timeout: 30_000 });
+      return { ctx, page, errors };
+    };
+    const A = await openT(names.A, "td"), T = await openT(names.T, "ea"), O = await openT(names.O, "sv");
+    const report: { id: string; tier: string; cuePeak: number; hitPeaks: number[]; drained: boolean; stoppedOnInterrupt: boolean | null; render: { calls: number; triangles: number } | null; shot: string }[] = [];
+    try {
+      await until(async () => (await snap(O.page)).players.filter((p) => p.ready).length === 3, 30000, "three ready");
+      const arena = matchMaker.getLocalRoomById((await matchMaker.query({ name: "arena" }))[0]!.roomId) as unknown as ArenaRoom;
+      const aId = await until(async () => (await snap(A.page)).localEntityId, 10000, "A id"), tId = await until(async () => (await snap(T.page)).localEntityId, 10000, "T id");
+      const oId = await until(async () => (await snap(O.page)).localEntityId, 10000, "O id");
+      const place = (id: number, x: number, z: number, yaw: number): void => {
+        const b = arena.movement!.get(id)!, pos = { x, y: ARENA.capsule.centreAboveSurface + 0.02, z };
+        b.rb.setTranslation(pos, true); b.rb.setNextKinematicTranslation(pos); b.state.vx = b.state.vy = b.state.vz = 0; b.state.facingYaw = yaw;
+      };
+      // Caster faces east (+X, yaw -PI/2); target 2 m ahead; the observer stands south of the pair looking north (yaw 0) for a side view.
+      const apply = () => { place(aId, 6, 8, -Math.PI / 2); place(tId, 8, 8, Math.PI / 2); place(oId, 7, 14, 0); };
+      apply();
+      await O.page.evaluate(() => (window as unknown as { __eb: { setCameraYaw(y: number): void } }).__eb.setCameraYaw(0));
+      await sleep(1200);
+      const fa = arena.combat.get(aId)!, ft = arena.combat.get(tId)!;
+      const idle = () => { fa.action = "Idle" as never; fa.moveId = ""; fa.actionEndTick = Number.MAX_SAFE_INTEGER; };
+      const fxOf = async () => (await snap(O.page)).fx.active;
+      const server = arena as unknown as { broadcastEvent(t: number, k: string, a: number, b: number, life: number, move: string, dmg: number): void };
+      for (const row of ROWS7) {
+        if (tier === "medium" && !MEDIUM7.has(row.id)) continue;
+        apply(); idle(); ft.hp100 = 10000;
+        await until(async () => (await fxOf()) === 0, 15000, `${row.id} quiet pool`);
+        const tick = arena.sim.tick;
+        fa.action = row.action as never; fa.moveId = row.id; fa.actionStartTick = tick; fa.actionEndTick = tick + (row.action === "Awakening" ? 30 : 1000);
+        const cue = await until(async () => { const n = await fxOf(); return n > 0 ? n : false; }, 8000, `${row.id} cue`);
+        const t0 = Date.now();
+        const s0 = await snap(O.page), file = `${tier}-${row.id}-cue.jpg`;
+        await O.page.screenshot({ path: path.join(outDir7, file), type: "jpeg", quality: 82 });
+        const hitPeaks: number[] = [];
+        let shot = file;
+        for (const dmg of row.hits) {
+          const before = await fxOf();
+          server.broadcastEvent(arena.sim.tick, dmg === 0 ? "capture" : "hit", aId, tId, ft.lifeId, row.id, dmg);
+          const n = await until(async () => { const v = await fxOf(); return v > before ? v : false; }, 8000, `${row.id} hit ${dmg}`);
+          hitPeaks.push(n);
+          if (dmg === row.hits[row.hits.length - 1]) { shot = `${tier}-${row.id}-hit.jpg`; await O.page.screenshot({ path: path.join(outDir7, shot), type: "jpeg", quality: 82 }); }
+        }
+        if (row.counter) { // confirmed counter against the Duelist in stance: the mirror flares
+          const before = await fxOf();
+          server.broadcastEvent(arena.sim.tick, "counter", tId, aId, fa.lifeId, "ea.b1", 0);
+          hitPeaks.push(await until(async () => { const v = await fxOf(); return v > before ? v : false; }, 8000, `${row.id} counter flare`));
+        }
+        let stopped: boolean | null = null;
+        if (row.sustained) { // authoritative interruption: the emitter stops and the pool drains
+          fa.action = "Stunned" as never; fa.moveId = row.id; fa.actionEndTick = arena.sim.tick + 1000;
+          stopped = await until(async () => (await fxOf()) === 0, 8000, `${row.id} drains after interruption`).then(() => true);
+        }
+        idle();
+        await until(async () => (await fxOf()) === 0, 15000, `${row.id} drains`);
+        report.push({ id: row.id, tier, cuePeak: cue, hitPeaks, drained: true, stoppedOnInterrupt: stopped, render: s0.render ? { calls: (s0.render as unknown as { calls: number }).calls, triangles: (s0.render as unknown as { triangles: number }).triangles } : null, shot });
+        void t0;
+      }
+      writeFileSync(path.join(outDir7, `${tier}-report.json`), JSON.stringify({ fixture: "synthetic server phase + broadcast hit events; SwiftShader desktop Chromium 1024x768", tier, report }, null, 1));
+      for (const x of [A, T, O]) expect(x.errors).toEqual([]);
+    } finally { await A.ctx.close(); await T.ctx.close().catch(() => undefined); await O.ctx.close().catch(() => undefined); }
+  });
+}
+
 // ---- QV08: Artificer ability and awakening coverage -------------------------------------------------------------
 // Fixture (synthetic, labelled): fighter placement, camera yaw and the server fighter's action/moveId are set by the test; hits are
 // server-broadcast combat events. Replication, rendering, pooling and cleanup are real. Stills are SwiftShader desktop Chromium, not a device.
@@ -345,3 +440,4 @@ for (const tier of ["low", "medium"] as const) {
     } finally { await A.ctx.close(); await T.ctx.close().catch(() => undefined); await O.ctx.close().catch(() => undefined); }
   });
 }
+

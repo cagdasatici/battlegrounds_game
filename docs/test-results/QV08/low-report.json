@@ -106,7 +106,7 @@
    "tier": "low",
    "cuePeak": 30,
    "hitPeaks": [
-    86
+    94
    ],
    "drained": true,
    "stoppedOnInterrupt": true,
@@ -121,7 +121,7 @@
    "tier": "low",
    "cuePeak": 28,
    "hitPeaks": [
-    82
+    92
    ],
    "drained": true,
    "stoppedOnInterrupt": true,
