@@ -101,7 +101,7 @@ test("Unauthenticated: How to play opens without a request, Back restores Welcom
     const guide = page.locator("[data-ui=how-to-play]");
     await expect(guide).toBeVisible();
     await expect(guide.getByText("Practice uses a stationary dummy")).toBeVisible();
-    await expect(guide.getByText("Host sparring")).toHaveCount(0);
+    await expect(guide.getByText("Host sparring to fight bots", { exact: false })).toBeVisible();
     // QU01: the five first-match prompts sit beside the touch and keyboard bindings.
     for (const mode of ["Touch", "Keyboard"]) {
       await guide.getByRole("button", { name: mode, exact: true }).click();

@@ -120,6 +120,9 @@ test(`Q01: four-fighter workload ${LONG ? `long ${MINUTES} min` : "smoke"} recor
     await until(async () => (await snap(host.page)).players.filter((p) => p.ready).length === 4, 30_000, "four fighters ready");
 
     const room = roomOf(code);
+    const koLog: string[] = [];
+    { const r = room as unknown as { broadcast: (t: unknown, m: unknown, o?: unknown) => void }; const orig = r.broadcast.bind(room);
+      r.broadcast = (t, m, o) => { const e = m as { kind?: string; actorId?: string; targetId?: string; moveId?: string; tick?: number }; if (e?.kind === "ko" || e?.kind === "respawn") koLog.push(`${e.kind} t${e.tick} ${e.actorId}->${e.targetId} ${e.moveId}`); orig(t, m, o); }; }
     await until(async () => [...room.combat.all()].every((f) => room.sim.tick > f.protectedUntilTick + 2), 8000, "spawn protection over");
     const s0 = await snap(host.page);
     const A = s0.players.find((p) => p.name === "Arel")!.entityId, B = s0.players.find((p) => p.name === "Nora")!.entityId;
@@ -128,6 +131,7 @@ test(`Q01: four-fighter workload ${LONG ? `long ${MINUTES} min` : "smoke"} recor
 
     // Measured interval starts here; everything before is setup, tracked by sample index.
     const startIdx = await host.page.evaluate(() => (window as unknown as { __q: { samples: unknown[] } }).__q.samples.length);
+    koLog.push(`ids A=${A} B=${B} bots=${bots.map((b) => b.entityId)} tick=${room.sim.tick}`);
     const t0 = Date.now();
     const events = emptyEvents();
     let maxCalls = 0, maxTris = 0, tier = "unknown", reflected = 0, maxFx = 0, fxCap = 0, shed = 0;
@@ -150,7 +154,11 @@ test(`Q01: four-fighter workload ${LONG ? `long ${MINUTES} min` : "smoke"} recor
       reset();
       for (const [id, page, kit] of [[A, host.page, "td"], [B, guest!.page, "ea"]] as const) {
         const f = room.combat.get(id)!; if (f.form !== "Awakened") f.meter100 = meterRequired100(kit);
-        await until(async () => { await sample(); return (await snap(page)).players.find((p) => p.entityId === id)?.form === "Awakened" || (await page.keyboard.press("KeyG"), false); }, 8000, `${kit} awakened`);
+        const trail: string[] = [];
+        await until(async () => { await sample(); { const c = room.combat.get(id)!; const t = `${room.sim.tick}:${c.form}/${c.action?.kind ?? "?"}/m${c.meter100}/l${c.lifeId}/hp${c.hp100}/p${JSON.stringify(room.movement!.position(id)?.map((v) => Math.round(v * 10) / 10))}`; if (trail.at(-1)?.slice(trail.at(-1)!.indexOf(":")) !== t.slice(t.indexOf(":"))) trail.push(t); } return (await snap(page)).players.find((p) => p.entityId === id)?.form === "Awakened" || (await page.keyboard.press("KeyG"), false); }, 8000, `${kit} awakened`).catch((e: unknown) => {
+          const c = room.combat.get(id)!;
+          throw new Error(`${String(e)} | server form=${c.form} action=${c.action?.kind ?? JSON.stringify(c.action)} meter100=${c.meter100} hp100=${c.hp100} lifeId=${c.lifeId} protectedUntil=${c.protectedUntilTick} tick=${room.sim.tick} trail=${trail.slice(0, 14).join(" ")} kos=${koLog.join("; ")}`);
+        });
       }
       await until(async () => { await sample(); return events.overlapAwakening >= 1; }, 5000, "overlapping awakened fighters");
       // Real dash by keyboard fallback on the host.

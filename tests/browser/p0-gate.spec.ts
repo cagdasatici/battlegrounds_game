@@ -202,17 +202,26 @@ test.describe("T18e: all 16 slotted moves and both awakenings through the UI, tw
         if (row.setup === "filled") { fx.fillMeter("A"); await sleep(250); }
 
         const t0 = (await snap(A.page)).serverTick;
+        // GR00: record changes inside each page at 4 ms so a slow Playwright round trip cannot skip a short-lived value.
+        type Rec = { hp: number[]; actions: string[]; moves: string[] };
+        const startRec = (page: Page, victim: "local" | "Nora"): Promise<void> => page.evaluate((who) => {
+          const w = window as unknown as { __eb: { snapshot(): { players: { name: string; local: boolean; hp100: number; action: string; moveId?: string }[] } }; __rec?: { id: number; hp: number[]; actions: string[]; moves: string[] } };
+          if (w.__rec) clearInterval(w.__rec.id);
+          const rec = { id: 0, hp: [] as number[], actions: [] as string[], moves: [] as string[] };
+          rec.id = window.setInterval(() => {
+            const ps = w.__eb.snapshot().players;
+            const v = ps.find((p) => (who === "local" ? p.local : p.name === who));
+            if (v) { if (rec.hp.at(-1) !== v.hp100) rec.hp.push(v.hp100); if (rec.actions.at(-1) !== v.action) rec.actions.push(v.action); }
+            const m = ps.find((p) => p.local)?.moveId;
+            if (m && !rec.moves.includes(m)) rec.moves.push(m);
+          }, 4);
+          w.__rec = rec;
+        }, victim);
+        const readRec = (page: Page): Promise<Rec> => page.evaluate(() => { const r = (window as unknown as { __rec: Rec & { id: number } }).__rec; clearInterval(r.id); return { hp: r.hp, actions: r.actions, moves: r.moves }; });
+        await startRec(A.page, "Nora"); await startRec(B.page, "local");
         const traceA = { hp: [] as number[], actions: new Set<string>(), moves: new Set<string>() };
         const traceB = { hp: [] as number[], actions: new Set<string>() };
-        const sample = async (): Promise<void> => {
-          const [a, b] = [await snap(A.page), await snap(B.page)];
-          const va = a.players.find((p) => p.name === "Nora")!, vb = b.players.find((p) => p.local)!;
-          if (traceA.hp.at(-1) !== va.hp100) traceA.hp.push(va.hp100);
-          if (traceB.hp.at(-1) !== vb.hp100) traceB.hp.push(vb.hp100);
-          traceA.actions.add(va.action); traceB.actions.add(vb.action);
-          const m = a.players.find((p) => p.local)!.moveId;
-          if (m) traceA.moves.add(m);
-        };
+        const sample = async (): Promise<void> => { await snap(A.page); };
         // Real UI input.
         const inp = row.input;
         if (inp.kind === "awaken") { if (inp.how === "touch") await touch(A.page, "awaken"); else await key(A.page, "KeyG"); }
@@ -228,6 +237,8 @@ test.describe("T18e: all 16 slotted moves and both awakenings through the UI, tw
           if (Date.now() - tCast > 30_000) throw new Error("timeout waiting for ticks");
         }
         await sample();
+        { const [ra, rb] = [await readRec(A.page), await readRec(B.page)];
+          traceA.hp = ra.hp; traceB.hp = rb.hp; ra.actions.forEach((x) => traceA.actions.add(x)); rb.actions.forEach((x) => traceB.actions.add(x)); ra.moves.forEach((x) => traceA.moves.add(x)); }
         const finalA = (await snap(A.page)).players, finalB = (await snap(B.page)).players;
         const vA = finalA.find((p) => p.name === "Nora")!, vB = finalB.find((p) => p.local)!;
         if (row.dead) {
