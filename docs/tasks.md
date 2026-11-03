@@ -207,7 +207,7 @@ Specs: [backlog-v3](backlog-v3.md). Findings: [review](reviews/2026-11-03-princi
 | REL02 | Reuse entity ids | REL01 | DONE | 085f75c | docs/test-results/REL02.md |
 | UX11 | Nameplates, enemy HP, off-screen arrows | REL02 | IMPLEMENTED (DEVICE CHECK PENDING) | 3bb0c5a; iPad NOT RUN | docs/test-results/UX11.md |
 | UX12 | Damage direction and low-HP vignette | UX11 | TODO | | docs/test-results/UX12.md |
-| UX13 | Radial cooldown rings and ready pulse | UX11 | IMPLEMENTED, DEVICE CHECK PENDING | HASH | docs/test-results/UX13.md |
+| UX13 | Radial cooldown rings and ready pulse | UX11 | IMPLEMENTED, DEVICE CHECK PENDING | abd003a | docs/test-results/UX13.md |
 | BOT6 | Bots use the whole kit | REL02 | DONE | c211427 | docs/test-results/BOT6.md |
 | UX14 | KO card and tabular scoreboard | UX13 | TODO | | docs/test-results/UX14.md |
 | HYG01 | Test artefacts out of committed evidence | none | DONE | d0b499a | docs/test-results/HYG01.md |
