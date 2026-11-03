@@ -8,10 +8,11 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { resolveChromium } from "./harness/chromium-path.js";
+import { evidenceDir } from "./harness/evidence.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "../..");
-const outDir = path.join(root, process.env["EB_VISUAL_OUT"] ?? "docs/test-results/UX10");
+const outDir = path.resolve(root, process.env["EB_VISUAL_OUT"] ?? path.join(evidenceDir(root), "UX10"));
 const req = createRequire(path.join(root, "apps/client/package.json"));
 const GL_ARGS = ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"];
 const LIGHTS = { low: 0, medium: 2, high: 4 } as const;

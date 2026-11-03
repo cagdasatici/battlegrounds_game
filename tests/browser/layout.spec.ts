@@ -6,9 +6,10 @@ import path from "node:path";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "../..");
-const outDir = path.join(root, "docs/test-results");
+const outDir = evidenceDir(root);
 const req = createRequire(path.join(root, "apps/client/package.json"));
 import { resolveChromium } from "./harness/chromium-path.js";
+import { evidenceDir } from "./harness/evidence.js";
 const CHROMIUM = resolveChromium();
 
 interface Box { id: string; cx: number; cy: number; w: number; h: number }

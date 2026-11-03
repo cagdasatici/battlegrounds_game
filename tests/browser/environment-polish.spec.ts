@@ -8,9 +8,10 @@ import path from "node:path";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "../..");
-const outDir = path.join(root, process.env["EB_VISUAL_OUT"] ?? "docs/test-results");
+const outDir = path.resolve(root, process.env["EB_VISUAL_OUT"] ?? evidenceDir(root));
 const req = createRequire(path.join(root, "apps/client/package.json"));
 import { resolveChromium } from "./harness/chromium-path.js";
+import { evidenceDir } from "./harness/evidence.js";
 const CHROMIUM = resolveChromium();
 const GL_ARGS = ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"];
 const TAG = process.env["EB_POLISH_TAG"] ?? "after";

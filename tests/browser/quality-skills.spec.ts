@@ -13,6 +13,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { ARENA } from "../../packages/shared/src/config/arena.js";
 import { defaultSettings } from "../../apps/client/src/app/SettingsStore.js";
 import { resolveChromium } from "./harness/chromium-path.js";
+import { evidenceDir } from "./harness/evidence.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const req = createRequire(path.join(root, "apps/client/package.json"));
@@ -170,7 +171,7 @@ test("QV05: Furnace Ray is sustained for the whole replicated Active phase, then
 // ---- QV06: Vanguard ability and awakening coverage -------------------------------------------------------------
 // Fixture (synthetic, labelled): fighter placement, camera yaw and the server fighter's action/moveId are set by the test; hits are
 // server-broadcast combat events. Replication, rendering, pooling and cleanup are real. Stills are SwiftShader desktop Chromium, not a device.
-const outDir6 = path.join(root, process.env.QV09_POLISH ? "docs/test-results/QV09/polish" : "docs/test-results/QV06"); // QV09 polish recaptures go beside QV09 so the original stills stay as the before set
+const outDir6 = path.join(evidenceDir(root), process.env.QV09_POLISH ? "QV09/polish" : "QV06"); // QV09 polish recaptures go beside QV09 so the original stills stay as the before set
 interface Row { id: string; action: "Active" | "Awakening"; hits: number[]; sustained?: boolean }
 const ROWS: Row[] = [
   { id: "sv.b1", action: "Active", hits: [2000] }, { id: "sv.b2", action: "Active", hits: [], sustained: true }, { id: "sv.b3", action: "Active", hits: [] },
@@ -264,7 +265,7 @@ for (const tier of ["low", "medium"] as const) {
 // Fixture (synthetic, labelled): fighter placement, camera yaw and the server fighter's action/moveId are set by the test; hits are
 // server-broadcast combat events. Replication, rendering, pooling and cleanup are real. Stills are SwiftShader desktop Chromium, not a device.
 const RIPTIDE_LUNGE = 8; // td.a4 lunge ring particle count (RIPTIDE.lunge)
-const outDir7 = path.join(root, process.env.QV09_POLISH ? "docs/test-results/QV09/polish" : "docs/test-results/QV07"); // QV09 polish recaptures go beside QV09 so the original stills stay as the before set
+const outDir7 = path.join(evidenceDir(root), process.env.QV09_POLISH ? "QV09/polish" : "QV07"); // QV09 polish recaptures go beside QV09 so the original stills stay as the before set
 interface Row7 { id: string; action: "Active" | "Awakening"; hits: number[]; sustained?: boolean; counter?: boolean }
 // A hit of 0 damage is sent as a server "capture" event, as the real pipeline reports captures; everything else is a "hit".
 const ROWS7: Row7[] = [
@@ -368,7 +369,7 @@ for (const tier of ["low", "medium"] as const) {
 // ---- QV08: Artificer ability and awakening coverage -------------------------------------------------------------
 // Fixture (synthetic, labelled): fighter placement, camera yaw and the server fighter's action/moveId are set by the test; hits are
 // server-broadcast combat events. Replication, rendering, pooling and cleanup are real. Stills are SwiftShader desktop Chromium, not a device.
-const outDir8 = path.join(root, process.env.QV09_POLISH ? "docs/test-results/QV09/polish" : "docs/test-results/QV08"); // QV09 polish recaptures go beside QV09 so the original stills stay as the before set
+const outDir8 = path.join(evidenceDir(root), process.env.QV09_POLISH ? "QV09/polish" : "QV08"); // QV09 polish recaptures go beside QV09 so the original stills stay as the before set
 interface Row8 { id: string; action: "Active" | "Awakening"; hits: number[]; sustained?: boolean; counter?: boolean }
 // A hit of 0 damage is sent as a server "capture" event, as the real pipeline reports captures; everything else is a "hit".
 const ROWS8: Row8[] = [
@@ -462,7 +463,7 @@ for (const tier of ["low", "medium"] as const) {
 // Real input: the attacker holds the real attack key (M1 chain, block when the defender holds the real guard key) and presses
 // the real dash and guard keys; the server decides every hit, block and dash. Contextual events the keyboard cannot reach in a
 // short test (wall, urn pickup/throw, capture/release, KO, respawn, counter) are server broadcast events on a synthetic fixture.
-const outDir9 = path.join(root, "docs/test-results/QV09");
+const outDir9 = path.join(evidenceDir(root), "QV09");
 for (const tier of ["low", "medium"] as const) {
   test(`QV09 ${tier}: universal attacks, guard, dash and contextual outcomes read on both clients and drain`, async () => {
     test.setTimeout(600_000);

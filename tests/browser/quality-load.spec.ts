@@ -9,10 +9,11 @@ import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 import { InviteStore } from "../../apps/server/src/auth/InviteStore.js";
 import { resolveChromium } from "./harness/chromium-path.js";
+import { evidenceDir } from "./harness/evidence.js";
 
 const root = new URL("../../", import.meta.url).pathname;
 const dist = join(root, "apps/client/dist");
-const outDir = join(root, "docs/test-results/QP01");
+const outDir = join(evidenceDir(root), "QP01");
 /** D budgets: local design choices, not verified facts. */
 const SHELL_GZIP_BUDGET = 1_000_000; // welcome screen: unique responses, gzip bytes
 const CYCLES = 10;

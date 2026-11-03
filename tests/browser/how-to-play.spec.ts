@@ -2,6 +2,7 @@ import { test, expect, chromium, type Browser } from "@playwright/test";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { evidenceDir } from "./harness/evidence.js";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const req = createRequire(path.join(root, "apps/client/package.json"));
@@ -46,15 +47,15 @@ for (const [width, height] of [[1024, 768], [1180, 820]]) {
     for (const text of ['stick', 'Drag open space', 'Hold Strike', 'Hold Guard', 'Tap Dash', 'Tap Jump', 'double jump', 'skills 1–4', 'Tap Awaken', 'Facing lock', 'Menu']) await expect(guide).toContainText(text);
     await expect(guide).toContainText('Practice uses a stationary dummy. Try Guard or Ragdoll while you learn.');
     await expect(guide).not.toContainText('Host sparring');
-    await page.screenshot({ path: path.join(root, `docs/test-results/HELP1-touch-${width}.png`), fullPage: true });
+    await page.screenshot({ path: path.join(evidenceDir(root), `HELP1-touch-${width}.png`), fullPage: true });
     await page.keyboard.press('Tab');
     await expect(page.getByRole('button', { name: 'Keyboard', exact: true })).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page.getByRole('button', { name: 'Keyboard', exact: true })).toHaveAttribute('aria-pressed', 'true');
     for (const text of ['WASD: move', 'Left mouse: hold to Strike', 'F: hold Guard', 'Q: Dash', 'Space: Jump', 'double jump', '1–4: use skills', 'G: Awaken', 'Shift: toggle facing lock', 'Esc: open the menu']) await expect(guide).toContainText(text);
-    await page.screenshot({ path: path.join(root, `docs/test-results/HELP1-keyboard-${width}.png`), fullPage: true });
+    await page.screenshot({ path: path.join(evidenceDir(root), `HELP1-keyboard-${width}.png`), fullPage: true });
     await page.keyboard.press('Tab');
-    await page.screenshot({ path: path.join(root, `docs/test-results/HELP1-actions-${width}.png`) });
+    await page.screenshot({ path: path.join(evidenceDir(root), `HELP1-actions-${width}.png`) });
     await page.keyboard.press('Enter');
     await page.keyboard.press('Tab'); await page.keyboard.press('Space');
     expect(await page.evaluate(() => (window as unknown as { counts: unknown }).counts)).toEqual({ close: 1, practice: 1 });

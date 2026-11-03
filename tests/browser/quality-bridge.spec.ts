@@ -18,9 +18,10 @@ import type { SparringRoom } from "../../apps/server/src/rooms/SparringRoom.js";
 import { ARENA } from "../../packages/shared/src/config/arena.js";
 import { defaultSettings } from "../../apps/client/src/app/SettingsStore.js";
 import { resolveChromium } from "./harness/chromium-path.js";
+import { evidenceDir } from "./harness/evidence.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const outDir = path.join(root, "docs/test-results/QI01");
+const outDir = path.join(evidenceDir(root), "QI01");
 const req = createRequire(path.join(root, "apps/client/package.json"));
 interface Dev { close(): Promise<void>; listen(): Promise<unknown> }
 interface Snap {

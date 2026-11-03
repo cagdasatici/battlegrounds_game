@@ -10,6 +10,7 @@ import type { Server } from "colyseus";
 import { createGameServer } from "../../apps/server/src/createServer.js";
 import { createAuthServices, type AuthServices } from "../../apps/server/src/auth/Services.js";
 import { hashPassword } from "../../apps/server/src/admin/AdminAuth.js";
+import { evidenceDir } from "./harness/evidence.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const req = createRequire(path.join(root, "apps/client/package.json"));
@@ -121,7 +122,7 @@ test("rooms: create, unlist, list again, close", async () => {
     await page.getByLabel("Room name").fill("Friday");
     await page.getByLabel("Bots", { exact: true }).selectOption("2");
     await page.getByLabel("Bot difficulty").selectOption("hard");
-    await page.screenshot({ path: "docs/test-results/UX03-admin.png", fullPage: true });
+    await page.screenshot({ path: path.join(evidenceDir(process.cwd()), "UX03-admin.png"), fullPage: true });
     await btn(page, "Create room").click();
     const row = page.locator("li", { hasText: "Friday" });
     await expect(row).toContainText("2 bots");

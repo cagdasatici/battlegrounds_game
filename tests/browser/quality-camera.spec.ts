@@ -16,9 +16,10 @@ import type { SparringRoom } from "../../apps/server/src/rooms/SparringRoom.js";
 import { ARENA, buildIslandsMap } from "../../packages/shared/src/config/arena.js";
 import { CAMERA, CLOSE_COMBAT, sphereCast } from "../../apps/client/src/scene/CameraRig.js";
 import { resolveChromium } from "./harness/chromium-path.js";
+import { evidenceDir } from "./harness/evidence.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const outDir = path.join(root, "docs/test-results/QC01");
+const outDir = path.join(evidenceDir(root), "QC01");
 const req = createRequire(path.join(root, "apps/client/package.json"));
 interface Dev { close(): Promise<void>; listen(): Promise<unknown> }
 interface V3 { x: number; y: number; z: number }

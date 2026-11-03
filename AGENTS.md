@@ -42,6 +42,7 @@ For a broad new request, list concrete items and files and get scope
 confirmation before exploring or editing beyond the current task.
 
 Run pnpm typecheck, pnpm lint, relevant tests and pnpm build.
+Set EB_EVIDENCE=1 only when refreshing a slice's evidence.
 Run content:validate after data changes and assets:audit for assets.
 Update docs/tasks.md with status and evidence, then commit coherently.
 Report changed behavior, executed checks and actual limitations.

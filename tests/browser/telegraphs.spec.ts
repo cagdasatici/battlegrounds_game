@@ -12,6 +12,7 @@ import type { ArenaRoom } from "../../apps/server/src/rooms/ArenaRoom.js";
 import { createGameServer } from "../../apps/server/src/createServer.js";
 import { createAuthServices, type AuthServices } from "../../apps/server/src/auth/Services.js";
 import { resolveChromium } from "./harness/chromium-path.js";
+import { evidenceDir } from "./harness/evidence.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const req = createRequire(path.join(root, "apps/client/package.json"));
@@ -104,7 +105,7 @@ test("QV02: both observers see the authoritative phase warning, a missed windup 
     expect((await tele(B.page)).entries[0]!.progress).toBeGreaterThan(w.entries[0]!.progress);
     cast("Active", "ea.a3");
     await both((t) => t.entries.length === 1 && t.entries[0]!.phase === "Active", "transfer to active in both");
-    await A.page.screenshot({ path: "docs/test-results/UX07-beam-warning.png" });
+    await A.page.screenshot({ path: path.join(evidenceDir(process.cwd()), "UX07-beam-warning.png") });
     // Particle saturation must not erase the retained warning.
     await A.page.evaluate(() => (window as unknown as { __eb: { floodFx(n: number): void } }).__eb.floodFx(900));
     await sleep(200);
@@ -117,7 +118,7 @@ test("QV02: both observers see the authoritative phase warning, a missed windup 
 
     for (const move of ["sv.b3", "sv.b4", "td.b2"]) {
       cast("Windup", move); await both(t => t.active === 1 && t.entries[0]!.phase === "Windup", `new footprint ${move}`);
-      await B.page.screenshot({ path: `docs/test-results/UX07-warning-${move}.png` });
+      await B.page.screenshot({ path: path.join(evidenceDir(process.cwd()), `UX07-warning-${move}.png`) });
       idle(); await both(t => t.active === 0, "close warning clears");
     }
     // A short phase the observers never saw as Windup: only Active is drawn, never a retroactive Windup.

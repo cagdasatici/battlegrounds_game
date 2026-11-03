@@ -15,6 +15,7 @@ import type { SparringRoom } from "../../apps/server/src/rooms/SparringRoom.js";
 import { beginCast, releaseToIdle } from "../../apps/server/src/sim/ActionMachine.js";
 import { ARENA } from "../../packages/shared/src/config/arena.js";
 import type { Difficulty } from "../../packages/shared/src/sparring.js";
+import { evidenceDir } from "./harness/evidence.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const req = createRequire(path.join(root, "apps/client/package.json"));
@@ -121,8 +122,8 @@ test("solo Easy attacks and changes replicated HP; touch layout and host ends/re
     await expect.poll(async () => (await snap(h.page)).players.find(p => p.name === "Arel")!.hp100, { timeout: 8000 }).toBeLessThan(10000);
     await expect.poll(async () => (await snap(h.page)).players.find(p => p.name === "Bot 1")!.moveId).toMatch(/^m1\./);
     for (const selector of ["attack", "block", "skill1", "joystick"]) await expect(h.page.locator(`[data-control=${selector}]`)).toBeVisible();
-    mkdirSync(path.join(root, "docs/test-results"), { recursive: true });
-    await h.page.screenshot({ path: path.join(root, "docs/test-results/BOT5-solo.png") });
+    mkdirSync(evidenceDir(root), { recursive: true });
+    await h.page.screenshot({ path: path.join(evidenceDir(root), "BOT5-solo.png") });
     await end(h.page);
     expect(svc.sparring.describe(h.code)).toBeNull();
     await button(h.page, "Host sparring").click();
@@ -176,7 +177,7 @@ test("zero bots, copied link, fresh isolated guest and shared touch-combat KO", 
     await expect.poll(async () => (await snap(g!.page)).players.find(p => p.name === "Nora")!.deaths).toBe(1);
     const outcome = (s: Snap) => s.players.map(p => ({ name: p.name, hp: p.hp100, kills: p.kills, deaths: p.deaths }));
     await expect.poll(async () => outcome(await snap(g!.page))).toEqual(outcome(await snap(h.page)));
-    await h.page.screenshot({ path: path.join(root, "docs/test-results/BOT5-shared-outcome.png") });
+    await h.page.screenshot({ path: path.join(evidenceDir(root), "BOT5-shared-outcome.png") });
     await end(h.page);
     await expect(g.page.locator("[data-act=play]")).toBeVisible();
     expect(g.errors).toEqual([]); expect(h.errors).toEqual([]);

@@ -18,9 +18,10 @@ import type { SparringRoom } from "../../apps/server/src/rooms/SparringRoom.js";
 import { ARENA } from "../../packages/shared/src/config/arena.js";
 import { emptyEvents, frameStats, missingEvents, runRecord, type FrameSample } from "./harness/quality-metrics.js";
 import { resolveChromium } from "./harness/chromium-path.js";
+import { evidenceDir } from "./harness/evidence.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const outDir = path.join(root, "docs/test-results/Q01");
+const outDir = path.join(evidenceDir(root), "Q01");
 const req = createRequire(path.join(root, "apps/client/package.json"));
 const LONG = process.env["EB_QUALITY_LONG"] === "1";
 const MINUTES = Number(process.env["EB_QUALITY_MINUTES"] ?? 5);

@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { evidenceDir } from "./harness/evidence.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const req = createRequire(path.join(root, "apps/client/package.json"));
@@ -58,8 +59,8 @@ test("default Medium, roster bounds, all difficulties, fighter and frozen setup"
     await p.getByLabel("Bot 1 difficulty").selectOption("easy");
     await p.getByLabel("Bot 3 difficulty").selectOption("hard");
     await p.getByLabel("Your fighter").selectOption("td");
-    mkdirSync(path.join(root, "docs/test-results"), { recursive: true });
-    await p.screenshot({ path: path.join(root, "docs/test-results/BOT3-setup.png") });
+    mkdirSync(evidenceDir(root), { recursive: true });
+    await p.screenshot({ path: path.join(evidenceDir(root), "BOT3-setup.png") });
     await start(p);
     expect(await calls(p)).toEqual([{ kind: "start", config: { bots: ["easy", "medium", "hard"] }, kitId: "td" }]);
     await expect(p.getByLabel("Your fighter")).toBeDisabled();

@@ -38,8 +38,7 @@ import { KIT_LABEL, Lobby, type LobbyView } from "./ui/Lobby.js";
 import { PracticePanel } from "./ui/PracticePanel.js";
 import { SettingsPanel } from "./ui/Settings.js";
 
-/** TODO(BOT4C): set from the real Host sparring action's availability once it is wired on this build. */
-const SPARRING_GUIDE_AVAILABLE = false;
+const SPARRING_GUIDE_AVAILABLE = true;
 
 type Runtime = typeof import("./gameRuntime.js");
 
