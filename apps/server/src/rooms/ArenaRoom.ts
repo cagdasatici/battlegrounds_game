@@ -58,6 +58,7 @@ export class ArenaRoom extends Room {
   override state = new ArenaState();
   override maxMessagesPerSecond = 90;
 
+  faulted = false;
   roomCode = "";
   readonly sim = new FixedClock();
   private readonly contentHash = computeContentHash();
@@ -260,7 +261,16 @@ export class ArenaRoom extends Room {
 
   /** One logical 60 Hz tick (spec sections 12 and 21 order lives in TickPipeline). */
   stepTick(tick: number): void {
-    this.pipeline.step(tick);
+    if (this.faulted) return;
+    try {
+      this.pipeline.step(tick);
+    } catch (e) {
+      this.faulted = true;
+      log("error", "tick fault: room closed", { room: this.roomId, tick, error: e instanceof Error ? e.name : "unknown" });
+      if (process.env.NODE_ENV !== "production") console.error(e);
+      for (const c of this.clients) c.leave(4500);
+      void this.disconnect();
+    }
   }
 
   /** Entities simulated without a seat (the practice dummy) whose bodies are still published each tick. */

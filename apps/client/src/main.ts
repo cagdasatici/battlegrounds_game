@@ -257,10 +257,10 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       room = await rc.joinWithRetry(mode === "sparring" ? sparRoom! : mode === "practice" ? PRACTICE_ROOM_CODE : picked ?? opts.roomCode, opts.auto ? 4 : 1);
       await waitFor(() => rc.welcome, 5000, "welcome");
       clock = new ClockSync();
-      if (mode === "sparring") {
+      {
         const joined = room;
-        const onLeave = (): void => {
-          if (room !== joined || disposed) return;
+        const onLeave = (code: number): void => {
+          if (room !== joined || disposed || (mode !== "sparring" && code !== 4500)) return;
           hostRoom = null; sparRoom = null;
           void flow.back();
         };

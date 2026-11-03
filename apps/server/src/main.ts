@@ -43,3 +43,11 @@ for (const sig of ["SIGTERM", "SIGINT"] as const) {
     void server.gracefullyShutdown(true).finally(() => process.exit(0));
   });
 }
+
+process.on("uncaughtException", (e) => {
+  log("error", "uncaught exception: shutting down", { error: e.name });
+  void server.gracefullyShutdown(true).finally(() => process.exit(1));
+});
+process.on("unhandledRejection", (r) => {
+  log("error", "unhandled rejection", { error: r instanceof Error ? r.name : typeof r });
+});
