@@ -196,3 +196,20 @@ Execute one row per session using [the Quality 90 instructions](quality-90-plan.
 | Task | Title | Depends on | Status | Commit | Test report | Notes |
 |---|---|---|---|---|---|---|
 | VIS01 | Combat readability, elemental trails, shaped beams, arena art, lighting and fighter finish | UX10c UX05 UX06 DJ01 | IMPLEMENTED (DEVICE CHECK PENDING) | 9623b26 | docs/test-results/VIS01.md | Owner authorized one-session scope and main push; decision 0052. Existing gameplay changes preserved. Physical iPad NOT RUN |
+
+## Backlog v3 (review 2026-11-03)
+
+Specs: [backlog-v3](backlog-v3.md). Findings: [review](reviews/2026-11-03-principal-and-ux-review.md). Execute in this order, one per session.
+
+| Task | Title | Depends on | Status | Commit | Test report |
+|---|---|---|---|---|---|
+| REL01 | Contain tick exceptions | none | TODO | | docs/test-results/REL01.md |
+| REL02 | Reuse entity ids | REL01 | TODO | | docs/test-results/REL02.md |
+| UX11 | Nameplates, enemy HP, off-screen arrows | REL02 | TODO | | docs/test-results/UX11.md |
+| UX12 | Damage direction and low-HP vignette | UX11 | TODO | | docs/test-results/UX12.md |
+| UX13 | Radial cooldown rings and ready pulse | UX11 | TODO | | docs/test-results/UX13.md |
+| BOT6 | Bots use the whole kit | REL02 | TODO | | docs/test-results/BOT6.md |
+| UX14 | KO card and tabular scoreboard | UX13 | TODO | | docs/test-results/UX14.md |
+| HYG01 | Test artefacts out of committed evidence | none | TODO | | docs/test-results/HYG01.md |
+| OPEN01 | Open-join session survives IP change | owner decision | BLOCKED | | | Missing: owner decision superseding 0050 |
+| MODE01 | Optional first-to-N rounds | owner decision | BLOCKED | | | Missing: spec amendment for FFA round rule |
