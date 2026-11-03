@@ -29,7 +29,7 @@ export class BotArenaRoom extends ArenaRoom {
   protected botTargetAllowed(_id: number): boolean { return true; }
   protected addBots(difficulties: readonly Difficulty[]): void {
     difficulties.forEach((difficulty, index) => {
-      const id = this.nextEntityId++;
+      const id = this.allocEntityId();
       const p = new PlayerSchema();
       p.entityId = id; p.lifeId = ++this.lifeSeq; p.displayName = `Bot ${index + 1}`;
       p.kitId = "sv"; p.connected = true; p.ready = true; p.hp100 = COMBAT.hp100Max;

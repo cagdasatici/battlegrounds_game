@@ -64,7 +64,7 @@ export class ArenaRoom extends Room {
   private readonly contentHash = computeContentHash();
   protected seats = new Map<string, Seat>(); // by Colyseus sessionId
   private seatByAuth = new Map<string, string>(); // auth session id -> colyseus sessionId
-  protected nextEntityId = 1;
+  // TODO(REL02): lifeId is uint16; lifeSeq wraps after 65,535 lives in one room instance. Widen if rooms become long-lived.
   protected lifeSeq = 0;
   private lastTickMs = 0;
   world: World | null = null;
@@ -149,7 +149,7 @@ export class ArenaRoom extends Room {
   }
 
   override onJoin(client: Client, _options: unknown, auth: { authId: string; displayName: string }): void {
-    const entityId = this.nextEntityId++;
+    const entityId = this.allocEntityId();
     const p = new PlayerSchema();
     p.entityId = entityId;
     p.lifeId = 0;
@@ -233,6 +233,12 @@ export class ArenaRoom extends Room {
   protected beforeDrain(_tick: number): void {}
 
   // ---- internals ----
+  /** Lowest id in 1..255 not used by a replicated player. entityId is uint8 on the wire (PlayerSchema). */
+  protected allocEntityId(): number {
+    for (let id = 1; id <= 255; id++) if (!this.state.players.has(String(id))) return id;
+    throw new Error("ROOM_FULL");
+  }
+
   protected playerOf(seat: Seat): PlayerSchema | undefined {
     return this.state.players.get(String(seat.entityId));
   }

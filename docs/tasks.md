@@ -203,8 +203,8 @@ Specs: [backlog-v3](backlog-v3.md). Findings: [review](reviews/2026-11-03-princi
 
 | Task | Title | Depends on | Status | Commit | Test report |
 |---|---|---|---|---|---|
-| REL01 | Contain tick exceptions | none | IMPLEMENTED (DEVICE CHECK PENDING) | pending commit | docs/test-results/REL01.md |
-| REL02 | Reuse entity ids | REL01 | TODO | | docs/test-results/REL02.md |
+| REL01 | Contain tick exceptions | none | IMPLEMENTED (DEVICE CHECK PENDING) | 33a08b4 | docs/test-results/REL01.md |
+| REL02 | Reuse entity ids | REL01 | DONE | pending commit | docs/test-results/REL02.md |
 | UX11 | Nameplates, enemy HP, off-screen arrows | REL02 | TODO | | docs/test-results/UX11.md |
 | UX12 | Damage direction and low-HP vignette | UX11 | TODO | | docs/test-results/UX12.md |
 | UX13 | Radial cooldown rings and ready pulse | UX11 | TODO | | docs/test-results/UX13.md |
