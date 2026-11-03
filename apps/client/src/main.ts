@@ -190,7 +190,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
 
   const guestLabel = document.createElement("label");
   guestLabel.textContent = "Guest display name ";
-  guestLabel.style.cssText = "position:fixed;bottom:16px;left:16px;z-index:10;color:white;font:16px system-ui";
+  guestLabel.style.cssText = "position:fixed;bottom:16px;left:16px;z-index:10;color:white;font:16px Inter,system-ui,sans-serif";
   const guestName = document.createElement("input");
   guestName.value = opts.displayName; guestName.maxLength = 16;
   guestName.style.cssText = "min-height:48px;font:inherit;max-width:180px";
@@ -292,7 +292,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   const sparButton = document.createElement("button");
   sparButton.className = "eb-launcher";
   sparButton.textContent = "Host sparring";
-  sparButton.style.cssText = "position:fixed;right:16px;top:16px;z-index:21;min-height:48px;font:600 17px system-ui";
+  sparButton.style.cssText = "position:fixed;right:16px;top:16px;z-index:21;min-height:48px;font:600 17px Inter,system-ui,sans-serif";
   sparButton.onclick = () => {
     if (setupPending) return;
     if (!hostRoom) { disposeSetup(); disposeSetup = mountSparringSetup(sparControls, setupActions); }
@@ -314,7 +314,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   const roomsButton = document.createElement("button");
   roomsButton.className = "eb-launcher";
   roomsButton.textContent = "Find a room";
-  roomsButton.style.cssText = "position:fixed;right:16px;top:76px;z-index:21;min-height:48px;font:600 17px system-ui";
+  roomsButton.style.cssText = "position:fixed;right:16px;top:76px;z-index:21;min-height:48px;font:600 17px Inter,system-ui,sans-serif";
   roomsButton.onclick = () => {
     if (disposeRooms || flow.state.screen !== "welcome") return;
     roomsHost.style.display = "block";

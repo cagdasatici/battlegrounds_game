@@ -10,7 +10,7 @@ import type { BoneName, Vec3 } from "./rig.js";
 
 /** "box" is a rounded box (beveled, 2 segments per side at medium detail); "limb" is a tapered capsule skinned over two bones. */
 export type PartShape = "box" | "sphere" | "capsule" | "cone" | "cylinder" | "torus" | "limb";
-export type PaletteSlot = "skin" | "hair" | "primary" | "secondary" | "accent" | "trim" | "cloth" | "dark" | "stone";
+export type PaletteSlot = "skin" | "hair" | "primary" | "secondary" | "accent" | "trim" | "cloth" | "dark" | "stone" | "white" | "blush";
 
 export interface PartDef {
   readonly name: string;
@@ -58,12 +58,22 @@ function body(): P[] {
     part("belly", "box", "spine", [0, 0.04, 0], [0.33, 0.26, 0.21], "primary", { bevel: 0.05 }),
     part("chest", "box", "chest", [0, 0.07, 0], [0.46, 0.36, 0.28], "primary", { bevel: 0.07 }),
     part("neck", "cylinder", "neck", [0, 0.01, 0], [0.05, 0.055, 0.1], "skin"),
-    part("head", "box", "head", [0, 0.085, -0.005], [0.25, 0.25, 0.23], "skin", { bevel: 0.09 }),
-    part("eyeL", "box", "head", [-0.05, 0.09, -0.12], [0.034, 0.024, 0.012], "dark", { bevel: 0.006 }),
-    part("eyeR", "box", "head", [0.05, 0.09, -0.12], [0.034, 0.024, 0.012], "dark", { bevel: 0.006 }),
-    part("browL", "box", "head", [-0.05, 0.125, -0.121], [0.06, 0.014, 0.012], "hair", { rot: [0, 0, 0.18], bevel: 0.005, fine: true }),
-    part("browR", "box", "head", [0.05, 0.125, -0.121], [0.06, 0.014, 0.012], "hair", { rot: [0, 0, -0.18], bevel: 0.005, fine: true }),
-    part("mouth", "box", "head", [0, 0.03, -0.121], [0.05, 0.01, 0.012], "dark", { bevel: 0.004, fine: true }),
+    part("head", "box", "head", [0, 0.085, -0.005], [0.25, 0.25, 0.23], "skin", { bevel: 0.11 }),
+    // Face: round whites with a dark iris and a catch-light, soft brows, a small smile and warm cheeks.
+    // Low-poly eyes stay as dark boxes; at medium detail they are hidden inside the iris spheres below.
+    part("eyeL", "box", "head", [-0.05, 0.088, -0.12], [0.034, 0.024, 0.012], "dark", { bevel: 0.006 }),
+    part("eyeR", "box", "head", [0.05, 0.088, -0.12], [0.034, 0.024, 0.012], "dark", { bevel: 0.006 }),
+    part("scleraL", "sphere", "head", [-0.052, 0.088, -0.104], [0.03], "white", { fine: true }),
+    part("scleraR", "sphere", "head", [0.052, 0.088, -0.104], [0.03], "white", { fine: true }),
+    part("irisL", "sphere", "head", [-0.05, 0.086, -0.116], [0.019], "dark", { fine: true }),
+    part("irisR", "sphere", "head", [0.05, 0.086, -0.116], [0.019], "dark", { fine: true }),
+    part("browL", "box", "head", [-0.054, 0.131, -0.118], [0.058, 0.016, 0.014], "hair", { rot: [0, 0, 0.14], bevel: 0.006, fine: true }),
+    part("browR", "box", "head", [0.054, 0.131, -0.118], [0.058, 0.016, 0.014], "hair", { rot: [0, 0, -0.14], bevel: 0.006, fine: true }),
+    part("mouth", "box", "head", [0, 0.028, -0.119], [0.04, 0.009, 0.012], "dark", { bevel: 0.004, fine: true }),
+    part("smileL", "box", "head", [-0.03, 0.034, -0.117], [0.02, 0.008, 0.012], "dark", { bevel: 0.003, rot: [0, 0, -0.55], fine: true }),
+    part("smileR", "box", "head", [0.03, 0.034, -0.117], [0.02, 0.008, 0.012], "dark", { bevel: 0.003, rot: [0, 0, 0.55], fine: true }),
+    part("cheekL", "box", "head", [-0.075, 0.05, -0.116], [0.036, 0.02, 0.01], "blush", { bevel: 0.008, fine: true }),
+    part("cheekR", "box", "head", [0.075, 0.05, -0.116], [0.036, 0.02, 0.01], "blush", { bevel: 0.008, fine: true }),
     part("hair", "box", "head", [0, 0.17, 0.03], [0.27, 0.12, 0.27], "hair", { bevel: 0.05 }),
     // VIS01 facial planes and swept locks, attached to the existing head bone.
     part("nose", "box", "head", [0, 0.065, -0.124], [0.028, 0.045, 0.035], "skin", { bevel: 0.012, fine: true }),
@@ -156,7 +166,7 @@ function stoneVanguard(): FighterDesign {
   );
   return {
     kit: "sv", label: "Stone Vanguard", glowColor: 0xffa63a,
-    palette: { skin: 0xc58b62, hair: 0x1b1714, primary: 0x34465e, secondary: 0x2a2a30, accent: 0xe4af53, trim: 0xc39857, cloth: 0x3d3d46, dark: 0x2b2b32, stone: 0x8b8378 },
+    palette: { skin: 0xc58b62, hair: 0x1b1714, primary: 0x34465e, secondary: 0x2a2a30, accent: 0xe4af53, trim: 0xc39857, cloth: 0x3d3d46, dark: 0x2b2b32, stone: 0x8b8378, white: 0xf6f3ec, blush: 0xe58a7c },
     parts,
   };
 }
@@ -205,7 +215,7 @@ function tideDuelist(): FighterDesign {
   );
   return {
     kit: "td", label: "Tide Duelist", glowColor: 0x5fe3d3,
-    palette: { skin: 0xd9a47c, hair: 0xb8591f, primary: 0xf6f0dc, secondary: 0x12b5b0, accent: 0x40f0dc, trim: 0xf5f0e4, cloth: 0xe6e0cf, dark: 0x26343f, stone: 0xb9c3c6 },
+    palette: { skin: 0xd9a47c, hair: 0xb8591f, primary: 0xf6f0dc, secondary: 0x12b5b0, accent: 0x40f0dc, trim: 0xf5f0e4, cloth: 0xe6e0cf, dark: 0x26343f, stone: 0xb9c3c6, white: 0xf6f3ec, blush: 0xe58a7c },
     parts,
   };
 }
@@ -260,7 +270,7 @@ function emberArtificer(): FighterDesign {
   );
   return {
     kit: "ea", label: "Ember Artificer", glowColor: 0xffb070,
-    palette: { skin: 0xe2b89a, hair: 0x5a2a44, primary: 0x793f64, secondary: 0x48364f, accent: 0xff8a2a, trim: 0xf6dcc0, cloth: 0x7a3a66, dark: 0x2a1a2a, stone: 0xe8c9a8 },
+    palette: { skin: 0xe2b89a, hair: 0x5a2a44, primary: 0x793f64, secondary: 0x48364f, accent: 0xff8a2a, trim: 0xf6dcc0, cloth: 0x7a3a66, dark: 0x2a1a2a, stone: 0xe8c9a8, white: 0xf6f3ec, blush: 0xe58a7c },
     parts,
   };
 }

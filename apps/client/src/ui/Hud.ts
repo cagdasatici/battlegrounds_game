@@ -119,7 +119,7 @@ export class Hud {
   constructor(parent: HTMLElement, private readonly doc: Document = document, private readonly onKitPick: (kit: string) => void = () => undefined, private readonly onLeave: () => void = () => undefined, private readonly onSettings: () => void = () => undefined, private readonly onMoves: () => void = () => undefined, private readonly onFighter: () => void = () => undefined) {
     this.root = doc.createElement("div");
     this.root.className = "eb-hud";
-    this.root.style.cssText = "position:fixed;inset:0;pointer-events:none;font:600 13px system-ui;color:#fff";
+    this.root.style.cssText = "position:fixed;inset:0;pointer-events:none;font:600 13px Inter,system-ui,sans-serif;color:#fff";
     this.panel = doc.createElement("div");
     this.panel.style.cssText = "position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#000c;font-size:20px";
     this.root.appendChild(this.panel);
@@ -141,7 +141,7 @@ export class Hud {
     this.menuPanel.append(Object.assign(doc.createElement("div"), { textContent: "The arena continues while this menu is open." }));
     const leave = Object.assign(doc.createElement("button"), { textContent: "Leave" });
     leave.dataset["leave"] = "1";
-    leave.style.cssText = "display:block;margin:10px auto;min-width:200px;min-height:44px;font:600 15px system-ui";
+    leave.style.cssText = "display:block;margin:10px auto;min-width:200px;min-height:44px;font:600 15px Inter,system-ui,sans-serif";
     const settings = Object.assign(doc.createElement("button"), { textContent: "Settings" });
     settings.dataset["settings"] = "1";
     settings.style.cssText = leave.style.cssText;
@@ -200,7 +200,7 @@ export class Hud {
           const b = this.doc.createElement("button");
           b.dataset["kit"] = k.id;
           b.textContent = k.id === km.current ? `${k.label} (current)` : k.label;
-          b.style.cssText = "display:block;margin:8px auto;min-width:200px;min-height:44px;font:600 15px system-ui";
+          b.style.cssText = "display:block;margin:8px auto;min-width:200px;min-height:44px;font:600 15px Inter,system-ui,sans-serif";
           this.kitPanel.append(b);
         }
         const n = this.doc.createElement("div");
@@ -234,7 +234,7 @@ export class Hud {
         const ring = mk("div", String(sec), "width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700");
         ring.dataset["koRing"] = "1";
         this.koRing = ring;
-        const btn = mk("button", "Change fighter", "min-width:200px;min-height:44px;pointer-events:auto;font:600 15px system-ui");
+        const btn = mk("button", "Change fighter", "min-width:200px;min-height:44px;pointer-events:auto;font:600 15px Inter,system-ui,sans-serif");
         btn.dataset["koKit"] = "1";
         card.append(ring, btn);
         this.death.append(card);

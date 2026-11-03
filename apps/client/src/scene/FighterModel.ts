@@ -136,7 +136,7 @@ function limbSkin(bone: BoneName, y: number, index: (n: BoneName) => number): [n
 
 export type Pass = "body" | "glow" | "outline";
 
-const ATLAS_SLOTS = ["skin", "hair", "primary", "secondary", "accent", "trim", "cloth", "dark", "stone"] as const;
+const ATLAS_SLOTS = ["skin", "hair", "primary", "secondary", "accent", "trim", "cloth", "dark", "stone", "white", "blush"] as const;
 const ATLAS_GRID = 4;
 
 /**

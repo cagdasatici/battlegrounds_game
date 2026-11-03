@@ -130,6 +130,14 @@ describe("T18d practice room (real clients)", () => {
     await pr.c.leave();
   }, 90000);
 
+  test("the dummy stands still on its spawn, also while ragdolled (no per-tick height flip)", async () => {
+    const pr = await joinPractice("Arel");
+    pr.c.send("practice", { guard: false, ragdoll: true });
+    const ys = new Set<number>();
+    for (let i = 0; i < 40; i++) { await sleep(25); ys.add(pr.dummy().y); }
+    expect(ys.size).toBe(1);
+  });
+
   test("guard and ragdoll toggles are applied by the server to its dummy and replicated back", async () => {
     const pr = await joinPractice("Arel", "td");
     pr.c.send("practice", { guard: true, ragdoll: false });

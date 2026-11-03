@@ -35,7 +35,7 @@ function softenFlash(material: MeshBasicMaterial): void {
       vFxView = -mvPosition.xyz;`);
     shader.fragmentShader = vary + shader.fragmentShader.replace("#include <opaque_fragment>", `
       float rim = pow(1.0 - abs(dot(normalize(vFxNormal), normalize(vFxView))), 2.0);
-      diffuseColor.a *= 0.035 + rim * 0.36;
+      diffuseColor.a *= 0.16 + rim * 0.5;
       #include <opaque_fragment>`);
   };
   material.customProgramCacheKey = () => "vis01-shell";

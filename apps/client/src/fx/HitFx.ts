@@ -134,7 +134,11 @@ export function playHit(e: CombatEvent, io: HitFxIo): void {
   let shake: { amplitude: number; ms: number } | undefined;
   if (e.kind === "hit") {
     const killing = e.targetHp100 === 0;
-    const power = impactPower(e.damage100, e.hitClass === "heavy", universalOf(e.moveId) === "m1.4", killing);
+    // Every basic strike must read: pokes (about 4 HP) scaled to power 0.5, which drew nearly invisible sparks, so only the
+    // fourth hit stood out. Strikes get a floor that climbs with the combo step.
+    const step = /^m1\.([1-3])(\.|$)/.exec(e.moveId ?? "")?.[1];
+    const base = impactPower(e.damage100, e.hitClass === "heavy", universalOf(e.moveId) === "m1.4", killing);
+    const power = step ? Math.max(base, 0.85 + 0.1 * Number(step)) : base;
     if ((e.damage100 ?? 0) > 0 || universalOf(e.moveId) !== undefined) playImpactBurst(fx, { at: o, groundY, dir, theme, power });
     if (universalOf(e.moveId) === "m1.4") playFinisherImpact(fx, io.kitOf?.(e.actorId), o, groundY, dir, power); // UX10b: element-themed finisher
     shake = shakeFor(power);

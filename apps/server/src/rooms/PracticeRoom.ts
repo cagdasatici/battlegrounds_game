@@ -10,7 +10,8 @@ import { TutorialTracker } from "../sim/Tutorial.js";
 import { BotArenaRoom } from "./BotArenaRoom.js";
 
 /** Dummy home and the player's start, on the main island (islands.v1 main slab covers |x| < 20, |z| < 20). */
-const DUMMY_AT: readonly [number, number] = [0, 0];
+// Not the exact origin: a body standing on (0, 0) flips between two heights every tick (probed 0.90 m / 0.45 m, island seam), which shook the dummy.
+const DUMMY_AT: readonly [number, number] = [0, -1];
 const PLAYER_AT: readonly [number, number] = [0, 5];
 /** The dummy is refilled below this HP so the practice never ends in a knockout (it still takes and shows damage). */
 const DUMMY_REFILL_BELOW_100 = 4000;

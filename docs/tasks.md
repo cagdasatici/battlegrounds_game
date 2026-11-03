@@ -213,7 +213,7 @@ Specs: [backlog-v3](backlog-v3.md). Findings: [review](reviews/2026-11-03-princi
 | HYG01 | Test artefacts out of committed evidence | none | DONE | d0b499a | docs/test-results/HYG01.md |
 | OPEN01 | Open-join session survives IP change | 0053 | DONE | 2bc07ad | docs/test-results/OPEN01.md |
 | MODE01 | Optional first-to-N rounds | 0054 | IMPLEMENTED, DEVICE CHECK PENDING | 5f509f0; iPad NOT RUN | docs/test-results/MODE01.md | Host selector in sparring setup only; admin UI selector not wired |
-| UX15 | Lobby fighter preview, glass HUD styling, soft effects (preview, telegraph shading, rounded glow shapes) | MODE01 | IMPLEMENTED, DEVICE CHECK PENDING | see git log | Unit, typecheck, lint, build run; visual check in a live lobby and iPad NOT RUN |
+| UX15 | Lobby fighter preview, glass HUD styling, soft effects (preview, telegraph shading, rounded glow shapes) | MODE01 | IMPLEMENTED, DEVICE CHECK PENDING | see git log | Unit, typecheck, lint, build run; visual check in a live lobby and iPad NOT RUN |; UX15 follow-up: embedded Inter font, slot text fit, dummy spawn off origin, preview faces camera, richer faces, every M1 strike effect
 
 
 ## Full-game engineering and game-experience review (2026-11-03)

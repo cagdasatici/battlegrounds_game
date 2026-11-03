@@ -88,7 +88,7 @@ export class Nameplates {
     el.setAttribute("data-plate", id);
     el.style.cssText = "position:absolute;pointer-events:none;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:2px";
     const label = this.doc.createElement("div");
-    label.style.cssText = "font:600 12px system-ui,sans-serif;color:#fff;text-shadow:0 1px 1px #000;white-space:nowrap;pointer-events:none";
+    label.style.cssText = "font:600 12px Inter,system-ui,sans-serif,sans-serif;color:#fff;text-shadow:0 1px 1px #000;white-space:nowrap;pointer-events:none";
     const bar = this.doc.createElement("div");
     bar.style.cssText = "width:64px;height:6px;background:rgba(0,0,0,.55);border-radius:3px;overflow:hidden;pointer-events:none";
     const fill = this.doc.createElement("div");

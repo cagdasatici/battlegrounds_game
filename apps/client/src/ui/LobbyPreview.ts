@@ -80,7 +80,7 @@ export class LobbyPreview {
     if (s.view) { s.pivot.remove(s.view.group); s.view.dispose(); s.view = null; }
     const view = new s.FighterView(this.kit, s.ramp, { outline: true });
     s.pivot.add(view.group);
-    s.pivot.rotation.y = -0.5;
+    s.pivot.rotation.y = Math.PI + 0.35; // fighters face -Z; start turned toward the camera so the face shows first
     s.rim.color.setHex(KIT_TINT[this.kit]);
     s.view = view;
   }

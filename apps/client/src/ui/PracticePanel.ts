@@ -26,7 +26,7 @@ export class PracticePanel {
     // Top centre, below the safe-area inset; the touch controls sit at the screen sides and bottom.
     this.root.style.cssText = "position:fixed;top:calc(max(8px,env(safe-area-inset-top)) + 46px);left:max(16px,env(safe-area-inset-left));z-index:20;"
       + "width:min(280px,30vw);max-height:46vh;overflow:auto;padding:8px 10px;border-radius:12px;box-sizing:border-box;"
-      + "background:#0b1118d9;color:#fff;font:13px system-ui;pointer-events:auto";
+      + "background:#0b1118d9;color:#fff;font:13px Inter,system-ui,sans-serif;pointer-events:auto";
     this.onClick = (e: Event): void => {
       if ((e.target as HTMLElement | null)?.closest?.("button[data-moves]")) { this.onMoves(); return; }
       const action = (e.target as HTMLElement | null)?.closest?.("button[data-bots]") as HTMLElement | null;
@@ -64,7 +64,7 @@ export class PracticePanel {
     this.root.replaceChildren();
     const title = this.doc.createElement("div");
     title.textContent = "Practice";
-    title.style.cssText = "font:700 15px system-ui;margin-bottom:4px";
+    title.style.cssText = "font:700 15px Inter,system-ui,sans-serif;margin-bottom:4px";
     this.root.append(title);
     const guide = this.doc.createElement("button"); guide.textContent = "Moves & ranges"; guide.dataset["moves"] = "1";
     guide.style.cssText = "min-height:44px;border-radius:8px;background:#224238;color:#c7f38b;border:1px solid #87bd9a;margin-bottom:8px"; this.root.append(guide);
@@ -93,7 +93,7 @@ export class PracticePanel {
       b.dataset["toggle"] = id;
       b.textContent = `${label}: ${on ? "on" : "off"}`;
       b.setAttribute("aria-pressed", String(on));
-      b.style.cssText = `flex:1;min-height:44px;font:600 12px system-ui;border-radius:10px;color:#fff;background:#1d2b3a;border:2px solid ${on ? "#ffd479" : "#9fd3ff55"}`;
+      b.style.cssText = `flex:1;min-height:44px;font:600 12px Inter,system-ui,sans-serif;border-radius:10px;color:#fff;background:#1d2b3a;border:2px solid ${on ? "#ffd479" : "#9fd3ff55"}`;
       row.append(b);
     }
     this.root.append(row);

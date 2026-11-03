@@ -1,3 +1,5 @@
+@font-face{font-family:"Inter";src:url("../fonts/InterVariable.woff2") format("woff2");font-weight:100 900;font-style:normal;font-display:swap}
+:root{--eb-font:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif}
 :root{--eb-ink:#edf4ee;--eb-muted:#a1b6b0;--eb-mint:#c7f38b;--eb-teal:#74d4ca;--eb-line:#ffffff1c;--eb-panel:#152625;--eb-bg:#0a1719;color-scheme:dark}
 .eb-screen,[data-ui=settings],[data-ui=sparring-setup],[data-ui=room-list],[data-ui=how-to-play]{color:var(--eb-ink)!important;font-family:system-ui,-apple-system,sans-serif!important;line-height:1.5}
 .eb-screen{background:radial-gradient(ellipse at 85% 20%,#234b46 0,transparent 52%),radial-gradient(ellipse at 8% 95%,#323828 0,transparent 48%),#0a1719!important;overflow:auto;justify-content:flex-start!important;text-align:left!important;padding:clamp(24px,5vw,72px)!important}
@@ -101,3 +103,14 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .eb-hud [data-hud=kit] button,.eb-hud [data-hud=menu] button{min-height:46px;border-radius:14px;font-weight:650;background:#ffffff0c!important;border:1px solid #ffffff22!important}
 .eb-hud [data-hud=kit] button:hover,.eb-hud [data-hud=menu] button:hover{background:#ffffff18!important;border-color:var(--eb-mint)!important}
 .eb-hud [data-hud=menu],.eb-hud [data-hud=kit]{backdrop-filter:blur(14px);background:linear-gradient(160deg,#16292dfa,#0c171afa)!important}
+
+/* Embedded Inter everywhere in the game UI */
+.eb-screen,.eb-hud,.eb-hud *,[data-ui=settings],[data-ui=sparring-setup],[data-ui=room-list],[data-ui=how-to-play],.eb-move-guide,.eb-move-guide button,.eb-screen button,[data-ui=settings] button,[data-ui=sparring-setup] button,[data-ui=practice],[data-ui=practice] button{font-family:var(--eb-font)!important;font-feature-settings:"cv11","ss01","tnum" 0;font-optical-sizing:auto;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.eb-hud{font-family:var(--eb-font)!important}
+.eb-hud [data-hud=info]{font-weight:650;font-size:14px;letter-spacing:.01em;font-variant-numeric:tabular-nums}
+/* Skill slots: stacked label / hint / state that fit their box */
+.eb-hud [data-control]{flex-direction:column!important;gap:2px;overflow:hidden;padding:4px 6px;text-align:center;line-height:1.1}
+.eb-hud [data-control] span:first-child{font-size:11px;font-weight:700;letter-spacing:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:100%}
+.eb-hud [data-control] small{font-size:8px;letter-spacing:.1em;opacity:.6;white-space:nowrap}
+.eb-hud [data-control] span:last-child:not(:first-child){font-size:10px;font-weight:650;color:var(--eb-mint);letter-spacing:.04em;text-transform:uppercase}
+.eb-hud [data-control]:not(:has(small)):not(:has(span+span)) {font-size:13px;font-weight:700;letter-spacing:.02em}

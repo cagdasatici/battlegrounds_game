@@ -36,7 +36,7 @@ export const CombatText = {
     if (typeof document === "undefined") return () => {};
     const root = document.createElement("div");
     root.dataset["ui"] = "combat-text";
-    root.style.cssText = "position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:20;font:700 18px system-ui;text-shadow:0 1px 3px #000c";
+    root.style.cssText = "position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:20;font:700 18px Inter,system-ui,sans-serif;text-shadow:0 1px 3px #000c";
     const feed = document.createElement("div");
     feed.dataset["ui"] = "ko-feed";
     feed.style.cssText = "position:absolute;top:8px;right:8px;display:flex;flex-direction:column;align-items:flex-end;gap:4px";

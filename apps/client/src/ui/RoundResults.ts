@@ -24,7 +24,7 @@ export class RoundResults {
     this.root = doc.createElement("div");
     this.root.dataset["ui"] = "round-results";
     this.root.setAttribute("role", "status");
-    this.root.style.cssText = "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9;min-width:260px;max-width:90vw;padding:20px;background:rgba(11,17,24,.92);color:#fff;font:16px system-ui;border-radius:16px;text-align:center;pointer-events:none;display:none";
+    this.root.style.cssText = "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9;min-width:260px;max-width:90vw;padding:20px;background:rgba(11,17,24,.92);color:#fff;font:16px Inter,system-ui,sans-serif;border-radius:16px;text-align:center;pointer-events:none;display:none";
     this.title = doc.createElement("h2"); this.title.style.margin = "0 0 8px";
     this.list = doc.createElement("div"); this.list.style.cssText = "text-align:left;margin:8px 0";
     this.count = doc.createElement("p"); this.count.style.cssText = "margin:8px 0 0;font-weight:700";
