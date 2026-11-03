@@ -67,3 +67,4 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 [data-ui=practice] button:disabled{opacity:.35;cursor:default}
 @keyframes eb-ready-pulse{0%{transform:scale(1)}50%{transform:scale(1.12)}100%{transform:scale(1)}}
 .eb-hud .eb-ready-pulse{animation:eb-ready-pulse 400ms ease-out;border-color:#fff!important}
+.eb-hud [data-hud=scoreboard] th{font-size:11px;opacity:.75;font-weight:600}

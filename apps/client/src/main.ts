@@ -4,6 +4,7 @@ import { castDescription, skillDefinitions, skillRoles } from "./ui/SkillInfo.js
 import type { WebGLRenderer } from "three";
 import type { Room } from "@colyseus/sdk";
 import { meterFraction } from "@eb/shared/awakening";
+import { COMBAT } from "@eb/shared/config/combat";
 import { surfaceBelow, parseArenaMap, type ArenaMap } from "@eb/shared/config/arena";
 import {
   MAX_CLIENTS, P0_KITS, PRACTICE_ROOM_CODE, ServerMessage,
@@ -387,7 +388,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     matchCleanups.push(() => kitHandle.dispose());
     const welcome = rc.welcome as WelcomeMessage;
     let showBoard = false, menuOpen = false, kitMenu = false;
-    let ko: { tick: number; by: string } | null = null;
+    let ko: { tick: number; by: string; actorId: string | null } | null = null;
     const blockNotice = new BlockNotice();
     const settings = activeSettings();
     const tier = (q: Quality): Quality => (softwareGl ? "low" : q);
@@ -415,7 +416,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       const me = localOf();
       if (!me || e.targetId !== String(me.entityId)) return;
       if (e.kind === "block") blockNotice.confirm(performance.now());
-      else if (e.kind === "ko") ko = { tick: e.tick, by: e.actorId === e.targetId ? "the arena" : players().get(e.actorId)?.displayName ?? "a rival" };
+      else if (e.kind === "ko") ko = { tick: e.tick, by: e.actorId === e.targetId ? "the arena" : players().get(e.actorId)?.displayName ?? "a rival", actorId: e.actorId === e.targetId ? null : e.actorId };
       else if (e.kind === "respawn") ko = null;
       else if (e.kind === "hit" && e.actorId !== undefined && e.actorId !== e.targetId) {
         const atk = players().get(e.actorId);
@@ -437,7 +438,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     const probe = document.createElement("div");
     probe.style.cssText = "position:fixed;inset:0;visibility:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)";
     document.body.append(probe);
-    const hud = new Hud(document.body, document, (k) => { r.send("changeKit", { kitId: k }); kitMenu = false; }, () => { void flow.back(); }, () => { menuOpen = false; openSettings(); }, () => { menuOpen = false; openMoves(); });
+    const hud = new Hud(document.body, document, (k) => { r.send("changeKit", { kitId: k }); kitMenu = false; }, () => { void flow.back(); }, () => { menuOpen = false; openSettings(); }, () => { menuOpen = false; openMoves(); }, () => { kitMenu = true; });
     matchCleanups.push(() => { hud.dispose(); probe.remove(); });
     let plateOrigin = { x: 0, y: 0 };
     const plates = new Nameplates(document.body, document, () => plateOrigin);
@@ -532,6 +533,13 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       matchCleanups.push(() => window.clearInterval(panelTimer));
     }
 
+    const koCard = (k: { tick: number; by: string; actorId: string | null }, now: number) => {
+      const killer = k.actorId === null ? undefined : players().get(k.actorId);
+      return {
+        by: k.by, byKit: killer ? KIT_LABEL[killer.kitId as KitId] ?? killer.kitId : "", byHpFrac: killer ? (killer.hp100 ?? 0) / 10000 : null,
+        seconds: respawnSecondsLeft(k.tick, now), frac: Math.min(1, Math.max(0, (k.tick + COMBAT.respawnTicks - now) / COMBAT.respawnTicks)),
+      };
+    };
     const drawHud = (): void => {
       const me = localOf();
       const stateTick = (r.state as { serverTick?: number }).serverTick ?? 0;
@@ -552,7 +560,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
         formText: me ? formTimerText(me.form, me.formEndTick, now) : "",
         stillpointText: stillpointText(me?.owner?.lethalCounterRemaining ?? 0),
         rejection: rejections.current(performance.now()),
-        respawn: dead && ko ? { by: (ko as { by: string }).by, seconds: respawnSecondsLeft((ko as { tick: number }).tick, now) } : null,
+        respawn: dead && ko ? koCard(ko as { tick: number; by: string; actorId: string | null }, now) : null,
         scoreboard: showBoard ? scoreboardRows([...players().values()].map((p) => ({ ...p, local: p.owner !== undefined }))) : null,
         menuOpen,
         kitMenu: kitMenu

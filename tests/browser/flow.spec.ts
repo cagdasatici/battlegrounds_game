@@ -252,8 +252,8 @@ test("happy path to Ready, then HUD: meter, cooldown, rejection, scoreboard, kit
     await page.mouse.move(joy.x, joy.y - 60, { steps: 4 });
     const seen = new Set<string>();
     await until(async () => {
-      const t = await page.locator("[data-hud=respawn]").textContent().catch(() => "");
-      const m = /Respawning in (\d)/.exec(t ?? "");
+      const t = await page.locator("[data-hud=respawn] [data-ko-ring]").textContent().catch(() => "");
+      const m = /^(\d)$/.exec(t ?? "");
       if (m) seen.add(m[1]!);
       return seen.size >= 2 ? true : null;
     }, 60_000, "respawn countdown visible");

@@ -191,3 +191,60 @@ describe("Hud cooldown ring and ready pulse (UX13)", () => {
     hud.dispose();
   });
 });
+
+// UX14: KO card and tabular scoreboard. Tag-aware DOM double that records click listeners.
+class TagEl extends FakeEl {
+  constructor(readonly tag: string) { super(); }
+  listeners: Record<string, Array<(e: unknown) => void>> = {};
+  override addEventListener(t: string, f: (e: unknown) => void): void { (this.listeners[t] ??= []).push(f); }
+  override removeEventListener(t: string, f: (e: unknown) => void): void { this.listeners[t] = (this.listeners[t] ?? []).filter((x) => x !== f); }
+}
+const tagDoc = { createElement: (t: string) => new TagEl(t) } as unknown as Document;
+const walkAll = (e: FakeEl, out: TagEl[] = []): TagEl[] => { out.push(e as TagEl); for (const c of e.children) walkAll(c, out); return out; };
+const textOf = (e: FakeEl): string => e.textContent + e.children.map(textOf).join("");
+
+describe("Hud KO card and scoreboard (UX14)", () => {
+  const layout = computeLayout({ x0: 0, y0: 0, W: 1180, H: 820 });
+  const base = { name: "n", hp: 100, maxHp: 100, meter: 0, facingLock: false, portrait: false };
+  const mount = (onFighter: () => void = () => undefined) => {
+    const parent = new TagEl("div");
+    const hud = new Hud(parent as unknown as HTMLElement, tagDoc, undefined, undefined, undefined, undefined, onFighter);
+    return { hud, all: () => walkAll(parent.children[0]!) };
+  };
+  const ko = (byHpFrac: number | null) => ({ by: "Rex", byKit: "Ember", byHpFrac, seconds: 2, frac: 0.5 });
+  test("killer HP caption and fighter button", () => {
+    const { hud, all } = mount();
+    hud.render(layout, { ...base, respawn: ko(0.34) });
+    expect(textOf(all()[0]!)).toContain("34 HP left");
+    expect(all().some((e) => e.dataset["koKit"] === "1")).toBe(true);
+    hud.dispose();
+  });
+  test("no killer bar when byHpFrac is null", () => {
+    const { hud, all } = mount();
+    hud.render(layout, { ...base, respawn: ko(null) });
+    expect(textOf(all()[0]!)).not.toContain("HP left");
+    expect(all().some((e) => e.dataset["koBar"] === "1")).toBe(false);
+    hud.dispose();
+  });
+  test("scoreboard is a table with header plus N rows; local row is self", () => {
+    const { hud, all } = mount();
+    hud.render(layout, { ...base, scoreboard: [
+      { name: "A", kills: 2, deaths: 0, assists: 0, self: false }, { name: "B", kills: 1, deaths: 1, assists: 1, self: true }] });
+    const trs = all().filter((e) => e.tag === "tr");
+    expect(all().some((e) => e.tag === "table")).toBe(true);
+    expect(trs.length).toBe(3);
+    expect(trs[2]!.className).toContain("self");
+    expect(trs[1]!.className).not.toContain("self");
+    hud.dispose();
+  });
+  test("clicking Change fighter invokes callback", () => {
+    let n = 0;
+    const { hud, all } = mount(() => { n++; });
+    hud.render(layout, { ...base, respawn: ko(0.5) });
+    const card = all().find((e) => e.dataset["hud"] === "respawn")!;
+    const btn = all().find((e) => e.dataset["koKit"] === "1")!;
+    for (const f of card.listeners["click"] ?? []) f({ target: { closest: () => btn } });
+    expect(n).toBe(1);
+    hud.dispose();
+  });
+});

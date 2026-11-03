@@ -30,7 +30,7 @@ export interface HudState {
   stillpointText?: string;
   rejection?: string | null;
   /** Death overlay: scorer name and whole seconds left. */
-  respawn?: { by: string; seconds: number } | null;
+  respawn?: { by: string; byKit: string; byHpFrac: number | null; seconds: number; frac: number } | null;
   scoreboard?: readonly ScoreRow[] | null;
   /** Kit choice panel; null = closed. */
   /** Esc/Menu panel: the arena keeps running while it is open. */
@@ -106,13 +106,17 @@ export class Hud {
   private readonly kitPanel: HTMLElement;
   private readonly menuPanel: HTMLElement;
   private kitKey = "";
+  private koKey = "";
+  private boardKey = "";
+  private koRing: HTMLElement | null = null;
+  private readonly koListener: (e: Event) => void;
   private prevFracs: number[] = [];
   private readonly pulseTimers = new Set<ReturnType<typeof setTimeout>>();
   private opacity = 1;
   private readonly kitListener: (e: Event) => void;
   private readonly menuListener: (e: Event) => void;
 
-  constructor(parent: HTMLElement, private readonly doc: Document = document, private readonly onKitPick: (kit: string) => void = () => undefined, private readonly onLeave: () => void = () => undefined, private readonly onSettings: () => void = () => undefined, private readonly onMoves: () => void = () => undefined) {
+  constructor(parent: HTMLElement, private readonly doc: Document = document, private readonly onKitPick: (kit: string) => void = () => undefined, private readonly onLeave: () => void = () => undefined, private readonly onSettings: () => void = () => undefined, private readonly onMoves: () => void = () => undefined, private readonly onFighter: () => void = () => undefined) {
     this.root = doc.createElement("div");
     this.root.className = "eb-hud";
     this.root.style.cssText = "position:fixed;inset:0;pointer-events:none;font:600 13px system-ui;color:#fff";
@@ -156,6 +160,11 @@ export class Hud {
       if (b?.dataset["kit"]) this.onKitPick(b.dataset["kit"]);
     };
     this.kitPanel.addEventListener("click", this.kitListener);
+    this.koListener = (e: Event): void => {
+      const b = (e.target as HTMLElement | null)?.closest?.("button[data-ko-kit]") as HTMLElement | null;
+      if (b) this.onFighter();
+    };
+    this.death.addEventListener("click", this.koListener);
     parent.appendChild(this.root);
   }
 
@@ -174,14 +183,10 @@ export class Hud {
     this.toast.textContent = st.rejection ?? "";
     const d = st.respawn;
     this.death.style.display = d ? "flex" : "none";
-    this.death.textContent = d ? `Knocked out by ${d.by}\nRespawning in ${Math.max(1, d.seconds)}` : "";
-    this.death.style.whiteSpace = "pre";
+    this.renderKo(d ?? null);
     const rows = st.scoreboard;
     this.board.style.display = rows ? "block" : "none";
-    this.board.textContent = rows
-      ? ["Player   KO  Deaths  Assists", ...rows.map((r) => `${r.self ? "> " : ""}${r.name}   ${r.kills}   ${r.deaths}   ${r.assists}`)].join("\n")
-      : "";
-    this.board.style.whiteSpace = "pre";
+    this.renderBoard(rows ?? null);
     const km = st.kitMenu;
     const key = km ? `${km.current}|${km.pending}|${km.kits.map((k) => k.id).join(",")}` : "";
     if (key !== this.kitKey) {
@@ -206,6 +211,66 @@ export class Hud {
     }
     this.kitPanel.style.display = km ? "block" : "none";
     this.menuPanel.style.display = st.menuOpen ? "block" : "none";
+  }
+
+  /** KO card: rebuilt only when its content changes; the ring is updated in place. */
+  private renderKo(d: NonNullable<HudState["respawn"]> | null): void {
+    const sec = d ? Math.max(1, d.seconds) : 0;
+    const key = d ? `${d.by}|${d.byKit}|${d.byHpFrac === null ? "-" : Math.round(d.byHpFrac * 100)}|${sec}` : "";
+    if (key !== this.koKey) {
+      this.koKey = key;
+      this.koRing = null;
+      this.death.replaceChildren();
+      if (d) {
+        const mk = (tag: string, text = "", css = ""): HTMLElement => { const e = this.doc.createElement(tag); e.textContent = text; if (css) e.style.cssText = css; return e; };
+        const card = mk("div", "", "display:flex;flex-direction:column;align-items:center;gap:10px;padding:22px 32px;border-radius:18px;background:#102521f5;border:1px solid #ffffff30");
+        card.append(mk("div", "Knocked out", "font-size:28px;font-weight:700"), mk("div", `by ${d.by} \u00b7 ${d.byKit}`, "font-size:16px"));
+        if (d.byHpFrac !== null) {
+          const pct = Math.round(Math.min(1, Math.max(0, d.byHpFrac)) * 100);
+          const bar = mk("div", "", `width:64px;height:8px;border-radius:4px;background:linear-gradient(90deg,#3fae6a ${pct}%,#1d2b3a ${pct}%)`);
+          bar.dataset["koBar"] = "1";
+          card.append(bar, mk("div", `${pct} HP left`, "font-size:12px;opacity:.85"));
+        }
+        const ring = mk("div", String(sec), "width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700");
+        ring.dataset["koRing"] = "1";
+        this.koRing = ring;
+        const btn = mk("button", "Change fighter", "min-width:200px;min-height:44px;pointer-events:auto;font:600 15px system-ui");
+        btn.dataset["koKit"] = "1";
+        card.append(ring, btn);
+        this.death.append(card);
+      }
+    }
+    if (d && this.koRing) {
+      const deg = Math.round(Math.min(1, Math.max(0, d.frac)) * 360);
+      this.koRing.style.background = `conic-gradient(#c7f38b ${deg}deg, #ffffff22 0)`;
+    }
+  }
+
+  /** Real table; rebuilt only when row content changes. Row order comes from scoreboardRows. */
+  private renderBoard(rows: readonly ScoreRow[] | null): void {
+    const key = rows ? rows.map((r) => `${r.name}|${r.kills}|${r.deaths}|${r.assists}|${r.self ? 1 : 0}`).join(";") : "";
+    if (key === this.boardKey) return;
+    this.boardKey = key;
+    this.board.replaceChildren();
+    if (!rows) return;
+    const cell = (tag: string, text: string, num: boolean): HTMLElement => {
+      const c = this.doc.createElement(tag); c.textContent = text;
+      c.style.cssText = num ? "text-align:right;font-variant-numeric:tabular-nums;padding:2px 8px" : "text-align:left;padding:2px 8px";
+      return c;
+    };
+    const tr = (cells: HTMLElement[], cls = ""): HTMLElement => { const r = this.doc.createElement("tr"); r.className = cls; r.append(...cells); return r; };
+    const table = this.doc.createElement("table");
+    table.style.cssText = "border-collapse:collapse";
+    const thead = this.doc.createElement("thead");
+    thead.append(tr([cell("th", "Player", false), cell("th", "KO", true), cell("th", "Deaths", true), cell("th", "Assists", true)]));
+    const tbody = this.doc.createElement("tbody");
+    for (const r of rows) {
+      const row = tr([cell("td", r.name, false), cell("td", String(r.kills), true), cell("td", String(r.deaths), true), cell("td", String(r.assists), true)], r.self ? "self" : "");
+      if (r.self) row.style.cssText = "font-weight:700;box-shadow:inset 3px 0 0 #c7f38b";
+      tbody.append(row);
+    }
+    table.append(thead, tbody);
+    this.board.append(table);
   }
 
   /** Radial cooldown sweep plus a 400 ms pulse when the slot becomes ready (display only). */
@@ -273,6 +338,7 @@ export class Hud {
   dispose(): void {
     this.kitPanel.removeEventListener("click", this.kitListener);
     this.menuPanel.removeEventListener("click", this.menuListener);
+    this.death.removeEventListener("click", this.koListener);
     for (const t of this.pulseTimers) clearTimeout(t);
     this.pulseTimers.clear();
     this.root.remove();
