@@ -497,3 +497,56 @@ describe("recast and air branches (framework hooks used by T20)", () => {
     w.dispose();
   });
 });
+
+describe("GR02 occupant-bound ownership", () => {
+  test("a replacement occupant of the owner id is hit by direct contact and splash; the original occupant is still excluded", async () => {
+    const r = await make();
+    r.occupants.set(1, 1);
+    r.poses.get(2)!.x = 20; // fighter 2 off the lane
+    const id = r.spawn({ ownerId: 1, x: 0, z: -2, speed: 24 })!;
+    expect(r.ps.get(id)!.ownerOccupant).toBe(1);
+    r.occupants.set(1, 2); // the owner left; a new occupant took id 1 and stands in the lane
+    r.poses.get(1)!.x = 0; r.poses.get(1)!.z = -6;
+    const hp = r.hp(1);
+    r.run(T0, T0 + 30);
+    expect(r.hp(1)).toBeLessThan(hp);
+    expect(r.hitsOn(1)[0]!.r.candidate.projectile?.ownerOccupant).toBe(1);
+  });
+  test("the original occupant standing on the lane is never struck by its own shot", async () => {
+    const r = await make();
+    r.occupants.set(1, 1);
+    const id = r.spawn({ ownerId: 1, x: 0, z: -0.8 })!;
+    r.poses.get(2)!.x = 20;
+    r.run(T0, T0 + 5);
+    expect(r.ps.get(id)).toBeDefined();
+    expect(r.hp(1)).toBe(10000);
+  });
+  test("reflection does not home toward a replacement occupant; it reverses the heading instead", async () => {
+    const r = await make();
+    r.occupants.set(1, 1);
+    const id = r.spawn({ ownerId: 1, x: 0, z: -4 })!;
+    r.occupants.set(1, 2);
+    r.poses.get(1)!.x = 6; r.poses.get(1)!.z = -4; // new occupant stands off to the side
+    expect(r.ps.reflect(id, 2, 5, 10)).toBe("reflected");
+    const p = r.ps.get(id)!;
+    expect(p.vz).toBeGreaterThan(23.9); // reversed (+Z), not turned toward +X
+    expect(Math.abs(p.vx)).toBeLessThan(1e-6);
+    expect([p.ownerId, p.ownerOccupant]).toEqual([2, 0]);
+  });
+  test("reflection still homes on the original occupant while it holds the id", async () => {
+    const r = await make();
+    r.occupants.set(1, 1);
+    const id = r.spawn({ ownerId: 1, x: 0, z: -4 })!;
+    r.poses.get(1)!.x = 6; r.poses.get(1)!.z = -4;
+    expect(r.ps.reflect(id, 2, 5, 10)).toBe("reflected");
+    expect(r.ps.get(id)!.vx).toBeGreaterThan(23.9);
+  });
+  test("a replacement occupant of the owner id may reflect a departed owner's shot", async () => {
+    const r = await make();
+    r.occupants.set(1, 1);
+    const id = r.spawn({ ownerId: 1, x: 0, z: -4 })!;
+    r.occupants.set(1, 2);
+    expect(r.ps.reflect(id, 1, 7, 10)).toBe("reflected");
+    expect(r.ps.get(id)!.ownerOccupant).toBe(2);
+  });
+});

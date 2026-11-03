@@ -92,9 +92,10 @@ export class CombatSystem {
     if (f) updateGuard(f, tick, blockHeld, grounded);
   }
 
-  resolve(tick: number, candidates: readonly HitCandidate[], poseOf: (id: number) => Pose | undefined): HitResult[] {
+  resolve(tick: number, candidates: readonly HitCandidate[], poseOf: (id: number) => Pose | undefined,
+    occupantOf?: (id: number) => number | undefined): HitResult[] {
     const out = resolveHits(tick, candidates, {
-      fighter: (id) => this.fighters.get(id), pose: poseOf, captures: this.captures, ledger: this.ledger,
+      fighter: (id) => this.fighters.get(id), pose: poseOf, ...(occupantOf ? { occupantOf } : {}), captures: this.captures, ledger: this.ledger,
       onLethal: (id, t) => { this.kill(id, t); },
     });
     this.releaseStale(tick); // captors interrupted this tick lose their victim immediately

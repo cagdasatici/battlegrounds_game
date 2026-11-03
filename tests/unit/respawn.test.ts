@@ -102,6 +102,9 @@ interface Rig {
   tick: number; world: World; movement: MovementSystem; combat: CombatSystem; respawn: RespawnSystem; state: ArenaState;
   seats: Map<string, PipelineSeat>; events: CombatEvent[]; pipe: TickPipeline; runner: AbilityRunner; aw: AwakeningSystem;
   queue: HitCandidate[]; life: number;
+  occupants: Map<number, number>;
+  /** GR02: queue a detached projectile hit stamped with the given owner occupant and life. */
+  projectileHit(attacker: number, ownerOccupant: number, ownerLifeId: number, target: number, damage100: number, moveId?: string): void;
   add(id: number, kit: KitId, x: number, z: number): void;
   hit(attacker: number, target: number, damage100: number, moveId?: string, toi?: number): void;
   step(n?: number): void;
@@ -130,11 +133,11 @@ async function makeRig(): Promise<Rig> {
   const seats = new Map<string, PipelineSeat>();
   const events: CombatEvent[] = [];
   const queue: HitCandidate[] = [];
-  const rig = { tick: 1000, life: 0 } as Rig;
+  const rig = { tick: 1000, life: 0, occupants: new Map<number, number>() } as Rig;
   (runner as unknown as { collect: () => HitCandidate[] }).collect = () => queue.splice(0);
   const pipe = new TickPipeline({
     state, combat, m1, abilities: runner, awakening: aw, movement: () => movement, world: () => world, seats: () => seats,
-    poseOf: (id) => host.pose(id), respawn, nextLifeId: () => ++rig.life,
+    poseOf: (id) => host.pose(id), occupantOf: (id) => rig.occupants.get(id) ?? 0, respawn, nextLifeId: () => ++rig.life,
     sendActionResult: () => undefined,
     broadcastEvent: (tick, kind, actor, target, lifeId, moveId, dmg) => {
       events.push({ eventId: `${events.length}`, tick, kind, actorId: String(actor), lifeId, ...(target !== undefined ? { targetId: String(target) } : {}), ...(moveId ? { moveId } : {}), ...(dmg !== undefined ? { damage100: dmg } : {}) });
@@ -160,6 +163,14 @@ async function makeRig(): Promise<Rig> {
         attackerId: attacker, attackerGeneration: f.generation, castCounter: ++f.castCounter, hitIndex: 0, toi, targetId: target, moveId,
         originX: ap[0], originZ: ap[2], block: "U", counterable: false, armorBreak: false, damage100,
         reaction: { kind: "none" }, maxHitsPerTarget: 1,
+      });
+    },
+    projectileHit(attacker: number, ownerOccupant: number, ownerLifeId: number, target: number, damage100: number, moveId = "td.b1") {
+      const ap = movement.position(attacker)!;
+      queue.push({
+        attackerId: attacker, attackerGeneration: 0, castCounter: -(queue.length + 1), hitIndex: 0, toi: 0.5, targetId: target, moveId,
+        originX: ap[0], originZ: ap[2], block: "U", counterable: true, armorBreak: false, damage100,
+        reaction: { kind: "none" }, maxHitsPerTarget: 1, projectile: { id: queue.length + 1, reflectable: true, ownerLifeId, ownerOccupant },
       });
     },
     step(n = 1) { for (let i = 0; i < n; i++) { rig.tick++; pipe.step(rig.tick); } },
@@ -477,5 +488,64 @@ describe("kit change (T17)", () => {
     seatOf(r, 2).pendingKit = "sv";
     r.step();
     expect(seatOf(r, 2).pendingKit).toBeNull();
+  });
+});
+
+describe("GR02 detached projectile ownership across id reuse", () => {
+  test("a replacement occupant of the owner id is a damageable target, not a self hit, and earns nothing", async () => {
+    const r = await makeRig();
+    r.add(1, "td", -18, -14); r.add(2, "sv", 18, -14); r.add(3, "sv", 0, 20);
+    const oldLife = r.combat.get(1)!.lifeId;
+    r.occupants.set(1, 2); // id 1 now belongs to a second occupant; the shot was fired by occupant 1
+    r.combat.get(1)!.hp100 = 5000; r.combat.get(2)!.hp100 = 100;
+    r.projectileHit(1, 1, oldLife, 1, 1500);
+    r.step();
+    expect(r.combat.get(1)!.hp100).toBe(3500); // the new occupant takes the damage
+    expect(r.eventsOf("hit")[0]).toMatchObject({ actorId: "1", targetId: "1" }); // absent attacker reports the victim, never a name
+    r.projectileHit(1, 1, oldLife, 2, 500, "td.b1");
+    r.step();
+    expect(r.combat.get(2)!.hp100).toBe(0);
+    expect([r.pl(1).kills, r.pl(1).assists, r.pl(2).deaths]).toEqual([0, 0, 1]);
+    expect(r.combat.get(1)!.hp100).toBe(3500); // no finisher heal for the new occupant
+    expect(r.eventsOf("ko")[0]).toMatchObject({ targetId: "2", actorId: "2" }); // environmental scorer fallback
+  });
+
+  test("departed owner damage never enters the attribution ledger, so no later KO yields an assist to the replacement", async () => {
+    const r = await makeRig();
+    r.add(1, "td", -18, -14); r.add(2, "sv", 18, -14); r.add(3, "sv", 0, 20);
+    const oldLife = r.combat.get(1)!.lifeId;
+    r.occupants.set(1, 2);
+    r.projectileHit(1, 1, oldLife, 3, 3000); r.step(); // would be a 30 HP assist if credited
+    r.hit(2, 3, 7000, "sv.b1"); r.step();
+    expect(r.pl(3).deaths).toBe(1);
+    expect([r.pl(1).assists, r.pl(1).kills, r.pl(2).kills]).toEqual([0, 0, 1]);
+  });
+
+  test("the same occupant that died and respawned still earns the posthumous KO, but no heal", async () => {
+    const r = await makeRig();
+    r.add(1, "td", -18, -14); r.add(2, "sv", 18, -14);
+    r.occupants.set(1, 1);
+    const oldLife = r.combat.get(1)!.lifeId;
+    r.combat.kill(1, r.tick); r.runner.reset(1);
+    r.combat.respawn(1, r.tick, 99); r.combat.get(1)!.protectedUntilTick = 0;
+    r.combat.get(1)!.hp100 = 5000; r.combat.get(2)!.hp100 = 100;
+    r.projectileHit(1, 1, oldLife, 2, 500);
+    r.step();
+    expect(r.pl(1).kills).toBe(1);
+    expect(r.combat.get(1)!.hp100).toBe(5000); // td.b1 finisher heal needs the firing life
+    expect(r.combat.get(1)!.meter100).toBe(0);
+  });
+
+  test("owner dead and gone with no replacement: the shot still lands and nobody is credited", async () => {
+    const r = await makeRig();
+    r.add(1, "td", -18, -14); r.add(2, "sv", 18, -14);
+    const oldLife = r.combat.get(1)!.lifeId;
+    r.occupants.delete(1); r.combat.remove(1, r.tick);
+    r.combat.get(2)!.hp100 = 1500;
+    r.projectileHit(1, 1, oldLife, 2, 1500);
+    r.step();
+    expect(r.combat.get(2)!.hp100).toBe(0);
+    expect(r.pl(2).deaths).toBe(1);
+    expect(r.eventsOf("ko")[0]).toMatchObject({ targetId: "2", actorId: "2" });
   });
 });

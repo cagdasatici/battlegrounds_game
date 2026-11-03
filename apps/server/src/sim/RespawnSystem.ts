@@ -77,6 +77,9 @@ export class RespawnSystem {
     this.trim(list, tick);
   }
 
+  /** Starts only the victim's combat timer: damage from a departed owner that nobody may be credited for (GR02). */
+  touchCombat(victim: number, tick: number): void { this.lastCombat.set(victim, tick); }
+
   /** A life begins: the quiet timer starts at spawn, so a fresh spawn cannot switch kit at once (D). */
   startLife(id: number, tick: number): void { this.lastCombat.set(id, tick); }
 

@@ -79,6 +79,9 @@ export class ArenaRoom extends Room {
   private reservations = new Map<string, { reject: Function }>();
   // TODO(REL02): lifeId is uint16; lifeSeq wraps after 65,535 lives in one room instance. Widen if rooms become long-lived.
   protected lifeSeq = 0;
+  /** GR02: server-only occupant generation per entity id. Incremented on every allocation, unchanged by respawn, never replicated. */
+  private readonly occupants = new Map<number, number>();
+  private occupantSeq = 0;
   private lastTickMs = 0;
   world: World | null = null;
   movement: MovementSystem | null = null;
@@ -102,7 +105,7 @@ export class ArenaRoom extends Room {
   protected readonly pipeline: TickPipeline = new TickPipeline({
     state: this.state, combat: this.combat, m1: this.m1, abilities: this.abilities, awakening: this.awakening,
     projectiles: this.projectiles, urns: this.urns, movement: () => this.movement, world: () => this.world, seats: () => this.pipelineSeats(), beforeDrain: (tick) => this.beforeDrain(tick), extraBodies: () => this.extraBodyIds(),
-    poseOf: (id) => this.poseOf(id), respawn: this.respawns, nextLifeId: () => ++this.lifeSeq,
+    poseOf: (id) => this.poseOf(id), occupantOf: (id) => this.occupantOf(id), respawn: this.respawns, nextLifeId: () => ++this.lifeSeq,
     sendActionResult: (sid, seat, edgeId, seq, tick, ok, reason, castId) => this.sendActionResult(sid, seat, edgeId, seq, tick, ok, reason, castId),
     broadcastEvent: (tick, kind, actor, target, lifeId, moveId, dmg, extra) => this.broadcastEvent(tick, kind, actor, target, lifeId, moveId, dmg, extra),
   });
@@ -164,6 +167,7 @@ export class ArenaRoom extends Room {
 
   override onJoin(client: Client, _options: unknown, auth: { authId: string; displayName: string }): void {
     const entityId = this.allocEntityId();
+    this.registerOccupant(entityId);
     const p = new PlayerSchema();
     p.entityId = entityId;
     p.lifeId = 0;
@@ -226,6 +230,7 @@ export class ArenaRoom extends Room {
     this.respawns.forget(seat.entityId);
     this.movement?.remove(seat.entityId);
     this.state.players.delete(String(seat.entityId));
+    this.releaseOccupant(seat.entityId);
     this.seatByAuth.delete(seat.sessionAuthId);
     this.seats.delete(client.sessionId);
     log("info", "player left", { room: this.roomId, entity: seat.entityId });
@@ -289,6 +294,15 @@ export class ArenaRoom extends Room {
     for (let id = 1; id <= 255; id++) if (!this.state.players.has(String(id))) return id;
     throw new Error("ROOM_FULL");
   }
+
+  /** GR02: binds a fresh occupant generation to a newly allocated entity id (humans, bots, dummy). */
+  protected registerOccupant(id: number): number {
+    const gen = ++this.occupantSeq;
+    this.occupants.set(id, gen);
+    return gen;
+  }
+  protected releaseOccupant(id: number): void { this.occupants.delete(id); }
+  occupantOf(id: number): number | undefined { return this.occupants.get(id); }
 
   protected playerOf(seat: Seat): PlayerSchema | undefined {
     return this.state.players.get(String(seat.entityId));
@@ -398,6 +412,7 @@ export class ArenaRoom extends Room {
       hold: (id, slot, tick) => this.pipeline.holdOf(id, slot, tick),
       aimPitch: (id) => this.pipeline.pitchOf(id),
       combat: this.combat,
+      occupantOf: (id) => this.occupantOf(id),
       pose: (id) => this.poseOf(id),
       blocked: (a, b) => !!this.world && this.world.segmentBlocked([a[0], a[1], a[2]], [b[0], b[1], b[2]]),
       requestedYaw: (id) => this.pipeline.requestedYawOf(id),

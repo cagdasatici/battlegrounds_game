@@ -35,7 +35,7 @@ export function fire(c: CastContext, full: boolean): void {
   const t = c.host.sweepSphere?.(origin, front, proj.radius) ?? null;
   const k = t === null ? 1 : t;
   const spawn: ProjectileSpawn = {
-    ownerId: c.fighter.entityId, ownerLifeId: c.fighter.lifeId, castCounter: c.cast.castCounter, moveId: d.id,
+    ownerId: c.fighter.entityId, ownerOccupant: c.host.occupantOf?.(c.fighter.entityId) ?? 0, ownerLifeId: c.fighter.lifeId, castCounter: c.cast.castCounter, moveId: d.id,
     x: origin[0] + (front[0] - origin[0]) * k, y: origin[1], z: origin[2] + (front[2] - origin[2]) * k,
     dirX: fx, dirY: 0, dirZ: fz,
     speed: proj.speed, lifeTicks: proj.lifeTicks, maxRange: proj.maxRange, radius: proj.radius,

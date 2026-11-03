@@ -33,6 +33,8 @@ const BRACKET_STEPS = 12;
 
 export interface ProjectileSpawn {
   ownerId: number;
+  /** GR02: occupant generation of ownerId at fire time; stays fixed when the owner leaves. */
+  ownerOccupant: number;
   ownerLifeId: number;
   /** Owner cast counter at fire time; the cast id is `${ownerId}.${castCounter}`. */
   castCounter: number;
@@ -115,7 +117,7 @@ export class ProjectileSystem implements ReflectableProjectiles {
     const dx = s.dirX / len, dy = s.dirY / len, dz = s.dirZ / len;
     const id = this.nextId++;
     const p: Internal = {
-      id, ownerId: s.ownerId, x: s.x, y: s.y, z: s.z, radius: s.radius, reflectCount: 0,
+      id, ownerId: s.ownerId, ownerOccupant: s.ownerOccupant, x: s.x, y: s.y, z: s.z, radius: s.radius, reflectCount: 0,
       castId: `${s.ownerId}.${s.castCounter}`, castCounter: s.castCounter, ownerLifeId: s.ownerLifeId, moveId: s.moveId,
       spawnTick: tick, vx: dx * s.speed, vy: dy * s.speed, vz: dz * s.speed, remainingTicks: s.lifeTicks,
       reflectionCount: 0, chargeClass: s.chargeClass, damage100: s.damage100, chip100: s.chip100, block: s.block,
@@ -135,6 +137,13 @@ export class ProjectileSystem implements ReflectableProjectiles {
 
   get(id: number): Projectile | undefined { return this.live.get(id); }
 
+  private occupantOf(id: number): number { return this.host.occupantOf?.(id) ?? 0; }
+
+  /** True when `id` is currently held by the very occupant that owns the projectile (GR02). */
+  private isOwner(p: { ownerId: number; ownerOccupant: number }, id: number): boolean {
+    return id === p.ownerId && this.occupantOf(id) === p.ownerOccupant;
+  }
+
   // ---- reflection (spec 13) ----
   reflectable(): readonly ReflectableProjectile[] {
     return this.list().filter((p) => p.canReflect && !(p as Internal).dead);
@@ -142,9 +151,10 @@ export class ProjectileSystem implements ReflectableProjectiles {
 
   reflect(projectileId: number, newOwnerId: number, newCastCounter: number, tick: number): ReflectOutcome {
     const p = this.live.get(projectileId);
-    if (!p || p.dead || !p.canReflect || p.ownerId === newOwnerId) return "rejected";
+    if (!p || p.dead || !p.canReflect || this.isOwner(p, newOwnerId)) return "rejected";
     if (p.reflectionCount >= 1) { this.live.delete(p.id); p.dead = true; return "absorbed"; }
-    const target = this.host.pose(p.ownerId);
+    // GR02: aim at the original owner only while that very occupant still holds the id.
+    const target = this.isOwner(p, p.ownerId) ? this.host.pose(p.ownerId) : undefined;
     let dx = -p.dirX, dy = -p.dirY, dz = -p.dirZ; // owner gone: send it back the way it came
     if (target) {
       const tx = target.x - p.x, ty = target.y - p.y, tz = target.z - p.z;
@@ -152,6 +162,7 @@ export class ProjectileSystem implements ReflectableProjectiles {
       if (l > 1e-6) { dx = tx / l; dy = ty / l; dz = tz / l; }
     }
     p.ownerId = newOwnerId;
+    p.ownerOccupant = this.occupantOf(newOwnerId);
     p.ownerLifeId = this.host.combat.get(newOwnerId)?.lifeId ?? 0;
     p.castCounter = newCastCounter;
     p.castId = `${newOwnerId}.${newCastCounter}`;
@@ -238,7 +249,7 @@ export class ProjectileSystem implements ReflectableProjectiles {
   private firstFighterContact(p: Internal, a: readonly number[], b: readonly number[], limit: number): { id: number; t: number } | null {
     let best: { id: number; t: number } | null = null;
     for (const f of this.host.combat.all()) {
-      if (f.entityId === p.ownerId || !isAlive(f)) continue;
+      if (this.isOwner(p, f.entityId) || !isAlive(f)) continue;
       const tp = this.host.pose(f.entityId);
       if (!tp) continue;
       const reach = p.radius + CAP_R;
@@ -264,7 +275,7 @@ export class ProjectileSystem implements ReflectableProjectiles {
   private detonation(p: Internal, directId: number | null, toi: number): HitCandidate[] {
     const found: { id: number; dist: number; direct: boolean }[] = [];
     for (const f of this.host.combat.all()) {
-      if (f.entityId === p.ownerId || !isAlive(f)) continue;
+      if (this.isOwner(p, f.entityId) || !isAlive(f)) continue;
       const tp = this.host.pose(f.entityId);
       if (!tp) continue;
       const isDirect = f.entityId === directId;
@@ -283,7 +294,7 @@ export class ProjectileSystem implements ReflectableProjectiles {
         castCounter: -p.id, hitIndex: 0, toi, targetId: f.id, moveId: p.moveId, originX: p.x, originZ: p.z,
         block: p.block, counterable: true, armorBreak: false, damage100: p.damage100, reaction: p.reaction,
         maxHitsPerTarget: 1, ...(p.launch ? { launch: p.launch } : {}),
-        projectile: { id: p.id, reflectable: p.canReflect, ownerLifeId: p.ownerLifeId },
+        projectile: { id: p.id, reflectable: p.canReflect, ownerLifeId: p.ownerLifeId, ownerOccupant: p.ownerOccupant },
         ...(p.chip100 > 0 && p.block === "B" ? { chip100: p.chip100 } : {}),
       });
     }

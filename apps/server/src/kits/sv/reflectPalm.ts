@@ -26,7 +26,7 @@ function reflectStep(c: CastContext): void {
   const [fx, fz] = forwardOf(cast.aimYaw);
   const near: { id: number; dist: number }[] = [];
   for (const p of provider.reflectable()) {
-    if (p.ownerId === c.fighter.entityId) continue;
+    if (p.ownerId === c.fighter.entityId && p.ownerOccupant === (c.host.occupantOf?.(c.fighter.entityId) ?? 0)) continue; // own shot
     const dx = p.x - ap.x, dy = p.y - ap.y, dz = p.z - ap.z;
     if (dx * fx + dz * fz < 0) continue; // behind the palm
     const dist = Math.hypot(dx, dy, dz);

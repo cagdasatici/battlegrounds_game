@@ -10,6 +10,8 @@
 export interface ReflectableProjectile {
   id: number;
   ownerId: number;
+  /** Server-only occupant generation of the owner id at fire (or reflect) time (GR02). */
+  ownerOccupant: number;
   x: number;
   y: number;
   z: number;

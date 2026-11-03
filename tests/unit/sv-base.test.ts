@@ -529,7 +529,7 @@ class FakeProjectiles implements ReflectableProjectiles {
   readonly list: (ReflectableProjectile & { damage100: number; alive: boolean; castCounter: number })[] = [];
   readonly calls: { id: number; newOwnerId: number; castCounter: number; tick: number }[] = [];
   add(id: number, ownerId: number, x: number, y: number, z: number, damage100 = 1500, radius = 0): void {
-    this.list.push({ id, ownerId, x, y, z, radius, reflectCount: 0, damage100, alive: true, castCounter: 0 });
+    this.list.push({ id, ownerId, ownerOccupant: 0, x, y, z, radius, reflectCount: 0, damage100, alive: true, castCounter: 0 });
   }
   reflectable(): readonly ReflectableProjectile[] { return this.list.filter((p) => p.alive).sort((a, b) => a.id - b.id); }
   reflect(id: number, newOwnerId: number, castCounter: number, tick: number): ReflectOutcome {

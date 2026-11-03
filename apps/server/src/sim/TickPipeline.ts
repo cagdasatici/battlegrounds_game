@@ -16,7 +16,7 @@ import type { ProjectileSystem } from "./Projectiles.js";
 import type { UrnSystem } from "./Urns.js";
 import { UrnSchema } from "../state/UrnSchema.js";
 import { ProjectileSchema } from "../state/ProjectileSchema.js";
-import type { HitCandidate, HitResult } from "./HitResolver.js";
+import { creditedAttacker, type HitCandidate, type HitResult } from "./HitResolver.js";
 import { dashCandidates } from "./DashAttack.js";
 import { killRewardFor } from "@eb/shared/config/passives";
 import { locomotionLocked, intentsSuppressed, isAlive, type Fighter } from "./ActionMachine.js";
@@ -49,6 +49,8 @@ export interface TickPipelineDeps {
   /** Seatless simulated entities (practice dummy): body and action are published, no owner record. */
   extraBodies?: () => readonly number[];
   poseOf: (id: number) => M1Pose | undefined;
+  /** GR02: server-only occupant generation per entity id; absent in fixtures that never reuse ids. */
+  occupantOf?: (id: number) => number | undefined;
   /** T17: death bookkeeping, scoring and respawn deadlines. */
   respawn: RespawnSystem;
   /** T17: a room-unique life id for every spawn. */
@@ -251,8 +253,11 @@ export class TickPipeline {
     this.results = this.d.combat.resolve(tick, this.candidates, (id) => {
       const q = this.d.poseOf(id);
       return q && { x: q.x, z: q.z, facingYaw: q.facingYaw, grounded: q.grounded };
-    });
+    }, this.d.occupantOf);
   }
+
+  /** GR02: the attacker that may be credited for a result (kills, assists, timers, events); undefined when a detached shot's owner left. */
+  private creditOf(c: HitCandidate): number | undefined { return creditedAttacker(c, this.d.occupantOf); }
 
   /** Handler results, awakening meter and launches. */
   private afterHits(tick: number): void {
@@ -281,7 +286,11 @@ export class TickPipeline {
   private deathsAndRespawns(tick: number): void {
     for (const r of this.results) {
       const c = r.candidate;
-      if ((r.outcome === "hit" || r.outcome === "captured") && r.damage100 > 0) this.d.respawn.recordDamage(c.attackerId, c.targetId, tick, r.damage100);
+      if ((r.outcome === "hit" || r.outcome === "captured") && r.damage100 > 0) {
+        const credit = this.creditOf(c);
+        if (credit !== undefined) this.d.respawn.recordDamage(credit, c.targetId, tick, r.damage100);
+        else this.d.respawn.touchCombat(c.targetId, tick); // departed owner: no attribution, no timer for the id's new occupant
+      }
     }
     for (const r of this.results) this.reportHit(tick, r);
     this.voidKos(tick);
@@ -345,15 +354,17 @@ export class TickPipeline {
     const { combat } = this.d;
     const c = r.candidate;
     const victim = combat.get(c.targetId);
+    const credit = this.creditOf(c);
+    const actor = credit ?? c.targetId; // absent scorer: same event format as a ring-out, never the new occupant's identity
     const kind: CombatEvent["kind"] | null = r.outcome === "hit" ? "hit" : r.outcome === "blocked" ? "block"
       : r.outcome === "countered" ? "counter" : null;
     if (kind === "hit" && victim) {
-      const heavy = r.damage100 >= 1000 || c.moveId.startsWith("m1.4.finisher") || combat.get(c.attackerId)?.form === "Awakened";
-      this.d.broadcastEvent(tick, kind, c.attackerId, c.targetId, victim.lifeId, c.moveId, r.damage100,
+      const heavy = r.damage100 >= 1000 || c.moveId.startsWith("m1.4.finisher") || (credit !== undefined && combat.get(credit)?.form === "Awakened");
+      this.d.broadcastEvent(tick, kind, actor, c.targetId, victim.lifeId, c.moveId, r.damage100,
         { hitClass: heavy ? "heavy" : "light", targetHp100: victim.hp100 });
-    } else if (kind && victim) this.d.broadcastEvent(tick, kind, c.attackerId, c.targetId, victim.lifeId, c.moveId, r.damage100);
-    else if (r.outcome === "captured" && victim) this.d.broadcastEvent(tick, "capture", c.attackerId, c.targetId, victim.lifeId, c.moveId, r.damage100);
-    if (r.killed && victim) this.knockOut(tick, victim, c.attackerId, c.moveId, c.projectile?.ownerLifeId);
+    } else if (kind && victim) this.d.broadcastEvent(tick, kind, actor, c.targetId, victim.lifeId, c.moveId, r.damage100);
+    else if (r.outcome === "captured" && victim) this.d.broadcastEvent(tick, "capture", actor, c.targetId, victim.lifeId, c.moveId, r.damage100);
+    if (r.killed && victim) this.knockOut(tick, victim, credit, c.moveId, c.projectile?.ownerLifeId);
   }
 
   /** One KO per life: cleanup, scoring, the finisher passive and the respawn countdown. killer is undefined for a ring-out. */

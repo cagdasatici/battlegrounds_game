@@ -35,6 +35,7 @@ export class BotArenaRoom extends ArenaRoom {
   protected addBots(difficulties: readonly Difficulty[]): void {
     difficulties.forEach((difficulty, index) => {
       const id = this.allocEntityId();
+      this.registerOccupant(id);
       const p = new PlayerSchema();
       p.entityId = id; p.lifeId = ++this.lifeSeq; p.displayName = `Bot ${index + 1}`;
       const kit = P0_KITS[index % P0_KITS.length]!;
@@ -55,6 +56,7 @@ export class BotArenaRoom extends ArenaRoom {
       this.abilities.remove(b.entityId); this.urns.drop(b.entityId); this.awakening.remove(b.entityId);
       this.respawns.forget(b.entityId); this.movement?.remove(b.entityId);
       this.state.players.delete(String(b.entityId));
+      this.releaseOccupant(b.entityId);
     }
     this.bots.clear();
   }

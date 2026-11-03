@@ -225,7 +225,7 @@ Findings: [full review](reviews/full-game-review.md). Execution packets: [game i
 | FR01 | Principal engineering and staff game UX review, reproduced defects and implementation packets | MODE01 | IN PROGRESS | | docs/test-results/FR01.md |
 | GR00 | Restore trustworthy browser acceptance | FR01 | IN PROGRESS | | docs/test-results/GR00.md (create in slice) |
 | GR01 | Active-session revocation and expiry | FR01 | DONE | 2dad92e | docs/test-results/GR01.md |
-| GR02 | Occupant-safe detached projectile attribution | GR01 | TODO | | docs/test-results/GR02.md (create in slice) |
+| GR02 | Occupant-safe detached projectile attribution | GR01 | DONE | | docs/test-results/GR02.md |
 | GR03 | Reconnect, reload and page lifecycle | GR01 | TODO | | docs/test-results/GR03.md (create in slice) |
 | GR04 | Authoritative snapshot-time prediction | GR02 GR03 | TODO | | docs/test-results/GR04.md (create in slice) |
 | GR05 | One gameplay input gate | GR03 | TODO | | docs/test-results/GR05.md (create in slice) |

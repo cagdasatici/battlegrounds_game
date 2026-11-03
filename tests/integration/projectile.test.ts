@@ -52,7 +52,7 @@ async function openPair() {
   const projMapB = () => (rb.state as unknown as { projectiles: Map<string, Record<string, unknown>> }).projectiles;
   /** Server fixture: the call the charge handler makes at the spawn tick. */
   const shoot = (x: number, y: number, z: number, dz: number, speed: number) => room.projectiles.spawn({
-    ownerId: aId, ownerLifeId: room.combat.get(aId)!.lifeId, castCounter: 1, moveId: "ea.b3", x, y, z, dirX: 0, dirY: 0, dirZ: dz,
+    ownerId: aId, ownerOccupant: room.occupantOf(aId) ?? 0, ownerLifeId: room.combat.get(aId)!.lifeId, castCounter: 1, moveId: "ea.b3", x, y, z, dirX: 0, dirY: 0, dirZ: dz,
     speed, lifeTicks: 120, maxRange: 40, radius: 0.35, splashRadius: 2, splashMax: 4, reflectable: true,
     arcAmplitude: 0, arcSpan: 0, chargeClass: "partial", damage100: 1500, chip100: 500, block: "B", reaction: { kind: "none" },
   }, room.sim.tick);

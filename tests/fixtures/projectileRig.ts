@@ -52,8 +52,10 @@ export async function makeRig(opts: RigOptions = {}) {
   poses.set(1, { x: 0, y: GROUND_Y, z: 0, facingYaw: 0, grounded: true });
   poses.set(2, { x: 0, y: GROUND_Y, z: -10, facingYaw: Math.PI, grounded: true });
   for (const id of [3, 4, 5, 6]) poses.set(id, { x: 30 + id, y: GROUND_Y, z: 30, facingYaw: Math.PI, grounded: true });
+  /** GR02: occupant generation per id; ids never reused by default (every id is occupant 0). */
+  const occupants = new Map<number, number>();
   const host: AbilityHost = {
-    combat: cs, pose: (id) => poses.get(id),
+    combat: cs, pose: (id) => poses.get(id), occupantOf: (id) => occupants.get(id) ?? 0,
     blocked: (a, b) => world.segmentBlocked([a[0], a[1], a[2]], [b[0], b[1], b[2]]),
     sweepSphere: (a, b, r) => world.sweepSphere([a[0], a[1], a[2]], [b[0], b[1], b[2]], r),
     get projectiles() { return ps; },
@@ -78,7 +80,7 @@ export async function makeRig(opts: RigOptions = {}) {
     if (o.up) runner.skillUp(cs.get(1)!, tick, o.up);
     for (const id of [1, 2, 3, 4, 5, 6]) if (cs.get(id)) cs.updateGuard(id, tick, (o.guard ?? []).includes(id), true);
     const cands = [...runner.collect(tick), ...ps.collect(tick)];
-    const res = cs.resolve(tick, cands, (id) => poses.get(id));
+    const res = cs.resolve(tick, cands, (id) => poses.get(id), (id) => occupants.get(id) ?? 0);
     runner.afterResolve(tick, res);
     ps.settle(tick, res);
     awakening.gain(res);
@@ -89,12 +91,12 @@ export async function makeRig(opts: RigOptions = {}) {
   const hp = (id: number) => cs.get(id)!.hp100;
   const hitsOn = (id: number) => results.filter((x) => x.r.candidate.targetId === id && x.r.outcome === "hit");
   const spawn = (over: Partial<ProjectileSpawn> = {}, tick = 0) => ps.spawn({
-    ownerId: 1, ownerLifeId: 1, castCounter: 1, moveId: "ea.b3", x: 0, y: GROUND_Y, z: -0.8, dirX: 0, dirY: 0, dirZ: -1,
+    ownerId: 1, ownerOccupant: occupants.get(over.ownerId ?? 1) ?? 0, ownerLifeId: 1, castCounter: 1, moveId: "ea.b3", x: 0, y: GROUND_Y, z: -0.8, dirX: 0, dirY: 0, dirZ: -1,
     speed: 24, lifeTicks: 120, maxRange: 40, radius: 0.35, splashRadius: 2, splashMax: 4, reflectable: true,
     arcAmplitude: 0, arcSpan: 0, chargeClass: "partial", damage100: 1500, chip100: 500, block: "B",
     reaction: { kind: "ragdoll", ticks: 60 }, ...over,
   }, tick);
   const dispose = () => { ps.clear(); runner.dispose(); cs.dispose(); world.dispose(); };
-  return { world, cs, poses, runner, ps, awakening, results, spawnedAt, input, step, run, hp, hitsOn, spawn, dispose, GROUND_Y, host };
+  return { world, cs, poses, occupants, runner, ps, awakening, results, spawnedAt, input, step, run, hp, hitsOn, spawn, dispose, GROUND_Y, host };
 }
 export type Rig = Awaited<ReturnType<typeof makeRig>>;

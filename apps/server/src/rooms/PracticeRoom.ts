@@ -52,6 +52,7 @@ export class PracticeRoom extends BotArenaRoom {
 
   private spawnDummy(): void {
     this.dummyId = this.allocEntityId();
+    this.registerOccupant(this.dummyId);
     const p = new PlayerSchema();
     p.entityId = this.dummyId;
     p.lifeId = ++this.lifeSeq;

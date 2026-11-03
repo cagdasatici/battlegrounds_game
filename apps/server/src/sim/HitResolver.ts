@@ -36,7 +36,7 @@ export interface HitCandidate {
    * Present only for projectile hits (T19). A counter stance intercepts projectiles only when reflectable
    * (spec 13/15); melee candidates leave this unset.
    */
-  projectile?: { id: number; reflectable: boolean; ownerLifeId: number };
+  projectile?: { id: number; reflectable: boolean; ownerLifeId: number; ownerOccupant: number };
   /** Damage in hundredths applied when a blocked hit lands on a guard (T19 chip). Never lethal. Default 0. */
   chip100?: number;
   /** Present for capture commits. A losing capture deals nothing. */
@@ -56,6 +56,8 @@ export interface HitContext {
   pose(id: number): Pose | undefined;
   captures: CaptureRegistry;
   ledger: HitLedger;
+  /** GR02: current occupant generation of an entity id; absent in fixtures that never reuse ids. */
+  occupantOf?(id: number): number | undefined;
   /** Called once when a hit reduces HP to zero; must kill the fighter and clean up its captures. */
   onLethal(victimId: number, tick: number): void;
 }
@@ -71,6 +73,12 @@ export function isFrontal(targetX: number, targetZ: number, facingYaw: number, o
   if (!(len > 1e-9)) return true;
   const fx = -Math.sin(facingYaw), fz = -Math.cos(facingYaw);
   return (fx * dx + fz * dz) / len >= GUARD_COS - GUARD_EPS;
+}
+
+/** Attacker id that may be credited for this candidate, or undefined when a detached projectile's owner left (GR02). */
+export function creditedAttacker(c: HitCandidate, occupantOf?: (id: number) => number | undefined): number | undefined {
+  if (!c.projectile) return c.attackerId;
+  return (occupantOf?.(c.attackerId) ?? 0) === c.projectile.ownerOccupant ? c.attackerId : undefined;
 }
 
 export function compareCandidates(a: HitCandidate, b: HitCandidate): number {
@@ -117,7 +125,9 @@ export function resolveHits(tick: number, candidates: readonly HitCandidate[], c
   for (const c of sorted) {
     const atk = ctx.fighter(c.attackerId);
     const tgt = ctx.fighter(c.targetId);
-    if (c.attackerId === c.targetId) { res(c, "self"); continue; }
+    // GR02: a detached projectile whose owner id was reused is no self-hit against the new occupant.
+    const sameOccupant = !c.projectile || (ctx.occupantOf?.(c.attackerId) ?? 0) === c.projectile.ownerOccupant;
+    if (c.attackerId === c.targetId && sameOccupant) { res(c, "self"); continue; }
     // Later attacks from a player killed or interrupted earlier in the same tick are invalid. A detached projectile
     // (T19) is not tied to the owner's action: it keeps its owner life attribution when the owner is dead, gone or busy.
     const live = !!atk && isAlive(atk) && (c.projectile ? atk.lifeId === c.projectile.ownerLifeId : atk.generation === c.attackerGeneration);

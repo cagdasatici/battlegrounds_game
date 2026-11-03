@@ -29,6 +29,8 @@ export interface AbilityPose { x: number; y: number; z: number; facingYaw: numbe
 export interface AbilityHost {
   readonly combat: CombatSystem;
   pose(entityId: number): AbilityPose | undefined;
+  /** GR02: server-only occupant generation currently bound to an entity id (undefined when unallocated). Optional for fixtures. */
+  occupantOf?(entityId: number): number | undefined;
   /** True when static geometry blocks the straight segment a -> b. */
   blocked(a: readonly [number, number, number], b: readonly [number, number, number]): boolean;
   /** Optional (R07): the facing Movement would choose this tick (movement direction), or undefined when none is requested. */
