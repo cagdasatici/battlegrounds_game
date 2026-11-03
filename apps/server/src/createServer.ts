@@ -1,7 +1,7 @@
 import { Server, matchMaker } from "colyseus";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import { ARENA_ROOM_NAME, MAX_CLIENTS, PRACTICE_ROOM_NAME } from "@eb/shared/protocol";
-import { setArenaAuth } from "./rooms/ArenaRoom.js";
+import { setArenaAuth, liveArenaRooms } from "./rooms/ArenaRoom.js";
 import { BotArenaRoom } from "./rooms/BotArenaRoom.js";
 import { SparringRoom } from "./rooms/SparringRoom.js";
 import { SPARRING_ROOM_NAME } from "@eb/shared/sparring";
@@ -11,6 +11,9 @@ import { roomDirectory } from "./rooms/RoomDirectory.js";
 import type { AuthServices } from "./auth/Services.js";
 import { registerStaticRoutes } from "./http/staticFiles.js";
 import { registerSessionRoutes, type HttpApp } from "./http/sessionRoutes.js";
+
+const SESSION_SWEEP_MS = 1000;
+const SESSION_TOUCH_MS = 60_000;
 
 export function createGameServer(auth: AuthServices, opts: { staticDir?: string | null } = {}): Server {
   setArenaAuth(auth);
@@ -47,10 +50,25 @@ export function createGameServer(auth: AuthServices, opts: { staticDir?: string 
   server.define(PRACTICE_ROOM_NAME, PracticeRoom).filterBy(["roomCode"]);
   server.define(SPARRING_ROOM_NAME, SparringRoom).filterBy(["roomCode"]);
   // Wall-time lifecycle only: no simulation or damage scheduling. Runs without connected clients.
+  const offRevoke = auth.sessions.onRevoke((id) => { for (const room of [...liveArenaRooms()]) room.revokeAuthSession(id); });
+  let lastAuthSweep = Number.NEGATIVE_INFINITY;
+  let lastTouch = auth.now();
   const sweep = setInterval(() => {
     for (const code of auth.sparring.sweep()) void auth.closeRoom(code);
+    const t = auth.now();
+    if (t - lastAuthSweep < SESSION_SWEEP_MS) return;
+    lastAuthSweep = t;
+    const touchDue = t - lastTouch >= SESSION_TOUCH_MS;
+    const live = new Set<string>();
+    for (const room of [...liveArenaRooms()]) {
+      for (const s of room.seatedSessions()) {
+        if (auth.sessions.getById(s.authId) === null) room.revokeAuthSession(s.authId);
+        else if (s.connected) live.add(s.authId);
+      }
+    }
+    if (touchDue) { lastTouch = t; auth.sessions.touchMany(live); }
   }, 250);
   sweep.unref();
-  server.onBeforeShutdown(() => { clearInterval(sweep); });
+  server.onBeforeShutdown(() => { clearInterval(sweep); offRevoke(); });
   return server;
 }

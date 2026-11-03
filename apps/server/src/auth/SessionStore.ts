@@ -86,10 +86,26 @@ export class SessionStore {
   /** Deletes expired records (spec 24: daily). Returns how many were removed. */
   purgeExpired(): number {
     const data = this.store.read();
-    const before = data.sessions.length;
+    const removed = data.sessions.filter((s) => this.expiry(s) <= this.now()).map((s) => s.id);
+    if (removed.length === 0) return 0;
     this.prune(data);
-    if (data.sessions.length !== before) this.store.write(data);
-    return before - data.sessions.length;
+    this.store.write(data);
+    for (const id of removed) for (const fn of this.revokeListeners) fn(id);
+    return removed.length;
+  }
+
+  /** Refreshes idle activity for many live sessions in one write. Expired records are never revived. Returns how many were touched. */
+  touchMany(ids: Iterable<string>): number {
+    const want = new Set(ids);
+    if (want.size === 0) return 0;
+    const data = this.store.read();
+    const t = this.now();
+    let n = 0;
+    for (const s of data.sessions) {
+      if (want.has(s.id) && this.expiry(s) > t) { s.lastActive = t; n++; }
+    }
+    if (n > 0) this.store.write(data);
+    return n;
   }
 
   /** Operator revoke by session id (or unique id prefix). Returns false when nothing matched. */

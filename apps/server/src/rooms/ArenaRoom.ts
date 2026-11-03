@@ -41,6 +41,13 @@ let authServices: AuthServices | null = null;
 /** Test hook: lets tests shorten the 20 s reservation. Production keeps the spec value. */
 export const roomTuning = { reconnectSeconds: RECONNECT_SECONDS as number };
 
+/** Live arena rooms (including subclasses), so the server lifecycle sweep and revocation can reach them. */
+const liveRooms = new Set<ArenaRoom>();
+export function liveArenaRooms(): ReadonlySet<ArenaRoom> { return liveRooms; }
+
+/** Close code for a seat whose auth session was revoked or expired. */
+export const AUTH_REVOKED_CLOSE = 4401;
+
 export function setArenaAuth(a: AuthServices | null): void { authServices = a; }
 
 export interface Seat {
@@ -68,6 +75,8 @@ export class ArenaRoom extends Room {
   private readonly contentHash = computeContentHash();
   protected seats = new Map<string, Seat>(); // by Colyseus sessionId
   private seatByAuth = new Map<string, string>(); // auth session id -> colyseus sessionId
+  /** Open reconnection reservations by Colyseus sessionId; rejecting one cancels the reserved seat. */
+  private reservations = new Map<string, { reject: Function }>();
   // TODO(REL02): lifeId is uint16; lifeSeq wraps after 65,535 lives in one room instance. Widen if rooms become long-lived.
   protected lifeSeq = 0;
   private lastTickMs = 0;
@@ -102,6 +111,7 @@ export class ArenaRoom extends Room {
     this.roomCode = typeof options?.roomCode === "string" ? options.roomCode : "";
     if (this.roomCode === "") throw new Error("ROOM_CODE_REQUIRED");
     roomDirectory.register(this.roomCode, this.roomId);
+    liveRooms.add(this);
     this.patchRate = PATCH_RATE_MS;
     this.state.protocolVersion = PROTOCOL_VERSION;
     this.state.contentHash = this.contentHash;
@@ -181,9 +191,13 @@ export class ArenaRoom extends Room {
     seat.input.neutralize();
     this.urns.drop(seat.entityId); // a disconnected holder never keeps an urn (spec 15)
     try {
-      await this.allowReconnection(client, roomTuning.reconnectSeconds);
+      const reservation = this.allowReconnection(client, roomTuning.reconnectSeconds);
+      this.reservations.set(client.sessionId, reservation);
+      await reservation;
     } catch {
       // Reservation expired or was cancelled: Colyseus now calls onLeave.
+    } finally {
+      this.reservations.delete(client.sessionId);
     }
   }
 
@@ -191,6 +205,8 @@ export class ArenaRoom extends Room {
     const seat = this.seats.get(client.sessionId);
     const p = seat && this.playerOf(seat);
     if (!seat || !p) return;
+    // Recheck the session: an expired or revoked one gets neither welcome nor resume.
+    if (!this.seatSessionValid(seat)) { seat.input.neutralize(); client.leave(AUTH_REVOKED_CLOSE); return; }
     p.connected = true;
     this.attachOwnerView(client, p);
     seat.input.renewEpoch(performance.now()); // old epoch packets are now stale
@@ -215,7 +231,38 @@ export class ArenaRoom extends Room {
     log("info", "player left", { room: this.roomId, entity: seat.entityId });
   }
 
+  /** Ordinary seats carry the session id; hosted-sparring seats carry a scoped principal that the directory owns. */
+  private seatSessionValid(seat: Seat): boolean {
+    const svc = authServices;
+    if (!svc || seat.sessionAuthId.startsWith("spar:")) return true;
+    return svc.sessions.getById(seat.sessionAuthId) !== null;
+  }
+
+  /** Auth ids of ordinary (non-sparring) seats with whether their socket is currently connected. */
+  seatedSessions(): { authId: string; connected: boolean }[] {
+    const out: { authId: string; connected: boolean }[] = [];
+    for (const [sid, seat] of this.seats) {
+      if (seat.sessionAuthId.startsWith("spar:")) continue;
+      out.push({ authId: seat.sessionAuthId, connected: !this.reservations.has(sid) });
+    }
+    return out;
+  }
+
+  /** Ends the seat bound to an auth session: neutralize input, cancel any reconnect reservation, close with 4401. Other seats are untouched. */
+  revokeAuthSession(authId: string): void {
+    const sid = this.seatByAuth.get(authId);
+    if (sid === undefined) return;
+    const seat = this.seats.get(sid);
+    if (!seat || seat.sessionAuthId !== authId) return;
+    seat.input.neutralize();
+    const reservation = this.reservations.get(sid);
+    if (reservation) { (reservation.reject as (r: unknown) => void)(false); return; } // onDrop's catch ends, Colyseus then calls onLeave
+    const client = this.clients.find((c) => c.sessionId === sid);
+    if (client) client.leave(AUTH_REVOKED_CLOSE); // consented close; onLeave runs the normal cleanup
+  }
+
   override onDispose(): void {
+    liveRooms.delete(this);
     roomDirectory.unregister(this.roomId);
     this.seats.clear();
     this.seatByAuth.clear();
