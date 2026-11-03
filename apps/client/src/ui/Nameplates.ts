@@ -12,6 +12,15 @@ export const PLATE_HEAD_OFFSET = 1.35;
 export const ARROW_MARGIN = 40;
 export const NEAR = 0.1;
 
+/** Screen-edge point (inset by ARROW_MARGIN) facing a projected point; behind-camera points mirror. UX12 reuses angleRad. */
+export function edgePoint(q: Projected, W: number, H: number): { left: number; top: number; angleRad: number } {
+  let sx = q.x * W / 2, sy = -q.y * H / 2;
+  if (q.depth <= NEAR) { sx = -sx; sy = -sy; }
+  if (sx === 0 && sy === 0) sy = H / 2;
+  const s = Math.min((W / 2 - ARROW_MARGIN) / Math.abs(sx || 1e-9), (H / 2 - ARROW_MARGIN) / Math.abs(sy || 1e-9));
+  return { left: W / 2 + sx * s, top: H / 2 + sy * s, angleRad: Math.atan2(sy, sx) };
+}
+
 export function plateLayout(fighters: readonly PlateFighter[], project: (p: V3) => Projected, W: number, H: number): PlateOut[] {
   const out: PlateOut[] = [];
   for (const f of fighters) {
@@ -21,11 +30,8 @@ export function plateLayout(fighters: readonly PlateFighter[], project: (p: V3) 
       out.push({ kind: "plate", id: f.id, name: f.name, hpFrac: f.hpFrac, left: (q.x + 1) / 2 * W, top: (1 - q.y) / 2 * H, kitId: f.kitId });
       continue;
     }
-    let sx = q.x * W / 2, sy = -q.y * H / 2;
-    if (q.depth <= NEAR) { sx = -sx; sy = -sy; }
-    if (sx === 0 && sy === 0) sy = H / 2;
-    const s = Math.min((W / 2 - ARROW_MARGIN) / Math.abs(sx || 1e-9), (H / 2 - ARROW_MARGIN) / Math.abs(sy || 1e-9));
-    out.push({ kind: "arrow", id: f.id, left: W / 2 + sx * s, top: H / 2 + sy * s, angleRad: Math.atan2(sy, sx), kitId: f.kitId });
+    const e = edgePoint(q, W, H);
+    out.push({ kind: "arrow", id: f.id, left: e.left, top: e.top, angleRad: e.angleRad, kitId: f.kitId });
   }
   return out;
 }

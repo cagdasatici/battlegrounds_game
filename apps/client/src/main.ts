@@ -31,6 +31,7 @@ import { hasWebGL2 } from "./scene/webgl.js";
 import type { GameScene, Quality } from "./scene/GameScene.js";
 import { Hud, readSafeRect } from "./ui/Hud.js";
 import { Nameplates, plateLayout } from "./ui/Nameplates.js";
+import { DamageCues, cueAngle } from "./ui/DamageCues.js";
 import {
   BlockNotice, RejectionNotice, cooldownFraction, cooldownLabel, equippedSkillNames, formTimerText, meterLabel, respawnSecondsLeft, scoreboardRows, stillpointText,
 } from "./ui/HudFormat.js";
@@ -416,6 +417,13 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       if (e.kind === "block") blockNotice.confirm(performance.now());
       else if (e.kind === "ko") ko = { tick: e.tick, by: e.actorId === e.targetId ? "the arena" : players().get(e.actorId)?.displayName ?? "a rival" };
       else if (e.kind === "respawn") ko = null;
+      else if (e.kind === "hit" && e.actorId !== undefined && e.actorId !== e.targetId) {
+        const atk = players().get(e.actorId);
+        if (atk) {
+          const q = R.projectPoint(cam.pose, { x: atk.x / 100, y: atk.y / 100, z: atk.z / 100 }, g.camera.aspect);
+          cues.hit(cueAngle(q), e.hitClass === "heavy", performance.now());
+        }
+      }
     });
 
     // Debug only: server-confirmed hit move ids, so browser tests need not sample short actions from replicated state.
@@ -434,6 +442,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     let plateOrigin = { x: 0, y: 0 };
     const plates = new Nameplates(document.body, document, () => plateOrigin);
     matchCleanups.push(() => plates.dispose());
+    const cues = new DamageCues(document.body, document);
+    matchCleanups.push(() => cues.dispose());
     let hudKey = "";
     const currentLayout = (): Layout => {
       const base = computeLayout(readSafeRect(window, probe));
@@ -498,6 +508,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
         pos: { x: p.x / 100, y: p.y / 100, z: p.z / 100 }, local: p.owner !== undefined,
         alive: p.action !== "Dead" && p.ready !== false, kitId: p.kitId,
       })), (v) => R.projectPoint(cam.pose, v, g.camera.aspect), rect.W, rect.H));
+      cues.frame(performance.now(), (me as { hp100?: number } | undefined)?.hp100 !== undefined ? (me as { hp100: number }).hp100 / 10000 : 1, settings.get().reducedMotion);
       capRaf = requestAnimationFrame(capFrame);
     };
     capRaf = requestAnimationFrame(capFrame);
