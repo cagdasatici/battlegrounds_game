@@ -30,6 +30,7 @@ import { RoomClient } from "./net/RoomClient.js";
 import { hasWebGL2 } from "./scene/webgl.js";
 import type { GameScene, Quality } from "./scene/GameScene.js";
 import { Hud, readSafeRect } from "./ui/Hud.js";
+import { Nameplates, plateLayout } from "./ui/Nameplates.js";
 import {
   BlockNotice, RejectionNotice, cooldownLabel, equippedSkillNames, formTimerText, meterLabel, respawnSecondsLeft, scoreboardRows, stillpointText,
 } from "./ui/HudFormat.js";
@@ -430,6 +431,9 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     document.body.append(probe);
     const hud = new Hud(document.body, document, (k) => { r.send("changeKit", { kitId: k }); kitMenu = false; }, () => { void flow.back(); }, () => { menuOpen = false; openSettings(); }, () => { menuOpen = false; openMoves(); });
     matchCleanups.push(() => { hud.dispose(); probe.remove(); });
+    let plateOrigin = { x: 0, y: 0 };
+    const plates = new Nameplates(document.body, document, () => plateOrigin);
+    matchCleanups.push(() => plates.dispose());
     let hudKey = "";
     const currentLayout = (): Layout => {
       const base = computeLayout(readSafeRect(window, probe));
@@ -487,6 +491,13 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     const capFrame = (): void => {
       const me = localOf() as { action?: string; lifeId?: number; connected?: boolean } | undefined;
       captureCam.update({ action: me?.action, lifeId: me?.lifeId, connected: me !== undefined && me.connected !== false, menuOpen, reducedMotion: settings.get().reducedMotion });
+      const rect = readSafeRect(window, probe);
+      plateOrigin = { x: rect.x0, y: rect.y0 };
+      plates.update(plateLayout([...players().values()].map((p) => ({
+        id: String(p.entityId), name: p.displayName, hpFrac: (p.hp100 ?? 0) / 10000,
+        pos: { x: p.x / 100, y: p.y / 100, z: p.z / 100 }, local: p.owner !== undefined,
+        alive: p.action !== "Dead" && p.ready !== false, kitId: p.kitId,
+      })), (v) => R.projectPoint(cam.pose, v, g.camera.aspect), rect.W, rect.H));
       capRaf = requestAnimationFrame(capFrame);
     };
     capRaf = requestAnimationFrame(capFrame);
