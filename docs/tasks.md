@@ -233,7 +233,7 @@ Findings: [full review](reviews/full-game-review.md). Execution packets: [game i
 | GR07 | Used skills, charge and evasive status | GR05 | TODO | | docs/test-results/GR07.md (create in slice) |
 | GR08 | Durable round results and live objective | GR03 GR05 | TODO | | docs/test-results/GR08.md (create in slice) |
 | GR09 | Graphics recovery and failed-load cleanup | GR05 | TODO | | docs/test-results/GR09.md (create in slice) |
-| GR10 | Routine log privacy | FR01 | DONE | 3ce193d | docs/test-results/GR10.md |
+| GR10 | Routine log privacy | FR01 | DONE | 423e3ba | docs/test-results/GR10.md |
 | GR11 | HUD text budget and overlay hierarchy | GR05 GR07 GR08 | TODO | | docs/test-results/GR11.md (create in slice) |
 | GR12 | Clear entry routes and fighter preview | GR03 GR11 | TODO | | docs/test-results/GR12.md (create in slice) |
 | GR13 | Bounded ground navigation for bots | GR02 | TODO | | docs/test-results/GR13.md (create in slice) |
