@@ -62,6 +62,15 @@ export class SessionStore {
     return s;
   }
 
+  /** Records the latest source-address hash of an open-join session (decision 0053: the session survives an IP change). */
+  setIpHash(id: string, ipHash: string): void {
+    const data = this.store.read();
+    const s = data.sessions.find((x) => x.id === id);
+    if (!s || s.ipHash === ipHash) return;
+    s.ipHash = ipHash;
+    this.store.write(data);
+  }
+
   getById(id: string): SessionRecord | null {
     const s = this.store.read().sessions.find((x) => x.id === id);
     return s && this.expiry(s) > this.now() ? s : null;

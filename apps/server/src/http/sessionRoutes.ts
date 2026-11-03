@@ -149,10 +149,12 @@ export function registerSessionRoutes(app: HttpApp, svc: AuthServices, now: () =
     const ipHash = sha256(ip);
     const token = parseCookies(hdr(req, "cookie"))[COOKIE_NAME];
     const existing = svc.sessions.get(token, false);
-    // Same browser, same address, same name: keep the session (and its seat). Anything else replaces it, so a changed
-    // name can never keep showing the old one.
-    if (existing && token && existing.ipHash === ipHash && existing.displayName === parsed.data.displayName) {
+    // Same browser cookie and same name: keep the session (and its seat), even when the source address changed
+    // (decision 0053; Cloudflare Access authenticates the person). Any other name replaces it, so a changed name can
+    // never keep showing the old one.
+    if (existing && token && existing.displayName === parsed.data.displayName) {
       svc.sessions.get(token);
+      svc.sessions.setIpHash(existing.id, ipHash);
       return send(res, 200, { expiresAt: Date.now() + 8 * 3600_000 } satisfies SessionResponse);
     }
     if (existing && token) svc.sessions.revoke(token);

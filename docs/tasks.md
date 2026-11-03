@@ -211,5 +211,5 @@ Specs: [backlog-v3](backlog-v3.md). Findings: [review](reviews/2026-11-03-princi
 | BOT6 | Bots use the whole kit | REL02 | DONE | c211427 | docs/test-results/BOT6.md |
 | UX14 | KO card and tabular scoreboard | UX13 | IMPLEMENTED, DEVICE CHECK PENDING | 43076a3 | docs/test-results/UX14.md |
 | HYG01 | Test artefacts out of committed evidence | none | DONE | d0b499a | docs/test-results/HYG01.md |
-| OPEN01 | Open-join session survives IP change | owner decision | BLOCKED | | | Missing: owner decision superseding 0050 |
+| OPEN01 | Open-join session survives IP change | 0053 | DONE | HASH | docs/test-results/OPEN01.md |
 | MODE01 | Optional first-to-N rounds | owner decision | BLOCKED | | | Missing: spec amendment for FFA round rule |

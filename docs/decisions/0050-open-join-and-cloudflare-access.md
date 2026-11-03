@@ -1,6 +1,6 @@
 # 0050 Open join behind Cloudflare Access
 
-Date: 2026-11-02. Status: accepted (owner request, delegated detail).
+Date: 2026-11-02. Status: accepted (owner request, delegated detail). Superseded in part by 0053 (the source-address binding of sessions no longer applies).
 
 ## Decision
 - `OPEN_JOIN=1` adds `POST /api/open-session` `{ displayName: "Arel" | "Nora" }`. The server mints a normal session cookie (same store, CSRF and ticket path as invitation sessions). No invitation is needed.

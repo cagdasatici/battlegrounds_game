@@ -1,6 +1,8 @@
 // Open join: Arel and Nora get sessions without invitations and meet in the one shared room, with real clients.
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { startHarness, newClient, waitFor, players, type Harness } from "../fixtures/harness.js";
+import { Client } from "@colyseus/sdk";
+import { RoomClient } from "../../apps/client/src/net/RoomClient.js";
+import { startHarness, newClient, browserFetch, waitFor, players, type Harness } from "../fixtures/harness.js";
 
 let h: Harness;
 beforeAll(async () => {
@@ -64,4 +66,64 @@ test("with an Access verifier configured, a request without a valid token gets n
     expect(r.status).toBe(401);
     expect(r.headers.get("set-cookie")).toBeNull();
   } finally { h.svc.config.access = null; }
+});
+
+// OPEN01 / decision 0053: the session is identified by the cookie, not the source address.
+function ipClient(ip: { v: string }): { c: RoomClient; csrf(): Promise<string> } {
+  const inner = browserFetch(h.origin);
+  const fetchFn = ((url: string, init: RequestInit = {}) => {
+    const headers = new Headers(init.headers);
+    headers.set("cf-connecting-ip", ip.v);
+    return inner(url, { ...init, headers });
+  }) as typeof fetch;
+  const store = new Map<string, string>();
+  const c = new RoomClient({
+    httpBase: h.origin, wsEndpoint: `ws://localhost:${h.port}`, fetchFn,
+    storage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => void store.set(k, v), removeItem: (k) => void store.delete(k) },
+    sleep: async () => undefined,
+  });
+  return { c, csrf: async () => (await (await fetchFn(`${h.origin}/api/csrf`)).json()).csrfToken };
+}
+
+test("same cookie from a new address keeps the session and the seat in the reconnect window", async () => {
+  const ip = { v: "198.51.100.1" };
+  const { c, csrf } = ipClient(ip);
+  expect(await c.openLogin("Arel")).toBe(true);
+  const csrf1 = await csrf();
+  const other = newClient(h);
+  await other.openLogin("Nora");
+  const code = "r7";
+  const r1 = await c.join(code);
+  const ro = await other.join(code);
+  await waitFor(() => players(ro).size === 2, 3000, "2 players");
+  const mine = [...players(ro).values()].find((p) => p.displayName === "Arel")!;
+  const token = r1.reconnectionToken;
+  r1.reconnection.enabled = false;
+  r1.connection.close(4010, "network lost");
+  await waitFor(() => players(ro).get(String(mine.entityId))?.connected === false, 3000, "dropped");
+
+  ip.v = "203.0.113.77"; // phone moved from wifi to mobile data
+  expect(await c.openLogin("Arel")).toBe(true);
+  expect(await csrf()).toBe(csrf1); // same session id (csrf is per session)
+  expect(JSON.stringify(h.svc.sessions.list())).not.toContain("203.0.113.77");
+  // A ticket issued after the change is bound to the SAME session: the room still sees the reserved seat as this
+  // session's and refuses a second one (SEAT_TAKEN surfaces as INVITE_INVALID). A new session would have been seated.
+  await expect(c.join(code)).rejects.toThrow(/INVITE_INVALID/);
+  expect(players(ro).size).toBe(2);
+  // The reconnect token resumes the same seat in the window.
+  const r2 = await new Client(`ws://localhost:${h.port}`).reconnect(token);
+  await waitFor(() => players(ro).get(String(mine.entityId))?.connected === true, 3000, "same seat resumed");
+  expect(players(ro).size).toBe(2);
+  expect([...players(ro).values()].filter((p) => p.displayName === "Arel").length).toBe(1);
+  await r2.leave(); await other.leave();
+});
+
+test("same cookie from a new address with a different name does not reuse the session", async () => {
+  const ip = { v: "198.51.100.2" };
+  const { c, csrf } = ipClient(ip);
+  await c.openLogin("Arel");
+  const csrf1 = await csrf();
+  ip.v = "203.0.113.78";
+  expect(await c.openLogin("Nora")).toBe(true);
+  expect(await csrf()).not.toBe(csrf1);
 });
