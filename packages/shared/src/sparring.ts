@@ -45,7 +45,9 @@ export interface BotObservation {
   spawnTick: number;
   selfId: number;
   self: SparringPoint;
-  slot1Ready: boolean;
+  /** Skill slots 1..4 usable now (Idle and off cooldown); the room may force a slot false. */
+  slotsReady: readonly [boolean, boolean, boolean, boolean];
+  meterFull: boolean;
   enemies: ReadonlyArray<SparringPoint & {
     id: number; alive: boolean; connected: boolean; ready: boolean; attacking: boolean;
   }>;
@@ -55,7 +57,11 @@ export interface BotDecision {
   attackHeld: boolean;
   blockHeld: boolean;
   approach: boolean;
-  castSlot1: boolean;
+  /** 0 = none; otherwise a one-tick skillDown edge for that slot. */
+  castSlot: 0 | 1 | 2 | 3 | 4;
+  dash: boolean;
+  awaken: boolean;
+  retreat: boolean;
   yaw: number;
 }
 export interface SparringSetupActions {

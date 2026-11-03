@@ -3,13 +3,15 @@ import type { BotDecision, Difficulty } from "@eb/shared/sparring";
 import { ARENA } from "@eb/shared/config/arena";
 import { COMBAT } from "@eb/shared/config/combat";
 import { integrateMovement } from "@eb/shared/movement";
+import { meterRequired100 } from "@eb/shared/awakening";
+import { P0_KITS } from "@eb/shared/protocol";
 import { ArenaRoom } from "./ArenaRoom.js";
 import { PlayerSchema } from "../state/PlayerSchema.js";
 import { InputChannel, neutralIntent } from "../net/ValidateInput.js";
 import type { PipelineSeat } from "../sim/TickPipeline.js";
 import { decideBot } from "../sim/SparringBrain.js";
 import { isAlive } from "../sim/ActionMachine.js";
-const neutral = (): BotDecision => ({ targetId: null, attackHeld: false, blockHeld: false, approach: false, castSlot1: false, yaw: 0 });
+const neutral = (): BotDecision => ({ targetId: null, attackHeld: false, blockHeld: false, approach: false, castSlot: 0, dash: false, awaken: false, retreat: false, yaw: 0 });
 interface BotSeat extends PipelineSeat {
   difficulty: Difficulty;
   decision: BotDecision;
@@ -32,9 +34,10 @@ export class BotArenaRoom extends ArenaRoom {
       const id = this.allocEntityId();
       const p = new PlayerSchema();
       p.entityId = id; p.lifeId = ++this.lifeSeq; p.displayName = `Bot ${index + 1}`;
-      p.kitId = "sv"; p.connected = true; p.ready = true; p.hp100 = COMBAT.hp100Max;
+      const kit = P0_KITS[index % P0_KITS.length]!;
+      p.kitId = kit; p.connected = true; p.ready = true; p.hp100 = COMBAT.hp100Max;
       this.state.players.set(String(id), p);
-      this.combat.add(id, p.lifeId, this.sim.tick, "sv");
+      this.combat.add(id, p.lifeId, this.sim.tick, kit);
       this.respawns.startLife(id, this.sim.tick);
       this.movement!.add(id, this.chooseBotSpawn(index));
       this.bots.set(`bot:${id}`, { entityId: id, input: new InputChannel(0), pendingKit: null, difficulty,
@@ -70,12 +73,19 @@ export class BotArenaRoom extends ArenaRoom {
       bot.input.neutralize();
       if (!f || !body || !pos || !isAlive(f)) { bot.decision = neutral(); continue; }
       if (f.lifeId !== bot.lifeId) { bot.lifeId = f.lifeId; bot.spawnTick = f.actionStartTick; bot.decision = neutral(); }
-      const def = this.abilities.registry.slotted(f.kitId, f.form, 1);
+      const slotReady = (slot: 1 | 2 | 3 | 4): boolean => {
+        // TODO(BOT6): charge-hold casts need skillDown/skillUp timing; bots skip ea Base slot 3.
+        if (f.kitId === "ea" && f.form === "Base" && slot === 3) return false;
+        const def = this.abilities.registry.slotted(f.kitId, f.form, slot);
+        return f.action === "Idle" && !!def && (f.cooldowns.get(def.id) ?? 0) <= tick;
+      };
       bot.decision = decideBot(bot.difficulty, { tick, spawnTick: bot.spawnTick, selfId: bot.entityId,
         self: { x: pos[0], z: pos[2] }, enemies: enemies.filter(e => this.botTargetAllowed(e.id)),
-        slot1Ready: f.action === "Idle" && !!def && (f.cooldowns.get(def.id) ?? 0) <= tick }, bot.decision);
+        slotsReady: [slotReady(1), slotReady(2), slotReady(3), slotReady(4)],
+        meterFull: f.meter100 >= meterRequired100(f.kitId) }, bot.decision);
       const d = bot.decision;
-      let moveX = d.approach ? -Math.sin(d.yaw) : 0, moveZ = d.approach ? -Math.cos(d.yaw) : 0;
+      let moveX = d.approach ? -Math.sin(d.yaw) : d.retreat ? Math.sin(d.yaw) : 0;
+      let moveZ = d.approach ? -Math.cos(d.yaw) : d.retreat ? Math.cos(d.yaw) : 0;
       // Predict the ordinary walk step, including inertia, then query the actual static collider world.
       const step = integrateMovement({ ...body.state }, { moveX, moveZ, run: false, guard: d.blockHeld, jumpPressed: false }, tick);
       const nx = pos[0] + step.dx, nz = pos[2] + step.dz;
@@ -97,10 +107,14 @@ export class BotArenaRoom extends ArenaRoom {
       bot.input.held = { ...neutralIntent(), moveX, moveZ, yaw: d.yaw, attackHeld: d.attackHeld, blockHeld: d.blockHeld };
       bot.input.lastInputTick = tick;
       bot.input.lastReceivedSeq++;
-      if (d.castSlot1) {
+      const push = (edge: { kind: "dash" | "awaken" } | { kind: "skillDown"; slot: 1 | 2 | 3 | 4 }) => {
         const id = ++bot.input.lastEdgeId;
-        bot.input.queue.push({ edge: { id, kind: "skillDown", slot: 1 }, arrivalTick: tick, seq: bot.input.lastReceivedSeq });
-      }
+        bot.input.queue.push({ edge: { id, ...edge }, arrivalTick: tick, seq: bot.input.lastReceivedSeq });
+      };
+      // The slot-1 path never sent skillUp, so bots send skillDown only.
+      if (d.awaken) push({ kind: "awaken" });
+      if (d.dash) push({ kind: "dash" });
+      if (d.castSlot > 0) push({ kind: "skillDown", slot: d.castSlot as 1 | 2 | 3 | 4 });
     }
   }
 }
