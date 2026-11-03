@@ -210,6 +210,6 @@ Specs: [backlog-v3](backlog-v3.md). Findings: [review](reviews/2026-11-03-princi
 | UX13 | Radial cooldown rings and ready pulse | UX11 | TODO | | docs/test-results/UX13.md |
 | BOT6 | Bots use the whole kit | REL02 | TODO | | docs/test-results/BOT6.md |
 | UX14 | KO card and tabular scoreboard | UX13 | TODO | | docs/test-results/UX14.md |
-| HYG01 | Test artefacts out of committed evidence | none | TODO | | docs/test-results/HYG01.md |
+| HYG01 | Test artefacts out of committed evidence | none | DONE | d0b499a | docs/test-results/HYG01.md |
 | OPEN01 | Open-join session survives IP change | owner decision | BLOCKED | | | Missing: owner decision superseding 0050 |
 | MODE01 | Optional first-to-N rounds | owner decision | BLOCKED | | | Missing: spec amendment for FFA round rule |
