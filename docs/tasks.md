@@ -213,3 +213,31 @@ Specs: [backlog-v3](backlog-v3.md). Findings: [review](reviews/2026-11-03-princi
 | HYG01 | Test artefacts out of committed evidence | none | DONE | d0b499a | docs/test-results/HYG01.md |
 | OPEN01 | Open-join session survives IP change | 0053 | DONE | 2bc07ad | docs/test-results/OPEN01.md |
 | MODE01 | Optional first-to-N rounds | 0054 | IMPLEMENTED, DEVICE CHECK PENDING | 5f509f0; iPad NOT RUN | docs/test-results/MODE01.md | Host selector in sparring setup only; admin UI selector not wired |
+
+
+## Full-game engineering and game-experience review (2026-11-03)
+
+Findings: [full review](reviews/full-game-review.md). Execution packets: [game improvement spec](reviews/game-improvement-spec.md). These are proposed implementation tasks, not completed fixes. Execute one ID per fresh session; preserve accepted amendments and the three-fighter scope.
+
+| Task | Title | Depends on | Status | Commit | Test report |
+|---|---|---|---|---|---|
+| FR01 | Principal engineering and staff game UX review, reproduced defects and implementation packets | MODE01 | IN PROGRESS | | docs/test-results/FR01.md |
+| GR00 | Restore trustworthy browser acceptance | FR01 | TODO | | docs/test-results/GR00.md (create in slice) |
+| GR01 | Active-session revocation and expiry | FR01 | TODO | | docs/test-results/GR01.md (create in slice) |
+| GR02 | Occupant-safe detached projectile attribution | GR01 | TODO | | docs/test-results/GR02.md (create in slice) |
+| GR03 | Reconnect, reload and page lifecycle | GR01 | TODO | | docs/test-results/GR03.md (create in slice) |
+| GR04 | Authoritative snapshot-time prediction | GR02 GR03 | TODO | | docs/test-results/GR04.md (create in slice) |
+| GR05 | One gameplay input gate | GR03 | TODO | | docs/test-results/GR05.md (create in slice) |
+| GR06 | Held keyboard Jump and finisher parity | GR05 | TODO | | docs/test-results/GR06.md (create in slice) |
+| GR07 | Used skills, charge and evasive status | GR05 | TODO | | docs/test-results/GR07.md (create in slice) |
+| GR08 | Durable round results and live objective | GR03 GR05 | TODO | | docs/test-results/GR08.md (create in slice) |
+| GR09 | Graphics recovery and failed-load cleanup | GR05 | TODO | | docs/test-results/GR09.md (create in slice) |
+| GR10 | Routine log privacy | FR01 | TODO | | docs/test-results/GR10.md (create in slice) |
+| GR11 | HUD text budget and overlay hierarchy | GR05 GR07 GR08 | TODO | | docs/test-results/GR11.md (create in slice) |
+| GR12 | Clear entry routes and fighter preview | GR03 GR11 | TODO | | docs/test-results/GR12.md (create in slice) |
+| GR13 | Bounded ground navigation for bots | GR02 | TODO | | docs/test-results/GR13.md (create in slice) |
+| GR14 | Role-aware bot tactics and charging | GR07 GR13 | TODO | | docs/test-results/GR14.md (create in slice) |
+| GR15a | Confirmed-hit practice lesson | GR05 GR07 GR11 | TODO | | docs/test-results/GR15a.md (create in slice) |
+| GR15b | Confirmed-block practice lesson | GR15a | TODO | | docs/test-results/GR15b.md (create in slice) |
+| GR15c | Telegraph-evasion practice lesson | GR15b | TODO | | docs/test-results/GR15c.md (create in slice) |
+| GR15d | Current contract index and physical acceptance | GR00–GR14 GR15a–c QD01 | BLOCKED | | docs/test-results/GR15d.md (create in slice); missing two physical iPads and two human players; implementation prerequisites also pending |

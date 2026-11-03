@@ -1,0 +1,61 @@
+import { test, expect } from 'vitest';
+import { matchMaker } from 'colyseus';
+import { startHarness, loginClient, waitFor, players } from '../fixtures/harness.js';
+import type { ArenaRoom } from '../../apps/server/src/rooms/ArenaRoom.js';
+import { KeyboardRouter } from '../../apps/client/src/input/KeyboardRouter.js';
+import { PointerRouter } from '../../apps/client/src/input/PointerRouter.js';
+import { computeLayout } from '../../apps/client/src/input/ControlLayout.js';
+
+test('review observation: revoked arena session remains connected and responds to ping', async () => {
+ const h = await startHarness(); const c = await loginClient(h, 'Review');
+ try {
+  const r = await c.join('play'); c.send('ready', {kitId:'sv',contentHash:c.localContentHash});
+  await waitFor(() => [...players(r).values()].some(p => p.ready));
+  const live = matchMaker.getLocalRoomById(r.roomId) as unknown as ArenaRoom;
+  const s = h.svc.sessions.list().find(s => s.displayName === 'Review')!;
+  expect(h.svc.sessions.revokeById(s.id)).toBe(true);
+  await new Promise(r => setTimeout(r, 1100));
+  let pong = false; r.onMessage('pong', () => {pong=true;}); c.send('ping',{nonce:17,clientMs:0});
+  await waitFor(() => pong, 1000);
+  expect(live.clients.length).toBe(1);
+  console.log('REVIEW_REVOCATION: revoked session still connected and server answered ping after 1100ms');
+ } finally {await c.leave(); await h.stop();}
+});
+
+test('review observation: keyboard Space drops jumpHeld immediately', () => {
+ const r = new PointerRouter(computeLayout({x0:0,y0:0,W:1024,H:768})); const k = new KeyboardRouter(r);
+ k.keyDown('Space'); expect(r.held('jump')).toBe(false); expect(r.takeEdges()).toEqual([{kind:'jump'}]);
+ console.log('REVIEW_JUMP: Space held physically is represented as jumpHeld=false');
+});
+
+test('review observation: departed projectile owner id awards a new occupant the KO', async () => {
+ const h = await startHarness(); const a = await loginClient(h,'A'), b = await loginClient(h,'B'), c = await loginClient(h,'C');
+ try {
+  const ra = await a.join('r3'); await b.join('r3');
+  a.send('ready',{kitId:'ea',contentHash:a.localContentHash}); b.send('ready',{kitId:'sv',contentHash:b.localContentHash});
+  const live = matchMaker.getLocalRoomById(ra.roomId) as unknown as ArenaRoom;
+  await waitFor(() => live.combat.all().length === 2);
+  live.setSimulationInterval(() => undefined,1000);
+  let tick=live.sim.tick;
+  const oldLife=live.combat.get(1)!.lifeId;
+  live.projectiles.spawn({ownerId:1,ownerLifeId:oldLife,castCounter:1,moveId:'ea.b3',x:0,y:0.9,z:0,dirX:0,dirY:0,dirZ:-1,speed:24,lifeTicks:120,maxRange:40,radius:0.35,splashRadius:2,splashMax:4,reflectable:true,arcAmplitude:0,arcSpan:20,chargeClass:'full',damage100:2500,chip100:0,block:'U',reaction:{kind:'stun',ticks:18}},tick);
+  await a.leave(); await waitFor(() => !live.state.players.has('1'));
+  await c.join('r3'); c.send('ready',{kitId:'td',contentHash:c.localContentHash}); await waitFor(() => !!live.combat.get(1));
+  expect(live.combat.get(1)!.lifeId).not.toBe(oldLife);
+  const victim=live.combat.get(2)!; victim.hp100=100; victim.protectedUntilTick=0;
+  live.movement!.add(2,[0,0.9,-1],0); live.movement!.add(1,[10,0.9,10],0);
+  for(let i=0;i<10;i++) live.stepTick(++tick);
+  expect(live.state.players.get('1')!.kills).toBe(1);
+  console.log('REVIEW_PROJECTILE: replacement player C received A projectile KO');
+ } finally {await a.leave(); await b.leave(); await c.leave(); await h.stop();}
+});
+
+test('review observation: reconciliation replays ticks already included in the server snapshot', async () => {
+ const {Prediction} = await import('../../apps/client/src/net/Prediction.js');
+ const p = new Prediction((_pos,d) => ({corrected:d,grounded:true,wallHit:false}),{x:0,y:0.9,z:0});
+ const intent={moveX:1,moveZ:0,run:false,guard:false,jumpPressed:false};
+ for(let t=1;t<=10;t++) p.step(t,intent,t);
+ const x=p.pos.x;
+ p.reconcile({serverTick:10,ackInputTick:1,x,y:0.9,z:0,vx:7,vy:0,vz:0,facingYaw:0,action:'Idle'});
+ expect(p.pos.x).toBeGreaterThan(x+0.5);
+});
