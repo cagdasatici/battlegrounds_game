@@ -257,7 +257,7 @@ test.describe("T18e: all 16 slotted moves and both awakenings through the UI, tw
           expect(vB.hp100).toBe(row.victimHp100);
           // Both clients saw the same sequence of HP values.
           expect(traceB.hp).toEqual(traceA.hp);
-          if (row.victimActions) for (const act of row.victimActions) { expect(traceA.actions.has(act), `A saw ${act}`).toBe(true); expect(traceB.actions.has(act), `B saw ${act}`).toBe(true); }
+          if (row.victimActions) for (const act of row.victimActions) { expect(traceA.actions.has(act), `A saw ${act}`).toBe(true); expect(traceB.actions.has(act), `B saw ${act}; A=${[...traceA.actions]} B=${[...traceB.actions]} vis=${await B.page.evaluate(() => document.visibilityState)}`).toBe(true); }
           row.check?.(vA);
           row.check?.(vB);
         }
