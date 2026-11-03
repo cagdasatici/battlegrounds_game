@@ -171,7 +171,8 @@ export class Hud {
   /** HP bar fill drawn as a gradient on the health box. */
   private fill(el: HTMLElement, frac: number): void {
     const pct = Math.round(Math.min(1, Math.max(0, frac)) * 100);
-    el.style.background = `linear-gradient(90deg,#3fae6acc ${pct}%,#1d2b3acc ${pct}%)`;
+    el.style.setProperty("--fill", `${pct}%`);
+    el.dataset["low"] = pct <= 30 ? "1" : "0"; // CSS draws the bar and turns it red when low
   }
 
   private renderExtras(st: HudState): void {
@@ -326,7 +327,7 @@ export class Hud {
       if (b.id.startsWith("skill")) el.style.opacity = String(b.ready === true || b.label.length === 1 ? o : o * 0.6);
       if (b.id.startsWith("skill")) this.ring(el, Number(b.id.slice(5)) - 1, st);
       if (b.id === "facing") el.style.background = st.facingLock ? "#3a7bd5cc" : "#1d2b3acc";
-      if (b.id === "awaken") el.style.opacity = String(m.awakenReady ? o : o * 0.65);
+      if (b.id === "awaken") { el.style.opacity = String(m.awakenReady ? o : o * 0.65); el.style.setProperty("--fill", `${Math.max(0, Math.min(100, m.meterPct))}%`); el.dataset["ready"] = m.awakenReady ? "1" : "0"; }
       if (b.id === "health") this.fill(el, st.maxHp > 0 ? st.hp / st.maxHp : 0);
     }
     this.renderExtras(st);

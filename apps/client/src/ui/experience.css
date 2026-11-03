@@ -91,7 +91,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 
 /* Play screen HUD: glass panels, softer type, no hard boxes */
 .eb-hud{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif!important;-webkit-font-smoothing:antialiased}
-.eb-hud [data-control]{background:linear-gradient(160deg,#1a2e33d9,#0d1a1ecc)!important;border:1px solid #ffffff2e!important;box-shadow:0 6px 22px #0006,inset 0 1px 0 #ffffff22;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);font-weight:700;letter-spacing:.02em;text-shadow:0 1px 2px #0008}
+.eb-hud [data-control]:not([data-control=block]):not([data-control=facing]){background:linear-gradient(160deg,#1a2e33d9,#0d1a1ecc)!important}
+.eb-hud [data-control]{border:1px solid #ffffff2e!important;box-shadow:0 6px 22px #0006,inset 0 1px 0 #ffffff22;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);font-weight:700;letter-spacing:.02em;text-shadow:0 1px 2px #0008}
 .eb-hud [data-control] small{opacity:.65;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
 .eb-hud [data-hud=info]{text-shadow:0 2px 10px #000a;font-weight:700;letter-spacing:.03em;padding:6px 16px;border-radius:999px;background:#0a161acc;border:1px solid #ffffff1f;backdrop-filter:blur(8px)}
 .eb-hud [data-hud=block-feedback]{background:linear-gradient(135deg,#ffe29a,#f0b24a)!important;border-radius:999px!important;font-weight:800;letter-spacing:.04em;box-shadow:0 8px 28px #f0b24a55}
@@ -114,3 +115,30 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .eb-hud [data-control] small{font-size:8px;letter-spacing:.1em;opacity:.6;white-space:nowrap}
 .eb-hud [data-control] span:last-child:not(:first-child){font-size:10px;font-weight:650;color:var(--eb-mint);letter-spacing:.04em;text-transform:uppercase}
 .eb-hud [data-control]:not(:has(small)):not(:has(span+span)) {font-size:13px;font-weight:700;letter-spacing:.02em}
+
+/* HUD pass 2: health bar, Awaken meter, slots, buttons, panels */
+.eb-hud [data-control=health]{justify-content:flex-start!important;padding:0 16px!important;border-radius:999px!important;border:1px solid #ffffff33!important;font-weight:700;font-size:13px;letter-spacing:.01em;overflow:hidden;position:absolute;
+  background:linear-gradient(90deg,#46d37e 0,#2fa764 var(--fill,100%),#0d1a1ecc var(--fill,100%))!important;box-shadow:0 8px 26px #0006,inset 0 1px 0 #ffffff33,inset 0 -8px 14px #0003}
+.eb-hud [data-control=health][data-low="1"]{background:linear-gradient(90deg,#ff6a5c 0,#d8402f var(--fill,0%),#0d1a1ecc var(--fill,0%))!important;animation:eb-low 1s ease-in-out infinite}
+@keyframes eb-low{50%{box-shadow:0 8px 26px #0006,0 0 0 3px #ff6a5c55}}
+.eb-hud [data-control=awaken]{border-radius:999px!important;border:1px solid #ffffff2e!important;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#ffe9b8;
+  background:linear-gradient(90deg,#ffb347 0,#ff7a2f var(--fill,0%),#0d1a1ecc var(--fill,0%))!important;box-shadow:0 8px 26px #0006,inset 0 1px 0 #ffffff33}
+.eb-hud [data-control=awaken][data-ready="1"]{animation:eb-ready 1.4s ease-in-out infinite;color:#fff;border-color:#ffd98a!important}
+@keyframes eb-ready{50%{box-shadow:0 0 28px #ffa23a99,inset 0 1px 0 #ffffff55}}
+/* Skill slots: number badge feel, name clamped, hint folded away (kept in the Moves guide) */
+.eb-hud [data-control^=skill]{border-radius:16px!important;padding:6px 6px 5px!important;justify-content:center!important;border-width:1px!important}
+.eb-hud [data-control^=skill][style*="solid"]{border-color:#ffffff40!important}
+.eb-hud [data-control^=skill] small{display:none}
+.eb-hud [data-control^=skill] span:first-child{font-size:11.5px!important;line-height:1.15;-webkit-line-clamp:2}
+.eb-hud [data-control^=skill] span:last-child:not(:first-child){margin-top:3px;font-size:9px;letter-spacing:.1em;padding:1px 7px;border-radius:999px;background:#c7f38b1f;color:var(--eb-mint)}
+.eb-hud [data-control=menu],.eb-hud [data-control=fighter],.eb-hud [data-control=scoreboard]{border-radius:14px!important;font-size:12px;font-weight:650;letter-spacing:.02em;padding:0 10px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.eb-hud [data-control=attack],.eb-hud [data-control=jump],.eb-hud [data-control=dash],.eb-hud [data-control=block],.eb-hud [data-control=facing]{border:1px solid #ffffff3d!important;font-size:12px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;box-shadow:0 10px 26px #0006,inset 0 2px 0 #ffffff2e,inset 0 -10px 18px #0004}
+.eb-hud [data-control=attack]{background:radial-gradient(circle at 35% 30%,#ff8d6a,#c8442c 70%)!important;font-size:14px}
+.eb-hud [data-control=joystick]{background:radial-gradient(circle,#ffffff14 0,#ffffff08 60%,#ffffff03 100%)!important;border:1px solid #ffffff2e!important;box-shadow:inset 0 0 30px #0003;backdrop-filter:none}
+/* Practice panel */
+[data-ui=practice]{background:linear-gradient(160deg,#142428ee,#0b1417ee)!important;border:1px solid #ffffff22!important;border-radius:18px!important;box-shadow:0 18px 50px #0006;backdrop-filter:blur(10px);padding:14px 16px!important;line-height:1.45;font-size:12.5px!important;color:var(--eb-ink)!important;max-width:340px}
+[data-ui=practice] h2,[data-ui=practice] strong{font-size:15px;letter-spacing:-.01em}
+[data-ui=practice] button{min-height:38px!important;border-radius:11px!important;font-size:12px!important;padding:6px 12px!important;background:#ffffff0d!important;border:1px solid #ffffff26!important;color:var(--eb-ink)!important}
+[data-ui=practice] button:hover:not(:disabled){border-color:var(--eb-mint)!important}
+[data-ui=practice] select{min-height:38px;border-radius:10px!important}
+[data-ui=practice]{width:min(320px,36vw)!important;max-height:calc(100vh - 230px)!important;padding:14px 16px!important;font-family:var(--eb-font)!important}
