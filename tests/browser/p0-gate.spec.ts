@@ -237,6 +237,12 @@ test.describe("T18e: all 16 slotted moves and both awakenings through the UI, tw
           if (Date.now() - tCast > 30_000) throw new Error("timeout waiting for ticks");
         }
         await sample();
+        // Let B's client receive A's final victim HP before stopping the recorders (B lags A by patch latency).
+        for (let i = 0; i < 100; i++) {
+          const a = (await snap(A.page)).players.find((p) => p.name === "Nora")?.hp100, b = (await snap(B.page)).players.find((p) => p.local)?.hp100;
+          if (a === b) break;
+          await B.page.waitForTimeout(20);
+        }
         { const [ra, rb] = [await readRec(A.page), await readRec(B.page)];
           traceA.hp = ra.hp; traceB.hp = rb.hp; ra.actions.forEach((x) => traceA.actions.add(x)); rb.actions.forEach((x) => traceB.actions.add(x)); ra.moves.forEach((x) => traceA.moves.add(x)); }
         const finalA = (await snap(A.page)).players, finalB = (await snap(B.page)).players;
