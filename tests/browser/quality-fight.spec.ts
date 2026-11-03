@@ -123,7 +123,7 @@ test(`Q01: four-fighter workload ${LONG ? `long ${MINUTES} min` : "smoke"} recor
     const koLog: string[] = [];
     { const r = room as unknown as { broadcast: (t: unknown, m: unknown, o?: unknown) => void }; const orig = r.broadcast.bind(room);
       r.broadcast = (t, m, o) => { const e = m as { kind?: string; actorId?: string; targetId?: string; moveId?: string; tick?: number }; if (e?.kind === "ko" || e?.kind === "respawn") koLog.push(`${e.kind} t${e.tick} ${e.actorId}->${e.targetId} ${e.moveId}`); orig(t, m, o); }; }
-    await until(async () => [...room.combat.all()].every((f) => room.sim.tick > f.protectedUntilTick + 2), 8000, "spawn protection over");
+    await until(async () => [...room.combat.all()].every((f) => f.action !== "Dead" && room.sim.tick > f.protectedUntilTick + 2), 8000, "spawn protection over");
     const s0 = await snap(host.page);
     const A = s0.players.find((p) => p.name === "Arel")!.entityId, B = s0.players.find((p) => p.name === "Nora")!.entityId;
     const bots = s0.players.filter((p) => p.name.startsWith("Bot"));
@@ -150,7 +150,7 @@ test(`Q01: four-fighter workload ${LONG ? `long ${MINUTES} min` : "smoke"} recor
     };
     const cycle = async (): Promise<void> => {
       // A respawned fighter is protected, and protected targets neither block nor take damage (no events), so wait it out each cycle.
-      await until(async () => [...room.combat.all()].every((f) => room.sim.tick > f.protectedUntilTick + 2), 8000, "spawn protection over");
+      await until(async () => [...room.combat.all()].every((f) => f.action !== "Dead" && room.sim.tick > f.protectedUntilTick + 2), 8000, "spawn protection over");
       reset();
       for (const [id, page, kit] of [[A, host.page, "td"], [B, guest!.page, "ea"]] as const) {
         const f = room.combat.get(id)!; if (f.form !== "Awakened") f.meter100 = meterRequired100(kit);
