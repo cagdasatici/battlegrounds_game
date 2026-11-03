@@ -1,6 +1,6 @@
 import "./base.css";
 import { mountMoveGuide } from "./ui/MoveGuide.js";
-import { castDescription, skillRoles } from "./ui/SkillInfo.js";
+import { castDescription, skillDefinitions, skillRoles } from "./ui/SkillInfo.js";
 import type { WebGLRenderer } from "three";
 import type { Room } from "@colyseus/sdk";
 import { meterFraction } from "@eb/shared/awakening";
@@ -32,7 +32,7 @@ import type { GameScene, Quality } from "./scene/GameScene.js";
 import { Hud, readSafeRect } from "./ui/Hud.js";
 import { Nameplates, plateLayout } from "./ui/Nameplates.js";
 import {
-  BlockNotice, RejectionNotice, cooldownLabel, equippedSkillNames, formTimerText, meterLabel, respawnSecondsLeft, scoreboardRows, stillpointText,
+  BlockNotice, RejectionNotice, cooldownFraction, cooldownLabel, equippedSkillNames, formTimerText, meterLabel, respawnSecondsLeft, scoreboardRows, stillpointText,
 } from "./ui/HudFormat.js";
 import { mountHowToPlay } from "./ui/HowToPlay.js";
 import { KIT_LABEL, Lobby, type LobbyView } from "./ui/Lobby.js";
@@ -536,6 +536,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
         skills: equippedSkillNames(me?.kitId ?? opts.kitId, me?.form ?? "Base"),
         blocked: blockNotice.active(performance.now()),
         cooldowns: [0, 1, 2, 3].map((i) => cooldownLabel(me?.cooldownEndTicks?.[i] ?? 0, now)),
+        cooldownFracs: skillDefinitions(me?.kitId ?? opts.kitId, me?.form ?? "Base").map((d, i) => cooldownFraction(me?.cooldownEndTicks?.[i] ?? 0, now, d.cooldown)),
+        reducedMotion: settings.get().reducedMotion,
         formText: me ? formTimerText(me.form, me.formEndTick, now) : "",
         stillpointText: stillpointText(me?.owner?.lethalCounterRemaining ?? 0),
         rejection: rejections.current(performance.now()),
@@ -552,7 +554,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       hud.setOpacity(settings.get().layouts[viewportClass(lastLayout.safe.W)].opacity);
       hud.render(lastLayout, st);
     };
-    const hudTimer = window.setInterval(drawHud, 100);
+    const hudTimer = window.setInterval(drawHud, 50);
     matchCleanups.push(() => window.clearInterval(hudTimer));
     drawHud();
     placeSparButton(lastLayout);

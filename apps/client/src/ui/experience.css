@@ -65,3 +65,5 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 @media(max-width:760px){.eb-move-cards{grid-template-columns:1fr}.eb-move-guide h2{font-size:20px}}
 
 [data-ui=practice] button:disabled{opacity:.35;cursor:default}
+@keyframes eb-ready-pulse{0%{transform:scale(1)}50%{transform:scale(1.12)}100%{transform:scale(1)}}
+.eb-hud .eb-ready-pulse{animation:eb-ready-pulse 400ms ease-out;border-color:#fff!important}

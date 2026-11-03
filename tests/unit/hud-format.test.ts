@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
 import {
-  RejectionNotice, cooldownLabel, formTimerText, meterLabel, rejectionText, respawnSecondsLeft, scoreboardRows, stillpointText,
+  RejectionNotice, cooldownFraction, cooldownLabel, formTimerText, meterLabel, rejectionText, respawnSecondsLeft, scoreboardRows, stillpointText,
 } from "../../apps/client/src/ui/HudFormat.js";
 import { computeLayout } from "../../apps/client/src/input/ControlLayout.js";
-import { hudModel } from "../../apps/client/src/ui/Hud.js";
+import { Hud, hudModel } from "../../apps/client/src/ui/Hud.js";
 
 describe("cooldownLabel (one decimal under 10 s, ceiling seconds above)", () => {
   test("ready, tenths, boundary and ceiling", () => {
@@ -135,5 +135,59 @@ describe("QU01 sparring button rectangle", () => {
   });
   test("returns null instead of overlapping when nothing fits", () => {
     expect(placeSparringRect(computeLayout({ x0: 0, y0: 0, W: 1024, H: 768 }), 5000)).toBeNull();
+  });
+});
+
+describe("cooldownFraction (UX13)", () => {
+  test("half, past end, no cooldown, before cast", () => {
+    expect(cooldownFraction(120, 60, 120)).toBe(0.5);
+    expect(cooldownFraction(100, 200, 120)).toBe(0);
+    expect(cooldownFraction(500, 100, 0)).toBe(0);
+    expect(cooldownFraction(1000, 100, 120)).toBe(1);
+  });
+});
+
+// Minimal DOM double: the repo has no jsdom/happy-dom; Hud only needs this surface.
+class FakeEl {
+  children: FakeEl[] = []; style: Record<string, string> = {}; dataset: Record<string, string> = {}; textContent = ""; className = "";
+  private cls = new Set<string>();
+  classList = { add: (c: string) => void this.cls.add(c), remove: (c: string) => void this.cls.delete(c), contains: (c: string) => this.cls.has(c) };
+  appendChild(c: FakeEl): FakeEl { this.children.push(c); return c; }
+  append(...c: FakeEl[]): void { this.children.push(...c); }
+  replaceChildren(...c: FakeEl[]): void { this.children = c; }
+  addEventListener(): void { /* not needed */ }
+  removeEventListener(): void { /* not needed */ }
+  remove(): void { /* not needed */ }
+}
+const fakeDoc = { createElement: () => new FakeEl() } as unknown as Document;
+
+describe("Hud cooldown ring and ready pulse (UX13)", () => {
+  const layout = computeLayout({ x0: 0, y0: 0, W: 1180, H: 820 });
+  const base = { name: "n", hp: 100, maxHp: 100, meter: 0, facingLock: false, portrait: false, skills: ["a", "b", "c", "d"], cooldowns: ["1.0", "", "", ""] };
+  const ctl = (root: FakeEl, id: string): FakeEl => {
+    const found = (function walk(e: FakeEl): FakeEl | undefined { return e.dataset["control"] === id ? e : e.children.map(walk).find(Boolean); })(root);
+    if (!found) throw new Error(id);
+    return found;
+  };
+  test("conic ring only on cooling slots", () => {
+    const parent = new FakeEl();
+    const hud = new Hud(parent as unknown as HTMLElement, fakeDoc);
+    hud.render(layout, { ...base, cooldownFracs: [0.5, 0, 0, 0] });
+    const root = parent.children[0]!;
+    expect(ctl(root, "skill1").style["backgroundImage"]).toContain("conic-gradient");
+    expect(ctl(root, "skill2").style["backgroundImage"] ?? "").toBe("");
+    hud.dispose();
+  });
+  test("pulse when a slot becomes ready; none with reducedMotion", () => {
+    const parent = new FakeEl();
+    const hud = new Hud(parent as unknown as HTMLElement, fakeDoc);
+    hud.render(layout, { ...base, cooldownFracs: [0.1, 0, 0, 0.2] });
+    hud.render(layout, { ...base, cooldownFracs: [0, 0, 0, 0.1], reducedMotion: true });
+    const root = parent.children[0]!;
+    expect(ctl(root, "skill1").classList.contains("eb-ready-pulse")).toBe(false);
+    hud.render(layout, { ...base, cooldownFracs: [0, 0, 0, 0] });
+    expect(ctl(root, "skill4").classList.contains("eb-ready-pulse")).toBe(true);
+    expect(ctl(root, "skill1").classList.contains("eb-ready-pulse")).toBe(false);
+    hud.dispose();
   });
 });

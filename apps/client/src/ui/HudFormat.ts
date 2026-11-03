@@ -16,6 +16,12 @@ export function cooldownLabel(endTick: number, nowTick: number): string {
   return (tenths / 10).toFixed(1);
 }
 
+/** 0 = ready, 1 = just used. Clamped; `totalTicks <= 0` means no cooldown. */
+export function cooldownFraction(endTick: number, nowTick: number, totalTicks: number): number {
+  if (totalTicks <= 0) return 0;
+  return Math.min(1, Math.max(0, (endTick - nowTick) / totalTicks));
+}
+
 export function rejectionText(reason: RejectReason | undefined): string {
   switch (reason) {
     case "STATE": return "Recovering";

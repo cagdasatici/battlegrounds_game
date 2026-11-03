@@ -20,6 +20,9 @@ export interface HudState {
   /** Four equipped short skill names for the current form. When given, skill buttons show name and readiness. */
   skills?: readonly string[];
   skillRoles?: readonly string[];
+  /** Per slot cooldown fraction, 0 = ready, 1 = just used (radial ring). */
+  cooldownFracs?: readonly number[];
+  reducedMotion?: boolean;
   castText?: string;
   /** True for a short window after the server confirmed a block of the local player's guard. */
   blocked?: boolean;
@@ -103,6 +106,8 @@ export class Hud {
   private readonly kitPanel: HTMLElement;
   private readonly menuPanel: HTMLElement;
   private kitKey = "";
+  private prevFracs: number[] = [];
+  private readonly pulseTimers = new Set<ReturnType<typeof setTimeout>>();
   private opacity = 1;
   private readonly kitListener: (e: Event) => void;
   private readonly menuListener: (e: Event) => void;
@@ -203,6 +208,18 @@ export class Hud {
     this.menuPanel.style.display = st.menuOpen ? "block" : "none";
   }
 
+  /** Radial cooldown sweep plus a 400 ms pulse when the slot becomes ready (display only). */
+  private ring(el: HTMLElement, i: number, st: HudState): void {
+    const f = st.cooldownFracs?.[i] ?? 0;
+    el.style.backgroundImage = f > 0 ? `conic-gradient(#0009 ${f * 360}deg, transparent 0)` : "";
+    if ((this.prevFracs[i] ?? 0) > 0 && f === 0 && st.reducedMotion !== true) {
+      el.classList.add("eb-ready-pulse");
+      const t = setTimeout(() => { this.pulseTimers.delete(t); el.classList.remove("eb-ready-pulse"); }, 400);
+      this.pulseTimers.add(t);
+    }
+    this.prevFracs[i] = f;
+  }
+
   /** Control opacity from the layout editor (0.35 to 0.90); display only. */
   setOpacity(o: number): void { this.opacity = Number.isFinite(o) ? Math.min(1, Math.max(0.2, o)) : 1; }
 
@@ -229,6 +246,7 @@ export class Hud {
           Object.assign(this.doc.createElement("span"), { textContent: b.ready ? "Ready" : b.sub }),
         );
         Object.assign(el.style, { flexDirection: "column", lineHeight: "1.15", fontSize: "10px", whiteSpace: "normal", textAlign: "center", overflow: "hidden", padding: "3px" });
+        el.style.fontSize = b.width >= 64 ? "13px" : "10px";
         el.style.borderStyle = b.ready ? "solid" : "dashed";
         el.style.borderWidth = b.ready ? "3px" : "2px";
       } else {
@@ -241,6 +259,7 @@ export class Hud {
       const o = (layout as { opacity?: number }).opacity ?? this.opacity;
       el.style.opacity = String(o);
       if (b.id.startsWith("skill")) el.style.opacity = String(b.ready === true || b.label.length === 1 ? o : o * 0.6);
+      if (b.id.startsWith("skill")) this.ring(el, Number(b.id.slice(5)) - 1, st);
       if (b.id === "facing") el.style.background = st.facingLock ? "#3a7bd5cc" : "#1d2b3acc";
       if (b.id === "awaken") el.style.opacity = String(m.awakenReady ? o : o * 0.65);
       if (b.id === "health") this.fill(el, st.maxHp > 0 ? st.hp / st.maxHp : 0);
@@ -254,6 +273,8 @@ export class Hud {
   dispose(): void {
     this.kitPanel.removeEventListener("click", this.kitListener);
     this.menuPanel.removeEventListener("click", this.menuListener);
+    for (const t of this.pulseTimers) clearTimeout(t);
+    this.pulseTimers.clear();
     this.root.remove();
     this.els.clear();
   }
