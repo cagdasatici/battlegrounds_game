@@ -212,4 +212,4 @@ Specs: [backlog-v3](backlog-v3.md). Findings: [review](reviews/2026-11-03-princi
 | UX14 | KO card and tabular scoreboard | UX13 | IMPLEMENTED, DEVICE CHECK PENDING | 43076a3 | docs/test-results/UX14.md |
 | HYG01 | Test artefacts out of committed evidence | none | DONE | d0b499a | docs/test-results/HYG01.md |
 | OPEN01 | Open-join session survives IP change | 0053 | DONE | 2bc07ad | docs/test-results/OPEN01.md |
-| MODE01 | Optional first-to-N rounds | 0054 | IMPLEMENTED, DEVICE CHECK PENDING | HASH; iPad NOT RUN | docs/test-results/MODE01.md | Host selector in sparring setup only; admin UI selector not wired |
+| MODE01 | Optional first-to-N rounds | 0054 | IMPLEMENTED, DEVICE CHECK PENDING | 5f509f0; iPad NOT RUN | docs/test-results/MODE01.md | Host selector in sparring setup only; admin UI selector not wired |
