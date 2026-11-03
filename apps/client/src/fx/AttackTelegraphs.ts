@@ -47,7 +47,7 @@ export interface TelegraphOptions {
   cover?: ((ox: number, oy: number, oz: number, fx: number, fz: number, max: number) => number) | undefined;
 }
 type Phase = "Windup" | "Active";
-interface Slot { group: Group; fill: Mesh; line: Line; fillMat: MeshBasicMaterial; lineMat: LineBasicMaterial; key: string; actor: number; move: string; phase: Phase; ox: number; oy: number; oz: number; yaw: number; used: boolean }
+interface Slot { group: Group; fill: Mesh; line: Line; fillMat: MeshBasicMaterial; lineMat: LineBasicMaterial; mode: { value: number }; key: string; actor: number; move: string; phase: Phase; ox: number; oy: number; oz: number; yaw: number; used: boolean }
 export interface TelegraphInfo { key: string; phase: Phase; progress: number; length: number; width: number; kind: string }
 
 const DEF_BY_ID = new Map<string, AbilityDef>(ALL_ABILITY_DEFS.map((d) => [d.id, d]));
@@ -76,6 +76,26 @@ const unitCircle = (): BufferGeometry => {
   return new BufferGeometry().setAttribute("position", new Float32BufferAttribute(v, 3));
 };
 
+/**
+ * Soft-edged warning fill: the flat rectangle or disc is feathered at its sides and far end (box) or glows toward its
+ * rim (disc) in the fragment shader. Geometry, scale and opacity logic are unchanged; this is shading only.
+ */
+function softenTelegraph(m: MeshBasicMaterial): { value: number } {
+  const mode = { value: 0 };
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms["uMode"] = mode;
+    sh.vertexShader = "varying vec3 vFxLocal;\n" + sh.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\nvFxLocal = position;");
+    sh.fragmentShader = "varying vec3 vFxLocal; uniform float uMode;\n" + sh.fragmentShader.replace("#include <opaque_fragment>", `
+      float fxA;
+      if (uMode > 0.5) { float r = length(vFxLocal.xz); fxA = smoothstep(1.0, 0.7, r) * (0.45 + 0.55 * smoothstep(0.2, 0.95, r)); }
+      else { float ax = abs(vFxLocal.x) * 2.0, az = -vFxLocal.z; fxA = smoothstep(1.0, 0.5, ax) * smoothstep(1.0, 0.8, az) * (0.55 + 0.45 * az); }
+      diffuseColor.a *= fxA;
+      #include <opaque_fragment>`);
+  };
+  m.customProgramCacheKey = () => "telegraph-soft";
+  return mode;
+}
+
 export class AttackTelegraphs {
   private readonly slots: Slot[] = [];
   private readonly root = new Group();
@@ -94,14 +114,15 @@ export class AttackTelegraphs {
     this.root.name = "fx.telegraphs";
     for (let i = 0; i < capacity; i++) {
       const fillMat = new MeshBasicMaterial({ color: WINDUP_FILL, transparent: true, opacity: FILL_OPACITY.flat, depthWrite: false, fog: false });
-      const lineMat = new LineBasicMaterial({ color: WINDUP_EDGE, fog: false });
+      const mode = softenTelegraph(fillMat);
+      const lineMat = new LineBasicMaterial({ color: WINDUP_EDGE, fog: false, transparent: true, opacity: 0.45 });
       const fill = new Mesh(this.plane, fillMat), line = new Line(this.rect, lineMat);
       line.computeLineDistances();
       const group = new Group();
       group.add(fill, line);
       group.visible = false;
       this.root.add(group);
-      this.slots.push({ group, fill, line, fillMat, lineMat, key: "", actor: -1, move: "", phase: "Windup", ox: 0, oy: 0, oz: 0, yaw: 0, used: false });
+      this.slots.push({ group, fill, line, fillMat, lineMat, mode, key: "", actor: -1, move: "", phase: "Windup", ox: 0, oy: 0, oz: 0, yaw: 0, used: false });
     }
     scene.add(this.root);
   }
@@ -171,7 +192,7 @@ export class AttackTelegraphs {
     if (shape.kind === "sphere") {
       kind = "ring"; length = width = shape.r * 2;
       const cx = ox + fx * def.range, cz = oz + fz * def.range;
-      s.fill.geometry = this.disc; s.line.geometry = this.ring;
+      s.fill.geometry = this.disc; s.line.geometry = this.ring; s.mode.value = 1;
       s.group.position.set(cx, baseY, cz); s.group.rotation.y = 0;
       s.line.scale.set(shape.r, 1, shape.r);
       const animate = !o.reducedMotion && !o.lowQuality;
@@ -185,7 +206,7 @@ export class AttackTelegraphs {
         len = o.cover ? Math.min(len, o.cover(ox, s.oy + BEAM_ORIGIN_UP, oz, fx, fz, len)) : len;
       }
       kind = shape.kind; length = len;
-      s.fill.geometry = this.plane; s.line.geometry = this.rect;
+      s.fill.geometry = this.plane; s.line.geometry = this.rect; s.mode.value = 0;
       s.group.position.set(ox, baseY, oz); s.group.rotation.y = s.yaw;
       s.line.scale.set(width, 1, len);
       const animate = !o.reducedMotion && !o.lowQuality;

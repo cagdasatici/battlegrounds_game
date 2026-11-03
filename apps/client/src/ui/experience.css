@@ -68,3 +68,35 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 @keyframes eb-ready-pulse{0%{transform:scale(1)}50%{transform:scale(1.12)}100%{transform:scale(1)}}
 .eb-hud .eb-ready-pulse{animation:eb-ready-pulse 400ms ease-out;border-color:#fff!important}
 .eb-hud [data-hud=scoreboard] th{font-size:11px;opacity:.75;font-weight:600}
+
+/* Lobby: fighter preview stage and kit cards */
+.eb-lobby-body{gap:14px}
+.eb-lobby-body h2{font-size:clamp(30px,4.4vw,46px);letter-spacing:-.045em;margin:0;background:linear-gradient(180deg,#fff,#b9d6cf);-webkit-background-clip:text;background-clip:text;color:transparent}
+.eb-lobby-body>p{margin:0;text-align:center}
+.eb-lobby-body>p[data-ui=room-status]{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--eb-teal)}
+.eb-lobby-body>p[data-ui=moves]{color:var(--eb-ink);font-weight:600;font-size:14px;background:#ffffff0a;border:1px solid var(--eb-line);border-radius:999px;padding:8px 18px}
+.eb-preview{--tint:#9ad06a;position:relative;width:min(100%,420px);height:clamp(240px,38vh,360px);border-radius:28px;border:1px solid var(--eb-line);overflow:hidden;background:radial-gradient(ellipse at 50% 92%,color-mix(in srgb,var(--tint) 38%,transparent) 0,transparent 62%),linear-gradient(180deg,#ffffff08,#ffffff02);box-shadow:0 30px 80px #0005,inset 0 1px 0 #ffffff14;transition:background .4s}
+.eb-preview[data-kit=sv]{--tint:#9ad06a}.eb-preview[data-kit=td]{--tint:#5fd0d8}.eb-preview[data-kit=ea]{--tint:#ff9a5c}
+.eb-preview:after{content:"";position:absolute;left:18%;right:18%;bottom:10%;height:14px;border-radius:50%;background:radial-gradient(ellipse,#0008,transparent 70%);pointer-events:none}
+.eb-preview canvas{position:absolute;inset:0;width:100%;height:100%}
+.eb-lobby-body>div:not(.eb-preview){gap:10px!important}
+.eb-lobby-body button[data-act=kit]{min-width:0!important;flex:1 1 150px;min-height:52px!important;border-radius:16px!important;font-size:15px!important;letter-spacing:-.01em}
+.eb-lobby-body button[data-act=kit][aria-pressed=true]{box-shadow:0 0 0 1px var(--eb-mint) inset,0 10px 30px #c7f38b22}
+.eb-lobby-body button[data-act=ready]{min-width:260px!important;box-shadow:0 12px 34px #c7f38b33}
+.eb-lobby-body button[data-act=ready]:hover{transform:translateY(-1px);filter:brightness(1.05)}
+.eb-lobby-body button[data-act=moves],.eb-lobby-body button[data-act=back]{min-height:42px!important;font-size:13px!important}
+
+/* Play screen HUD: glass panels, softer type, no hard boxes */
+.eb-hud{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif!important;-webkit-font-smoothing:antialiased}
+.eb-hud [data-control]{background:linear-gradient(160deg,#1a2e33d9,#0d1a1ecc)!important;border:1px solid #ffffff2e!important;box-shadow:0 6px 22px #0006,inset 0 1px 0 #ffffff22;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);font-weight:700;letter-spacing:.02em;text-shadow:0 1px 2px #0008}
+.eb-hud [data-control] small{opacity:.65;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.eb-hud [data-hud=info]{text-shadow:0 2px 10px #000a;font-weight:700;letter-spacing:.03em;padding:6px 16px;border-radius:999px;background:#0a161acc;border:1px solid #ffffff1f;backdrop-filter:blur(8px)}
+.eb-hud [data-hud=block-feedback]{background:linear-gradient(135deg,#ffe29a,#f0b24a)!important;border-radius:999px!important;font-weight:800;letter-spacing:.04em;box-shadow:0 8px 28px #f0b24a55}
+.eb-hud [data-hud=rejection]{background:#0c181ce6!important;border:1px solid #ffffff22;border-radius:999px!important;padding:8px 18px!important;font-size:13px;box-shadow:0 8px 24px #0006}
+.eb-hud [data-hud=respawn]{background:radial-gradient(ellipse at center,#2a0d14cc,#12060acc 70%)!important;letter-spacing:-.02em;backdrop-filter:blur(3px)}
+.eb-hud [data-hud=scoreboard]{background:linear-gradient(160deg,#142428f2,#0b1417f2)!important;border:1px solid #ffffff22!important;border-radius:18px!important;padding:14px 18px!important;box-shadow:0 18px 50px #0007;backdrop-filter:blur(10px);font-weight:600}
+.eb-hud [data-hud=scoreboard] td,.eb-hud [data-hud=scoreboard] th{padding:5px 10px!important;border-bottom:1px solid #ffffff10}
+.eb-hud [data-hud=scoreboard] tr:last-child td{border-bottom:0}
+.eb-hud [data-hud=kit] button,.eb-hud [data-hud=menu] button{min-height:46px;border-radius:14px;font-weight:650;background:#ffffff0c!important;border:1px solid #ffffff22!important}
+.eb-hud [data-hud=kit] button:hover,.eb-hud [data-hud=menu] button:hover{background:#ffffff18!important;border-color:var(--eb-mint)!important}
+.eb-hud [data-hud=menu],.eb-hud [data-hud=kit]{backdrop-filter:blur(14px);background:linear-gradient(160deg,#16292dfa,#0c171afa)!important}

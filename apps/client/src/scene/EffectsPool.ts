@@ -80,7 +80,7 @@ export class EffectsPool {
     this.alive = 0;
     this.shedTotal = 0;
     for (const k of ["px", "py", "pz", "vx", "vy", "vz", "age", "life", "sz", "grav", "sx", "sy", "szAxis", "yaw"] as const) this[k] = new Float32Array(n);
-    const mesh = new InstancedMesh(new IcosahedronGeometry(0.5, 0), new MeshLambertMaterial({ color: 0xffffff, fog: false }), n);
+    const mesh = new InstancedMesh(new IcosahedronGeometry(0.5, 1), new MeshLambertMaterial({ color: 0xffffff, fog: false }), n);
     mesh.name = "fx.pool";
     mesh.frustumCulled = false;
     mesh.count = n;

@@ -5,6 +5,7 @@
 import "./experience.css";
 import { P0_KITS, type KitId } from "@eb/shared/protocol";
 import { EA_DEFS, SV_DEFS, TD_DEFS } from "@eb/shared/config/kits/index";
+import { LobbyPreview } from "./LobbyPreview.js";
 import type { FlowError, FlowState } from "../app/AppFlow.js";
 
 export const KIT_LABEL: Readonly<Record<KitId, string>> = { sv: "Stone Vanguard", td: "Tide Duelist", ea: "Ember Artificer" };
@@ -59,11 +60,13 @@ export class Lobby {
   private name: string;
   private last: { st: FlowState; view: LobbyView } | null = null;
   private readonly onClick: (e: Event) => void;
+  private readonly preview: LobbyPreview;
 
   constructor(
     parent: HTMLElement, private readonly act: LobbyActions, init: { kit: KitId; name: string }, private readonly doc: Document = document,
   ) {
     this.selected = init.kit;
+    this.preview = new LobbyPreview(doc);
     this.name = init.name;
     this.root = doc.createElement("div");
     this.root.className = "eb-screen";
@@ -108,6 +111,7 @@ export class Lobby {
     this.content.className = "eb-lobby-body";
     this.root.append(this.content);
     this.root.dataset["screen"] = st.screen;
+    if (st.screen !== "lobby") this.preview.stop();
     this.root.style.display = st.screen === "match" ? "none" : "flex";
     if (st.screen === "match") return;
     if (st.screen === "boot") { this.add("h1", "Elemental Battlegrounds"); this.add("p", "Preparing arena…"); return; }
@@ -165,7 +169,8 @@ export class Lobby {
       b.style.cssText = `min-width:180px;min-height:48px;font:600 16px system-ui;border-radius:12px;color:#fff;border:3px solid ${k === this.selected ? "#ffd479" : "#9fd3ff55"};background:#1d2b3a`;
       row.append(b);
     }
-    this.content.append(row);
+    this.content.append(this.preview.el, row);
+    this.preview.start(this.selected);
     this.add("p", `Moves: ${baseMoveLabels(this.selected).join(", ")}`, { "data-ui": "moves" });
     this.add("p", practice ? "Awakening: finish the first steps and the practice room fills your meter." : "Awakening: land and take hits to fill the meter, then press Awaken.", { "data-ui": "awakening" });
     this.add("button", "Moves & ranges", { "data-act": "moves" });
@@ -180,6 +185,7 @@ export class Lobby {
 
   dispose(): void {
     this.root.removeEventListener("click", this.onClick);
+    this.preview.dispose();
     this.root.remove();
     this.last = null;
   }

@@ -6,7 +6,7 @@
  * state, and render time never schedules gameplay.
  */
 import {
-  AdditiveBlending, BoxGeometry, Color, DoubleSide, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, Matrix4, MeshBasicMaterial,
+  AdditiveBlending, Color, CylinderGeometry, DoubleSide, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, Matrix4, MeshBasicMaterial,
   PointLight, Quaternion, RingGeometry, SphereGeometry, Vector3, type BufferGeometry, type Scene,
 } from "three";
 
@@ -231,7 +231,9 @@ export class GlowLayer {
     this.release();
     this.tier = tier;
     const b = GLOW_BUDGET[tier];
-    const flashGeo = new SphereGeometry(0.5, 16, 10), ringGeo = new RingGeometry(0.965, 1, 48), streakGeo = new BoxGeometry(1, 1, 1, 1, 1, 4);
+    const flashGeo = new SphereGeometry(0.5, 28, 18), ringGeo = new RingGeometry(0.93, 1, 72);
+    // Round, finely segmented lance (not a box) so streaks read as light, not confetti.
+    const streakGeo = new CylinderGeometry(0.5, 0.5, 1, 10, 10).rotateX(Math.PI / 2);
     streakGeo.translate(0, 0, 0.5); // grows forward from its origin along +Z, so a streak starts at its spawn point
     // A tapered lance catches motion without the square confetti silhouette.
     const vertices = streakGeo.getAttribute("position");
