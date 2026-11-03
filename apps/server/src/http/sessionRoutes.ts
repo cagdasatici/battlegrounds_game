@@ -118,7 +118,7 @@ export function registerSessionRoutes(app: HttpApp, svc: AuthServices, now: () =
     const parsed = SessionRequestSchema.safeParse(raw);
     if (!parsed.success) return send(res, 401, { error: "INVITE_INVALID" });
     if (!svc.invites.consume(parsed.data.invite)) {
-      log("warn", "invite rejected", { ip: clientKey(req) });
+      log("warn", "invite rejected", { sourceHash: sha256(clientKey(req)).slice(0, 8) });
       return send(res, 401, { error: "INVITE_INVALID" });
     }
     const { cookieToken, session, expiresAt } = svc.sessions.create(parsed.data.displayName);
@@ -160,7 +160,7 @@ export function registerSessionRoutes(app: HttpApp, svc: AuthServices, now: () =
     if (existing && token) svc.sessions.revoke(token);
     const { cookieToken, session, expiresAt } = svc.sessions.create(parsed.data.displayName, ipHash);
     const cookie = `${COOKIE_NAME}=${cookieToken}; ${config.secureCookies ? "Secure; " : ""}HttpOnly; SameSite=Strict; Path=/; Max-Age=${8 * 3600}`;
-    log("info", "open session created", { session: session.id.slice(0, 8), name: session.displayName });
+    log("info", "open session created", { session: session.id.slice(0, 8) });
     send(res, 201, { expiresAt } satisfies SessionResponse, { "Set-Cookie": cookie });
   });
 

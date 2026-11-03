@@ -8,6 +8,18 @@ beforeAll(async () => { h = await startHarness(); });
 afterAll(async () => { await h.stop(); });
 
 describe("T29 over a real server", () => {
+  test("GR10: a rejected invite never writes the source address into routine logs", async () => {
+    const { recentLogLines } = await import("../../apps/server/src/ops/StructuredLog.js");
+    const r = await fetch(`${h.origin}/api/session`, {
+      method: "POST", headers: { "content-type": "application/json", origin: h.origin, "cf-connecting-ip": "203.0.113.9" },
+      body: JSON.stringify({ invite: "nope-nope-nope", displayName: "ReviewChild" }),
+    });
+    expect(r.status).toBe(401);
+    const all = recentLogLines().join("\n");
+    expect(all).toContain("invite rejected");
+    expect(all).not.toContain("203.0.113.9");
+  });
+
   test("A16: ten malformed pings from a real client disconnect it; the room keeps running and the other client stays", async () => {
     const code = freshCode();
     const a = await loginClient(h, "Arel"), b = await loginClient(h, "Nora");
