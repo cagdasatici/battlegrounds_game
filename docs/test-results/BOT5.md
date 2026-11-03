@@ -34,3 +34,6 @@ Fixtures place fighters on continuous main-island ground and, for the KO, lower 
 - At 1024×768 the existing Sparring controls button overlaps part of the scoreboard control. Attack/guard/skill/movement controls remain visible. This test slice does not change the client layout.
 - Bots use the specified direct approach and stop at obstacles/unsupported ground. No map-wide pathfinding is claimed.
 - Existing large-chunk build warning remains. No deployment or invitation delivery was performed.
+
+## Notes (2026-11-03 browser-spec repair)
+- `sparring-flow.spec.ts` "mixed Medium/Hard" and "zero bots" were stale, not product bugs. BOT6 (c211427) rotates bot kits, so Bot 2 is td and its Hard cast slot depends on spawn tick (td.b1..b4, not sv.b1). QP01 (d3d8d97) loads assets on first Play, so the guest lobby needs ~7s under software GL (timeout raised to 30s). Spec passed 3 of 3 runs afterwards.
