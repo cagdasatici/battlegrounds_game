@@ -60,7 +60,7 @@ export function registerSparringRoutes(app: HttpApp, svc: AuthServices): void {
         if (operation === "create") {
           const p = SparringCreateRequestSchema.safeParse(raw);
           if (!p.success) throw new SparringError(400, "BAD_REQUEST");
-          send(res, 201, svc.sparring.create(owner!, { bots: p.data.bots }, p.data.listed === true));
+          send(res, 201, svc.sparring.create(owner!, { bots: p.data.bots, roundTarget: p.data.roundTarget ?? 0 }, p.data.listed === true));
         } else if (operation === "link") {
           const p = SparringLinkRequestSchema.safeParse(raw);
           if (!p.success) throw new SparringError(400, "BAD_REQUEST");

@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { SparringConfigSchema, SparringRedeemRequestSchema, type Difficulty, type SparringConfig } from "@eb/shared/sparring";
+import type { RoundTarget } from "@eb/shared/protocol";
 import { newToken, sha256 } from "./tokens.js";
 
 export const SPARRING_LINK_MS = 600_000;
@@ -20,6 +21,7 @@ interface Match {
   roomCode: string;
   hostId: string;
   bots: Difficulty[];
+  roundTarget: RoundTarget;
   listed: boolean;
   seats: Map<string, Seat>;
   link: { hash: string; expiresAt: number } | null;
@@ -50,7 +52,7 @@ export class SparringDirectory {
     if ([...this.matches.values()].some((m) => m.hostId === host.id)) throw new SparringError(409, "Already hosting");
     const roomCode = `sp-${randomBytes(16).toString("hex")}`;
     this.matches.set(roomCode, {
-      roomCode, hostId: host.id, bots: [...parsed.data.bots], listed: listed === true, link: null,
+      roomCode, hostId: host.id, bots: [...parsed.data.bots], roundTarget: parsed.data.roundTarget ?? 0, listed: listed === true, link: null,
       seats: new Map([[key(host), { principal: { ...host }, displayName: "", csrfToken: "", connectionId: null, deadline: this.now() + SPARRING_RESERVATION_MS }]]),
     });
     return { roomCode };
@@ -208,9 +210,9 @@ export class SparringDirectory {
   }
 
   /** Internal server lookup; returns no bearer credentials. */
-  describe(code: string): { hostId: string; bots: Difficulty[] } | null {
+  describe(code: string): { hostId: string; bots: Difficulty[]; roundTarget: RoundTarget } | null {
     const match = this.matches.get(code);
-    return match && this.live(match) ? { hostId: match.hostId, bots: [...match.bots] } : null;
+    return match && this.live(match) ? { hostId: match.hostId, bots: [...match.bots], roundTarget: match.roundTarget } : null;
   }
 
   private live(match: Match): boolean {

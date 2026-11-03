@@ -105,6 +105,9 @@ export class TickPipeline {
     this.results = [];
   }
 
+  /** Re-mirrors every seat, projectile and urn into replicated state outside a full step (round reset, decision 0054). */
+  republish(tick: number): void { this.publish(tick); }
+
   /** Publishes one body into replicated state. Also used by the room when a player spawns. */
   publishBody(entityId: number): void {
     const p = this.d.state.players.get(String(entityId));

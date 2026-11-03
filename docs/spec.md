@@ -370,6 +370,9 @@ awards one point; falling off an island awards the most recent hostile attacker 
 no scorer. A same tick tie uses the damage resolver order. A player who dealt at least 20 damage in the
 previous 8 seconds receives an assist if another player receives the KO. Each victim life can award only
 one KO.
+Amendment (decision 0054, owner approved 2026-11-03): hosted sparring rooms and admin rooms with bots may opt in to a
+`roundTarget` of 5 or 10 KOs; the server then ends the round at that score, shows results for 600 ticks, resets the
+scoreboard and respawns everyone. Open FFA is unchanged and stays endless.
 Death shows the scorer and a 3 second respawn countdown. The server chooses a safe spawn and
 restores health. Kit changes requested in combat take effect at next respawn; a living out of combat player
 may change after 8 seconds without dealing or taking damage, resetting meter and cooldowns. Never use

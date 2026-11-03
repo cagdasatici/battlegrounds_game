@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DifficultySchema } from "./sparring.js";
+import { RoundTargetSchema } from "./protocol.js";
 
 /** WEB4 admin contracts. Every request is strict; responses never carry tokens, hashes or full session ids. */
 export const ADMIN_COOKIE = "eb_admin";
@@ -10,7 +11,9 @@ export const AdminInviteCreateSchema = z.strictObject({
   ttlHours: z.number().int().min(1).max(24 * 30),
   maxUses: z.number().int().min(1).max(100),
 });
-export const AdminRoomCreateSchema = z.strictObject({ name: z.string().trim().min(1).max(32), bots: z.array(DifficultySchema).max(3).default([]) });
+export const AdminRoomCreateSchema = z.strictObject({ name: z.string().trim().min(1).max(32), bots: z.array(DifficultySchema).max(3).default([]), roundTarget: RoundTargetSchema.default(0) })
+  // Decision 0054: rounds are only for rooms with bots; an open FFA room stays endless.
+  .refine((r) => r.roundTarget === 0 || r.bots.length > 0, { message: "roundTarget needs at least one bot" });
 export const AdminRoomPatchSchema = z.strictObject({ listed: z.boolean() });
 /** Empty text clears the announcement. */
 export const AdminAnnouncementPutSchema = z.strictObject({

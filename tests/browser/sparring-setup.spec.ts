@@ -71,6 +71,11 @@ test("default Medium, roster bounds, all difficulties, fighter and frozen setup"
     await expect(p.getByRole("button", { name: /^Remove Bot/ })).toHaveCount(0);
     await start(p);
     expect((await calls(p)).at(-1)).toEqual({ kind: "start", config: { bots: [] }, kitId: "td" });
+    // MODE01: the round length selector defaults to endless (omitted) and sends roundTarget only when chosen.
+    await b(p, "End match").click();
+    await p.getByLabel("Round length").selectOption("10");
+    await start(p);
+    expect((await calls(p)).at(-1)).toEqual({ kind: "start", config: { bots: [], roundTarget: 10 }, kitId: "td" });
   } finally { await p.close(); }
 });
 

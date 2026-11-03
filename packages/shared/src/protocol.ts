@@ -106,6 +106,21 @@ export interface WelcomeMessage {
   tickRate: number;
   contentHash: string;
 }
+/** Decision 0054: opt-in first-to-N KO rounds for hosted sparring and bot rooms. 0 = endless (default). */
+export const RoundTargetSchema = z.union([z.literal(0), z.literal(5), z.literal(10)]);
+export type RoundTarget = z.infer<typeof RoundTargetSchema>;
+/** Results hold time: integer ticks of the fixed 60 Hz clock (10 s). */
+export const ROUND_OVER_TICKS = 600;
+export const RoundOverMessageSchema = z.strictObject({
+  tick: z.number().int().nonnegative(),
+  roundTarget: RoundTargetSchema,
+  resumesAtTick: z.number().int().nonnegative(),
+  standings: z.array(z.strictObject({
+    entityId: z.number().int().nonnegative(), displayName: z.string(),
+    kills: z.number().int().nonnegative(), deaths: z.number().int().nonnegative(), assists: z.number().int().nonnegative(),
+  })),
+});
+export type RoundOverMessage = z.infer<typeof RoundOverMessageSchema>;
 export interface PongMessage { nonce: number; serverMs: number; serverTick: number }
 export interface ShutdownMessage { deadlineMs: number; reason: string }
 
@@ -124,6 +139,7 @@ export const ServerMessage = {
   combatEvent: "combatEvent",
   pong: "pong",
   shutdown: "shutdown",
+  roundOver: "roundOver",
 } as const;
 
 /** Per-message rate limits (spec section 19). */

@@ -28,6 +28,12 @@ export function mountSparringSetup(root: HTMLElement, actions: SparringSetupActi
   const listedBox = doc.createElement("input"); listedBox.type = "checkbox"; listedBox.style.minHeight = "24px";
   listedLabel.append(listedBox, "List this match for other players");
   controls.append(listedLabel);
+  const roundLabel = doc.createElement("label"); roundLabel.append("Round length");
+  const roundSelect = doc.createElement("select"); roundSelect.dataset["roundTarget"] = "1";
+  for (const [value, text] of [["0", "Endless"], ["5", "First to 5 KOs"], ["10", "First to 10 KOs"]] as const) {
+    const option = doc.createElement("option"); option.value = value; option.textContent = text; roundSelect.append(option);
+  }
+  roundLabel.append(roundSelect); controls.append(roundLabel);
   const rows = doc.createElement("div"); controls.append(rows);
   const button = (text: string, parent: HTMLElement): HTMLButtonElement => {
     const b = doc.createElement("button"); b.type = "button"; b.textContent = text; parent.append(b); return b;
@@ -95,7 +101,7 @@ export function mountSparringSetup(root: HTMLElement, actions: SparringSetupActi
     pending = true; status.textContent = "Working…"; fallback.value = ""; fallbackLabel.hidden = true; refresh();
     try {
       if (kind === "start") {
-        await actions.start({ bots: [...bots] }, P0_KITS.includes(fighter.value as KitId) ? fighter.value as KitId : "sv", listedBox.checked);
+        await actions.start({ bots: [...bots], ...(roundSelect.value === "5" ? { roundTarget: 5 as const } : roundSelect.value === "10" ? { roundTarget: 10 as const } : {}) }, P0_KITS.includes(fighter.value as KitId) ? fighter.value as KitId : "sv", listedBox.checked);
         if (disposed) return;
         active = true; status.textContent = "Match started. Invite friends if a space remains.";
       } else if (kind === "end") {

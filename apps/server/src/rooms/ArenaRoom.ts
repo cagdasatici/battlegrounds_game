@@ -2,8 +2,8 @@ import { Room, type Client } from "colyseus";
 import { StateView } from "@colyseus/schema";
 import {
   ChangeKitMessageSchema, ClientMessage, JoinOptionsSchema, MAX_CLIENTS, P0_KITS, PATCH_RATE_MS,
-  PROTOCOL_VERSION, PingMessageSchema, RECONNECT_SECONDS, ReadyMessageSchema, ServerMessage, TICK_RATE,
-  type ActionResult, type CombatEvent, type KitId, type WelcomeMessage,
+  PROTOCOL_VERSION, PingMessageSchema, RECONNECT_SECONDS, ReadyMessageSchema, ROUND_OVER_TICKS, ServerMessage, TICK_RATE,
+  type RoundOverMessage, type RoundTarget, type ActionResult, type CombatEvent, type KitId, type WelcomeMessage,
 } from "@eb/shared/protocol";
 import { COMBAT } from "@eb/shared/config/combat";
 import { computeContentHash } from "@eb/shared/config/content";
@@ -59,6 +59,10 @@ export class ArenaRoom extends Room {
   override maxMessagesPerSecond = 90;
 
   faulted = false;
+  /** Decision 0054: first-to-N KOs; 0 = endless. Only hosted sparring and bot rooms ever set it. */
+  roundTarget: RoundTarget = 0;
+  /** Tick at which the results phase ends; null outside roundOver. */
+  private roundOverUntil: number | null = null;
   roomCode = "";
   readonly sim = new FixedClock();
   private readonly contentHash = computeContentHash();
@@ -269,7 +273,9 @@ export class ArenaRoom extends Room {
   stepTick(tick: number): void {
     if (this.faulted) return;
     try {
+      if (this.roundOverUntil !== null) { this.stepRoundOver(tick); return; }
       this.pipeline.step(tick);
+      this.checkRoundEnd(tick);
     } catch (e) {
       this.faulted = true;
       log("error", "tick fault: room closed", { room: this.roomId, tick, error: e instanceof Error ? e.name : "unknown" });
@@ -277,6 +283,56 @@ export class ArenaRoom extends Room {
       for (const c of this.clients) c.leave(4500);
       void this.disconnect();
     }
+  }
+
+  /** Decision 0054: the round ends the tick any player's kills reach the target. */
+  private checkRoundEnd(tick: number): void {
+    if (this.roundTarget === 0) return;
+    const standings = [...this.state.players.values()].map((p) => ({
+      entityId: p.entityId, displayName: p.displayName, kills: p.kills, deaths: p.deaths, assists: p.assists,
+    })).sort((a, b) => b.kills - a.kills || a.deaths - b.deaths || a.entityId - b.entityId);
+    if ((standings[0]?.kills ?? 0) < this.roundTarget) return;
+    this.state.phase = "roundOver";
+    this.roundOverUntil = tick + ROUND_OVER_TICKS;
+    const msg: RoundOverMessage = { tick, roundTarget: this.roundTarget, resumesAtTick: this.roundOverUntil, standings };
+    this.broadcast(ServerMessage.roundOver, msg);
+  }
+
+  /** Frozen results phase: inputs are dropped and no hit resolution runs, so no damage events exist. Integer ticks only. */
+  private stepRoundOver(tick: number): void {
+    for (const seat of this.pipelineSeats().values()) seat.input.neutralize();
+    this.state.serverTick = tick;
+    if (tick >= this.roundOverUntil!) this.startNextRound(tick);
+  }
+
+  /** Resets the scoreboard and puts every ready fighter on a fresh life at a spec section 10 spawn. */
+  private startNextRound(tick: number): void {
+    this.roundOverUntil = null;
+    this.projectiles.clear();
+    for (const p of this.state.players.values()) { p.kills = 0; p.deaths = 0; p.assists = 0; }
+    const mv = this.movement, w = this.world;
+    if (mv && w) {
+      const placed: Pt[] = [];
+      const seats = [...this.pipelineSeats().values()].sort((a, b) => a.entityId - b.entityId);
+      for (const seat of seats) {
+        const id = seat.entityId, f = this.combat.get(id), p = this.state.players.get(String(id));
+        if (!f || !p) continue;
+        if (seat.pendingKit) { f.kitId = seat.pendingKit; seat.pendingKit = null; }
+        p.owner.pendingKit = "";
+        const lifeId = ++this.lifeSeq;
+        this.combat.respawn(id, tick, lifeId);
+        this.m1.reset(id); this.abilities.reset(id); this.awakening.reset(id); this.urns.drop(id);
+        const [ax, ay, az] = pickSpawn(w.map.spawnAnchors, placed, [], placed).anchor.position;
+        placed.push({ x: ax, z: az });
+        mv.add(id, [ax, (w.groundHeight(ax, az) ?? ay) + ARENA.capsule.centreAboveSurface, az], Math.atan2(ax, az));
+        p.lifeId = lifeId;
+        this.respawns.complete(id, tick);
+        this.pipeline.publishBody(id);
+        this.broadcastEvent(tick, "respawn", id, id, lifeId);
+      }
+    }
+    this.pipeline.republish(tick);
+    this.state.phase = "playing";
   }
 
   /** Entities simulated without a seat (the practice dummy) whose bodies are still published each tick. */
@@ -379,7 +435,7 @@ export class ArenaRoom extends Room {
       this.movement.add(seat.entityId, this.chooseSpawn());
       this.pipeline.publishBody(seat.entityId);
     }
-    this.state.phase = "playing";
+    if (this.state.phase !== "roundOver") this.state.phase = "playing";
   }
 
   private onChangeKit(client: Client, raw: unknown): void {

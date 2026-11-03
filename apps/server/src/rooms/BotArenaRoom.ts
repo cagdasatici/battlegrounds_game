@@ -23,7 +23,10 @@ interface BotSeat extends PipelineSeat {
 export class BotArenaRoom extends ArenaRoom {
   protected readonly bots = new Map<string, BotSeat>();
   override async onCreate(options: { roomCode?: string }): Promise<void> {
-    const difficulties = this.authServices()?.roomMeta.get(options.roomCode ?? "")?.bots ?? [];
+    const meta = this.authServices()?.roomMeta.get(options.roomCode ?? "");
+    const difficulties = meta?.bots ?? [];
+    // Decision 0054: rounds only for rooms that contain bots; a botless open FFA room stays endless.
+    this.roundTarget = difficulties.length > 0 ? meta?.roundTarget ?? 0 : 0;
     this.maxClients = 4 - difficulties.length;
     await super.onCreate(options);
     this.addBots(difficulties);

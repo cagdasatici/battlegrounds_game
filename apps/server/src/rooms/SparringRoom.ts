@@ -14,6 +14,7 @@ export class SparringRoom extends BotArenaRoom {
     await super.onCreate(options);
     // Membership, rather than socket count, owns lifetime (including a completely disconnected host).
     this.autoDispose = false;
+    this.roundTarget = info.roundTarget;
     this.addBots(info.bots);
     this.maxClients = 4 - info.bots.length;
   }

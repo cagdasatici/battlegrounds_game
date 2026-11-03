@@ -7,7 +7,7 @@ import { meterFraction } from "@eb/shared/awakening";
 import { COMBAT } from "@eb/shared/config/combat";
 import { surfaceBelow, parseArenaMap, type ArenaMap } from "@eb/shared/config/arena";
 import {
-  MAX_CLIENTS, P0_KITS, PRACTICE_ROOM_CODE, ServerMessage,
+  MAX_CLIENTS, P0_KITS, PRACTICE_ROOM_CODE, RoundOverMessageSchema, ServerMessage,
   type ActionResult, type CombatEvent, type KitId, type PongMessage, type WelcomeMessage,
 } from "@eb/shared/protocol";
 import islandsUrl from "../../../assets/maps/islands.v1.json?url";
@@ -33,6 +33,7 @@ import type { GameScene, Quality } from "./scene/GameScene.js";
 import { Hud, readSafeRect } from "./ui/Hud.js";
 import { Nameplates, plateLayout } from "./ui/Nameplates.js";
 import { DamageCues, cueAngle } from "./ui/DamageCues.js";
+import { RoundResults } from "./ui/RoundResults.js";
 import {
   BlockNotice, RejectionNotice, cooldownFraction, cooldownLabel, equippedSkillNames, formTimerText, meterLabel, respawnSecondsLeft, scoreboardRows, stillpointText,
 } from "./ui/HudFormat.js";
@@ -444,6 +445,13 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     const plates = new Nameplates(document.body, document, () => plateOrigin);
     matchCleanups.push(() => plates.dispose());
     const cues = new DamageCues(document.body, document);
+    const roundResults = new RoundResults(document.body, document);
+    matchCleanups.push(() => roundResults.dispose());
+    const unsubRound = r.onMessage(ServerMessage.roundOver, (m: unknown) => {
+      const parsed = RoundOverMessageSchema.safeParse(m);
+      if (parsed.success) roundResults.show(parsed.data, Math.floor(clock.serverTick(performance.now()) ?? ((r.state as { serverTick?: number }).serverTick ?? 0)));
+    });
+    matchCleanups.push(() => unsubRound());
     matchCleanups.push(() => cues.dispose());
     let hudKey = "";
     const currentLayout = (): Layout => {
@@ -544,6 +552,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       const me = localOf();
       const stateTick = (r.state as { serverTick?: number }).serverTick ?? 0;
       const now = Math.floor(clock.serverTick(performance.now()) ?? stateTick);
+      roundResults.update((r.state as { phase?: string }).phase ?? "playing", now);
       const ml = meterLabel(me?.kitId ?? opts.kitId, me?.meter100 ?? 0);
       const dead = me?.action === "Dead" && ko !== null;
       const pending = me?.owner?.pendingKit ?? "";
