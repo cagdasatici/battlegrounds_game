@@ -63,8 +63,9 @@ export class LobbyPreview {
     this.el.append(renderer.domElement);
     const scene = new T.Scene();
     const camera = new T.PerspectiveCamera(30, 1, 0.1, 50);
-    camera.position.set(0, 1.25, 4.6);
-    camera.lookAt(0, 0.95, 0);
+    // The fighter origin is at hip height (feet about 0.9 m below), so frame around y = 0.
+    camera.position.set(0, 0.25, 5.2);
+    camera.lookAt(0, 0.05, 0);
     scene.add(new T.HemisphereLight(0xdff3ff, 0x20342f, 1.6));
     const key = new T.DirectionalLight(0xffffff, 2.2); key.position.set(2.5, 4, 3); scene.add(key);
     const rim = new T.PointLight(0xffffff, 12, 9); rim.position.set(-2, 1.8, -2); scene.add(rim);

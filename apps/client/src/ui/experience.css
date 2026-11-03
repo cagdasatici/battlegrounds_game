@@ -75,12 +75,13 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .eb-lobby-body>p{margin:0;text-align:center}
 .eb-lobby-body>p[data-ui=room-status]{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--eb-teal)}
 .eb-lobby-body>p[data-ui=moves]{color:var(--eb-ink);font-weight:600;font-size:14px;background:#ffffff0a;border:1px solid var(--eb-line);border-radius:999px;padding:8px 18px}
-.eb-preview{--tint:#9ad06a;position:relative;width:min(100%,420px);height:clamp(240px,38vh,360px);border-radius:28px;border:1px solid var(--eb-line);overflow:hidden;background:radial-gradient(ellipse at 50% 92%,color-mix(in srgb,var(--tint) 38%,transparent) 0,transparent 62%),linear-gradient(180deg,#ffffff08,#ffffff02);box-shadow:0 30px 80px #0005,inset 0 1px 0 #ffffff14;transition:background .4s}
+.eb-preview{--tint:#9ad06a;position:relative;width:min(100%,520px);height:clamp(260px,42vh,400px);border-radius:28px;border:1px solid var(--eb-line);overflow:hidden;background:radial-gradient(ellipse at 50% 92%,color-mix(in srgb,var(--tint) 38%,transparent) 0,transparent 62%),linear-gradient(180deg,#ffffff08,#ffffff02);box-shadow:0 30px 80px #0005,inset 0 1px 0 #ffffff14;transition:background .4s}
 .eb-preview[data-kit=sv]{--tint:#9ad06a}.eb-preview[data-kit=td]{--tint:#5fd0d8}.eb-preview[data-kit=ea]{--tint:#ff9a5c}
 .eb-preview:after{content:"";position:absolute;left:18%;right:18%;bottom:10%;height:14px;border-radius:50%;background:radial-gradient(ellipse,#0008,transparent 70%);pointer-events:none}
 .eb-preview canvas{position:absolute;inset:0;width:100%;height:100%}
-.eb-lobby-body>div:not(.eb-preview){gap:10px!important}
-.eb-lobby-body button[data-act=kit]{min-width:0!important;flex:1 1 150px;min-height:52px!important;border-radius:16px!important;font-size:15px!important;letter-spacing:-.01em}
+.eb-lobby-body>div:not(.eb-preview){display:grid!important;grid-template-columns:repeat(3,1fr);gap:10px!important;width:min(100%,520px)}
+@media(max-width:560px){.eb-lobby-body>div:not(.eb-preview){grid-template-columns:1fr}}
+.eb-lobby-body button[data-act=kit]{min-width:0!important;min-height:52px!important;border-radius:16px!important;font-size:15px!important;letter-spacing:-.01em}
 .eb-lobby-body button[data-act=kit][aria-pressed=true]{box-shadow:0 0 0 1px var(--eb-mint) inset,0 10px 30px #c7f38b22}
 .eb-lobby-body button[data-act=ready]{min-width:260px!important;box-shadow:0 12px 34px #c7f38b33}
 .eb-lobby-body button[data-act=ready]:hover{transform:translateY(-1px);filter:brightness(1.05)}
