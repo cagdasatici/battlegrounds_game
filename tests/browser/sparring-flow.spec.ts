@@ -121,7 +121,7 @@ test("solo Easy attacks and changes replicated HP; touch layout and host ends/re
     const state = await snap(h.page), bot = state.players.find(p => p.name === "Bot 1")!, human = state.players.find(p => p.name === "Arel")!;
     place(room, bot.entityId, 0, 0); place(room, human.entityId, 0, -1.5);
     await expect.poll(async () => (await snap(h.page)).players.find(p => p.name === "Arel")!.hp100, { timeout: 8000 }).toBeLessThan(10000);
-    await expect.poll(async () => (await snap(h.page)).players.find(p => p.name === "Bot 1")!.moveId).toMatch(/^m1\./);
+    // FB02: Easy swings once per 90 ticks and backs off, so the transient m1 moveId is not polled; the HP drop above proves the swing landed.
     for (const selector of ["attack", "block", "skill1", "joystick"]) await expect(h.page.locator(`[data-control=${selector}]`)).toBeVisible();
     mkdirSync(evidenceDir(root), { recursive: true });
     await h.page.screenshot({ path: path.join(evidenceDir(root), "BOT5-solo.png") });
@@ -139,7 +139,7 @@ test("solo Easy attacks and changes replicated HP; touch layout and host ends/re
   } finally { await h.ctx.close(); }
 });
 
-test("mixed Medium/Hard deterministic visible-action guard and legal slot 1 cast", async () => {
+test("mixed Medium/Hard bots under attack stay legal and Hard casts a legal slot", async () => {
   const h = await host(["medium", "hard"]);
   try {
     const room = roomOf(h.code); await unprotected(room);
@@ -147,10 +147,12 @@ test("mixed Medium/Hard deterministic visible-action guard and legal slot 1 cast
     room.setSimulationInterval(() => undefined, 1000);
     const state = await snap(h.page), medium = state.players.find(p => p.name === "Bot 1")!, hard = state.players.find(p => p.name === "Bot 2")!, human = state.players.find(p => p.name === "Arel")!;
     let tick = room.sim.tick;
+    // FB03: Medium now guards only 25% of the time (seeded) and Hard may dash instead, so no deterministic guard poll here;
+    // the guard rule is covered by tests/unit/sparring-brain + bot-tactics (shapeMedium=false) and the FB03 rate tests.
     place(room, medium.entityId, 0, 0); place(room, human.entityId, 0, -1.5); place(room, hard.entityId, 12, 12);
     expect(beginCast(room.combat.get(human.entityId)!, tick, "m1.1", 60, 1, 0, 0).ok).toBe(true);
     for (let i = 0; i < 16; i++) room.stepTick(++tick);
-    await expect.poll(async () => (await snap(h.page)).players.find(p => p.name === "Bot 1")!.action).toBe("Guard");
+    expect(room.combat.invariantViolations()).toEqual([]);
     releaseToIdle(room.combat.get(human.entityId)!, tick);
     place(room, hard.entityId, -5, 0); place(room, human.entityId, -5, -1.5); place(room, medium.entityId, 12, 12);
     for (let i = 0; i < 7; i++) room.stepTick(++tick);
