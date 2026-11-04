@@ -196,8 +196,11 @@ export class ArenaRoom extends Room {
     const seat = this.seats.get(client.sessionId);
     const p = seat && this.playerOf(seat);
     if (!seat || !p) return;
-    p.connected = false;
     seat.input.neutralize();
+    // A revoked/expired session must not hold a reconnect reservation (the revoke close can race the socket close
+    // and arrive here as an ordinary drop). Returning without a reservation makes Colyseus call onLeave at once.
+    if (!this.seatSessionValid(seat)) return;
+    p.connected = false;
     this.urns.drop(seat.entityId); // a disconnected holder never keeps an urn (spec 15)
     try {
       const reservation = this.allowReconnection(client, roomTuning.reconnectSeconds);

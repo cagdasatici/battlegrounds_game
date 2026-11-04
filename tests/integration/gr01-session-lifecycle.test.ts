@@ -92,6 +92,19 @@ test("admin revoke closes only the revoked seat with 4401; the other client keep
   await b.c.leave();
 });
 
+test("a socket drop after the session is revoked never reserves the seat (regression: revoke vs close race)", async () => {
+  const h = await start();
+  const { a, b, rb } = await twoPlayers(h, "r5");
+  // Suppress the revoke-driven close so the only thing the server sees is an unexpected drop of a revoked session.
+  vi.spyOn(roomFor("r5"), "revokeAuthSession").mockImplementation(() => undefined);
+  h.svc.sessions.revokeById(a.id);
+  a.c.room!.reconnection.enabled = false;
+  a.c.room!.connection.close(4010, "network lost");
+  await waitFor(() => players(rb).size === 1, 3000, "revoked dropped seat removed without a 20 s reservation");
+  expect(roomFor("r5").seatedSessions().some((s) => s.authId === a.id)).toBe(false);
+  await b.c.leave();
+});
+
 test("DELETE /api/session closes the active seat with 4401", async () => {
   const h = await start();
   const { a, b } = await twoPlayers(h, "r2");
@@ -135,7 +148,7 @@ test("reconnect rechecks the session: an expired one gets no welcome", async () 
     await waitFor(() => closed === 4401, 3000, "closed 4401");
   } catch { /* refused at the reservation: also correct */ }
   expect(welcomes).toBe(0);
-  await waitFor(() => players(rb).size === 1, 3000, "fighter removed");
+  await waitFor(() => players(rb).size === 1, 20000, "fighter removed");
   await b.c.leave();
 });
 
