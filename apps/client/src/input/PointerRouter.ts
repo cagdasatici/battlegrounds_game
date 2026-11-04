@@ -4,6 +4,7 @@
  * an ignored extra pointer can never release the owner's action. The router only records local
  * intent; the server decides every outcome.
  */
+import type { InputGate } from "./InputGate.js";
 import { HIT_ORDER, clamp, hitTest, type ControlId, type Layout } from "./ControlLayout.js";
 
 export const CAMERA_SENSITIVITY = 0.003; // rad per CSS px, divided by s (D)
@@ -29,6 +30,8 @@ export interface RouterHooks {
   onScoreboard?: () => void;
   /** Called after every release-all (cancel, blur, menu...) so the caller can send neutral intent now. */
   onNeutral?: () => void;
+  /** GR05: while closed, gameplay presses are ignored; only menu, fighter and scoreboard controls still work. */
+  gate?: InputGate;
 }
 
 export class PointerRouter {
@@ -60,6 +63,12 @@ export class PointerRouter {
     this.disabled = layout.tooSmall;
   }
 
+  private readonly releaseListeners = new Set<() => void>();
+  /** Lets sibling routers (keyboard) drop their own hold state whenever everything is released. */
+  onReleaseAll(fn: () => void): () => void { this.releaseListeners.add(fn); return () => { this.releaseListeners.delete(fn); }; }
+  /** True while any gate reason is active. */
+  get gated(): boolean { return this.hooks.gate?.closed === true; }
+
   get activePointers(): number { return this.owners.size; }
   ownerOf(pointerId: number): Owner | undefined { return this.owners.get(pointerId); }
   held(id: ControlId): boolean { return this.holders.has(id); }
@@ -79,6 +88,7 @@ export class PointerRouter {
     const token = -1 - HIT_ORDER.indexOf(id);
     if (on) {
       if (this.disabled || this.holders.has(id)) return;
+      if (this.gated && id !== "menu") return;
       this.owners.set(token, id);
       this.holders.set(id, token);
       this.press(id);
@@ -90,6 +100,7 @@ export class PointerRouter {
   /** Keyboard movement in camera relative stick space. Ignored while a joystick pointer owns movement. */
   setKeyboardMove(x: number, z: number): void {
     if (this.holders.has("joystick")) return;
+    if (this.gated && (x !== 0 || z !== 0)) return;
     this.moveX = x;
     this.moveZ = z;
   }
@@ -104,6 +115,7 @@ export class PointerRouter {
   down(p: PointerInput): boolean {
     if (this.disabled || this.owners.has(p.pointerId)) return false;
     const hit = hitTest(this.layout, p.x, p.y);
+    if (this.gated && (hit === null || (hit !== "menu" && hit !== "fighter" && hit !== "scoreboard"))) return false;
     if (hit === null) {
       this.owners.set(p.pointerId, "camera");
       this.last.set(p.pointerId, { x: p.x, y: p.y });
@@ -146,6 +158,8 @@ export class PointerRouter {
     for (const id of [...this.owners.keys()]) this.release(id, true);
     this.moveX = 0;
     this.moveZ = 0;
+    this.deferredSkills.clear();
+    for (const f of [...this.releaseListeners]) f();
     this.hooks.onNeutral?.();
   }
 
@@ -179,6 +193,7 @@ export class PointerRouter {
       const slot = Number(o.slice(5)) as SkillSlot;
       if (this.deferredSkills.delete(slot)) { if (!cancelled) this.edges.push({ kind: "skillDown", slot }); }
       if (!cancelled) this.edges.push({ kind: "skillUp", slot });
+      else this.edges = this.edges.filter((e) => !(e.kind === "skillDown" && e.slot === slot)); // cancelled before sampling: no late cast
     }
   }
 

@@ -26,6 +26,7 @@ import { computeLayout, placeSparringRect, type Layout } from "./input/ControlLa
 import { resolveLayout, viewportClass } from "./input/LayoutEdit.js";
 import { attachKeyboardRouter } from "./input/KeyboardRouter.js";
 import { IntentSampler } from "./input/IntentSampler.js";
+import { InputGate } from "./input/InputGate.js";
 import { PointerRouter, attachPointerRouter } from "./input/PointerRouter.js";
 import { ClockSync } from "./net/ClockSync.js";
 import { RoomClient } from "./net/RoomClient.js";
@@ -157,11 +158,21 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   cleanups.push(() => { closeGuide(false); });
 
   let disposeMoves: (() => void) | null = null;
-  const closeMoves = (): void => { disposeMoves?.(); disposeMoves = null; };
+  /** GR05: the active match installs these; single top overlay means opening one closes the others. */
+  let syncGate: () => void = () => undefined;
+  let closeMatchPanels: () => void = () => undefined;
+  const closeMoves = (): void => { disposeMoves?.(); disposeMoves = null; syncGate(); };
+  const closeOtherOverlays = (keep: "settings" | "moves" | "sparring"): void => {
+    if (keep !== "moves") closeMoves();
+    if (keep !== "settings") settingsRef?.panel.close();
+    if (keep !== "sparring") sparControls.style.display = "none";
+    closeMatchPanels();
+  };
   const openMoves = (): void => {
     if (disposeMoves) return;
-    for (const f of settingsOpenHooks) f();
+    closeOtherOverlays("moves");
     const me = localOf(); disposeMoves = mountMoveGuide(document.body, me && P0_KITS.includes(me.kitId as KitId) ? me.kitId as KitId : lobby.kit, me?.form ?? "Base", closeMoves);
+    syncGate();
   };
   cleanups.push(closeMoves);
 
@@ -172,7 +183,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   cleanups.push(() => safeProbe.remove());
   let settingsRef: { name: string; store: SettingsStore; panel: SettingsPanel; unsub: () => void } | null = null;
   const settingsHooks = {
-    onOpen: () => { for (const f of settingsOpenHooks) f(); },
+    onOpen: () => { closeOtherOverlays("settings"); for (const f of settingsOpenHooks) f(); syncGate(); },
+    onClose: () => { syncGate(); },
     inMatch: () => matchCleanups.length > 0,
     safeRect: () => readSafeRect(window, safeProbe),
     qualityStatus: () => gs ? `Rendering: ${gs.qualityLevel}${softwareGl ? " · software rendering limits this device to Low" : " · adapts to keep combat smooth"}` : "Your choice applies when you enter the arena.",
@@ -192,7 +204,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     settingsRef = { name, store, panel, unsub };
     return store;
   };
-  const openSettings = (): void => { activeSettings(); settingsRef?.panel.open(); };
+  const openSettings = (): void => { activeSettings(); settingsRef?.panel.open(); syncGate(); };
   cleanups.push(() => { settingsRef?.unsub(); settingsRef?.panel.dispose(); settingsRef = null; });
 
   const guestLabel = document.createElement("label");
@@ -324,7 +336,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   closeSetup.className = "eb-overlay-close";
   closeSetup.textContent = "Back to game";
   closeSetup.style.cssText = "min-height:48px;font:inherit";
-  closeSetup.onclick = () => { sparControls.style.display = "none"; };
+  closeSetup.onclick = () => { sparControls.style.display = "none"; syncGate(); };
   sparControls.append(closeSetup);
   const sparButton = document.createElement("button");
   sparButton.className = "eb-launcher";
@@ -333,7 +345,9 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   sparButton.onclick = () => {
     if (setupPending) return;
     if (!hostRoom) { disposeSetup(); disposeSetup = mountSparringSetup(sparControls, setupActions); }
+    closeOtherOverlays("sparring");
     sparControls.style.display = "block";
+    syncGate();
   };
   app.append(sparControls, sparButton);
   // WEB3: room list. The panel exists only while open; its timer and listeners go with it.
@@ -376,13 +390,14 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       try {
         await flow.hostSparring(config, kit, listed === true);
         sparControls.style.display = "none";
+        syncGate();
       } finally { setupPending = false; }
     },
     copyLink: async () => {
       if (!hostRoom) throw new Error("No hosted match");
       return rc.copySparringLink(hostRoom, location.origin);
     },
-    end: async () => { await flow.back(); sparControls.style.display = "none"; },
+    end: async () => { await flow.back(); sparControls.style.display = "none"; syncGate(); },
   };
   let disposeSetup = mountSparringSetup(sparControls, setupActions);
   cleanups.push(() => { disposeSetup(); sparControls.remove(); sparButton.remove(); sparToken = null; });
@@ -437,13 +452,24 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     const tier = (q: Quality): Quality => (softwareGl ? "low" : q);
     const adaptive = new AdaptiveQuality(tier(settings.get().quality));
     g.setQuality(adaptive.level);
+    const gate = new InputGate();
+    matchCleanups.push(() => { gate.dispose(); syncGate = () => undefined; closeMatchPanels = () => undefined; });
     const router = new PointerRouter(computeLayout({ x0: 0, y0: 0, W: window.innerWidth, H: window.innerHeight }), {
       onFacingLockChange: on => { settings.update({ facingLock: on }); },
       isChargeSlot: (slot) => { const me = localOf(); return me?.kitId === "ea" && me.form === "Base" && slot === 3; },
       awakeningReady: () => { const me = localOf(); return me !== undefined && meterFraction(me.kitId, me.meter100 ?? 0) >= 1; },
-      onMenu: () => { menuOpen = !menuOpen; },
-      onScoreboard: () => { showBoard = !showBoard; },
-      onFighter: () => { kitMenu = !kitMenu; },
+      onMenu: () => {
+        // Escape closes the top overlay first; only with none open does it toggle the pause menu.
+        if (disposeMoves) closeMoves();
+        else if (settingsRef?.panel.isVisible) settingsRef.panel.close();
+        else if (sparControls.style.display !== "none") sparControls.style.display = "none";
+        else if (kitMenu) kitMenu = false;
+        else menuOpen = !menuOpen;
+        syncGate();
+      },
+      onScoreboard: () => { showBoard = !showBoard; if (showBoard) router.releaseAll(); }, // opening clears holds once; it is not a gate reason
+      onFighter: () => { kitMenu = !kitMenu; if (kitMenu) menuOpen = false; syncGate(); },
+      gate,
     });
     const sampler = new IntentSampler(router, welcome.epoch);
     const unsubs = [
@@ -480,7 +506,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     const probe = document.createElement("div");
     probe.style.cssText = "position:fixed;inset:0;visibility:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)";
     document.body.append(probe);
-    const hud = new Hud(document.body, document, (k) => { r.send("changeKit", { kitId: k }); kitMenu = false; }, () => { void flow.back(); }, () => { menuOpen = false; openSettings(); }, () => { menuOpen = false; openMoves(); }, () => { kitMenu = true; });
+    const hud = new Hud(document.body, document, (k) => { r.send("changeKit", { kitId: k }); kitMenu = false; syncGate(); }, () => { void flow.back(); }, () => { menuOpen = false; openSettings(); }, () => { menuOpen = false; openMoves(); }, () => { closeOtherOverlays("settings"); menuOpen = false; kitMenu = true; syncGate(); });
     matchCleanups.push(() => { hud.dispose(); probe.remove(); });
     let plateOrigin = { x: 0, y: 0 };
     const plates = new Nameplates(document.body, document, () => plateOrigin);
@@ -506,10 +532,27 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     router.autoRun = settings.get().autoRun; router.quickUse = settings.get().quickUse;
     router.sensitivity = settings.get().sensitivity;
     // Repaint now rather than on the next HUD interval tick, so the visible HUD never lags the hit-test layout.
-    const relayout = (): void => { lastLayout = currentLayout(); router.setLayout(lastLayout); hudKey = ""; drawHud(); placeSparButton(lastLayout); };
+    const relayout = (): void => { lastLayout = currentLayout(); router.setLayout(lastLayout); syncGate(); hudKey = ""; drawHud(); placeSparButton(lastLayout); };
     matchCleanups.push(() => { placeSparButton(null); });
     // Opening Settings releases every held input; the arena keeps running (spec section 6).
     const onSettingsOpen = (): void => { router.releaseAll(); };
+    closeMatchPanels = () => { menuOpen = false; kitMenu = false; };
+    const sendNeutralNow = (): void => {
+      const tick = Math.floor(clock.serverTick(performance.now()) ?? ((r.state as { serverTick?: number }).serverTick ?? 0));
+      const p = sampler.neutral(tick);
+      if (p && lifecycle?.phase === "active") rc.send("input", p);
+    };
+    // Entering the gated state: release keyboard and pointer owners, drop queued edges, then one neutral packet now.
+    matchCleanups.push(gate.onClose(() => { router.releaseAll(); router.takeEdges(); sampler.reset(); sendNeutralNow(); }));
+    syncGate = (): void => {
+      gate.set("menu", menuOpen);
+      gate.set("fighter", kitMenu);
+      gate.set("moves", disposeMoves !== null);
+      gate.set("settings", settingsRef?.panel.isVisible === true);
+      gate.set("sparring", sparControls.style.display !== "none");
+      gate.set("orientation", lastLayout.tooSmall);
+      gate.set("connection", !(lifecycle?.inputEnabled ?? false));
+    };
     let lastSettings = settings.get();
     const onSettingsChange = (): void => {
       const nextSettings = settings.get();
@@ -526,7 +569,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     };
     settingsOpenHooks.add(onSettingsOpen);
     settingsChangeHooks.add(onSettingsChange);
-    matchCleanups.push(() => { settingsOpenHooks.delete(onSettingsOpen); settingsChangeHooks.delete(onSettingsChange); settingsRef?.panel.close(); });
+    matchCleanups.push(() => { settingsOpenHooks.delete(onSettingsOpen); settingsChangeHooks.delete(onSettingsChange); settingsRef?.panel.close(); closeMoves(); });
     window.addEventListener("resize", relayout);
     window.addEventListener("orientationchange", relayout);
     matchCleanups.push(() => { window.removeEventListener("resize", relayout); window.removeEventListener("orientationchange", relayout); });
@@ -550,7 +593,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     let capRaf = 0;
     const capFrame = (): void => {
       const me = localOf() as { action?: string; lifeId?: number; connected?: boolean } | undefined;
-      captureCam.update({ action: me?.action, lifeId: me?.lifeId, connected: me !== undefined && me.connected !== false, menuOpen, reducedMotion: settings.get().reducedMotion });
+      captureCam.update({ action: me?.action, lifeId: me?.lifeId, connected: me !== undefined && me.connected !== false, menuOpen: menuOpen || gate.closed, reducedMotion: settings.get().reducedMotion });
       const rect = readSafeRect(window, probe);
       plateOrigin = { x: rect.x0, y: rect.y0 };
       plates.update(plateLayout([...players().values()].map((p) => ({
@@ -565,7 +608,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     matchCleanups.push(() => { cancelAnimationFrame(capRaf); captureCam.dispose(); });
     const loop = new R.GameLoop({
       scene: g, camera: cam, collide: kitHandle.collide, router, sampler, clock,
-      inputEnabled: () => lifecycle?.inputEnabled ?? false,
+      inputEnabled: () => (lifecycle?.inputEnabled ?? false) && !gate.closed,
       readState: (): LoopState => ({ serverTick: (r.state as { serverTick?: number }).serverTick ?? 0, players: players().entries(), projectiles: (r.state as LoopState).projectiles ?? [], urns: (r.state as LoopState).urns ?? [] }),
       sendInput: (p) => { if (lifecycle?.phase === "active") rc.send("input", p); },
       sendPing: (p) => { if (lifecycle?.phase === "active" || lifecycle?.phase === "connecting") rc.send("ping", p); },
@@ -584,7 +627,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     banner.style.cssText = "position:fixed;left:50%;top:96px;transform:translateX(-50%);z-index:70;max-width:min(520px,90vw);padding:10px 16px;border-radius:12px;background:#0b1118e6;color:#fff;font:600 16px Inter,system-ui,sans-serif;text-align:center;pointer-events:none";
     banner.hidden = true;
     document.body.append(banner);
-    paintConnection = (ph) => { const t = phaseText(ph); banner.hidden = t === null; banner.textContent = t ?? ""; };
+    paintConnection = (ph) => { const t = phaseText(ph); banner.hidden = t === null; banner.textContent = t ?? ""; syncGate(); };
     matchCleanups.push(() => { paintConnection = () => undefined; banner.remove(); });
     lifecycle?.setRequireReady(true);
     paintConnection(lifecycle?.phase ?? "connecting");
@@ -606,6 +649,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       };
     };
     const drawHud = (): void => {
+      syncGate();
       const me = localOf();
       const stateTick = (r.state as { serverTick?: number }).serverTick ?? 0;
       const now = Math.floor(clock.serverTick(performance.now()) ?? stateTick);

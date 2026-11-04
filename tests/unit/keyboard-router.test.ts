@@ -91,4 +91,13 @@ describe("KeyboardRouter (spec section 11 keys)", () => {
     key("keydown", "KeyF");
     expect(r.held("block")).toBe(false);
   });
+  test("GR05: OS repeat never re-adds a released hold and plain keyDown(repeat) is inert", () => {
+    const { r, k } = mk();
+    k.keyDown("KeyW");
+    r.releaseAll();
+    k.keyDown("KeyW", true);
+    expect([r.moveX, r.moveZ]).toEqual([0, 0]);
+    k.keyDown("KeyW");
+    expect(r.moveZ).toBe(1);
+  });
 });

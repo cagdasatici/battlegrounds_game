@@ -16,7 +16,10 @@ const MOVE_KEYS: ReadonlySet<string> = new Set(["KeyW", "KeyA", "KeyS", "KeyD"])
 export class KeyboardRouter {
   private readonly down = new Set<string>();
 
-  constructor(private readonly router: PointerRouter) {}
+  constructor(private readonly router: PointerRouter) {
+    // Anything that releases the router (gate, menu, layout change) also forgets held keys: a fresh press is required.
+    router.onReleaseAll(() => { this.down.clear(); });
+  }
 
   private applyMove(): void {
     const d = (k: string) => (this.down.has(k) ? 1 : 0);
@@ -26,8 +29,9 @@ export class KeyboardRouter {
     this.router.setKeyboardMove(len > 0 ? x / len : 0, len > 0 ? z / len : 0);
   }
 
-  keyDown(code: string): void {
-    if (this.down.has(code)) return; // OS key repeat never repeats an edge
+  keyDown(code: string, repeat = false): void {
+    if (repeat || this.down.has(code)) return; // OS key repeat never repeats an edge nor restores a released hold
+    if (this.router.gated && code !== "Escape") return; // gameplay keys are inert while an overlay owns input
     if (MOVE_KEYS.has(code)) { this.down.add(code); this.applyMove(); return; }
     if (code === "Escape") {
       this.router.keyHold("menu", true);
@@ -66,6 +70,12 @@ export class KeyboardRouter {
   }
 }
 
+function isTextTarget(t: EventTarget | null): boolean {
+  const el = t as { tagName?: string; isContentEditable?: boolean } | null;
+  const tag = el?.tagName?.toUpperCase();
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el?.isContentEditable === true;
+}
+
 /** Binds key and mouse listeners; returns cleanup that removes every listener and releases all holds. */
 export function attachKeyboardRouter(router: PointerRouter, win: EventTarget, surface: EventTarget): () => void {
   const k = new KeyboardRouter(router);
@@ -73,7 +83,8 @@ export function attachKeyboardRouter(router: PointerRouter, win: EventTarget, su
   type ME = Event & { button: number };
   const onKeyDown = (e: Event) => {
     const code = (e as KE).code;
-    k.keyDown(code);
+    if (isTextTarget(e.target)) return; // typing into a field never plays
+    k.keyDown(code, (e as Event & { repeat?: boolean }).repeat === true);
     if (code in HOLDS || code === "Escape") e.preventDefault();
   };
   const onKeyUp = (e: Event) => k.keyUp((e as KE).code);

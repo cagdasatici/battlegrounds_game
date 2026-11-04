@@ -135,7 +135,7 @@ describe("PointerRouter ownership (section 8)", () => {
     r.down({ pointerId: 3, x: 512, y: 642 });
     r.down({ pointerId: 4, x: 946, y: 482 });
     const p = s.sample(1)!;
-    expect(p.edges.map((e) => e.kind)).toEqual(["skillDown", "awaken"]);
+    expect(p.edges.map((e) => e.kind)).toEqual(["awaken"]); // GR05: a skillDown cancelled before sampling never casts
     expect(p.chargeHeldSlot).toBe(0);
     expect(r.facingLock).toBe(true);
   });

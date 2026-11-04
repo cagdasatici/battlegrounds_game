@@ -25,6 +25,9 @@ export class IntentSampler {
     this.pending = [];
   }
 
+  /** GR05: drops queued edges and held-derived state without changing the epoch. */
+  reset(): void { this.setEpoch(this.epoch); }
+
   private toEdge(e: LocalEdge): Edge {
     const id = ++this.edgeId >>> 0;
     return e.kind === "skillDown" || e.kind === "skillUp" ? { id, kind: e.kind, slot: e.slot } : { id, kind: e.kind };
