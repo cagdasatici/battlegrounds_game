@@ -1,4 +1,6 @@
 // Test-only page: renders the real T07 Hud from the real computeLayout. Not shipped.
+import "../../../apps/client/src/base.css";
+import { attachSelectionGuard } from "../../../apps/client/src/app/SelectionGuard.js";
 import { computeLayout, placeSparringRect, validateLayout } from "../../../apps/client/src/input/ControlLayout.js";
 import { Hud, readSafeRect } from "../../../apps/client/src/ui/Hud.js";
 
@@ -19,3 +21,8 @@ if (spar) {
   document.body.append(b);
 }
 (window as unknown as { __layout: unknown }).__layout = { layout, issues: validateLayout(layout) };
+attachSelectionGuard(document);
+if (new URLSearchParams(location.search).get("fb01")) {
+  const i = document.createElement("input"); i.id = "fb01-input"; i.value = "Fighter name"; i.style.cssText = "position:fixed;left:8px;top:8px";
+  document.body.append(i);
+}

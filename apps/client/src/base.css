@@ -1,1 +1,3 @@
-html,body{margin:0;height:100%;background:#0b1118;overflow:hidden;color:#fff;font:14px Inter,system-ui,sans-serif}canvas{display:block;touch-action:none}
+html,body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;margin:0;height:100%;background:#0b1118;overflow:hidden;color:#fff;font:14px Inter,system-ui,sans-serif}canvas{display:block;touch-action:none}
+button,[data-control]{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+input,textarea,[contenteditable]{-webkit-user-select:text;user-select:text}

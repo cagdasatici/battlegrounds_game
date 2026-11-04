@@ -45,6 +45,7 @@ import { KIT_LABEL, Lobby, type LobbyView } from "./ui/Lobby.js";
 import { PracticePanel, EVADE_PREP_TICKS } from "./ui/PracticePanel.js";
 import { LAYER, setModalOpen } from "./ui/Layers.js";
 import { SettingsPanel } from "./ui/Settings.js";
+import { attachSelectionGuard } from "./app/SelectionGuard.js";
 
 const SPARRING_GUIDE_AVAILABLE = true;
 
@@ -113,6 +114,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   const canvasHost = document.createElement("div");
   app.append(canvasHost);
   cleanups.push(() => canvasHost.remove());
+  cleanups.push(attachSelectionGuard(document)); // FB01
   const rejections = new RejectionNotice();
   const flowRef: { current: AppFlow | null } = { current: null };
   const graphicsBanner = mountGraphicsBanner(document, { reload: () => { location.reload(); }, leave: () => { void flowRef.current?.back(); } });
