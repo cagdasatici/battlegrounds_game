@@ -14,7 +14,7 @@ import { NEUTRAL_MOVE, type MoveIntent } from "@eb/shared/movement";
 import { RATE_LIMITS, type InputPacket, type KitId } from "@eb/shared/protocol";
 import type { IntentSampler } from "../input/IntentSampler.js";
 import type { PointerRouter } from "../input/PointerRouter.js";
-import { Prediction, type Collide, type Correction, type OwnerSnapshot } from "../net/Prediction.js";
+import { Prediction, type Collide, type Correction, type OwnerLoco, type OwnerSnapshot } from "../net/Prediction.js";
 import type { ClockSync } from "../net/ClockSync.js";
 import type { CameraRig, Framed } from "../scene/CameraRig.js";
 import type { LoopProjectile } from "../scene/ProjectileViews.js";
@@ -39,7 +39,7 @@ export interface LoopPlayer {
   ready?: boolean;
   action: Action;
   /** Present only on the local player (owner-only view, decision 0007). */
-  owner?: { ackInputTick: number; epoch: number } | undefined;
+  owner?: ({ ackInputTick: number; epoch: number } & Partial<OwnerLoco>) | undefined;
 }
 export interface LoopState { serverTick: number; players: Iterable<[string, LoopPlayer]>; projectiles?: Iterable<[string, LoopProjectile]>; urns?: Iterable<[string, LoopUrn]> }
 
@@ -69,6 +69,12 @@ const PING_INTERVAL_MS = 1000;
 const MAX_CATCHUP_TICKS = 8;
 const RESYNC_TICKS = 30;
 const SEND_EVERY_TICKS = 2; // 30 Hz
+
+/** Owner locomotion fields as replicated (GR04); defaults only matter for fixtures that omit them. */
+const locoOf = (o: NonNullable<LoopPlayer["owner"]>): OwnerLoco => ({
+  grounded: o.grounded ?? false, lastGroundedTick: o.lastGroundedTick ?? -1, jumpPressTick: o.jumpPressTick ?? -1,
+  jumpedSinceGrounded: o.jumpedSinceGrounded ?? false, airJumpsUsed: o.airJumpsUsed ?? 0,
+});
 
 /** Returns undefined for an unknown or not-yet-replicated kit so the caller never guesses a model. */
 const toKit = (k: string): KitId | undefined => (k === "sv" || k === "td" || k === "ea" ? k : undefined);
@@ -255,6 +261,11 @@ export class GameLoop {
     if (this.prediction === null) {
       if (!this.gateOpen) return; // no prediction while input is gated; the authoritative pose is presented
       this.prediction = new Prediction(this.d.collide, pos, fromYaw(p.facingYaw));
+      if (p.owner) {
+        this.prediction.state = {
+          vx: fromCm(p.vx), vy: fromCm(p.vy), vz: fromCm(p.vz), facingYaw: fromYaw(p.facingYaw), ...locoOf(p.owner),
+        };
+      }
       this.lastLife = p.lifeId;
       this.lastAction = p.action;
       this.lastAck = p.owner?.ackInputTick ?? 0;
@@ -262,13 +273,12 @@ export class GameLoop {
     }
     const ack = p.owner?.ackInputTick ?? 0;
     const lifeChanged = p.lifeId !== this.lastLife;
-    const actionChanged = p.action !== this.lastAction;
     const fresh = serverTick !== this.lastSeenServerTick;
-    const acked = ack > this.lastAck;
-    if (fresh && (acked || lifeChanged || actionChanged)) {
+    // GR04: every fresh owner snapshot reconciles (ack only acknowledges delivery); the replay anchor is serverTick.
+    if (fresh) {
       this.reconcileCount++;
       const snap: OwnerSnapshot = {
-        serverTick, ...pos,
+        serverTick, ...pos, loco: locoOf(p.owner ?? { ackInputTick: 0, epoch: 0 }),
         vx: fromCm(p.vx), vy: fromCm(p.vy), vz: fromCm(p.vz), facingYaw: fromYaw(p.facingYaw), action: p.action,
       };
       if (ack > 0) snap.ackInputTick = ack;

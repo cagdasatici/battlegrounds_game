@@ -144,6 +144,19 @@ describe("T18b GameLoop", () => {
     expect(r.loop.prediction!.bufferedTicks).toBeLessThan(hist + 2);
   });
 
+  test("GR04: every fresh owner snapshot reconciles even when the ack did not advance; stale ticks are ignored", () => {
+    const r = makeRig();
+    r.clockAt(0, 100);
+    const t = run(r, 0, 20);
+    const before = r.loop.reconcileCount;
+    r.state.serverTick += 1; // fresh snapshot, owner.ackInputTick still 0
+    run(r, t, 1);
+    expect(r.loop.reconcileCount).toBe(before + 1);
+    const n = r.loop.reconcileCount;
+    run(r, t + 1, 3); // no new snapshot
+    expect(r.loop.reconcileCount).toBe(n);
+  });
+
   test("a large server disagreement snaps the local fighter to the replicated pose", () => {
     const r = makeRig();
     r.clockAt(0, 100);

@@ -25,7 +25,11 @@ const fwd: MoveIntent = { moveX: 0, moveZ: -1, run: false, guard: false, jumpPre
 const right: MoveIntent = { ...fwd, moveX: 1, moveZ: 0 };
 const snapOf = (p: Prediction, tick: number, over: Partial<OwnerSnapshot> = {}): OwnerSnapshot => ({
   serverTick: tick, x: p.pos.x, y: p.pos.y, z: p.pos.z, vx: p.state.vx, vy: p.state.vy, vz: p.state.vz,
-  facingYaw: p.state.facingYaw, action: "Idle", ...over,
+  facingYaw: p.state.facingYaw, action: "Idle", loco: locoOf(p), ...over,
+});
+const locoOf = (p: Prediction) => ({
+  grounded: p.state.grounded, lastGroundedTick: p.state.lastGroundedTick, jumpPressTick: p.state.jumpPressTick,
+  jumpedSinceGrounded: p.state.jumpedSinceGrounded, airJumpsUsed: p.state.airJumpsUsed,
 });
 
 function run(p: Prediction, from: number, to: number, i: MoveIntent, sampleEvery = 1, start = from): void {
@@ -114,7 +118,7 @@ describe("Prediction reconciliation (section 22)", () => {
     p.step(4, { ...NEUTRAL_MOVE, jumpPressed: true }, 4);
     for (let t = 5; t <= 8; t++) p.step(t, { ...NEUTRAL_MOVE, jumpPressed: true }, 4); // held sample, edge not repeated
     const vyAfter = p.state.vy;
-    p.reconcile(snapOf(p, 3, { y: FLOOR, vy: 0 }));
+    p.reconcile(snapOf(p, 3, { y: FLOOR, vy: 0, loco: { grounded: true, lastGroundedTick: 3, jumpPressTick: -1, jumpedSinceGrounded: false, airJumpsUsed: 0 } }));
     near(p.state.vy, vyAfter, 1e-9);
   });
 });
@@ -329,3 +333,59 @@ describe("SnapshotBuffer (section 22)", () => {
     b.clear(); expect(b.sample(10)).toBeNull();
   });
 });
+
+describe("GR04 snapshot-tick anchor (spec section 22)", () => {
+  const fresh = () => new Prediction(collide, { x: 0, y: FLOOR, z: 0 });
+  const refAt = (n: number) => { const r = fresh(); run(r, 1, n, fwd); return r; };
+
+  test("pose tick 10 with ack 1 and history through 10 replays nothing; history through 13 replays exactly 11-13", () => {
+    const p = fresh(); run(p, 1, 10, fwd);
+    const ref = refAt(10);
+    expect(p.reconcile(snapOf(ref, 10, { ackInputTick: 1 }))).toBe("none");
+    expect(p.bufferedTicks).toBe(0);
+    const q = fresh(); run(q, 1, 13, fwd);
+    expect(q.reconcile(snapOf(ref, 10, { ackInputTick: 1 }))).toBe("none");
+    expect(q.bufferedTicks).toBe(3);
+    near(q.pos.z, refAt(13).pos.z, 1e-9);
+  });
+
+  test("ack tick never backdates the anchor", () => {
+    const p = fresh(); run(p, 1, 20, fwd);
+    p.reconcile(snapOf(refAt(15), 15, { ackInputTick: 2 }));
+    expect(p.bufferedTicks).toBe(5);
+  });
+
+  test("a stale snapshot inside the epoch is ignored", () => {
+    const p = fresh(); run(p, 1, 20, fwd);
+    p.reconcile(snapOf(refAt(15), 15));
+    const at = { ...p.pos };
+    expect(p.reconcile(snapOf(refAt(5), 5, { x: 3 }))).toBe("none");
+    expect(p.pos).toEqual(at);
+  });
+
+  test("a spent air jump stays spent after the history is cleared by a snap", () => {
+    const p = fresh();
+    expect(p.reconcile(snapOf(p, 5, { y: 3, loco: { grounded: false, lastGroundedTick: 1, jumpPressTick: -1, jumpedSinceGrounded: true, airJumpsUsed: 1 } }), true)).toBe("snap");
+    expect(p.state.airJumpsUsed).toBe(1);
+    p.step(6, { ...NEUTRAL_MOVE, jumpPressed: true }, 6);
+    expect(p.state.airJumpsUsed).toBe(1);
+    expect(p.state.vy).toBeLessThan(0.5 * COMBAT.capsule.jumpSpeed); // no third jump impulse
+  });
+
+  test("dash, windup, active, recovery and awakening add no free locomotion; guard and idle predict", () => {
+    for (const action of ["Dash", "Windup", "Active", "Recovery", "Awakening"] as const) {
+      const p = fresh(); run(p, 1, 5, NEUTRAL_MOVE);
+      p.reconcile(snapOf(p, 5, { action }));
+      const at = { ...p.pos };
+      run(p, 6, 15, fwd);
+      expect(p.pos).toEqual(at);
+      expect(p.reconcile(snapOf(p, 16, { action: "Idle" }))).toBeDefined();
+      run(p, 17, 20, fwd);
+      expect(p.pos.z).toBeLessThan(at.z);
+    }
+    const g = fresh(); g.reconcile(snapOf(g, 5, { action: "Guard" }));
+    run(g, 6, 15, { ...fwd, guard: true });
+    expect(g.pos.z).toBeLessThan(-0.1);
+  });
+});
+

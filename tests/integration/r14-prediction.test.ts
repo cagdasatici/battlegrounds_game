@@ -120,22 +120,22 @@ describe("R14 prediction against the real Rapier collider", () => {
     await waitFor(() => view().owner?.ackInputTick === stopSample, 2000, "owner ack replicated");
     const w = view();
     const snap: OwnerSnapshot = {
-      serverTick: finalTick, ackInputTick: w.owner.ackInputTick,
+      serverTick: finalTick, ackInputTick: w.owner.ackInputTick, loco: { ...w.owner },
       x: w.x / 100, y: w.y / 100, z: w.z / 100, vx: w.vx / 100, vy: w.vy / 100, vz: w.vz / 100,
       facingYaw: pred.state.facingYaw, action: "Idle",
     };
     const bufferedBefore = pred.bufferedTicks;
     const result = pred.reconcile(snap);
     expect(["none", "small"]).toContain(result);
-    // Everything up to and including the acked sample tick was discarded; later ticks remain for replay.
-    expect(pred.bufferedTicks).toBeLessThan(bufferedBefore);
+    // Everything up to and including the snapshot tick was discarded (GR04).
+    expect(pred.bufferedTicks).toBeLessThanOrEqual(bufferedBefore);
     expect(Math.hypot(pred.pos.x - serverAt.get(finalTick)!.x, pred.pos.z - serverAt.get(finalTick)!.z)).toBeLessThan(0.1);
 
     kit.dispose();
     await a.leave(); await b.leave();
   }, 20000);
 
-  test("reconcile replays only inputs after ackInputTick (anchor is the ack, not serverTick)", () => {
+  test("reconcile replays only inputs after snapshot serverTick (ackInputTick is diagnostic, GR04 / spec section 22)", () => {
     const map = loadMapFile();
     const kit = createRapierCollide(map);
     const floorY = 0.9;
@@ -145,8 +145,8 @@ describe("R14 prediction against the real Rapier collider", () => {
     const ref = new Prediction(kit.collide, { x: 0, y: floorY, z: 0 });
     for (let t = 1; t <= 5; t++) ref.step(t, fwd, t);
     const snap: OwnerSnapshot = {
-      serverTick: 999, ackInputTick: 5, x: ref.pos.x, y: ref.pos.y, z: ref.pos.z,
-      vx: ref.state.vx, vy: ref.state.vy, vz: ref.state.vz, facingYaw: ref.state.facingYaw, action: "Idle",
+      serverTick: 5, ackInputTick: 1, x: ref.pos.x, y: ref.pos.y, z: ref.pos.z,
+      vx: ref.state.vx, vy: ref.state.vy, vz: ref.state.vz, facingYaw: ref.state.facingYaw, action: "Idle", loco: { ...ref.state },
     };
     expect(pred.reconcile(snap)).toBe("none");
     expect(pred.bufferedTicks).toBe(5);

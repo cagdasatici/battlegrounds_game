@@ -122,6 +122,10 @@ export class TickPipeline {
     p.vx = i16(b.state.vx); p.vy = i16(b.state.vy); p.vz = i16(b.state.vz);
     p.facingYaw = quantizeYaw(b.state.facingYaw);
     p.airJumpUsed = b.state.airJumpsUsed > 0 && !b.state.grounded;
+    // GR04: owner locomotion state is published with the pose so client prediction can fully replace its state.
+    const o = p.owner, ms = b.state;
+    o.grounded = ms.grounded; o.lastGroundedTick = ms.lastGroundedTick; o.jumpPressTick = ms.jumpPressTick;
+    o.jumpedSinceGrounded = ms.jumpedSinceGrounded; o.airJumpsUsed = Math.min(255, ms.airJumpsUsed);
   }
 
   private grounded(id: number): boolean {

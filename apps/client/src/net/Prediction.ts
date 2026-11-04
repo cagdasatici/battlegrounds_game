@@ -34,13 +34,21 @@ interface Entry {
   pos: P3;
 }
 
+/** GR04 owner locomotion fields, replicated with the pose (spec section 22). */
+export interface OwnerLoco {
+  grounded: boolean;
+  lastGroundedTick: number;
+  jumpPressTick: number;
+  jumpedSinceGrounded: boolean;
+  airJumpsUsed: number;
+}
+
 export interface OwnerSnapshot {
+  /** Replay anchor (GR04): the authoritative pose is the state after this server tick; history is keyed by estimated server tick. */
   serverTick: number;
-  /**
-   * Owner `ackInputTick` (R08): the client sampleTick of the last input the server accepted. When present it is the
-   * replay anchor; history is keyed by client sample ticks, not by server ticks.
-   */
+  /** Owner `ackInputTick`: diagnostic client sample time only. It never anchors or backdates an authoritative pose. */
   ackInputTick?: number;
+  loco: OwnerLoco;
   x: number; y: number; z: number;
   vx: number; vy: number; vz: number;
   facingYaw: number;
@@ -49,6 +57,9 @@ export interface OwnerSnapshot {
 
 /** Actions under which locomotion prediction is suspended until a newer permitting action. */
 const SUSPEND: ReadonlySet<Action> = new Set<Action>(["Stunned", "Ragdolled", "Captured", "Dead"]);
+
+/** Actions with no speculative locomotion for this slice: authoritative pose updates only (GR04). Guard and Idle predict. */
+const NO_LOCOMOTION: ReadonlySet<Action> = new Set<Action>(["Dash", "Windup", "Active", "Recovery", "Awakening"]);
 
 export type Correction = "none" | "small" | "medium" | "snap" | "suspended";
 
@@ -59,6 +70,9 @@ export class Prediction {
   /** Corrected simulation pose; the only pose used for collision. */
   pos: P3;
   suspended = false;
+  /** True while an ability action owns motion: the pose follows authority and step() adds no free locomotion. */
+  noLocomotion = false;
+  private lastSnapTick = -Infinity;
   private history: Entry[] = [];
   private visual: P3 = { x: 0, y: 0, z: 0 };
   private easeTotalMs = 0;
@@ -89,7 +103,7 @@ export class Prediction {
    */
   step(tick: number, intent: MoveIntent, sampleTick: number): void {
     const held = { ...intent, jumpPressed: intent.jumpPressed && tick === sampleTick };
-    if (!this.suspended) this.pos = this.simulate(this.state, this.pos, Prediction.leased(held, sampleTick, tick), tick);
+    if (!this.suspended && !this.noLocomotion) this.pos = this.simulate(this.state, this.pos, Prediction.leased(held, sampleTick, tick), tick);
     this.history.push({ tick, intent: held, sampleTick, state: cloneState(this.state), pos: { ...this.pos } });
     if (this.history.length > PREDICTION.historyTicks) this.history.shift();
   }
@@ -103,23 +117,29 @@ export class Prediction {
    * respawn events. Returns the correction class applied.
    */
   reconcile(snap: OwnerSnapshot, forceSnap = false): Correction {
+    if (snap.serverTick < this.lastSnapTick && !forceSnap) return "none"; // old snapshot within this epoch
+    this.lastSnapTick = Math.max(this.lastSnapTick, snap.serverTick);
     const before = { ...this.pos };
-    const anchor = snap.ackInputTick ?? snap.serverTick;
-    const base = this.history.find((e) => e.tick === anchor);
-    const s: MoveState = base ? cloneState(base.state) : cloneState(this.state);
-    s.vx = snap.vx; s.vy = snap.vy; s.vz = snap.vz; s.facingYaw = snap.facingYaw;
+    // The authoritative state replaces local state wholesale, so a spent air jump stays spent after history is cleared.
+    const s: MoveState = {
+      vx: snap.vx, vy: snap.vy, vz: snap.vz, facingYaw: snap.facingYaw,
+      grounded: snap.loco.grounded, lastGroundedTick: snap.loco.lastGroundedTick, jumpPressTick: snap.loco.jumpPressTick,
+      jumpedSinceGrounded: snap.loco.jumpedSinceGrounded, airJumpsUsed: snap.loco.airJumpsUsed,
+    };
     let pos: P3 = { x: snap.x, y: snap.y, z: snap.z };
-    // Discard everything the server has already simulated.
-    this.history = this.history.filter((e) => e.tick > anchor);
+    // Discard everything the server has already simulated (entries at or before the snapshot tick).
+    this.history = this.history.filter((e) => e.tick > snap.serverTick);
 
     if (SUSPEND.has(snap.action) || forceSnap) {
       this.suspended = SUSPEND.has(snap.action);
+      this.noLocomotion = false;
       this.state = s; this.pos = pos; this.clear();
       return this.suspended ? "suspended" : "snap";
     }
     this.suspended = false;
+    this.noLocomotion = NO_LOCOMOTION.has(snap.action);
 
-    const replay = this.history.slice(0, PREDICTION.maxReplayTicks);
+    const replay = this.noLocomotion ? [] : this.history.slice(0, PREDICTION.maxReplayTicks);
     this.history = [];
     for (const e of replay) {
       pos = this.simulate(s, pos, Prediction.leased(e.intent, e.sampleTick, e.tick), e.tick);

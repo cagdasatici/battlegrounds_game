@@ -68,7 +68,7 @@ describe("HTTP contracts", () => {
     const base = { roomCode: "play", ticket: "a".repeat(64), protocolVersion: PROTOCOL_VERSION, contentHash: "0".repeat(16) };
     expect(JoinOptionsSchema.safeParse(base).success).toBe(true);
     expect(JoinOptionsSchema.safeParse({ ...base, ticket: "zz" }).success).toBe(false);
-    expect(JoinOptionsSchema.safeParse({ ...base, protocolVersion: 2 }).success).toBe(false);
+    expect(JoinOptionsSchema.safeParse({ ...base, protocolVersion: PROTOCOL_VERSION + 1 }).success).toBe(false);
   });
 });
 
@@ -76,7 +76,7 @@ describe("protocol compatibility", () => {
   const local = { protocolVersion: PROTOCOL_VERSION, contentHash: computeContentHash() };
   test("same version and hash is ok", () => expect(checkCompatibility(local, local)).toBe("ok"));
   test("version mismatch refused", () =>
-    expect(checkCompatibility({ ...local, protocolVersion: 2 }, local)).toBe("VERSION_MISMATCH"));
+    expect(checkCompatibility({ ...local, protocolVersion: PROTOCOL_VERSION + 1 }, local)).toBe("VERSION_MISMATCH"));
   test("hash mismatch refused", () =>
     expect(checkCompatibility({ ...local, contentHash: "f".repeat(16) }, local)).toBe("VERSION_MISMATCH"));
 });

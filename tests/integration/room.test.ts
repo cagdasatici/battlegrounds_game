@@ -70,7 +70,7 @@ describe("A17 room-level authentication", () => {
     const t = await c.requestTicket("play");
     await expect(sdk().joinOrCreate("arena", { ...opts(t.ticket), contentHash: "f".repeat(16) })).rejects.toBeTruthy();
     const t2 = await c.requestTicket("play");
-    await expect(sdk().joinOrCreate("arena", { ...opts(t2.ticket), protocolVersion: 2 })).rejects.toBeTruthy();
+    await expect(sdk().joinOrCreate("arena", { ...opts(t2.ticket), protocolVersion: PROTOCOL_VERSION + 1 })).rejects.toBeTruthy();
   });
   test("extra join option keys are refused (strict)", async () => {
     const c = await loginClient(h, "Arel");
