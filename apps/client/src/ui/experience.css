@@ -60,7 +60,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .eb-hud [data-hud=menu] button,.eb-hud [data-hud=kit] button{color:var(--eb-ink);background:#29443b;border:1px solid #ffffff25;border-radius:12px;padding:10px}
 @media(max-width:760px){.eb-home{grid-template-columns:1fr;gap:8px}.eb-hero{padding:16px 0}.eb-hero-art{display:none}.eb-screen h1{font-size:40px;max-width:440px}.eb-home-actions{padding:20px}.eb-settings-grid{grid-template-columns:1fr}.eb-launcher{position:static!important}.eb-screen{padding:24px!important}.eb-screen[data-screen=welcome]{padding-top:110px!important}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important}}
-.eb-move-guide{position:fixed;inset:0;z-index:55;overflow:auto;background:radial-gradient(ellipse at top,#23423a,#0a1719 65%);color:var(--eb-ink);padding:24px;box-sizing:border-box;font:15px/1.6 system-ui}
+.eb-move-guide{position:fixed;inset:0;z-index:60;overflow:auto;background:radial-gradient(ellipse at top,#23423a,#0a1719 65%);color:var(--eb-ink);padding:24px;box-sizing:border-box;font:15px/1.6 system-ui}
 .eb-move-guide button{background:#19352d;border:1px solid #ffffff26;color:var(--eb-ink);border-radius:12px;min-height:48px;padding:10px 20px;font:650 14px system-ui;cursor:pointer}.eb-move-guide button[aria-pressed=true]{background:var(--eb-mint);color:#152718}.eb-move-guide>.eb-settings-shell>p{color:var(--eb-muted)}
 .eb-move-cards{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:24px 0}.eb-move-number{display:inline-flex;align-items:center;justify-content:center;border:1px solid #c7f38b55;background:#c7f38b12;color:var(--eb-mint);border-radius:12px;min-width:64px;min-height:44px;font-size:20px;margin-bottom:12px}
 .eb-move-cards h3{font-size:24px}.eb-move-cards .eb-eyebrow{font-size:10px;margin:8px 0 16px}.eb-move-cards p{font-size:14px!important;line-height:1.7}.eb-move-stats{padding-top:14px;border-top:1px solid var(--eb-line);color:var(--eb-mint)!important;font-size:12px!important}
@@ -111,9 +111,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .eb-hud [data-hud=info]{font-weight:650;font-size:14px;letter-spacing:.01em;font-variant-numeric:tabular-nums}
 /* Skill slots: stacked label / hint / state that fit their box */
 .eb-hud [data-control]{flex-direction:column!important;gap:2px;overflow:hidden;padding:4px 6px;text-align:center;line-height:1.1}
-.eb-hud [data-control] span:first-child{font-size:11px;font-weight:700;letter-spacing:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:100%}
+.eb-hud [data-control]:not([data-structure]) span:first-child{font-size:11px;font-weight:700;letter-spacing:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:100%}
 .eb-hud [data-control] small{font-size:8px;letter-spacing:.1em;opacity:.6;white-space:nowrap}
-.eb-hud [data-control] span:last-child:not(:first-child){font-size:10px;font-weight:650;color:var(--eb-mint);letter-spacing:.04em;text-transform:uppercase}
+.eb-hud [data-control]:not([data-structure]) span:last-child:not(:first-child){font-size:10px;font-weight:650;color:var(--eb-mint);letter-spacing:.04em;text-transform:uppercase}
 .eb-hud [data-control]:not(:has(small)):not(:has(span+span)) {font-size:13px;font-weight:700;letter-spacing:.02em}
 
 /* HUD pass 2: health bar, Awaken meter, slots, buttons, panels */
@@ -126,11 +126,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .eb-hud [data-control=awaken][data-ready="1"]{animation:eb-ready 1.4s ease-in-out infinite;color:#fff;border-color:#ffd98a!important}
 @keyframes eb-ready{50%{box-shadow:0 0 28px #ffa23a99,inset 0 1px 0 #ffffff55}}
 /* Skill slots: number badge feel, name clamped, hint folded away (kept in the Moves guide) */
-.eb-hud [data-control^=skill]{border-radius:16px!important;padding:6px 6px 5px!important;justify-content:center!important;border-width:1px!important}
+.eb-hud [data-control^=skill]{border-radius:16px!important;justify-content:center!important;border-width:1px!important}
 .eb-hud [data-control^=skill][style*="solid"]{border-color:#ffffff40!important}
 .eb-hud [data-control^=skill] small{display:none}
-.eb-hud [data-control^=skill] span:first-child{font-size:11.5px!important;line-height:1.15;-webkit-line-clamp:2}
-.eb-hud [data-control^=skill] span:last-child:not(:first-child){margin-top:3px;font-size:9px;letter-spacing:.1em;padding:1px 7px;border-radius:999px;background:#c7f38b1f;color:var(--eb-mint)}
 .eb-hud [data-control=menu],.eb-hud [data-control=fighter],.eb-hud [data-control=scoreboard]{border-radius:14px!important;font-size:11px;font-weight:650;letter-spacing:0;padding:0 4px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .eb-hud [data-control=attack],.eb-hud [data-control=jump],.eb-hud [data-control=dash],.eb-hud [data-control=block],.eb-hud [data-control=facing]{border:1px solid #ffffff3d!important;font-size:12px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;box-shadow:0 10px 26px #0006,inset 0 2px 0 #ffffff2e,inset 0 -10px 18px #0004}
 .eb-hud [data-control=attack]{background:radial-gradient(circle at 35% 30%,#ff8d6a,#c8442c 70%)!important;font-size:14px}
@@ -142,3 +140,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 [data-ui=practice] button:hover:not(:disabled){border-color:var(--eb-mint)!important}
 [data-ui=practice] select{min-height:38px;border-radius:10px!important}
 [data-ui=practice]{width:min(320px,36vw)!important;max-height:calc(100vh - 230px)!important;padding:14px 16px!important;font-family:var(--eb-font)!important}
+/* GR11: a modal owns input, so world labels and transient combat callouts step aside (state is kept). */
+html[data-modal-open] [data-ui=nameplates],html[data-modal-open] [data-ui=combat-text],html[data-modal-open] [data-hud=info],html[data-modal-open] [data-hud=block-feedback],html[data-modal-open] [data-hud=rejection]{visibility:hidden!important}
+/* GR11: combat state buttons follow the fixed text budget (sizes are set inline from the button width); nothing here may change them. */
+.eb-hud [data-control][data-structure]{padding:3px!important;gap:0!important;line-height:normal;letter-spacing:0!important;text-transform:none!important;text-align:left;justify-content:center!important;align-items:stretch!important}
+.eb-hud [data-control][data-structure] [data-part=state]{color:var(--eb-mint);text-align:center}
+.eb-hud [data-control][data-structure] [data-part=name]{color:var(--eb-ink)}

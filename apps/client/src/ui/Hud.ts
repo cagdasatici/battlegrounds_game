@@ -4,6 +4,7 @@
  */
 import type { ControlId, Layout, SafeRect } from "../input/ControlLayout.js";
 import { shortSkillLabel, skillStatus, type ScoreRow, type SkillAvailability } from "./HudFormat.js";
+import { LAYER } from "./Layers.js";
 
 export interface HudState {
   name: string;
@@ -38,7 +39,8 @@ export interface HudState {
   stillpointText?: string;
   rejection?: string | null;
   /** Death overlay: scorer name and whole seconds left. */
-  respawn?: { by: string; byKit: string; byHpFrac: number | null; seconds: number; frac: number } | null;
+  /** GR11: `by`/`byKit`/`byHpFrac` are frozen at the KO event; `fell` = uncredited fall (no "by" line). */
+  respawn?: { by: string; byKit: string; byHpFrac: number | null; seconds: number; frac: number; fell?: boolean } | null;
   scoreboard?: readonly ScoreRow[] | null;
   /** Kit choice panel; null = closed. */
   /** Esc/Menu panel: the arena keeps running while it is open. */
@@ -46,7 +48,7 @@ export interface HudState {
   kitMenu?: { kits: readonly { id: string; label: string }[]; current: string; pending: string } | null;
 }
 
-export interface HudBox { id: ControlId; left: number; top: number; width: number; height: number; round: boolean; label: string; sub?: string; ready?: boolean; hint?: string }
+export interface HudBox { id: ControlId; left: number; top: number; width: number; height: number; round: boolean; label: string; sub?: string; ready?: boolean; hint?: string; slot?: number; name?: string }
 export interface HudModel { boxes: HudBox[]; panel: null | "rotate" | "enlarge"; hpText: string; meterPct: number; awakenReady: boolean; meterText: string }
 
 const LABELS: Record<ControlId, string> = {
@@ -77,9 +79,9 @@ export function hudModel(layout: Layout, st: HudState): HudModel {
       const a = st.skillStates?.[slot];
       const s = a ? { ready: a.kind === "ready", text: a.text } : skillStatus(st.cooldowns?.[slot] ?? "");
       box.label = `${slot + 1} ${shortSkillLabel(st.skills[slot] ?? "")}`.trim();
-      const hint = st.skillRoles?.[slot]; if (hint !== undefined) box.hint = hint;
       box.sub = s.text; box.ready = s.ready;
-      if (a?.kind === "charging") box.hint = "Release to fire";
+      if (a?.kind === "charging") box.hint = "Release to fire"; // aria-label only (GR11: no role row on the button)
+      box.slot = slot + 1; box.name = shortSkillLabel(st.skills[slot] ?? "");
     }
     if (c.id === "block" && st.blocked) { box.label = "Blocked!"; box.ready = true; }
     return box;
@@ -107,6 +109,7 @@ export function readSafeRect(win: Window, probe: HTMLElement): SafeRect {
 export class Hud {
   private readonly root: HTMLElement;
   private readonly els = new Map<ControlId, HTMLElement>();
+  private readonly stateEls = new WeakMap<HTMLElement, HTMLElement>();
   private readonly panel: HTMLElement;
 
   private readonly info: HTMLElement;
@@ -116,6 +119,7 @@ export class Hud {
   private readonly board: HTMLElement;
   private readonly kitPanel: HTMLElement;
   private readonly menuPanel: HTMLElement;
+  private readonly backdrop: HTMLElement;
   private kitKey = "";
   private koKey = "";
   private boardKey = "";
@@ -135,7 +139,7 @@ export class Hud {
     this.root.className = "eb-hud";
     this.root.style.cssText = "position:fixed;inset:0;pointer-events:none;font:600 13px Inter,system-ui,sans-serif;color:#fff";
     this.panel = doc.createElement("div");
-    this.panel.style.cssText = "position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#000c;font-size:20px";
+    this.panel.style.cssText = `z-index:${LAYER.modalContent};position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#000c;font-size:20px`;
     this.root.appendChild(this.panel);
     const mk = (cls: string, css: string): HTMLElement => {
       const el = doc.createElement("div");
@@ -144,15 +148,16 @@ export class Hud {
       this.root.appendChild(el);
       return el;
     };
-    this.info = mk("info", "left:50%;top:8px;transform:translateX(-50%);text-shadow:0 1px 2px #000;white-space:pre");
-    this.objectiveEl = mk("objective", "left:50%;top:68px;transform:translateX(-50%);max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;text-shadow:0 1px 2px #000;z-index:8");
-    this.badge = mk("block-feedback", "left:50%;top:44%;transform:translateX(-50%);background:#e8b84af0;color:#111;padding:6px 18px;border-radius:14px;font-size:20px");
+    this.backdrop = mk("backdrop", `z-index:${LAYER.modalBackdrop};inset:0;background:#0b111866;pointer-events:none`);
+    this.info = mk("info", `left:50%;top:92px;transform:translateX(-50%);max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;text-shadow:0 1px 2px #000;z-index:${LAYER.hud}`);
+    this.objectiveEl = mk("objective", `left:50%;top:68px;transform:translateX(-50%);max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;text-shadow:0 1px 2px #000;z-index:${LAYER.hud}`);
+    this.badge = mk("block-feedback", `z-index:${LAYER.hud};left:50%;top:44%;transform:translateX(-50%);background:#e8b84af0;color:#111;padding:6px 18px;border-radius:14px;font-size:20px`);
     this.badge.textContent = "Blocked!";
-    this.toast = mk("rejection", "left:50%;top:56%;transform:translateX(-50%);background:#000a;padding:6px 14px;border-radius:14px");
-    this.death = mk("respawn", "inset:0;align-items:center;justify-content:center;flex-direction:column;background:#300a;font-size:26px;text-align:center");
-    this.board = mk("scoreboard", "right:12px;top:60px;background:#0b1118ee;border:2px solid #9fd3ff88;border-radius:10px;padding:8px 12px;min-width:220px");
-    this.kitPanel = mk("kit", "left:50%;top:50%;transform:translate(-50%,-50%);background:#0b1118f2;border:2px solid #9fd3ff88;border-radius:12px;padding:12px 16px;pointer-events:auto;text-align:center");
-    this.menuPanel = mk("menu", "left:50%;top:50%;transform:translate(-50%,-50%);background:#0b1118f2;border:2px solid #9fd3ff88;border-radius:12px;padding:12px 16px;pointer-events:auto;text-align:center");
+    this.toast = mk("rejection", `z-index:${LAYER.hud};left:50%;top:56%;transform:translateX(-50%);background:#000a;padding:6px 14px;border-radius:14px`);
+    this.death = mk("respawn", `z-index:${LAYER.hud};inset:0;align-items:center;justify-content:center;flex-direction:column;background:#300a;font-size:26px;text-align:center`);
+    this.board = mk("scoreboard", `z-index:${LAYER.hud};right:12px;top:60px;background:#0b1118ee;border:2px solid #9fd3ff88;border-radius:10px;padding:8px 12px;min-width:220px`);
+    this.kitPanel = mk("kit", `z-index:${LAYER.modalContent};left:50%;top:50%;transform:translate(-50%,-50%);background:#0b1118f2;border:2px solid #9fd3ff88;border-radius:12px;padding:12px 16px;pointer-events:auto;text-align:center`);
+    this.menuPanel = mk("menu", `z-index:${LAYER.modalContent};left:50%;top:50%;transform:translate(-50%,-50%);background:#0b1118f2;border:2px solid #9fd3ff88;border-radius:12px;padding:12px 16px;pointer-events:auto;text-align:center`);
     this.menuPanel.append(Object.assign(doc.createElement("div"), { textContent: "The arena continues while this menu is open." }));
     const leave = Object.assign(doc.createElement("button"), { textContent: "Leave" });
     leave.dataset["leave"] = "1";
@@ -229,12 +234,13 @@ export class Hud {
     }
     this.kitPanel.style.display = km ? "block" : "none";
     this.menuPanel.style.display = st.menuOpen ? "block" : "none";
+    this.backdrop.style.display = st.menuOpen || km ? "block" : "none";
   }
 
   /** KO card: rebuilt only when its content changes; the ring is updated in place. */
   private renderKo(d: NonNullable<HudState["respawn"]> | null): void {
     const sec = d ? Math.max(1, d.seconds) : 0;
-    const key = d ? `${d.by}|${d.byKit}|${d.byHpFrac === null ? "-" : Math.round(d.byHpFrac * 100)}|${sec}` : "";
+    const key = d ? `${d.fell ? "fell" : "by"}|${d.by}|${d.byKit}|${d.byHpFrac === null ? "-" : Math.round(d.byHpFrac * 100)}|${sec}` : "";
     if (key !== this.koKey) {
       this.koKey = key;
       this.koRing = null;
@@ -242,7 +248,7 @@ export class Hud {
       if (d) {
         const mk = (tag: string, text = "", css = ""): HTMLElement => { const e = this.doc.createElement(tag); e.textContent = text; if (css) e.style.cssText = css; return e; };
         const card = mk("div", "", "display:flex;flex-direction:column;align-items:center;gap:10px;padding:22px 32px;border-radius:18px;background:#102521f5;border:1px solid #ffffff30");
-        card.append(mk("div", "Knocked out", "font-size:28px;font-weight:700"), mk("div", `by ${d.by} \u00b7 ${d.byKit}`, "font-size:16px"));
+        card.append(mk("div", "Knocked out", "font-size:28px;font-weight:700"), mk("div", d.fell ? "Fell from the arena" : d.byKit ? `by ${d.by} \u00b7 ${d.byKit}` : `by ${d.by}`, "font-size:16px"));
         if (d.byHpFrac !== null) {
           const pct = Math.round(Math.min(1, Math.max(0, d.byHpFrac)) * 100);
           const bar = mk("div", "", `width:64px;height:8px;border-radius:4px;background:linear-gradient(90deg,#3fae6a ${pct}%,#1d2b3a ${pct}%)`);
@@ -310,6 +316,35 @@ export class Hud {
   /** Control opacity from the layout editor (0.35 to 0.90); display only. */
   setOpacity(o: number): void { this.opacity = Number.isFinite(o) ? Math.min(1, Math.max(0.2, o)) : 1; }
 
+  /**
+   * GR11 text budget for skill/dash buttons: slot number top-left, name <= 2 lines (11/12 px, 10/11 px under 64 px wide),
+   * one state line (13/14 px, 11/12 px under 64 px wide). The DOM is rebuilt only when the equipped move changes;
+   * state text, border and ring update in place every tick.
+   */
+  private paintStateButton(el: HTMLElement, b: HudBox): void {
+    const wide = b.width >= 64;
+    const structure = `${b.slot ?? 0}|${b.name ?? b.label}|${wide ? 1 : 0}`;
+    if (el.dataset["structure"] !== structure) {
+      el.dataset["structure"] = structure;
+      const mk = (css: string, text: string, role: string): HTMLElement => { const e = this.doc.createElement("span"); e.dataset["part"] = role; e.style.cssText = css; e.textContent = text; return e; };
+      const nameCss = `display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;text-align:left;font-size:${wide ? 11 : 10}px;line-height:${wide ? 12 : 11}px;max-height:${wide ? 24 : 22}px;text-indent:${b.slot ? 10 : 0}px;font-weight:600`;
+      const stateCss = `display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;font-size:${wide ? 13 : 11}px;line-height:${wide ? 14 : 12}px;max-height:${wide ? 14 : 12}px;font-weight:700`;
+      const kids: HTMLElement[] = [];
+      if (b.slot) kids.push(mk(`position:absolute;left:3px;top:2px;font-size:10px;line-height:11px;opacity:.85`, String(b.slot), "slot"));
+      kids.push(mk(nameCss, b.name ?? b.label, "name"), mk(stateCss, "", "state"));
+      el.replaceChildren(...kids);
+      this.stateEls.set(el, kids[kids.length - 1]!);
+      Object.assign(el.style, { flexDirection: "column", justifyContent: "center", alignItems: "stretch", whiteSpace: "normal", overflow: "hidden", padding: "3px", gap: "0px" });
+      el.style.position = "absolute";
+    }
+    const state = this.stateEls.get(el);
+    const t = b.ready ? "Ready" : b.sub ?? "";
+    if (state && state.textContent !== t) state.textContent = t;
+    if (el.dataset["state"] !== b.sub) el.dataset["state"] = b.sub ?? "";
+    el.style.borderStyle = b.ready ? "solid" : "dashed";
+    el.style.borderWidth = b.ready ? "3px" : "2px";
+  }
+
   render(layout: Layout, st: HudState): HudModel {
     const m = hudModel(layout, st);
     for (const b of m.boxes) {
@@ -326,20 +361,16 @@ export class Hud {
       el.style.width = `${b.width}px`;
       el.style.height = `${b.height}px`;
       el.style.borderRadius = b.round ? "50%" : "10px";
-      if (b.sub !== undefined) {
-        el.replaceChildren(
-          Object.assign(this.doc.createElement("span"), { textContent: b.label }),
-          ...(b.hint ? [Object.assign(this.doc.createElement("small"), { textContent: b.hint })] : []),
-          Object.assign(this.doc.createElement("span"), { textContent: b.ready ? "Ready" : b.sub }),
-        );
-        Object.assign(el.style, { flexDirection: "column", lineHeight: "1.15", fontSize: "10px", whiteSpace: "normal", textAlign: "center", overflow: "hidden", padding: "3px" });
-        el.style.fontSize = b.width >= 64 ? "13px" : "10px";
-        el.dataset["state"] = b.sub;
-        el.style.borderStyle = b.ready ? "solid" : "dashed";
-        el.style.borderWidth = b.ready ? "3px" : "2px";
-      } else {
-        el.textContent = b.id === "health" ? `${b.label} ${m.hpText}` : b.label;
+      el.style.zIndex = String(LAYER.hud);
+      if (b.sub !== undefined) this.paintStateButton(el, b);
+      else {
+        const t = b.id === "health" ? `${b.label} ${m.hpText}` : b.label;
+        if (el.dataset["structure"] !== undefined) { delete el.dataset["structure"]; this.stateEls.delete(el); el.textContent = ""; }
+        if (el.textContent !== t) el.textContent = t;
       }
+      if (el.dataset["a11y"] !== "1") { el.dataset["a11y"] = "1"; el.setAttribute("role", b.id === "health" ? "img" : "button"); }
+      const aria = b.sub !== undefined ? `${b.name ?? b.label}, ${b.slot ? "slot " + b.slot + ", " : ""}${b.ready ? "Ready" : b.sub}${b.hint ? ", " + b.hint : ""}` : (b.id === "health" ? `${b.label} ${m.hpText}` : b.label);
+      if (el.getAttribute("aria-label") !== aria) el.setAttribute("aria-label", aria);
       if (b.id === "block") {
         el.style.background = st.blocked ? "#e8b84acc" : "#1d2b3acc";
         el.style.borderColor = st.blocked ? "#fff" : "#9fd3ff88";

@@ -138,7 +138,8 @@ test("ea.b3 charge: percentage and release hint come from the authoritative star
     await A.page.mouse.down();
     await until(async () => (await mine()).chargeStartTick > 0 || null, 8000, "server charge start");
     const first = await until(async () => { const t = await text(A.page, "skill3"); return /Charge \d+%/.test(t) ? t : false; }, 5000, "Charge NN% shown");
-    expect(first).toContain("Release to fire");
+    expect(first).toMatch(/Charge \d+%/);
+    expect(await ctrl(A.page, "skill3").getAttribute("aria-label")).toContain("Release to fire"); // GR11: the hint lives in the label, not a button row
     // The displayed percentage derives from the authoritative start tick: compare with the server clock (client estimate loose 25 % tolerance for client clock estimate and sampling lag).
     const m = await mine();
     const shownPct = Number(/Charge (\d+)%/.exec(await text(A.page, "skill3"))?.[1] ?? NaN);

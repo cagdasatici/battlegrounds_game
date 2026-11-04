@@ -5,6 +5,7 @@
  */
 import type { Difficulty } from "@eb/shared/sparring";
 import { tutorialView } from "./PracticeFormat.js";
+import { LAYER } from "./Layers.js";
 
 export interface PracticeState { step: number; skillMask: number; dummyGuard: boolean; dummyRagdoll: boolean; botCount?: number; botDifficulty?: string }
 
@@ -13,6 +14,8 @@ export class PracticePanel {
   private readonly onChange: (e: Event) => void;
   private readonly onClick: (e: Event) => void;
   private key = "";
+  /** GR11: collapsed by default (title, hint, Expand); expanded configuration overlays the arena, never a modal. */
+  private expanded = false;
   private cur: PracticeState = { step: 0, skillMask: 0, dummyGuard: false, dummyRagdoll: false };
   /** Toggles as last requested by this person; rapid clicks build on each other until the server's value arrives. */
   private intent = { guard: false, ragdoll: false };
@@ -24,10 +27,11 @@ export class PracticePanel {
     this.root = doc.createElement("div");
     this.root.dataset["ui"] = "practice";
     // Top centre, below the safe-area inset; the touch controls sit at the screen sides and bottom.
-    this.root.style.cssText = "position:fixed;top:calc(max(8px,env(safe-area-inset-top)) + 46px);left:max(16px,env(safe-area-inset-left));z-index:20;"
+    this.root.style.cssText = "position:fixed;top:calc(max(8px,env(safe-area-inset-top)) + 46px);left:max(16px,env(safe-area-inset-left));z-index:" + LAYER.practice + ";"
       + "width:min(280px,30vw);max-height:46vh;overflow:auto;padding:8px 10px;border-radius:12px;box-sizing:border-box;"
       + "background:#0b1118d9;color:#fff;font:13px Inter,system-ui,sans-serif;pointer-events:auto";
     this.onClick = (e: Event): void => {
+      if ((e.target as HTMLElement | null)?.closest?.("button[data-expand]")) { this.expanded = !this.expanded; this.render(this.cur, true); return; }
       if ((e.target as HTMLElement | null)?.closest?.("button[data-moves]")) { this.onMoves(); return; }
       const action = (e.target as HTMLElement | null)?.closest?.("button[data-bots]") as HTMLElement | null;
       if (action) {
@@ -54,8 +58,9 @@ export class PracticePanel {
     this.render(this.cur);
   }
 
-  render(st: PracticeState): void {
-    const key = JSON.stringify(st);
+  render(st: PracticeState, force = false): void {
+    const key = JSON.stringify([st, this.expanded]);
+    if (force) this.key = "";
     if (key === this.key) return;
     this.key = key;
     this.cur = st;
@@ -66,6 +71,15 @@ export class PracticePanel {
     title.textContent = "Practice";
     title.style.cssText = "font:700 15px Inter,system-ui,sans-serif;margin-bottom:4px";
     this.root.append(title);
+    const hint = this.doc.createElement("p");
+    hint.dataset["ui"] = "practice-hint";
+    hint.textContent = v.hint;
+    hint.style.cssText = "margin:6px 0";
+    const toggle = this.doc.createElement("button");
+    toggle.dataset["expand"] = "1"; toggle.textContent = this.expanded ? "Collapse" : "Expand";
+    toggle.setAttribute("aria-expanded", String(this.expanded));
+    if (!this.expanded) { this.root.append(hint, toggle); return; }
+    this.root.append(toggle);
     const guide = this.doc.createElement("button"); guide.textContent = "Moves & ranges"; guide.dataset["moves"] = "1";
     guide.style.cssText = "min-height:44px;border-radius:8px;background:#224238;color:#c7f38b;border:1px solid #87bd9a;margin-bottom:8px"; this.root.append(guide);
     const list = this.doc.createElement("ol");
@@ -81,10 +95,6 @@ export class PracticePanel {
     const checklist = this.doc.createElement("details");
     const summary = this.doc.createElement("summary"); summary.textContent = `Training checklist · ${Math.min(st.step, 7)}/7`;
     checklist.append(summary, list); this.root.append(checklist);
-    const hint = this.doc.createElement("p");
-    hint.dataset["ui"] = "practice-hint";
-    hint.textContent = v.hint;
-    hint.style.cssText = "margin:6px 0";
     this.root.append(hint);
     const row = this.doc.createElement("div");
     row.style.cssText = "display:flex;gap:6px";

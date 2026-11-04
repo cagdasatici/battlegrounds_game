@@ -150,3 +150,22 @@ export function dashStatus(action: string, actionStartTick: number, evasiveEndTi
   const cd = cooldownLabel(evasiveEndTick, nowTick);
   return { label: "Escape", text: cd === "" ? "Ready" : cd };
 }
+
+/** GR11: killer facts frozen at the received KO event so the card is stable through the countdown. */
+export interface KoRecord { tick: number; by: string; byKit: string; byHpFrac: number | null; fell: boolean }
+
+/**
+ * `actorId` undefined = uncredited fall. A credited actor that is not in the room (left, unknown) is "a rival" with
+ * no invented HP or kit. Display only; scoring is unchanged.
+ */
+export function freezeKo(
+  tick: number, actorId: string | undefined, actor: { displayName?: string; kitId: string; hp100?: number } | undefined,
+  kitLabel: (kitId: string) => string,
+): KoRecord {
+  if (actorId === undefined) return { tick, by: "", byKit: "", byHpFrac: null, fell: true };
+  if (!actor) return { tick, by: "a rival", byKit: "", byHpFrac: null, fell: false };
+  return {
+    tick, by: actor.displayName ?? "a rival", byKit: kitLabel(actor.kitId),
+    byHpFrac: Math.min(1, Math.max(0, (actor.hp100 ?? 0) / 10000)), fell: false,
+  };
+}

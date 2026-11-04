@@ -38,11 +38,12 @@ import { Nameplates, plateLayout } from "./ui/Nameplates.js";
 import { DamageCues, cueAngle } from "./ui/DamageCues.js";
 import { RoundResults, objectiveText } from "./ui/RoundResults.js";
 import {
-  BlockNotice, RejectionNotice, cooldownFraction, cooldownLabel, dashStatus, equippedSkillNames, formTimerText, skillAvailability, meterLabel, respawnSecondsLeft, scoreboardRows, stillpointText,
+  BlockNotice, RejectionNotice, freezeKo, type KoRecord, cooldownFraction, cooldownLabel, dashStatus, equippedSkillNames, formTimerText, skillAvailability, meterLabel, respawnSecondsLeft, scoreboardRows, stillpointText,
 } from "./ui/HudFormat.js";
 import { mountHowToPlay } from "./ui/HowToPlay.js";
 import { KIT_LABEL, Lobby, type LobbyView } from "./ui/Lobby.js";
 import { PracticePanel } from "./ui/PracticePanel.js";
+import { LAYER, setModalOpen } from "./ui/Layers.js";
 import { SettingsPanel } from "./ui/Settings.js";
 
 const SPARRING_GUIDE_AVAILABLE = true;
@@ -215,7 +216,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
 
   const guestLabel = document.createElement("label");
   guestLabel.textContent = "Guest display name ";
-  guestLabel.style.cssText = "position:fixed;bottom:16px;left:16px;z-index:10;color:white;font:16px Inter,system-ui,sans-serif";
+  guestLabel.style.cssText = `position:fixed;bottom:16px;left:16px;z-index:${LAYER.worldLabels};color:white;font:16px Inter,system-ui,sans-serif`;
   const guestName = document.createElement("input");
   guestName.value = opts.displayName; guestName.maxLength = 16;
   guestName.style.cssText = "min-height:48px;font:inherit;max-width:180px";
@@ -359,7 +360,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   let setupPending = false;
   const sparControls = document.createElement("div");
   sparControls.className = "eb-overlay";
-  sparControls.style.cssText = "position:fixed;inset:0;z-index:20;overflow:auto;background:#0b1118;display:none;padding:16px;box-sizing:border-box";
+  sparControls.style.cssText = `position:fixed;inset:0;z-index:${LAYER.modalBackdrop};overflow:auto;background:#0b1118;display:none;padding:16px;box-sizing:border-box`;
   const closeSetup = document.createElement("button");
   closeSetup.className = "eb-overlay-close";
   closeSetup.textContent = "Back to game";
@@ -369,7 +370,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   const sparButton = document.createElement("button");
   sparButton.className = "eb-launcher";
   sparButton.textContent = "Host sparring";
-  sparButton.style.cssText = "position:fixed;right:16px;top:16px;z-index:21;min-height:48px;font:600 17px Inter,system-ui,sans-serif";
+  sparButton.style.cssText = `position:fixed;right:16px;top:16px;z-index:${LAYER.modalContent};min-height:48px;font:600 17px Inter,system-ui,sans-serif`;
   sparButton.onclick = () => {
     if (setupPending) return;
     if (!hostRoom) { disposeSetup(); disposeSetup = mountSparringSetup(sparControls, setupActions); }
@@ -381,7 +382,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   // WEB3: room list. The panel exists only while open; its timer and listeners go with it.
   const roomsHost = document.createElement("div");
   roomsHost.className = "eb-overlay";
-  roomsHost.style.cssText = "position:fixed;inset:0;z-index:20;overflow:auto;background:#0b1118;display:none;padding:16px;box-sizing:border-box";
+  roomsHost.style.cssText = `position:fixed;inset:0;z-index:${LAYER.modalBackdrop};overflow:auto;background:#0b1118;display:none;padding:16px;box-sizing:border-box`;
   const closeRooms = document.createElement("button");
   closeRooms.className = "eb-overlay-close";
   closeRooms.textContent = "Back to game";
@@ -393,7 +394,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   const roomsButton = document.createElement("button");
   roomsButton.className = "eb-launcher";
   roomsButton.textContent = "Find a room";
-  roomsButton.style.cssText = "position:fixed;right:16px;top:76px;z-index:21;min-height:48px;font:600 17px Inter,system-ui,sans-serif";
+  roomsButton.style.cssText = `position:fixed;right:16px;top:76px;z-index:${LAYER.modalContent};min-height:48px;font:600 17px Inter,system-ui,sans-serif`;
   roomsButton.onclick = () => {
     if (disposeRooms || flow.state.screen !== "welcome") return;
     roomsHost.style.display = "block";
@@ -474,14 +475,14 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     matchCleanups.push(() => kitHandle.dispose());
     const welcome = rc.welcome as WelcomeMessage;
     let showBoard = false, menuOpen = false, kitMenu = false;
-    let ko: { tick: number; by: string; actorId: string | null } | null = null;
+    let ko: KoRecord | null = null;
     const blockNotice = new BlockNotice();
     const settings = activeSettings();
     const tier = (q: Quality): Quality => (softwareGl ? "low" : q);
     const adaptive = new AdaptiveQuality(tier(settings.get().quality));
     g.setQuality(adaptive.level);
     const gate = new InputGate();
-    matchCleanups.push(() => { gate.dispose(); syncGate = () => undefined; closeMatchPanels = () => undefined; });
+    matchCleanups.push(() => { setModalOpen(document, false); gate.dispose(); syncGate = () => undefined; closeMatchPanels = () => undefined; });
     const router = new PointerRouter(computeLayout({ x0: 0, y0: 0, W: window.innerWidth, H: window.innerHeight }), {
       onFacingLockChange: on => { settings.update({ facingLock: on }); },
       isChargeSlot: (slot) => { const me = localOf(); return me?.kitId === "ea" && me.form === "Base" && slot === 3; },
@@ -512,7 +513,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       const me = localOf();
       if (!me || e.targetId !== String(me.entityId)) return;
       if (e.kind === "block") blockNotice.confirm(performance.now());
-      else if (e.kind === "ko") ko = { tick: e.tick, by: e.actorId === e.targetId ? "the arena" : players().get(e.actorId)?.displayName ?? "a rival", actorId: e.actorId === e.targetId ? null : e.actorId };
+      else if (e.kind === "ko") ko = freezeKo(e.tick, e.actorId === e.targetId ? undefined : e.actorId, e.actorId === e.targetId ? undefined : players().get(e.actorId), (k) => KIT_LABEL[k as KitId] ?? k);
       else if (e.kind === "respawn") ko = null;
       else if (e.kind === "hit" && e.actorId !== undefined && e.actorId !== e.targetId) {
         const atk = players().get(e.actorId);
@@ -576,6 +577,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     };
     // Entering the gated state: release keyboard and pointer owners, drop queued edges, then one neutral packet now.
     matchCleanups.push(gate.onClose(() => { router.releaseAll(); router.takeEdges(); sampler.reset(); sendNeutralNow(); }));
+    const modalOwned = (): boolean => menuOpen || kitMenu || disposeMoves !== null || settingsRef?.panel.isVisible === true || sparControls.style.display !== "none";
     syncGate = (): void => {
       gate.set("menu", menuOpen);
       gate.set("fighter", kitMenu);
@@ -585,6 +587,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       gate.set("orientation", lastLayout.tooSmall);
       gate.set("connection", !(lifecycle?.inputEnabled ?? false));
       gate.set("round", (r.state as { phase?: string }).phase === "roundOver");
+      // GR11: while a modal owns input, hide world labels and transient combat callouts (state is untouched).
+      setModalOpen(document, modalOwned());
     };
     let lastSettings = settings.get();
     const onSettingsChange = (): void => {
@@ -660,7 +664,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     matchCleanups.push(() => { delete matchHooks.drop; delete matchHooks.welcome; });
     const banner = document.createElement("div");
     banner.setAttribute("role", "status"); banner.setAttribute("aria-live", "polite"); banner.dataset["ui"] = "connection-status";
-    banner.style.cssText = "position:fixed;left:50%;top:96px;transform:translateX(-50%);z-index:70;max-width:min(520px,90vw);padding:10px 16px;border-radius:12px;background:#0b1118e6;color:#fff;font:600 16px Inter,system-ui,sans-serif;text-align:center;pointer-events:none";
+    banner.style.cssText = `position:fixed;left:50%;top:96px;transform:translateX(-50%);z-index:${LAYER.status};max-width:min(520px,90vw);padding:10px 16px;border-radius:12px;background:#0b1118e6;color:#fff;font:600 16px Inter,system-ui,sans-serif;text-align:center;pointer-events:none`;
     banner.hidden = true;
     document.body.append(banner);
     paintConnection = (ph) => { const t = phaseText(ph); banner.hidden = t === null; banner.textContent = t ?? ""; syncGate(); };
@@ -677,13 +681,10 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       matchCleanups.push(() => window.clearInterval(panelTimer));
     }
 
-    const koCard = (k: { tick: number; by: string; actorId: string | null }, now: number) => {
-      const killer = k.actorId === null ? undefined : players().get(k.actorId);
-      return {
-        by: k.by, byKit: killer ? KIT_LABEL[killer.kitId as KitId] ?? killer.kitId : "", byHpFrac: killer ? (killer.hp100 ?? 0) / 10000 : null,
-        seconds: respawnSecondsLeft(k.tick, now), frac: Math.min(1, Math.max(0, (k.tick + COMBAT.respawnTicks - now) / COMBAT.respawnTicks)),
-      };
-    };
+    const koCard = (k: KoRecord, now: number) => ({
+      by: k.by, byKit: k.byKit, byHpFrac: k.byHpFrac, fell: k.fell,
+      seconds: respawnSecondsLeft(k.tick, now), frac: Math.min(1, Math.max(0, (k.tick + COMBAT.respawnTicks - now) / COMBAT.respawnTicks)),
+    });
     const drawHud = (): void => {
       syncGate();
       const me = localOf();
@@ -691,7 +692,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       const now = Math.floor(clock.serverTick(performance.now()) ?? stateTick);
       const round = roundState();
       const roundOver = round.phase === "roundOver";
-      roundResults.render(round, now, kitMenu || menuOpen);
+      roundResults.render(round, now, modalOwned());
       let leader: HudPlayer | undefined;
       for (const p of players().values()) if (p.ready !== false && (!leader || p.kills > leader.kills)) leader = p;
       const objective = objectiveText(round.roundTarget, round.phase, me, leader);
@@ -717,7 +718,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
         formText: me ? formTimerText(me.form, me.formEndTick, now, me.kitId) : "",
         stillpointText: stillpointText(me?.owner?.lethalCounterRemaining ?? 0),
         rejection: rejections.current(performance.now()),
-        respawn: dead && ko ? koCard(ko as { tick: number; by: string; actorId: string | null }, now) : null,
+        respawn: dead && ko ? koCard(ko, now) : null,
         scoreboard: showBoard ? scoreboardRows([...players().values()].map((p) => ({ ...p, local: p.owner !== undefined }))) : null,
         menuOpen,
         kitMenu: kitMenu

@@ -1,4 +1,5 @@
 // UX11: world nameplates with enemy HP and off-screen arrows. Presentation only; never touches gameplay state.
+import { LAYER } from "./Layers.js";
 export interface V3 { x: number; y: number; z: number }
 export interface PlateFighter { id: string; name: string; hpFrac: number; pos: V3; local: boolean; alive: boolean; kitId: string }
 export type Projected = { x: number; y: number; depth: number };
@@ -49,7 +50,8 @@ export class Nameplates {
   /** `origin` shifts plates by the safe-area origin (rect.x0/y0) when layout W/H describe the safe rect only. */
   constructor(parent: HTMLElement, private readonly doc: Document, private readonly origin: () => { x: number; y: number } = () => ({ x: 0, y: 0 })) {
     this.root = doc.createElement("div");
-    this.root.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:5;overflow:hidden";
+    this.root.setAttribute("data-ui", "nameplates");
+    this.root.style.cssText = `position:fixed;inset:0;pointer-events:none;z-index:${LAYER.worldLabels};overflow:hidden`;
     parent.append(this.root);
   }
 

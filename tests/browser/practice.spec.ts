@@ -104,6 +104,7 @@ test("Practice from Welcome: dummy room, server confirmed tutorial in order, tog
 
     const panel = page.locator("[data-ui=practice]");
     await expect(panel).toBeVisible();
+    await panel.locator("[data-expand]").click(); // GR11: the panel starts collapsed
     await expect(panel.locator("li")).toHaveCount(7);
     const s0 = await snap(page);
     expect(s0.players.map((q) => q.name).sort()).toEqual(["Arel", "Practice dummy"]);

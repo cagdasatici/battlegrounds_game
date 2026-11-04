@@ -128,6 +128,7 @@ test("UX02: practice adds and removes server bots from the visible controls", as
   try {
     await page.click("[data-act=practice]"); await page.click("[data-act=ready]");
     await page.waitForFunction(() => (window as unknown as { __eb?: unknown }).__eb !== undefined, undefined, { timeout: 30000 });
+    await page.locator("[data-ui=practice] [data-expand]").click(); // GR11: the panel starts collapsed
     await page.getByLabel("Opponent difficulty").selectOption("hard");
     await page.getByRole("button", { name: "Add bot", exact: true }).click();
     await expect(page.locator("[data-ui=practice]")).toContainText("1/2 active bots");
@@ -169,7 +170,8 @@ test("UX07: move guide explains base and awakened skills without casting; HUD ke
     await page.click("[data-act=practice]"); await page.click("[data-act=ready]");
     await page.waitForFunction(() => (window as unknown as { __eb?: unknown }).__eb !== undefined, undefined, { timeout: 30000 });
     await expect(page.locator("[data-control=skill2]")).toContainText("Gravel Flurry");
-    await expect(page.locator("[data-control=skill3]")).toContainText("Reflect");
+    await expect(page.locator("[data-control=skill3]")).toContainText("Rift Palm"); // GR11: role text moved to Moves & ranges
+    await page.keyboard.press("Escape"); // GR11: the collapsed practice panel has no guide button; the menu does
     await page.getByRole("button", { name: "Moves & ranges", exact: true }).click();
     const guide = page.getByRole("dialog", { name: "Moves & ranges", exact: true });
     await expect(guide.locator("article")).toHaveCount(4);

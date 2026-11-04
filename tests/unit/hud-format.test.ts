@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
-  RejectionNotice, cooldownFraction, cooldownLabel, formTimerText, meterLabel, rejectionText, respawnSecondsLeft, scoreboardRows, stillpointText,
+  RejectionNotice, freezeKo, cooldownFraction, cooldownLabel, formTimerText, meterLabel, rejectionText, respawnSecondsLeft, scoreboardRows, stillpointText,
 } from "../../apps/client/src/ui/HudFormat.js";
 import { EA_DEFS, SV_DEFS, TD_DEFS } from "../../packages/shared/src/config/kits/index.js";
 import { COMBAT } from "../../packages/shared/src/config/combat.js";
@@ -158,6 +158,9 @@ class FakeEl {
   appendChild(c: FakeEl): FakeEl { this.children.push(c); return c; }
   append(...c: FakeEl[]): void { this.children.push(...c); }
   replaceChildren(...c: FakeEl[]): void { this.children = c; }
+  private attrs = new Map<string, string>();
+  setAttribute(k: string, v: string): void { this.attrs.set(k, v); }
+  getAttribute(k: string): string | null { return this.attrs.get(k) ?? null; }
   addEventListener(): void { /* not needed */ }
   removeEventListener(): void { /* not needed */ }
   remove(): void { /* not needed */ }
@@ -321,5 +324,49 @@ describe("GR07 honest action status", () => {
     expect(box("skill3").ready).toBe(true);
     expect(box("dash")).toMatchObject({ label: "Escape", sub: "Wait" });
     expect(hudModel(L, base).boxes.find((b) => b.id === "dash")!.label).toBe("Dash");
+  });
+});
+
+describe("GR11 KO card facts and skill button structure", () => {
+  const label = (k: string): string => ({ ea: "Ember" }[k as "ea"] ?? k);
+  test("freezeKo keeps the HP seen at the KO event; later actor heals cannot change the record", () => {
+    const actor = { displayName: "Rex", kitId: "ea", hp100: 4000 };
+    const rec = freezeKo(100, "7", actor, label);
+    actor.hp100 = 10000; // the actor heals after the KO event
+    expect(rec).toEqual({ tick: 100, by: "Rex", byKit: "Ember", byHpFrac: 0.4, fell: false });
+  });
+  test("unknown actor is a rival without an invented HP; uncredited fall has no killer", () => {
+    expect(freezeKo(5, "9", undefined, label)).toMatchObject({ by: "a rival", byKit: "", byHpFrac: null, fell: false });
+    expect(freezeKo(5, undefined, undefined, label)).toMatchObject({ fell: true, byHpFrac: null });
+  });
+  test("Hud KO card text: fall omits the by line, unknown rival omits the kit", () => {
+    const layout = computeLayout({ x0: 0, y0: 0, W: 1180, H: 820 });
+    const base = { name: "n", hp: 100, maxHp: 100, meter: 0, facingLock: false, portrait: false };
+    const parent = new TagEl("div");
+    const hud = new Hud(parent as unknown as HTMLElement, tagDoc);
+    const text = (): string => textOf(parent.children[0]!);
+    hud.render(layout, { ...base, respawn: { by: "", byKit: "", byHpFrac: null, seconds: 2, frac: 0.5, fell: true } });
+    expect(text()).toContain("Fell from the arena");
+    expect(text()).not.toContain("by ");
+    hud.render(layout, { ...base, respawn: { by: "a rival", byKit: "", byHpFrac: null, seconds: 2, frac: 0.5 } });
+    expect(text()).toContain("by a rival");
+    expect(text()).not.toContain("·");
+    hud.dispose();
+  });
+  test("skill button DOM is rebuilt only when the equipped move changes; state updates in place", () => {
+    const layout = computeLayout({ x0: 0, y0: 0, W: 1180, H: 820 });
+    const st = { name: "n", hp: 100, maxHp: 100, meter: 0, facingLock: false, portrait: false, skills: ["Fault Strike", "b", "c", "d"], cooldowns: ["", "", "", ""] };
+    const parent = new TagEl("div");
+    const hud = new Hud(parent as unknown as HTMLElement, tagDoc);
+    const find = (): TagEl => walkAll(parent.children[0]!).find((e) => e.dataset["control"] === "skill1")!;
+    hud.render(layout, st);
+    const kids = find().children;
+    hud.render(layout, { ...st, cooldowns: ["4.0", "", "", ""] });
+    expect(find().children).toBe(kids); // same child array: no rebuild
+    expect(textOf(find())).toContain("4.0");
+    hud.render(layout, { ...st, skills: ["Other Move", "b", "c", "d"] });
+    expect(find().children).not.toBe(kids);
+    expect(find().getAttribute("aria-label")).toContain("Other Move");
+    hud.dispose();
   });
 });

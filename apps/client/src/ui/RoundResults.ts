@@ -1,6 +1,7 @@
 // MODE01 / GR08 (decision 0054): results card rendered from replicated room state while phase is "roundOver".
 // Presentation only; the roundOver message is a transient cue and is never needed to draw this card.
 import { TICK_RATE } from "@eb/shared/protocol";
+import { LAYER } from "./Layers.js";
 
 export interface RoundRow { entityId: number; displayName: string; kills: number; deaths: number; assists: number }
 export interface RoundView { phase: string; roundTarget: number; roundEndsAtTick: number; standings: readonly RoundRow[] }
@@ -33,7 +34,7 @@ export class RoundResults {
     this.root = doc.createElement("div");
     this.root.dataset["ui"] = "round-results";
     this.root.setAttribute("role", "status");
-    this.root.style.cssText = "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9;min-width:260px;max-width:90vw;padding:20px;background:rgba(11,17,24,.92);color:#fff;font:16px Inter,system-ui,sans-serif;border-radius:16px;text-align:center;display:none";
+    this.root.style.cssText = "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:" + LAYER.hud + ";min-width:260px;max-width:90vw;padding:20px;background:rgba(11,17,24,.92);color:#fff;font:16px Inter,system-ui,sans-serif;border-radius:16px;text-align:center;display:none";
     this.title = doc.createElement("h2"); this.title.style.margin = "0 0 8px";
     this.table = doc.createElement("div"); this.table.style.cssText = "text-align:left;margin:8px 0;font-variant-numeric:tabular-nums";
     this.count = doc.createElement("p"); this.count.dataset["round"] = "countdown"; this.count.style.cssText = "margin:8px 0";

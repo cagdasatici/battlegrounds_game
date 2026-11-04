@@ -1,5 +1,6 @@
 // UX12: damage direction arcs and low-HP vignette. Presentation only; never touches gameplay state.
 import { edgePoint, type Projected } from "./Nameplates.js";
+import { LAYER } from "./Layers.js";
 
 /** Max simultaneous arcs. D value. */
 export const MAX_ARCS = 4;
@@ -27,7 +28,8 @@ export class DamageCues {
 
   constructor(parent: HTMLElement, private readonly doc: Document) {
     this.root = doc.createElement("div");
-    this.root.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:6;overflow:hidden";
+    this.root.setAttribute("data-ui", "damage-cues");
+    this.root.style.cssText = `position:fixed;inset:0;pointer-events:none;z-index:${LAYER.damageCues};overflow:hidden`;
     this.vignette = doc.createElement("div");
     this.vignette.setAttribute("data-vignette", "");
     this.vignette.style.cssText = "position:absolute;inset:0;pointer-events:none;box-shadow:none";

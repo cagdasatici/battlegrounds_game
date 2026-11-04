@@ -4,6 +4,7 @@
  * injected callback. Original text and styling.
  */
 import "./experience.css";
+import { LAYER } from "./Layers.js";
 import { computeLayout, type ControlId, type SafeRect } from "../input/ControlLayout.js";
 import {
   currentEdit, editControl, resetControl, resolveLayout, viewportClass,
@@ -76,10 +77,10 @@ export class SettingsPanel {
   constructor(parent: HTMLElement, private readonly store: SettingsStore, private readonly hooks: SettingsHooks, private readonly doc: Document = document) {
     this.root = doc.createElement("div");
     this.root.dataset["ui"] = "settings";
-    this.root.style.cssText = "position:fixed;inset:0;display:none;z-index:50;overflow:auto;background:#0b1118f5;color:#fff;font:15px system-ui;padding:16px;box-sizing:border-box";
+    this.root.style.cssText = `position:fixed;inset:0;display:none;z-index:${LAYER.modalBackdrop};overflow:auto;background:#0b1118f5;color:#fff;font:15px system-ui;padding:16px;box-sizing:border-box`;
     this.editor = doc.createElement("div");
     this.editor.dataset["ui"] = "layout-editor";
-    this.editor.style.cssText = "position:fixed;inset:0;display:none;z-index:60;background:#0b1118f0;color:#fff;font:14px system-ui;touch-action:none;user-select:none";
+    this.editor.style.cssText = `position:fixed;inset:0;display:none;z-index:${LAYER.modalContent};background:#0b1118f0;color:#fff;font:14px system-ui;touch-action:none;user-select:none`;
     this.msg = doc.createElement("div");
     this.msg.dataset["ui"] = "settings-message";
     this.msg.setAttribute("role", "status");
