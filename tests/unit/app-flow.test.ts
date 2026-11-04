@@ -158,3 +158,58 @@ describe("AppFlow journey (spec section 6)", () => {
     expect(modes).toEqual(["practice", "practice"]);
   });
 });
+
+describe("GR03 terminal close and reload recovery", () => {
+  const played = async (over: Partial<FlowDeps> = {}) => {
+    const m = mk(over);
+    await m.flow.start(); await m.flow.play(); m.flow.ready("sv");
+    return m;
+  };
+  test.each([["session", "SESSION_ENDED", false], ["arena", "ARENA_CLOSED", false], ["lost", "CONNECTION_LOST", true]] as const)(
+    "close kind %s routes to %s with canRetry=%s and never rejoins by itself", async (kind, code, canRetry) => {
+      const { flow, log } = await played();
+      const joins = log.filter((l) => l === "join").length;
+      flow.connectionClosed(kind);
+      expect(flow.state).toEqual({ screen: "error", error: code, canRetry });
+      expect(log.filter((l) => l === "join").length).toBe(joins);
+    });
+  test("Retry after a lost connection joins again through the ordinary path; Back returns to Welcome", async () => {
+    const { flow, log } = await played();
+    flow.connectionClosed("lost");
+    await flow.retry();
+    expect(flow.state.screen).toBe("lobby");
+    expect(log.filter((l) => l === "join")).toHaveLength(2);
+    flow.connectionClosed("arena");
+    await flow.back();
+    expect(flow.state.screen).toBe("welcome");
+  });
+  test("a close on the Welcome screen is ignored", async () => {
+    const { flow } = mk();
+    await flow.start();
+    flow.connectionClosed("lost");
+    expect(flow.state.screen).toBe("welcome");
+  });
+  test("resume restores the same ready fighter without calling Ready or login", async () => {
+    const calls: string[] = [];
+    const { flow, log } = mk({
+      canResume: () => true, resume: async () => { calls.push("resume"); return "practice"; }, enterResumed: () => { calls.push("enter"); },
+    });
+    await flow.start();
+    expect(flow.state.screen).toBe("match");
+    expect(flow.mode).toBe("practice");
+    expect(calls).toEqual(["resume", "enter"]);
+    expect(log).toEqual(["assets"]);
+  });
+  test("a rejected resume shows Welcome and tries exactly once; no stored token skips assets entirely", async () => {
+    let tries = 0;
+    const a = mk({ canResume: () => true, resume: async () => { tries++; return null; }, enterResumed: () => undefined });
+    await a.flow.start();
+    expect(a.flow.state.screen).toBe("welcome");
+    expect(tries).toBe(1);
+    const b = mk({ canResume: () => false, resume: async () => { tries++; return "play"; }, enterResumed: () => undefined });
+    await b.flow.start();
+    expect(b.flow.state.screen).toBe("welcome");
+    expect(tries).toBe(1);
+    expect(b.log).toEqual([]);
+  });
+});

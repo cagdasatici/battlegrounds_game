@@ -35,6 +35,23 @@ export interface RoomClientDeps {
 }
 
 const TOKEN_KEY = "eb.reconnect";
+const META_KEY = "eb.reconnect.meta";
+
+/** GR03: what a reload needs, beside the reconnection token, to restore the same journey. sessionStorage only. */
+export type ResumeMode = "play" | "practice" | "sparring";
+export interface ResumeMeta { roomCode: string; mode: ResumeMode; host: boolean }
+
+/** Strict runtime parse: anything unexpected reads as "nothing to resume". */
+export function parseResumeMeta(raw: string | null): ResumeMeta | null {
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw) as Record<string, unknown>;
+    const mode = v["mode"];
+    if (typeof v["roomCode"] !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(v["roomCode"])) return null;
+    if (mode !== "play" && mode !== "practice" && mode !== "sparring") return null;
+    return { roomCode: v["roomCode"], mode, host: v["host"] === true };
+  } catch { return null; }
+}
 const defaultSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 /** Bounded exponential backoff: 0.5 s, 1 s, 2 s ... capped at 8 s, at most `attempts` tries. */
@@ -61,6 +78,8 @@ export class RoomClient {
   private readonly f: typeof fetch;
   private readonly sleep: (ms: number) => Promise<void>;
   private csrf: string | null = null;
+  /** True while the page is being suspended (pagehide): the dropped seat's token must survive the close. */
+  private keepToken = false;
   private guest: { roomCode: string; csrfToken: string } | null = null;
 
   private routeError(r: Response): never {
@@ -229,21 +248,63 @@ export class RoomClient {
 
   private attach(room: Room): void {
     this.room = room;
+    this.keepToken = false;
     // Old epoch input must never be replayed after a resync: no offline message buffering.
     room.reconnection.maxEnqueuedMessages = 0;
     room.onMessage(ServerMessage.welcome, (w: WelcomeMessage) => { this.welcome = w; });
+    this.saveToken(room);
+    // The SDK may issue a new token when it reconnects by itself; keep the stored one current.
+    room.onReconnect(() => { if (this.room === room) this.saveToken(room); });
+    // Terminal close (explicit Leave, revoke, arena closed): nothing is left to resume. A suspension keeps the token.
+    room.onLeave(() => { if (!this.keepToken) this.clearResume(); });
+  }
+
+  private saveToken(room: Room): void {
     try { this.deps.storage?.setItem(TOKEN_KEY, room.reconnectionToken); } catch { /* storage may be unavailable */ }
-    room.onLeave(() => { try { this.deps.storage?.removeItem(TOKEN_KEY); } catch { /* ignore */ } });
+  }
+
+  /** Records the room code and mode beside the token so a reload can restore the same journey. */
+  setResumeMeta(meta: ResumeMeta): void {
+    try { this.deps.storage?.setItem(META_KEY, JSON.stringify(meta)); } catch { /* ignore */ }
+  }
+
+  /** Stored resume metadata, or null when there is no token or the metadata is missing or malformed. */
+  resumeMeta(): ResumeMeta | null {
+    try {
+      if (!this.deps.storage?.getItem(TOKEN_KEY)) return null;
+      return parseResumeMeta(this.deps.storage.getItem(META_KEY));
+    } catch { return null; }
+  }
+
+  clearResume(): void {
+    try { this.deps.storage?.removeItem(TOKEN_KEY); this.deps.storage?.removeItem(META_KEY); } catch { /* ignore */ }
+  }
+
+  /**
+   * Page suspension (pagehide, reload, BFCache): close the socket WITHOUT consent so the server keeps the seat
+   * reserved, stop automatic reconnection in this soon-dead page, and keep the token for the next page.
+   */
+  suspend(): void {
+    const r = this.room;
+    if (!r) return;
+    this.keepToken = true;
+    this.room = null;
+    this.welcome = null;
+    r.reconnection.enabled = false;
+    try { r.connection.close(4010, "page suspended"); } catch { /* already closed */ }
   }
 
   send(type: keyof typeof ClientMessage, payload?: unknown): void {
     this.room?.send(ClientMessage[type], payload);
   }
 
+  /** Explicit Leave: cancels any reconnect, clears the stored token and metadata. */
   async leave(): Promise<void> {
-    await this.room?.leave(true);
+    const r = this.room;
     this.room = null;
     this.welcome = null;
+    this.clearResume();
+    await r?.leave(true);
   }
 
   async logout(): Promise<void> {
@@ -262,7 +323,7 @@ export class RoomClient {
       this.attach(room);
       return room;
     } catch {
-      try { this.deps.storage?.removeItem(TOKEN_KEY); } catch { /* ignore */ }
+      this.clearResume(); // rejected: discard so the next boot shows Welcome. An invitation token is never reused.
       return null;
     }
   }

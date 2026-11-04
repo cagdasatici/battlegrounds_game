@@ -16,6 +16,7 @@ import { mountSparringSetup } from "./ui/SparringSetup.js";
 import { swRegistration } from "./app/registerSw.js";
 import { UpdateWatcher, browserUpdateDeps } from "./app/UpdateWatcher.js";
 import { AppFlow } from "./app/AppFlow.js";
+import { ConnectionLifecycle, phaseText, type ConnectionPhase, type LifecycleRoom } from "./app/ConnectionLifecycle.js";
 import { CombatBus } from "./app/CombatBus.js";
 import type { AttackTelegraphs } from "./fx/AttackTelegraphs.js";
 import { AdaptiveQuality } from "./app/AdaptiveQuality.js";
@@ -61,6 +62,9 @@ export interface BootOptions {
 
 export interface Session { scene: GameScene | null; dispose(): void }
 
+/** GR03: handlers the current match installs so connection events reach its loop, clock and sampler. */
+interface MatchHooks { drop?: () => void; welcome?: (w: WelcomeMessage) => void }
+
 /** Player record as read from room.state (HUD fields on top of the loop's). */
 interface HudPlayer extends LoopPlayer {
   form: string; formEndTick: number; kills: number; deaths: number; assists: number;
@@ -88,6 +92,9 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   let softwareGl = false; // CPU rasteriser (SwiftShader): always the low tier, whatever the setting
   let room: Room | null = null;
   let clock = new ClockSync();
+  let lifecycle: ConnectionLifecycle | null = null;
+  const matchHooks: MatchHooks = {};
+  let paintConnection: (phase: ConnectionPhase) => void = () => undefined;
   let rafId = 0;
   const rc = createRoomClient();
   let sparToken = opts.sparToken ?? null;
@@ -197,6 +204,30 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   guestLabel.append(guestName); app.append(guestLabel);
   cleanups.push(() => guestLabel.remove());
 
+  /**
+   * GR03: one lifecycle per joined room. It owns every SDK subscription (kept together, removed on dispose) and
+   * decides when gameplay input may flow. Terminal closes always dispose the match and show an error route.
+   */
+  function watchRoom(joined: Room, mode: "play" | "practice" | "sparring", code: string): void {
+    lifecycle?.dispose();
+    const lc = new ConnectionLifecycle({
+      readLocal: () => { const me = localOf(); const o = me?.owner; return me && o ? { epoch: o.epoch, ready: me.ready === true } : null; },
+      onPhase: (ph) => { paintConnection(ph); },
+      onDrop: () => { matchHooks.drop?.(); },
+      onWelcome: (w) => { matchHooks.welcome?.(w); },
+      onClosed: (kind) => {
+        if (room !== joined || disposed) return;
+        if (mode === "sparring") { hostRoom = null; sparRoom = null; }
+        void leaveRoom().finally(() => { flow.connectionClosed(kind); });
+      },
+    });
+    lifecycle = lc;
+    lc.attach(joined as unknown as LifecycleRoom);
+    if (rc.welcome) lc.noteWelcome(rc.welcome);
+    rc.setResumeMeta({ roomCode: code, mode, host: hostRoom !== null });
+    matchCleanups.push(() => { lc.explicitLeave(); lc.dispose(); if (lifecycle === lc) lifecycle = null; });
+  }
+
   const flow = new AppFlow({
     hasInvite: opts.invite !== null,
     supported: () => hasWebGL2() && typeof WebAssembly === "object",
@@ -257,21 +288,27 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       },
     },
     join: async (mode, picked) => {
-      room = await rc.joinWithRetry(mode === "sparring" ? sparRoom! : mode === "practice" ? PRACTICE_ROOM_CODE : picked ?? opts.roomCode, opts.auto ? 4 : 1);
+      const code = mode === "sparring" ? sparRoom! : mode === "practice" ? PRACTICE_ROOM_CODE : picked ?? opts.roomCode;
+      room = await rc.joinWithRetry(code, opts.auto ? 4 : 1);
       await waitFor(() => rc.welcome, 5000, "welcome");
       clock = new ClockSync();
-      {
-        const joined = room;
-        const onLeave = (code: number): void => {
-          if (room !== joined || disposed || (mode !== "sparring" && code !== 4500)) return;
-          hostRoom = null; sparRoom = null;
-          void flow.back();
-        };
-        joined.onLeave(onLeave);
-        matchCleanups.push(() => joined.onLeave.remove(onLeave));
-      }
+      watchRoom(room, mode, code);
     },
-    sendReady: (kit) => { if (map && gs && room) enterMatch(kit); },
+    canResume: () => rc.resumeMeta() !== null,
+    resume: async () => {
+      const meta = rc.resumeMeta();
+      if (!meta) { rc.clearResume(); return null; }
+      const resumed = await rc.tryResume(); // exactly one attempt; a rejection discards the stored metadata
+      if (!resumed) return null;
+      room = resumed;
+      try { await waitFor(() => rc.welcome, 5000, "welcome"); } catch { await leaveRoom(); return null; }
+      clock = new ClockSync();
+      if (meta.mode === "sparring") { sparRoom = meta.roomCode; if (meta.host) hostRoom = meta.roomCode; }
+      watchRoom(resumed, meta.mode, meta.roomCode);
+      return meta.mode;
+    },
+    enterResumed: () => { const me = localOf(); enterMatch(me && P0_KITS.includes(me.kitId as KitId) ? me.kitId as KitId : lobby.kit, true); },
+    sendReady: (kit) => { if (map && gs && room) enterMatch(kit, false); },
     leave: leaveRoom,
     sleep: (ms) => new Promise((r) => { const t = window.setTimeout(r, ms); cleanups.push(() => window.clearTimeout(t)); }),
   });
@@ -369,21 +406,26 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   const lobbyTimer = window.setInterval(() => { paintLobby(); }, 250);
   cleanups.push(() => window.clearInterval(lobbyTimer));
 
-  const dispose = (): void => {
+  /** `suspend` = lifecycle suspension (pagehide): the seat stays reserved and the token survives for reload/BFCache. */
+  const teardown = (suspend: boolean): void => {
     if (disposed) return;
     disposed = true;
     flow.dispose();
     cancelAnimationFrame(rafId);
+    if (suspend) rc.suspend(); // close without consent BEFORE cleanups so nothing treats it as Leave
     runAll(matchCleanups);
-    void rc.leave().catch(() => undefined);
+    if (!suspend) void rc.leave().catch(() => undefined);
     runAll(cleanups);
     gs?.dispose();
     gs = null;
   };
-  window.addEventListener("pagehide", dispose, { once: true });
-  cleanups.push(() => window.removeEventListener("pagehide", dispose));
+  const dispose = (): void => { teardown(false); };
+  // Only a ready fighter in a match is worth keeping a seat for; a lobby visitor simply leaves (no ghost seat for 20 s).
+  const onPageHide = (): void => { teardown(flow.state.screen === "match"); };
+  window.addEventListener("pagehide", onPageHide, { once: true });
+  cleanups.push(() => window.removeEventListener("pagehide", onPageHide));
 
-  function enterMatch(kit: KitId): void {
+  function enterMatch(kit: KitId, resumed: boolean): void {
     const g = gs as GameScene, m = map as ArenaMap, r = room as Room, R = rt as Runtime;
     const kitHandle = R.createRapierCollide(m);
     matchCleanups.push(() => kitHandle.dispose());
@@ -406,7 +448,6 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     const sampler = new IntentSampler(router, welcome.epoch);
     const unsubs = [
       r.onMessage(ServerMessage.pong, (x: PongMessage) => { clock.onPong(x, performance.now()); }),
-      r.onMessage(ServerMessage.welcome, (w: WelcomeMessage) => { sampler.setEpoch(w.epoch); }),
       r.onMessage(ServerMessage.actionResult, (a: ActionResult) => { if (!a.accepted) rejections.push(a.reason, performance.now()); }),
     ];
     matchCleanups.push(() => { for (const u of unsubs) u(); });
@@ -524,13 +565,29 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     matchCleanups.push(() => { cancelAnimationFrame(capRaf); captureCam.dispose(); });
     const loop = new R.GameLoop({
       scene: g, camera: cam, collide: kitHandle.collide, router, sampler, clock,
+      inputEnabled: () => lifecycle?.inputEnabled ?? false,
       readState: (): LoopState => ({ serverTick: (r.state as { serverTick?: number }).serverTick ?? 0, players: players().entries(), projectiles: (r.state as LoopState).projectiles ?? [], urns: (r.state as LoopState).urns ?? [] }),
-      sendInput: (p) => { rc.send("input", p); },
-      sendPing: (p) => { rc.send("ping", p); },
+      sendInput: (p) => { if (lifecycle?.phase === "active") rc.send("input", p); },
+      sendPing: (p) => { if (lifecycle?.phase === "active" || lifecycle?.phase === "connecting") rc.send("ping", p); },
       onFrameTime: (ms) => { const q = adaptive.push(ms); if (q) { g.setQuality(q); settingsRef?.panel.refreshRuntime(); } },
     });
     matchCleanups.push(() => loop.dispose());
 
+    // GR03: connection events reach this match. A drop clears every hold, edge, prediction and interpolation
+    // buffer; a new welcome additionally resets the clock and sampler epoch. Nothing is replayed after either.
+    const clearLocalIntent = (): void => { router.releaseAll(); router.takeEdges(); sampler.setEpoch(sampler.epoch); };
+    matchHooks.drop = () => { clearLocalIntent(); clock.reset(); loop.resetEpoch(); };
+    matchHooks.welcome = (w) => { clearLocalIntent(); sampler.setEpoch(w.epoch); clock.reset(); loop.resetEpoch(); };
+    matchCleanups.push(() => { delete matchHooks.drop; delete matchHooks.welcome; });
+    const banner = document.createElement("div");
+    banner.setAttribute("role", "status"); banner.setAttribute("aria-live", "polite"); banner.dataset["ui"] = "connection-status";
+    banner.style.cssText = "position:fixed;left:50%;top:96px;transform:translateX(-50%);z-index:70;max-width:min(520px,90vw);padding:10px 16px;border-radius:12px;background:#0b1118e6;color:#fff;font:600 16px Inter,system-ui,sans-serif;text-align:center;pointer-events:none";
+    banner.hidden = true;
+    document.body.append(banner);
+    paintConnection = (ph) => { const t = phaseText(ph); banner.hidden = t === null; banner.textContent = t ?? ""; };
+    matchCleanups.push(() => { paintConnection = () => undefined; banner.remove(); });
+    lifecycle?.setRequireReady(true);
+    paintConnection(lifecycle?.phase ?? "connecting");
     if (flow.mode === "practice") {
       const panel = new PracticePanel(document.body, (t) => { r.send("practice", t); }, document, openMoves);
       matchCleanups.push(() => panel.dispose());
@@ -587,7 +644,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     drawHud();
     placeSparButton(lastLayout);
 
-    r.send("ready", { kitId: kit, contentHash: rc.localContentHash });
+    // A resumed fighter is already ready on the server: never send Ready again.
+    if (!resumed) r.send("ready", { kitId: kit, contentHash: rc.localContentHash });
     loop.start();
 
     if (opts.debug) {
@@ -669,7 +727,17 @@ export function readBootOptions(loc: Location = location, hist: History = histor
 }
 
 const app = document.getElementById("app");
-if (app) void boot(app);
+// GR03: pagehide suspends the session (seat and token kept). A BFCache restore (pageshow.persisted) rebuilds it
+// through the ordinary boot, which tries the stored token once. Rebuilds are serialized so only one session lives.
+let current: Promise<Session | null> | null = null;
+let bootOpts: BootOptions | null = null;
+if (app) { bootOpts = readBootOptions(); current = boot(app, bootOpts).catch(() => null); }
+window.addEventListener("pageshow", (e: PageTransitionEvent) => {
+  if (!e.persisted || !app || !bootOpts) return;
+  const prev = current;
+  const next = { ...bootOpts, invite: null, sparToken: null }; // an invitation or guest token is never reused
+  current = (async () => { (await prev)?.dispose(); return boot(app, next).catch(() => null); })();
+});
 void swRegistration();
 
 /** Reads the invitation from the URL fragment and removes it before any request (spec section 20). */

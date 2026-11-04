@@ -181,6 +181,9 @@ test("zero bots, copied link, fresh isolated guest and shared touch-combat KO", 
     await expect.poll(async () => outcome(await snap(g!.page))).toEqual(outcome(await snap(h.page)));
     await h.page.screenshot({ path: path.join(evidenceDir(root), "BOT5-shared-outcome.png") });
     await end(h.page);
+    // GR03: a closed match is an explicit error route for the guest, never a silent reset; Back returns to Welcome.
+    await expect(g.page.locator("[data-ui=error]")).toBeVisible();
+    await g.page.click("[data-act=back]");
     await expect(g.page.locator("[data-act=play]")).toBeVisible();
     expect(g.errors).toEqual([]); expect(h.errors).toEqual([]);
   } finally { await g?.ctx.close(); await h.ctx.close(); }

@@ -14,6 +14,7 @@ import { ARENA } from "../../packages/shared/src/config/arena.js";
 import { defaultSettings } from "../../apps/client/src/app/SettingsStore.js";
 import { resolveChromium } from "./harness/chromium-path.js";
 import { evidenceDir } from "./harness/evidence.js";
+import { closeContext } from "./harness/leave.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const req = createRequire(path.join(root, "apps/client/package.json"));
@@ -101,7 +102,7 @@ test("QV03: Fault Strike windup, contact and settling layers appear from the rep
     await until(async () => (await fxActive(B.page)) === 0, 8000, "particles drain after the cast");
     await until(async () => (await fxActive(A.page)) === 0, 8000, "own particles drain");
     for (const x of [A, B]) expect(x.errors).toEqual([]);
-  } finally { await A.ctx.close(); await B.ctx.close().catch(() => undefined); }
+  } finally { await closeContext(A.ctx); await closeContext(B.ctx); }
 });
 
 test("QV04: Undertow Spiral ribbon appears only after a confirmed capture hit and drains", async () => {
@@ -134,7 +135,7 @@ test("QV04: Undertow Spiral ribbon appears only after a confirmed capture hit an
     expect(hit).toBeGreaterThanOrEqual(20);
     await until(async () => (await fxActive(B.page)) === 0, 8000, "ribbon drains");
     for (const x of [A, B]) expect(x.errors).toEqual([]);
-  } finally { await A.ctx.close(); await B.ctx.close().catch(() => undefined); }
+  } finally { await closeContext(A.ctx); await closeContext(B.ctx); }
 });
 
 test("QV05: Furnace Ray is sustained for the whole replicated Active phase, then stops on interruption and drains", async () => {
@@ -165,7 +166,7 @@ test("QV05: Furnace Ray is sustained for the whole replicated Active phase, then
     await until(async () => (await fxActive(B.page)) > 0, 8000, "short beam seen");
     await until(async () => (await fxActive(B.page)) === 0, 8000, "beam drains after active end");
     for (const x of [A, B]) expect(x.errors).toEqual([]);
-  } finally { await A.ctx.close(); await B.ctx.close().catch(() => undefined); }
+  } finally { await closeContext(A.ctx); await closeContext(B.ctx); }
 });
 
 // ---- QV06: Vanguard ability and awakening coverage -------------------------------------------------------------
@@ -256,7 +257,7 @@ for (const tier of ["low", "medium"] as const) {
       }
       writeFileSync(path.join(outDir6, `${tier}-report.json`), JSON.stringify({ fixture: "synthetic server phase + broadcast hit events; SwiftShader desktop Chromium 1024x768", tier, report }, null, 1));
       for (const x of [A, T, O]) expect(x.errors).toEqual([]);
-    } finally { await A.ctx.close(); await T.ctx.close().catch(() => undefined); await O.ctx.close().catch(() => undefined); }
+    } finally { await closeContext(A.ctx); await closeContext(T.ctx); await closeContext(O.ctx); }
   });
 }
 
@@ -362,7 +363,7 @@ for (const tier of ["low", "medium"] as const) {
       }
       writeFileSync(path.join(outDir7, `${tier}-report.json`), JSON.stringify({ fixture: "synthetic server phase + broadcast hit events; SwiftShader desktop Chromium 1024x768", tier, report }, null, 1));
       for (const x of [A, T, O]) expect(x.errors).toEqual([]);
-    } finally { await A.ctx.close(); await T.ctx.close().catch(() => undefined); await O.ctx.close().catch(() => undefined); }
+    } finally { await closeContext(A.ctx); await closeContext(T.ctx); await closeContext(O.ctx); }
   });
 }
 
@@ -453,7 +454,7 @@ for (const tier of ["low", "medium"] as const) {
       }
       writeFileSync(path.join(outDir8, `${tier}-report.json`), JSON.stringify({ fixture: "synthetic server phase + broadcast hit events; SwiftShader desktop Chromium 1024x768", tier, report }, null, 1));
       for (const x of [A, T, O]) expect(x.errors).toEqual([]);
-    } finally { await A.ctx.close(); await T.ctx.close().catch(() => undefined); await O.ctx.close().catch(() => undefined); }
+    } finally { await closeContext(A.ctx); await closeContext(T.ctx); await closeContext(O.ctx); }
   });
 }
 
@@ -589,6 +590,6 @@ for (const tier of ["low", "medium"] as const) {
       rep["peaks"] = peaks;
       writeFileSync(path.join(outDir9, `${tier}-report.json`), JSON.stringify(rep, null, 1));
       for (const x of [A, B]) expect(x.errors).toEqual([]);
-    } finally { await A.ctx.close(); await B.ctx.close().catch(() => undefined); }
+    } finally { await closeContext(A.ctx); await closeContext(B.ctx); }
   });
 }

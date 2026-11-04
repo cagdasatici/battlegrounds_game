@@ -13,6 +13,7 @@ import { createGameServer } from "../../apps/server/src/createServer.js";
 import { createAuthServices, type AuthServices } from "../../apps/server/src/auth/Services.js";
 import { resolveChromium } from "./harness/chromium-path.js";
 import { evidenceDir } from "./harness/evidence.js";
+import { closeContext } from "./harness/leave.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const req = createRequire(path.join(root, "apps/client/package.json"));
@@ -137,10 +138,10 @@ test("QV02: both observers see the authoritative phase warning, a missed windup 
     expect((await snap(A.page)).render?.geometries ?? 0).toBeLessThanOrEqual(g0);
     cast("Windup", "ea.a3");
     await both((t) => t.active === 1, "warning before leave");
-    await B.ctx.close();
+    await closeContext(B.ctx);
     await until(async () => (await snap(A.page)).players.length === 1, 8000, "B gone");
     idle();
     await until(async () => (await tele(A.page)).active === 0, 8000, "no warning after cast ends");
     for (const x of [A, B]) expect(x.errors).toEqual([]);
-  } finally { await A.ctx.close(); await B.ctx.close().catch(() => undefined); }
+  } finally { await closeContext(A.ctx); await closeContext(B.ctx); }
 });

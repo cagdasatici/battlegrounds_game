@@ -226,7 +226,10 @@ test("scoped guest: disconnect during combat keeps the seat and rejoins, KO agre
     // End the match: the guest returns to Welcome and its scope is dead. A new match gets a new code, a fresh link, zero scores.
     await button(h.page, "Sparring controls").click(); await button(h.page, "End match").click();
     await expect(button(h.page, "Host sparring")).toBeVisible();
-    await expect(g.page.locator("[data-act=play]")).toBeVisible({ timeout: 15_000 });
+    // GR03: the closed match is an explicit error route for the guest; Back returns to Welcome.
+    await expect(g.page.locator("[data-ui=error]")).toBeVisible({ timeout: 15_000 });
+    await g.page.click("[data-act=back]");
+    await expect(g.page.locator("[data-act=play]")).toBeVisible();
     await g.ctx.close(); g = undefined;
     await button(h.page, "Host sparring").click();
     await button(h.page, "Remove Bot 1").click();

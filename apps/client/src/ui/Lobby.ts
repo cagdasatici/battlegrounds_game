@@ -7,6 +7,7 @@ import { P0_KITS, type KitId } from "@eb/shared/protocol";
 import { EA_DEFS, SV_DEFS, TD_DEFS } from "@eb/shared/config/kits/index";
 import { LobbyPreview } from "./LobbyPreview.js";
 import type { FlowError, FlowState } from "../app/AppFlow.js";
+import { CLOSE_TEXT } from "../app/ConnectionLifecycle.js";
 
 export const KIT_LABEL: Readonly<Record<KitId, string>> = { sv: "Stone Vanguard", td: "Tide Duelist", ea: "Ember Artificer" };
 const KIT_DEFS = { sv: SV_DEFS, td: TD_DEFS, ea: EA_DEFS } as const;
@@ -26,6 +27,9 @@ export const ERROR_TEXT: Readonly<Record<FlowError, string>> = {
   SERVER_OFFLINE: "We cannot reach the game right now. Check the connection and try again.",
   ASSET_FAILED: "Some game files did not load. Try again.",
   UNSUPPORTED: "This device cannot show the 3D arena (WebGL2 or WebAssembly is unavailable).",
+  SESSION_ENDED: CLOSE_TEXT.session,
+  ARENA_CLOSED: CLOSE_TEXT.arena,
+  CONNECTION_LOST: CLOSE_TEXT.lost,
 };
 
 export interface LobbyView {

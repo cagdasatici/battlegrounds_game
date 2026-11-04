@@ -51,6 +51,11 @@ export interface LoopDeps {
   sampler: IntentSampler;
   clock: ClockSync;
   readState(): LoopState | null;
+  /**
+   * GR03 gameplay gate. False while connecting, reconnecting or before the authoritative ready snapshot: the loop
+   * samples and sends no input, runs no local prediction, and discards queued edges. Defaults to open.
+   */
+  inputEnabled?(): boolean;
   sendInput(p: InputPacket): void;
   sendPing(p: { nonce: number; clientMs: number }): void;
   raf?: (cb: (ms: number) => void) => number;
@@ -91,6 +96,9 @@ export class GameLoop {
   private lastAck = 0;
   private lastLife = -1;
   private lastAction: Action = "Idle";
+  private gateOpen = true;
+  /** Latest authoritative local pose, used to present the local fighter while prediction is suspended. */
+  private authPose: { x: number; y: number; z: number; yaw: number } | null = null;
   private tokens: number = RATE_LIMITS.inputBurst;
   private tokenMs = 0;
   private readonly known = new Map<string, KitId>();
@@ -131,12 +139,45 @@ export class GameLoop {
     this.prediction = null;
   }
 
-  /** Drops prediction history (new epoch after a resync) so old-epoch input is never replayed. */
+  /**
+   * Drops prediction history and every send/ack/life bookkeeping field (new epoch after a resync, reconnect or
+   * local fighter removal) so old-epoch input is never replayed. A fresh snapshot rebinds the local entity.
+   */
   resetPrediction(): void {
     this.prediction = null;
+    this.localEntityId = null;
+    this.authPose = null;
     this.lastTick = null;
-    this.lastAck = 0;
+    this.lastSentTick = -Infinity;
+    this.heldIntent = NEUTRAL_MOVE;
+    this.heldSample = 0;
     this.lastSig = "";
+    this.lastAck = 0;
+    this.lastLife = -1;
+    this.lastAction = "Idle";
+    this.tokens = RATE_LIMITS.inputBurst;
+    this.tokenMs = 0;
+    this.lastSeenServerTick = -1;
+    this.lastPingMs = -Infinity;
+  }
+
+  /** New welcome (join or reconnect): reset prediction and every remote interpolation buffer. */
+  resetEpoch(): void {
+    this.resetPrediction();
+    this.d.scene.clearRemoteBuffers();
+    this.remoteAction.clear();
+  }
+
+  /** Closes or reopens the gameplay gate; every transition releases holds and discards queued edges. */
+  private applyGate(open: boolean): void {
+    if (open === this.gateOpen) return;
+    this.gateOpen = open;
+    this.d.router.releaseAll();
+    this.d.router.takeEdges();
+    this.d.sampler.setEpoch(this.d.sampler.epoch);
+    this.lastTick = null; this.lastSentTick = -Infinity; this.lastSig = "";
+    this.heldIntent = NEUTRAL_MOVE; this.heldSample = 0;
+    if (!open) this.prediction = null; // rebuilt from the authoritative pose when the gate reopens
   }
 
   frame(nowMs: number): void {
@@ -151,11 +192,13 @@ export class GameLoop {
       this.d.sendPing(clock.makePing(nowMs));
     }
     const est = clock.serverTick(nowMs);
+    this.applyGate(this.d.inputEnabled?.() ?? true);
+    if (!this.gateOpen) this.d.router.takeEdges(); // taps during a closed gate must not fire after it reopens
     const st = this.d.readState();
     if (st) this.syncState(st, est);
     if (est !== null) {
       this.refillTokens(nowMs);
-      this.stepLocal(est);
+      if (this.gateOpen) this.stepLocal(est);
       scene.updateRemotes(est);
     }
     this.present(dtSec);
@@ -208,7 +251,9 @@ export class GameLoop {
   private syncLocal(key: string, p: LoopPlayer, serverTick: number, est: number | null): void {
     this.localEntityId = p.entityId;
     const pos = { x: fromCm(p.x), y: fromCm(p.y), z: fromCm(p.z) };
+    this.authPose = { ...pos, yaw: fromYaw(p.facingYaw) };
     if (this.prediction === null) {
+      if (!this.gateOpen) return; // no prediction while input is gated; the authoritative pose is presented
       this.prediction = new Prediction(this.d.collide, pos, fromYaw(p.facingYaw));
       this.lastLife = p.lifeId;
       this.lastAction = p.action;
@@ -290,10 +335,11 @@ export class GameLoop {
 
   private present(dtSec: number): void {
     const pred = this.prediction;
-    if (pred === null || this.localEntityId === null) return;
-    const mesh = pred.meshPosition(dtSec * 1000);
+    if (this.localEntityId === null || (pred === null && this.authPose === null)) return;
+    const mesh = pred ? pred.meshPosition(dtSec * 1000) : this.authPose!;
+    const yaw = pred ? pred.state.facingYaw : this.authPose!.yaw;
     const view = this.d.scene.viewFor(String(this.localEntityId));
-    view?.setPose(mesh.x, mesh.y, mesh.z, pred.state.facingYaw);
+    view?.setPose(mesh.x, mesh.y, mesh.z, yaw);
     const r = this.d.router;
     const opponent = this.lastAction === "Dead" ? null : this.nearestOpponent(mesh);
     this.framing = { local: { x: mesh.x, y: mesh.y, z: mesh.z }, opponent };

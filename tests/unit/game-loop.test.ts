@@ -22,6 +22,7 @@ interface Rig {
   sent: InputPacket[]; pings: { nonce: number; clientMs: number }[];
   state: { serverTick: number; players: Map<string, LoopPlayer> };
   clockAt(ms: number, tick: number): void;
+  gate: { open: boolean };
 }
 const rigs: Rig[] = [];
 afterEach(() => { for (const r of rigs.splice(0)) { r.loop.dispose(); r.scene.dispose(); r.kit.dispose(); } });
@@ -46,14 +47,16 @@ function makeRig(): Rig {
       ["2", player({ entityId: 2, x: 500, z: -300, kitId: "td" })],
     ]),
   };
+  const gate = { open: true };
   const loop = new GameLoop({
     scene, camera: new CameraRig(map.colliders), collide: kit.collide, router, sampler, clock,
+    inputEnabled: () => gate.open,
     readState: (): LoopState => state,
     sendInput: (p) => { sent.push(p); },
     sendPing: (p) => { pings.push(p); },
   });
   const rig: Rig = {
-    loop, router, scene, kit, sent, pings, state,
+    loop, router, scene, kit, sent, pings, state, gate,
     clockAt(ms, tick) {
       const p = clock.makePing(ms);
       clock.onPong({ nonce: p.nonce, serverMs: 1_000_000 + ms + 5, serverTick: tick }, ms + 10);
@@ -214,5 +217,47 @@ describe("T30 frame time hook", () => {
     loop.frame(1000); loop.frame(1016); loop.frame(1050);
     loop.dispose(); scene.dispose(); kit.dispose();
     expect(seen).toEqual([16, 34]);
+  });
+});
+
+describe("GR03 connection gate", () => {
+  test("closed gate: no input, no prediction, queued edges discarded; reopening needs a fresh press", () => {
+    const r = makeRig();
+    r.clockAt(0, 100);
+    r.router.setKeyboardMove(0, 1);
+    r.router.keyHold("attack", true);
+    let t = run(r, 0, 20);
+    expect(r.sent.length).toBeGreaterThan(0);
+    r.gate.open = false;
+    t = run(r, t, 1);
+    const sentAtClose = r.sent.length;
+    expect(r.loop.prediction).toBeNull();
+    r.router.keyHold("jump", true); r.router.keyHold("jump", false);
+    t = run(r, t, 60);
+    expect(r.sent.length).toBe(sentAtClose);
+    expect(r.loop.prediction).toBeNull();
+    expect(r.router.hasEdges).toBe(false);
+    r.gate.open = true;
+    t = run(r, t, 10);
+    expect(r.loop.prediction).not.toBeNull();
+    const after = r.sent.slice(sentAtClose);
+    expect(after.length).toBeGreaterThan(0);
+    for (const p of after) { expect(p.attackHeld).toBe(false); expect(p.moveZ).toBe(0); expect(p.edges).toEqual([]); }
+  });
+
+  test("resetEpoch clears prediction, send bookkeeping and remote buffers; the next snapshot rebinds the local fighter", () => {
+    const r = makeRig();
+    r.clockAt(0, 100);
+    let t = run(r, 0, 20);
+    expect(r.loop.localEntityId).toBe(1);
+    expect(r.scene.bufferFor("2")?.size ?? 0).toBeGreaterThan(0);
+    r.loop.resetEpoch();
+    expect(r.loop.prediction).toBeNull();
+    expect(r.loop.localEntityId).toBeNull();
+    expect(r.scene.bufferFor("2")?.size).toBe(0);
+    r.state.serverTick += 5;
+    t = run(r, t, 3);
+    expect(r.loop.localEntityId).toBe(1);
+    expect(r.loop.prediction).not.toBeNull();
   });
 });

@@ -9,7 +9,10 @@ import type { RoomSummary } from "@eb/shared/rooms";
 import type { KitId } from "@eb/shared/protocol";
 
 export type Screen = "boot" | "welcome" | "lobby" | "match" | "error";
-export type FlowError = "ROOM_FULL" | "INVITE_INVALID" | "VERSION_MISMATCH" | "SERVER_OFFLINE" | "ASSET_FAILED" | "UNSUPPORTED";
+export type FlowError =
+  | "ROOM_FULL" | "INVITE_INVALID" | "VERSION_MISMATCH" | "SERVER_OFFLINE" | "ASSET_FAILED" | "UNSUPPORTED"
+  /** GR03 terminal closes of a joined room: revoked session (4401), closed arena (4500), unexpected loss. */
+  | "SESSION_ENDED" | "ARENA_CLOSED" | "CONNECTION_LOST";
 type Step = "assets" | "login" | "join";
 
 export type FlowMode = "play" | "practice" | "sparring";
@@ -25,6 +28,14 @@ export interface FlowDeps {
   /** Joins the private FFA room, or the server derived practice room for `mode` "practice". */
   join(mode: FlowMode, roomCode?: string): Promise<void>;
   sendReady(kit: KitId): void;
+  /**
+   * GR03 reload recovery. `canResume` is a cheap synchronous check (stored token + metadata); `resume` tries the
+   * reconnection token exactly once and resolves with the restored mode, or null when rejected (metadata discarded).
+   * `enterResumed` starts the match for a fighter that is already ready (never sends Ready).
+   */
+  canResume?(): boolean;
+  resume?(): Promise<FlowMode | null>;
+  enterResumed?(): void;
   leave(): Promise<void>;
   sleep(ms: number): Promise<void>;
   /** Whether an adult supplied invitation was present in the URL fragment. */
@@ -90,6 +101,8 @@ export class AppFlow {
     const revision = this.revision;
     try {
       this.failed = null; this.retries = 0;
+      if (await this.tryResume(revision)) return;
+      if (revision !== this.revision) return;
       if (this.deps.sparring && await this.deps.sparring.recover()) this.mode = "sparring";
     } catch (e) {
       if (revision === this.revision) this.fail("login", e);
@@ -97,6 +110,41 @@ export class AppFlow {
     }
     if (revision !== this.revision) return;
     this.set("welcome");
+  }
+
+  /** Reload recovery, once, before the normal entry. True when the same ready fighter was restored. */
+  private async tryResume(revision: number): Promise<boolean> {
+    const d = this.deps;
+    if (!d.canResume?.() || !d.resume || !d.enterResumed) return false;
+    try {
+      // Reconnect first: the seat is only reserved for 20 s and asset loading can take several seconds.
+      const mode = await d.resume();
+      if (revision !== this.revision) { if (mode) await d.leave(); return false; }
+      if (mode === null) return false;
+      await this.ensureAssets();
+      if (revision !== this.revision) { await d.leave(); return false; }
+      this.mode = mode; this.loggedIn = true;
+      this.set("lobby");
+      d.enterResumed();
+      this.set("match");
+      return true;
+    } catch {
+      try { await d.leave(); } catch { /* the room may already be gone */ } // leave also discards the stored token
+      return false; // a failed recovery shows Welcome
+    }
+  }
+
+  /** GR03: the joined room closed for good. Always an explicit error route; there is no silent rejoin or reset. */
+  connectionClosed(kind: "session" | "arena" | "lost"): void {
+    if (this.state.screen !== "lobby" && this.state.screen !== "match") return;
+    this.retries = 0;
+    if (kind === "lost" && this.mode !== "sparring") {
+      this.failed = "join"; // Retry joins again through the ordinary ticket path
+      this.set("error", "CONNECTION_LOST", true);
+    } else {
+      this.failed = null;
+      this.set("error", kind === "session" ? "SESSION_ENDED" : kind === "arena" ? "ARENA_CLOSED" : "CONNECTION_LOST", false);
+    }
   }
 
   /** Loads renderer, physics and the map once (idempotent in the dep). Failure is ASSET_FAILED with Retry. */

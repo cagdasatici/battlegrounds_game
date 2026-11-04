@@ -188,6 +188,9 @@ export class GameScene {
     this.fighters.delete(id);
   }
 
+  /** GR03: a new epoch or reconnect drops every interpolation buffer so no pre-drop snapshot is replayed. */
+  clearRemoteBuffers(): void { for (const f of this.fighters.values()) f.buffer.clear(); }
+
   bufferFor(id: string): SnapshotBuffer | undefined { return this.fighters.get(id)?.buffer; }
   kitOf(id: string): KitId | undefined { return this.fighters.get(id)?.view.kitId; }
   viewFor(id: string): FighterView | undefined { return this.fighters.get(id)?.view; }
