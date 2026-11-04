@@ -80,6 +80,9 @@ export class GameScene {
   private fighters = new Map<string, { view: FighterView; buffer: SnapshotBuffer }>();
   private onResize = (): void => this.resize();
   private disposed = false;
+  private renderPaused = false;
+  /** GR09: called after each frame that was actually drawn (never while paused). */
+  onFrameRendered: (() => void) | null = null;
   private quality: Quality = "medium";
   private readonly sun = new DirectionalLight(0xffe4bd, 2.25);
   private readonly ramp: DataTexture = makeToonRamp();
@@ -221,8 +224,22 @@ export class GameScene {
     this.camera.updateProjectionMatrix();
   }
 
+  /** GR09: true while the graphics context is lost; render() then makes no renderer call. */
+  get renderingPaused(): boolean { return this.renderPaused; }
+  pauseRendering(): void { this.renderPaused = true; }
+  resumeRendering(): void { this.renderPaused = false; }
+
+  /** GR09: drop transient GPU-backed visuals after a context restore; live fighters, projectiles and urns are re-synced from state by the loop. */
+  discardTransient(): void {
+    this.effects.discardTransient();
+    this.projectiles.clear();
+    this.urns.clear();
+    this.clearRemoteBuffers();
+  }
+
   /** Draws one frame. `dtSec` advances fighter animation and drifting clouds; it never schedules gameplay. */
   render(dtSec = 0): void {
+    if (this.renderPaused || this.disposed) return;
     for (const [id, { view }] of this.fighters) {
       view.update(dtSec);
       const contact = this.contacts.get(id), pos = view.group.position;
@@ -241,6 +258,7 @@ export class GameScene {
     this.arena.sky.position.copy(this.camera.position);
     this.arena.clouds.rotation.y += dtSec * 0.003;
     this.renderer.render(this.scene, this.camera);
+    this.onFrameRendered?.();
   }
 
   dispose(): void {

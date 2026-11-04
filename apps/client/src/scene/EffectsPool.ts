@@ -148,6 +148,13 @@ export class EffectsPool {
     mesh.instanceMatrix.needsUpdate = true;
   }
 
+  /** GR09: after a graphics context loss every live particle, flash, ring, streak and light is dropped (nothing replays). */
+  discardTransient(): void {
+    for (let i = 0; i < this.cap; i++) { this.age[i] = this.life[i]!; if (this.mesh) this.write(i, 0); }
+    this.alive = 0;
+    this.glow.clearAll();
+  }
+
   private release(): void {
     this.glow.release();
     if (this.mesh) {

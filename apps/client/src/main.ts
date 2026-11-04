@@ -16,6 +16,7 @@ import { mountSparringSetup } from "./ui/SparringSetup.js";
 import { swRegistration } from "./app/registerSw.js";
 import { UpdateWatcher, browserUpdateDeps } from "./app/UpdateWatcher.js";
 import { AppFlow } from "./app/AppFlow.js";
+import { GraphicsLifecycle, mountGraphicsBanner } from "./app/GraphicsLifecycle.js";
 import { ConnectionLifecycle, phaseText, type ConnectionPhase, type LifecycleRoom } from "./app/ConnectionLifecycle.js";
 import { CombatBus } from "./app/CombatBus.js";
 import type { AttackTelegraphs } from "./fx/AttackTelegraphs.js";
@@ -91,6 +92,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   let rt: Runtime | null = null; // QP01: Three/Rapier runtime, loaded on first arena use
   let map: ArenaMap | null = null;
   let gs: GameScene | null = null;
+  let graphics: GraphicsLifecycle | null = null; // GR09: context loss/restore for the one active canvas
   let glRenderer: WebGLRenderer | undefined; // read only by the opt-in ?debug=1 probe
   let softwareGl = false; // CPU rasteriser (SwiftShader): always the low tier, whatever the setting
   let room: Room | null = null;
@@ -112,6 +114,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   cleanups.push(() => canvasHost.remove());
   const rejections = new RejectionNotice();
   const flowRef: { current: AppFlow | null } = { current: null };
+  const graphicsBanner = mountGraphicsBanner(document, { reload: () => { location.reload(); }, leave: () => { void flowRef.current?.back(); } });
+  cleanups.push(() => graphicsBanner.dispose());
 
   const players = (): Map<string, HudPlayer> => (room?.state as { players?: Map<string, HudPlayer> } | undefined)?.players ?? new Map();
   const localOf = (): HudPlayer | undefined => { for (const p of players().values()) if (p.owner !== undefined) return p; return undefined; };
@@ -253,14 +257,36 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       if (!res.ok) throw new Error("map");
       const m = parseArenaMap(await res.json());
       await loaded.initRapier();
-      const renderer = new loaded.WebGLRenderer({ antialias: true });
-      canvasHost.append(renderer.domElement);
-      glRenderer = renderer;
-      softwareGl = loaded.isSoftwareRenderer(renderer.getContext());
-      gs = new loaded.GameScene(renderer, m.colliders, window);
-      if (softwareGl) gs.setQuality("low");
-      await gs.loadEnvironment();
-      gs.setCamera({ position: { x: 0, y: 20, z: 40 }, pivot: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0, distance: 40, shoulderOffset: 0 });
+      // GR09: transactional creation. Everything is held locally and published to the session only on success;
+      // a rejected or disposed boot releases the scene, renderer and canvas so a retry leaves no hidden canvas.
+      let renderer: WebGLRenderer | undefined;
+      let scene: GameScene | undefined;
+      let lc: GraphicsLifecycle | undefined;
+      let sw = false;
+      try {
+        renderer = new loaded.WebGLRenderer({ antialias: true });
+        canvasHost.append(renderer.domElement);
+        sw = loaded.isSoftwareRenderer(renderer.getContext());
+        scene = new loaded.GameScene(renderer, m.colliders, window);
+        if (sw) scene.setQuality("low");
+        await scene.loadEnvironment();
+        if (disposed) throw new Error("disposed");
+        scene.setCamera({ position: { x: 0, y: 20, z: 40 }, pivot: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0, distance: 40, shoulderOffset: 0 });
+        const s = scene;
+        lc = new GraphicsLifecycle({
+          canvas: renderer.domElement, scene: s,
+          ownerTick: () => (room?.state as { serverTick?: number } | undefined)?.serverTick ?? null,
+          onState: (st) => { graphicsBanner.render(st); },
+        });
+        s.onFrameRendered = () => { graphics?.frameRendered(); };
+      } catch (e) {
+        lc?.dispose();
+        if (scene) scene.dispose(); else renderer?.dispose();
+        renderer?.domElement.remove();
+        throw e;
+      }
+      gs = scene; glRenderer = renderer; softwareGl = sw; graphics = lc;
+      cleanups.push(() => { graphics?.dispose(); graphics = null; });
       map = m;
       const idle = (): void => { if (matchCleanups.length === 0) gs?.render(); rafId = requestAnimationFrame(idle); };
       rafId = requestAnimationFrame(idle);
@@ -597,6 +623,9 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       onTelegraphs: (t) => { telegraphs = t; },
     }));
     const captureCam = new R.CaptureCam(cam);
+    // GR09: a lost graphics context closes the input gate (holds released, neutral sent) and stops the capture camera.
+    graphics?.setMatch({ close: () => { gate.set("graphics", true); cam.cancelTrack(); }, open: () => { gate.set("graphics", false); } });
+    matchCleanups.push(() => { graphics?.setMatch(null); });
     let capRaf = 0;
     const capFrame = (): void => {
       const me = localOf() as { action?: string; lifeId?: number; connected?: boolean } | undefined;
