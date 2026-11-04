@@ -234,7 +234,7 @@ Findings: [full review](reviews/full-game-review.md). Execution packets: [game i
 | GR08 | Durable round results and live objective | GR03 GR05 | IMPLEMENTED, DEVICE CHECK PENDING | d54cd08 | docs/test-results/GR08.md |
 | GR09 | Graphics recovery and failed-load cleanup | GR05 | IMPLEMENTED, DEVICE CHECK PENDING | e779f9d | docs/test-results/GR09.md |
 | GR10 | Routine log privacy | FR01 | DONE | 423e3ba | docs/test-results/GR10.md |
-| GR11 | HUD text budget and overlay hierarchy | GR05 GR07 GR08 | IMPLEMENTED, DEVICE CHECK PENDING | | docs/test-results/GR11.md |
+| GR11 | HUD text budget and overlay hierarchy | GR05 GR07 GR08 | IMPLEMENTED, DEVICE CHECK PENDING | 392da80 | docs/test-results/GR11.md |
 | GR12 | Clear entry routes and fighter preview | GR03 GR11 | TODO | | docs/test-results/GR12.md (create in slice) |
 | GR13 | Bounded ground navigation for bots | GR02 | TODO | | docs/test-results/GR13.md (create in slice) |
 | GR14 | Role-aware bot tactics and charging | GR07 GR13 | TODO | | docs/test-results/GR14.md (create in slice) |
