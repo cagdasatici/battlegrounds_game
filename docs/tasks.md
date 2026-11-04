@@ -231,7 +231,7 @@ Findings: [full review](reviews/full-game-review.md). Execution packets: [game i
 | Task | Title | Depends on | Status | Commit | Test report |
 |---|---|---|---|---|---|
 | FR01 | Principal engineering and staff game UX review, reproduced defects and implementation packets | MODE01 | IN PROGRESS | | docs/test-results/FR01.md |
-| GR00 | Restore trustworthy browser acceptance | FR01 | IN PROGRESS | | docs/test-results/GR00.md (create in slice) |
+| GR00 | Restore trustworthy browser acceptance | FR01 | IN PROGRESS | pending | docs/test-results/GR00.md (session 4: p0-gate, combat-text, QC01, QV07 fixed; match.spec snap and Ember Orb lease stall open) |
 | GR01 | Active-session revocation and expiry | FR01 | DONE | 2dad92e | docs/test-results/GR01.md |
 | GR02 | Occupant-safe detached projectile attribution | GR01 | DONE | 6186c1a | docs/test-results/GR02.md |
 | GR03 | Reconnect, reload and page lifecycle | GR01 | IMPLEMENTED, DEVICE CHECK PENDING | 23389f0 | docs/test-results/GR03.md |

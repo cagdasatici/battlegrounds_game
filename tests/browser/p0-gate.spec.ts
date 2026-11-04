@@ -161,10 +161,11 @@ test.describe("T18e: all 16 slotted moves and both awakenings through the UI, tw
           const [a, b] = [await snap(A.page), await snap(B.page)];
           return a.players.length === 2 && b.players.length === 2 && a.players.every((p) => p.ready) && b.players.every((p) => p.ready) ? true : null;
         }, 25_000, "both ready");
+        // GR00: pick this row's own room by code. The previous row's room may still be disposing with 2 clients, and driving it left the real room untouched (HP 10000 / meter never replicated).
         const rooms = await matchMaker.query({ name: "arena" });
-        const info = rooms.find((r) => r.clients === 2);
-        expect(info, "room with both clients").toBeDefined();
-        const room = matchMaker.getLocalRoomById(info!.roomId) as unknown as ArenaRoom;
+        const mine = rooms.map((r) => matchMaker.getLocalRoomById(r.roomId) as unknown as ArenaRoom | undefined).filter((r): r is ArenaRoom => r !== undefined && r.roomCode === code);
+        expect(mine.length, "exactly one room with this row's code").toBe(1);
+        const room = mine[0]!;
         const sa = await snap(A.page);
         const aId = sa.players.find((p) => p.local)!.entityId, bId = sa.players.find((p) => !p.local)!.entityId;
         // Spawn protection (120 ticks) must be over and both bodies grounded.

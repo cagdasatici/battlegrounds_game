@@ -98,6 +98,8 @@ test("combat text: dummy hit shows red damage, a cast shows its label, Leave rem
     await until(async () => (await snap(page)).players.some((q) => q.local && q.action === "Idle") || null, 15_000, "ready");
     await expect(page.locator("[data-ui=combat-text]")).toHaveCount(1);
 
+    // GR00: a skill pressed in the first ~1 s after spawn (before the body has landed) is rejected by the server; wait for the spawn drop to settle.
+    await until(async () => (await snap(page)).serverTick >= 150 || null, 15_000, "spawn settled");
     // Cast: skill 1 (Fault Strike for Stone Vanguard). Text comes from the confirmed server event.
     await page.keyboard.down("Digit1");
     await sleep(120);

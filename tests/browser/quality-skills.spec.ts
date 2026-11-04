@@ -331,10 +331,13 @@ for (const tier of ["low", "medium"] as const) {
         await O.page.screenshot({ path: path.join(outDir7, file), type: "jpeg", quality: 82 });
         let trailPeak: number | null = null;
         if (row.id === "td.a4") { // QV09 polish: move the caster 4 m east through Active and capture the trail mid-dash
+          await O.page.evaluate(() => { const w = window as unknown as { __eb: { snapshot(): { fx: { active: number } } }; __trail?: { id: number; peak: number } }; if (w.__trail) clearInterval(w.__trail.id); const t = { id: 0, peak: 0 }; t.id = window.setInterval(() => { t.peak = Math.max(t.peak, w.__eb.snapshot().fx.active); }, 4); w.__trail = t; });
           for (let st = 1; st <= 16; st++) {
-            place(aId, 2 + st * 0.25, 8, -Math.PI / 2); await sleep(45);
-            if (st === 9) { trailPeak = await fxOf(); await O.page.screenshot({ path: path.join(outDir7, `${tier}-td.a4-trail.jpg`), type: "jpeg", quality: 82 }); }
+            place(aId, 2 + st * 0.25, 8, -Math.PI / 2); await sleep(120); // GR00: 120 ms (was 45) so a slow observer page still renders frames while the caster moves
+            if (st === 9) { await O.page.screenshot({ path: path.join(outDir7, `${tier}-td.a4-trail.jpg`), type: "jpeg", quality: 82 }); }
           }
+          // GR00: the observer page renders only a few frames per second under load, so the peak is recorded inside the page every 4 ms instead of sampled from Node at one instant.
+          trailPeak = await O.page.evaluate(() => { const t = (window as unknown as { __trail: { id: number; peak: number } }).__trail; clearInterval(t.id); return t.peak; });
           expect(trailPeak).toBeGreaterThan(RIPTIDE_LUNGE); // more than the lunge ring alone is alive mid-dash
         }
         const hitPeaks: number[] = [];
