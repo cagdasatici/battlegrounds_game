@@ -127,9 +127,12 @@ Plan and file ownership are in [the web plan](web-plan.md); hosting steps are in
 
 | Task | Title | Depends on | Status | Commit | Test report | Notes |
 |---|---|---|---|---|---|---|
+| FB06 | Thumb-arc skill layout | FB01 | IMPLEMENTED, DEVICE CHECK PENDING | HASH | docs/test-results/FB06.md | Owner choice 2026-11-04 |
 | ORB2 | Render Ember Orb from replicated server state (item 2) | T19 T20 T21 | IMPLEMENTED (DEVICE CHECK PENDING) | b19f246 | docs/test-results/ORB2.md | Two Chromium contexts: flight, reflection, expiry. Physical iPad NOT RUN |
 | FB04 | Awaken fills 2.5x and survives death | GR14 | DONE | 5b27a12 | docs/test-results/FB04.md | Owner report 2026-11-04 |
 | FB03 | Medium bot between easy and hard | FB02 | DONE | ad1540c | docs/test-results/FB03.md | Owner report 2026-11-04 |
+| FB08 | Environment visual quality pass | GR11 | IMPLEMENTED, DEVICE CHECK PENDING | HASH | docs/test-results/FB08.md | Owner request 2026-11-04 |
+| FB07 | Edge-aware shortened dash | GR13 | DONE | d6ade05 | docs/test-results/FB07.md | Owner request 2026-11-04 |
 | FB05 | Instant practice/fight entry with background setup | GR12 | IMPLEMENTED, DEVICE CHECK PENDING | f337fce | docs/test-results/FB05.md | Owner report 2026-11-04 |
 | FB02 | Easy bot much easier and error-prone | GR14 | DONE | 54e07c3 | docs/test-results/FB02.md | Owner report 2026-11-04 |
 | FB01 | iPad selection overlay suppression | GR11 | IMPLEMENTED, DEVICE CHECK PENDING | 8027a46 | docs/test-results/FB01.md | Owner report 2026-11-04 |
