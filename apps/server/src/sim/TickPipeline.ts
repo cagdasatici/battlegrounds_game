@@ -10,6 +10,8 @@ import type { CombatSystem } from "./Combat.js";
 import type { M1System, M1Pose } from "./M1.js";
 import type { AbilityRunner, SkillOutcome } from "./AbilityRunner.js";
 import type { AwakeningSystem, AwakenOutcome } from "./Awakening.js";
+import { MOVE_DT } from "@eb/shared/movement";
+import { safeTravelDistance } from "@eb/shared/dashSafety";
 import type { MovementSystem, HorizontalOverride } from "./Movement.js";
 import type { World } from "./World.js";
 import type { ProjectileSystem } from "./Projectiles.js";
@@ -218,7 +220,7 @@ export class TickPipeline {
       this.intents.set(seat.entityId, locked ? NEUTRAL_MOVE
         : { moveX: h.moveX * mScale, moveZ: h.moveZ * mScale, run: scaled ? false : h.runHeld, guard: f?.action === "Guard" || h.blockHeld, jumpPressed: sc.jumpPressed, ...(f && f.action !== "Idle" ? { airJumpBlocked: true } : {}), ...(h.facingLock ? { aimYaw: h.yaw } : {}) });
     }
-    this.d.movement()?.step(tick, (id) => this.intents.get(id) ?? NEUTRAL_MOVE, (id) => this.dashOverride(id),
+    this.d.movement()?.step(tick, (id) => this.intents.get(id) ?? NEUTRAL_MOVE, (id) => this.dashOverride(id, tick),
       (id) => this.d.abilities.facingOverrideOf(id), (id) => this.d.abilities.freezesVertical(id, tick));
   }
 
@@ -505,9 +507,21 @@ export class TickPipeline {
     return i && (i.moveX !== 0 || i.moveZ !== 0) ? Math.atan2(-i.moveX, -i.moveZ) : undefined;
   }
 
-  private dashOverride(id: number): HorizontalOverride | null {
-    const d = this.d.combat.get(id)?.dash;
-    return d ? { vx: d.dirX * d.speed, vz: d.dirZ * d.speed } : null;
+  /**
+   * FB07: the dash travels at its normal speed but stops short of the first path sample without ground under the
+   * footprint. Re-checked every tick over the remaining travel. Only the caster's own dash is clamped; knockback is not.
+   */
+  private dashOverride(id: number, tick: number): HorizontalOverride | null {
+    const f = this.d.combat.get(id);
+    const d = f?.dash;
+    if (!f || !d) return null;
+    const w = this.d.world(), pos = this.d.movement()?.position(id);
+    if (!w || !pos) return { vx: d.dirX * d.speed, vz: d.dirZ * d.speed };
+    const perTick = d.speed * MOVE_DT;
+    const remaining = Math.max(1, Number.isFinite(f.actionEndTick) ? f.actionEndTick - tick : 1);
+    const safe = safeTravelDistance((x, z) => w.walkableTop(x, z), pos[0], pos[2], d.dirX, d.dirZ, perTick * remaining);
+    const k = Math.min(1, safe / perTick);
+    return { vx: d.dirX * d.speed * k, vz: d.dirZ * d.speed * k };
   }
 
   private publishAction(entityId: number): void {

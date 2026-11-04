@@ -76,9 +76,11 @@ function onTick(c: CastContext): void {
   if (d.recastTick >= 0) { endTravel(c, c.tick); if (d.air && !ap.grounded) c.host.launch?.(id, 0, 0, 0); return; }
   if (d.air && c.tick > c.cast.activeStart && ap.grounded) { endTravel(c, c.tick); return; }
   const e = d.air ? d.elev : 0;
-  const h = VENT_STEP_M * Math.cos(e);
+  // FB07: a grounded rush stops short of a fall (Vent Rush is slot 2 and displaces only the caster).
+  const h0 = VENT_STEP_M * Math.cos(e);
+  const h = d.air ? h0 : Math.min(h0, c.host.safeTravel?.(ap.x, ap.z, fx, fz, h0 * Math.max(1, c.cast.activeEnd - c.tick)) ?? h0);
   const moved = c.host.moveTogether?.([id], fx * h, fz * h) ?? { dx: 0, dz: 0 };
-  let stop = Math.hypot(moved.dx, moved.dz) < h * 0.999;
+  let stop = Math.hypot(moved.dx, moved.dz) < h * 0.999 || h < h0 * 0.999;
   if (d.air) c.host.launch?.(id, 0, VENT_SPEED_MPS * Math.sin(e), 0);
   if (c.tick >= c.cast.activeEnd - 1) stop = true;
   if (stop) { endTravel(c, c.tick); if (d.air) c.host.launch?.(id, 0, 0, 0); }

@@ -11,6 +11,7 @@ import { ArenaState, RoundStandingSchema } from "../state/ArenaSchema.js";
 import { PlayerSchema } from "../state/PlayerSchema.js";
 import { FixedClock } from "../sim/FixedClock.js";
 import { World } from "../sim/World.js";
+import { safeTravelDistance } from "@eb/shared/dashSafety";
 import { MovementSystem, type HorizontalOverride } from "../sim/Movement.js";
 import { CombatSystem } from "../sim/Combat.js";
 import { OffensiveBuffer } from "../sim/OffensiveBuffer.js";
@@ -433,6 +434,7 @@ export class ArenaRoom extends Room {
       moveTogether: (ids, dx, dz) => this.movement?.moveTogether(ids, dx, dz) ?? { dx: 0, dz: 0 },
       wallContact: (id, tick) => this.movement?.get(id)?.wallHitTick === tick,
       surfaceHeight: (x, z) => this.world?.groundHeight(x, z) ?? null,
+      safeTravel: (x, z, dx, dz, dist) => { const w = this.world; return w ? safeTravelDistance((px, pz) => w.walkableTop(px, pz), x, z, dx, dz, dist) : dist; },
     };
   }
 

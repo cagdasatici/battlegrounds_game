@@ -48,6 +48,8 @@ export interface AbilityHost {
   wallContact?(entityId: number, tick: number): boolean;
   /** Optional (T13): height of the walkable surface below (x, z), or null over the void. */
   surfaceHeight?(x: number, z: number): number | null;
+  /** Optional (FB07): shortens a caster-only ground travel of `dist` m from (x, z) along (dx, dz) so it stops before a fall. */
+  safeTravel?(x: number, z: number, dx: number, dz: number, dist: number): number;
   /** Optional projectile provider for reflect handlers (sv.b3). Implemented by ProjectileSystem (T19). */
   readonly projectiles?: ReflectableProjectiles;
   /** Optional (T19): spawns a detached projectile for charge/projectile handlers. Returns its id, or null at the room cap. */
