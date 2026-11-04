@@ -51,6 +51,7 @@ export interface WindowLike {
   innerWidth: number;
   innerHeight: number;
   devicePixelRatio?: number;
+  matchMedia?(q: string): { matches: boolean };
   addEventListener(t: string, fn: () => void): void;
   removeEventListener(t: string, fn: () => void): void;
 }
@@ -106,6 +107,7 @@ export class GameScene {
 
   constructor(private readonly renderer: RendererLike, colliders: readonly Collider[], private readonly win: WindowLike) {
     this.colliders = colliders;
+    try { this.reducedMotion = win.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true; } catch { this.reducedMotion = false; }
     this.scene.background = new Color(SKY.horizon);
     this.scene.fog = new Fog(SKY.fog, 75, 180);
     this.scene.add(new HemisphereLight(0xb9d9f2, 0x44483a, 0.95));
@@ -130,6 +132,14 @@ export class GameScene {
   }
 
   get qualityLevel(): Quality { return this.quality; }
+  /** FB08: true freezes the ambient motes and cloud drift. Defaults to the OS preference; the app sets the in-game setting. */
+  reducedMotion = false;
+  private ambientTime = 0;
+  /** FB08 test hook: ambient mote visibility and the first few mote heights. */
+  ambientState(): { visible: boolean; sample: number[] } {
+    const a = this.arena.motes, e = a.instanceMatrix.array;
+    return { visible: a.visible, sample: [e[13]!, e[29]!, e[45]!].map((v) => Math.round(v * 1e4) / 1e4) };
+  }
   get envStatus(): "none" | "loading" | "ready" | "failed" { return this.envState; }
 
   /**
@@ -177,6 +187,9 @@ export class GameScene {
     // Low tier also drops the purely decorative ground cover; collision, telegraphs and fighters are unaffected.
     const cover = this.arena.group.getObjectByName("deco.cover");
     if (cover) cover.visible = q !== "low";
+    // FB08: cloud shell and motes are medium/high only, so low never exceeds the baseline draw calls.
+    this.arena.cloudShell.visible = q !== "low";
+    this.arena.motes.visible = q !== "low";
     // QE02: supporting approach props follow the same rule; core landmarks and the sparse low-tier tufts stay.
     const extra = this.scene.getObjectByName("env.dressing.extra");
     if (extra) extra.visible = q !== "low";
@@ -328,7 +341,14 @@ export class GameScene {
     this.effects.update(dtSec);
     this.urns.update(dtSec);
     this.arena.sky.position.copy(this.camera.position);
-    this.arena.clouds.rotation.y += dtSec * 0.003;
+    if (!this.reducedMotion) {
+      this.arena.clouds.rotation.y += dtSec * 0.003;
+      if (this.quality !== "low") {
+        this.ambientTime += dtSec;
+        this.arena.cloudShell.rotation.y += dtSec * 0.002;
+        this.arena.setMotes(this.ambientTime);
+      }
+    }
     this.renderer.render(this.scene, this.camera);
     this.onFrameRendered?.();
   }

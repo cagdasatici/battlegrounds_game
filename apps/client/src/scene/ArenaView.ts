@@ -12,6 +12,7 @@ import {
   type Material, type Texture,
 } from "three";
 import type { Collider } from "@eb/shared/config/arena";
+import { ENV_VARIANT, RIM_HEX, cloudAlpha, moteBob, motePlacements, mixHex, mulberry32, plankHex, skyHex, strataHex } from "./EnvPalette.js";
 import { instancePlacements, type EnvKit, type EnvModelId, type EnvPlacement } from "./EnvAssets.js";
 
 export const SKY = { horizon: 0xc2d5df, zenith: 0x326b9e, nadir: 0x6e9eae, fog: 0xb7cdd8 } as const;
@@ -20,17 +21,6 @@ const PALETTE = {
   grassTop: 0x78916b, grassSide: 0x354f42, soil: 0x7a5636, rockHi: 0x8a7f78, rockMid: 0x645c66, rockLow: 0x403b4a,
   wood: 0xa87a48, woodDark: 0x6b4a2c, stone: 0x9a968f, stoneDark: 0x6c6a70, amber: 0xc79b58, cloud: 0xffffff, cloudShade: 0xb9cde4,
 } as const;
-
-function mulberry32(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 type Shader = (x: number, y: number, z: number, nx: number, ny: number, nz: number) => number;
 
@@ -70,7 +60,7 @@ const xf = (x: number, y: number, z: number, sx = 1, sy = 1, sz = 1, rx = 0, ry 
   tmpQ.setFromEuler(tmpE.set(rx, ry, rz));
   return new Matrix4().compose(tmpV.set(x, y, z), tmpQ, tmpS.set(sx, sy, sz));
 };
-const lerpHex = (a: number, b: number, t: number): number => new Color(a).lerp(new Color(b), Math.min(1, Math.max(0, t))).getHex();
+const lerpHex = mixHex;
 const box = (w: number, h: number, d: number): BoxGeometry => new BoxGeometry(w, h, d);
 
 export interface ArenaBuild {
@@ -78,23 +68,25 @@ export interface ArenaBuild {
   /** Sky dome; the scene recentres it on the camera so it never moves relative to the viewer. */
   readonly sky: Mesh;
   readonly clouds: Mesh;
+  /** FB08: soft cloud shell child of the sky dome (hidden on low) and bobbing motes; render-loop only. */
+  readonly cloudShell: Mesh;
+  readonly motes: InstancedMesh;
+  /** Sets mote bob for `timeSec` (0 is the rest pose); never touches gameplay state. */
+  setMotes(timeSec: number): void;
   readonly geometries: BufferGeometry[];
   readonly materials: Material[];
   readonly textures: Texture[];
 }
 
+const RIM_W = 0.32;
 const isGround = (c: Collider): boolean => c.role === "ground";
 
-function groundGeometry(c: Collider): BufferGeometry {
+function groundGeometry(c: Collider, all: readonly Collider[]): BufferGeometry {
   const b = new Batch();
   const top = c.centre[1] + (c.shape === "cuboid" ? c.halfExtents[1] : c.halfHeight);
   const bottom = top - (c.shape === "cuboid" ? c.halfExtents[1] : c.halfHeight) * 2;
   const lip = 0.38;
-  const rock: Shader = (_x, y) => {
-    const t = (top - lip - y) / Math.max(1, top - lip - bottom);
-    // The bank just under the lip is darkened so the pale meadow edge reads against it.
-    return t < 0.25 ? lerpHex(0x4e3a28, PALETTE.rockHi, Math.pow(t / 0.25, 0.7)) : lerpHex(PALETTE.rockHi, PALETTE.rockLow, (t - 0.25) / 0.75);
-  };
+  const rock: Shader = (_x, y) => strataHex(ENV_VARIANT.rock, (top - lip - y) / Math.max(1, top - lip - bottom), PALETTE.rockHi, PALETTE.rockLow, 0x4e3a28);
   const grass: Shader = (x, _y, z, _nx, ny) => {
     if (ny <= 0.5) return PALETTE.grassSide;
     // Broad, quiet patches read at gameplay distance; warm wear leads the east spawn to the bridge.
@@ -108,10 +100,22 @@ function groundGeometry(c: Collider): BufferGeometry {
     const [hx, hy, hz] = c.halfExtents;
     b.add(box(hx * 2, hy * 2 - lip, hz * 2), xf(c.centre[0], bottom + (hy * 2 - lip) / 2, c.centre[2]), rock);
     b.add(new BoxGeometry(hx * 2 + 0.08, lip, hz * 2 + 0.08, 12, 1, 12), xf(c.centre[0], top - lip / 2, c.centre[2]), grass);
+    // FB08: pale edge strips on the walkable top (inside the collider) so ledges read at a glance; skipped where
+    // another island overlaps, so only true outer edges are lit.
+    if (ENV_VARIANT.rock > 0) for (const sd of [-1, 1]) {
+      const seg = 0.5;
+      for (let i = 0; i < hx * 2 / seg; i++) { const x = c.centre[0] - hx + seg * (i + 0.5), z = c.centre[2] + sd * hz; if (!insideIsland(all, x, z + sd * 0.12, 0)) b.add(box(seg, 0.02, RIM_W), xf(x, top + 0.012, z - sd * RIM_W / 2), RIM_HEX); }
+      for (let i = 0; i < hz * 2 / seg; i++) { const z = c.centre[2] - hz + seg * (i + 0.5), x = c.centre[0] + sd * hx; if (!insideIsland(all, x + sd * 0.12, z, 0)) b.add(box(RIM_W, 0.02, seg), xf(x - sd * RIM_W / 2, top + 0.012, z), RIM_HEX); }
+    }
   } else {
     const h = c.halfHeight * 2;
     b.add(new CylinderGeometry(c.radius, c.radius * 0.96, h - lip, 28, 1), xf(c.centre[0], bottom + (h - lip) / 2, c.centre[2]), rock);
     b.add(new CylinderGeometry(c.radius + 0.04, c.radius + 0.04, lip, 28, 1), xf(c.centre[0], top - lip / 2, c.centre[2]), grass);
+    if (ENV_VARIANT.rock > 0) for (let i = 0; i < 24; i++) {
+      const a0 = i / 24 * Math.PI * 2, am = a0 + Math.PI / 24;
+      if (insideIsland(all, c.centre[0] + Math.cos(am) * (c.radius + 0.12), c.centre[2] - Math.sin(am) * (c.radius + 0.12), 0)) continue;
+      b.add(new RingGeometry(c.radius - RIM_W, c.radius, 2, 1, a0, Math.PI / 12), xf(c.centre[0], top + 0.012, c.centre[2], 1, 1, 1, -Math.PI / 2), RIM_HEX);
+    }
   }
   return b.build();
 }
@@ -132,7 +136,7 @@ function bridgeGeometry(c: Collider, glow: Batch, posts: Batch): BufferGeometry 
   }
   for (let i = 0; i < n; i++) {
     const t = -len / 2 + step * (i + 0.5);
-    const tone = lerpHex(PALETTE.wood, PALETTE.woodDark, (i % 3) * 0.12);
+    const tone = plankHex(ENV_VARIANT.bridge, i, n, PALETTE.wood, PALETTE.woodDark);
     b.add(box(alongX ? step * 0.88 : wid, hy * 2 - 0.1, alongX ? wid : step * 0.88), xf(c.centre[0] + (alongX ? t : 0), top - (hy * 2 - 0.1) / 2, c.centre[2] + (alongX ? 0 : t)), tone);
   }
   // Corner posts with lamps.
@@ -209,7 +213,7 @@ function underside(b: Batch, cx: number, cz: number, y: number, rx: number, rz: 
     p.setX(i, p.getX(i) * wob); p.setZ(i, p.getZ(i) * wob);
   }
   g.computeVertexNormals();
-  const shade: Shader = (_x, vy) => lerpHex(PALETTE.rockMid, PALETTE.rockLow, (y - vy) / depth);
+  const shade: Shader = (_x, vy) => (ENV_VARIANT.rock > 0 ? strataHex(ENV_VARIANT.rock, (y - vy) / depth * 0.75 + 0.25, PALETTE.rockHi, PALETTE.rockLow, PALETTE.rockMid) : lerpHex(PALETTE.rockMid, PALETTE.rockLow, (y - vy) / depth));
   b.add(g, xf(cx, y - depth / 2, cz, rx, 1, rz, Math.PI), shade);
 }
 
@@ -408,7 +412,7 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
 
   const posts = new Batch();
   for (const c of colliders) {
-    const g = isGround(c) ? groundGeometry(c) : c.role === "bridge" ? bridgeGeometry(c, glow, posts) : c.role === "guardrail" ? railGeometry(c, glow) : obstacleGeometry(c);
+    const g = isGround(c) ? groundGeometry(c, colliders) : c.role === "bridge" ? bridgeGeometry(c, glow, posts) : c.role === "guardrail" ? railGeometry(c, glow) : obstacleGeometry(c);
     addMesh(c.id, g, isGround(c) ? terrain : toon, { cast: c.role === "obstacle" || c.role === "ground", receive: true });
   }
 
@@ -587,7 +591,7 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
   const c = new Color();
   for (let i = 0; i < sp.count; i++) {
     const t = sp.getY(i) / 165;
-    c.setHex(t >= 0 ? lerpHex(SKY.horizon, SKY.zenith, Math.pow(t, 0.6)) : lerpHex(SKY.horizon, SKY.nadir, Math.min(1, -t * 2)));
+    c.setHex(skyHex(ENV_VARIANT.sky, t, Math.atan2(sp.getZ(i), sp.getX(i)), SKY.horizon, SKY.zenith, SKY.nadir));
     colors.push(c.r, c.g, c.b);
   }
   skyG.setAttribute("color", new Float32BufferAttribute(colors, 3));
@@ -612,7 +616,34 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
   group.add(sky);
   sky.add(backdrop);
 
-  return { group, sky, clouds, geometries, materials, textures: [grassMap] };
+  // FB08: soft cloud layer, a 256x128 alpha mask on a slightly smaller shell inside the dome (one draw call, medium and high).
+  const maskW = 256, maskH = 128, mask = cloudAlpha(maskW, maskH, 0xc10ad);
+  const px = new Uint8Array(maskW * maskH * 4);
+  for (let i = 0; i < mask.length; i++) { px[i * 4] = 255; px[i * 4 + 1] = 255; px[i * 4 + 2] = 255; px[i * 4 + 3] = mask[i]!; }
+  const cloudTex = new DataTexture(px, maskW, maskH, RGBAFormat);
+  cloudTex.wrapS = RepeatWrapping; cloudTex.colorSpace = SRGBColorSpace; cloudTex.magFilter = LinearFilter; cloudTex.minFilter = LinearFilter; cloudTex.flipY = true; cloudTex.needsUpdate = true;
+  const shellG = new SphereGeometry(160, 32, 16);
+  const shellMat = new MeshBasicMaterial({ map: cloudTex, transparent: true, side: BackSide, fog: false, depthWrite: false, opacity: 0.9 });
+  geometries.push(shellG); materials.push(shellMat);
+  const cloudShell = new Mesh(shellG, shellMat);
+  cloudShell.name = "deco.cloudShell"; cloudShell.renderOrder = -9; cloudShell.frustumCulled = false;
+  sky.add(cloudShell);
+
+  // FB08: ambient motes, one InstancedMesh of small drifting rocks around and below the islands.
+  const spots = motePlacements(28, 0x3071e);
+  const moteG = new OctahedronGeometry(1, 0), moteMat = new MeshToonMaterial({ color: 0xcdd6cf, gradientMap: ramp });
+  geometries.push(moteG); materials.push(moteMat);
+  const motes = new InstancedMesh(moteG, moteMat, spots.length);
+  motes.name = "deco.motes"; motes.frustumCulled = false;
+  group.add(motes);
+  const mm = new Matrix4();
+  const setMotes = (timeSec: number): void => {
+    spots.forEach((m, i) => { motes.setMatrixAt(i, mm.compose(tmpV.set(m.x, m.y + moteBob(m.phase, timeSec), m.z), tmpQ.setFromEuler(tmpE.set(0, m.phase + timeSec * 0.05, 0)), tmpS.set(m.size, m.size * 1.3, m.size))); });
+    motes.instanceMatrix.needsUpdate = true;
+  };
+  setMotes(0);
+
+  return { group, sky, clouds, cloudShell, motes, setMotes, geometries, materials, textures: [grassMap, cloudTex] };
 }
 
 /** One grass blade cone merged into a batch, leaning by `lean` radians around `yaw`. */

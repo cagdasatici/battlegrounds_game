@@ -3,6 +3,9 @@ import { WebGLRenderer } from "three";
 import { buildIslandsMap } from "../../../packages/shared/src/config/arena.js";
 import { GameScene } from "../../../apps/client/src/scene/GameScene.js";
 
+import { ENV_VARIANT } from "../../../apps/client/src/scene/EnvPalette.js";
+// FB08 drafting: ?sky=N&rock=N&bridge=N override the chosen look before the scene is built.
+for (const k of ["sky", "rock", "bridge"] as const) { const v = new URLSearchParams(location.search).get(k); if (v !== null) ENV_VARIANT[k] = Number(v); }
 const renderer = new WebGLRenderer({ antialias: true });
 document.body.append(renderer.domElement);
 const gs = new GameScene(renderer, buildIslandsMap().colliders, window);
@@ -74,5 +77,7 @@ requestAnimationFrame(loop);
   /** Triangles per mesh name (instances counted, culling ignored) for budget analysis. */
   breakdown: () => { const r: Record<string, number> = {}; gs.scene.traverse((o) => { const m = o as unknown as { isMesh?: boolean; geometry: { index: { count: number } | null; attributes: { position: { count: number } } }; count?: number; visible: boolean }; if (!m.isMesh || !m.visible) return; r[o.name] = (m.geometry.index?.count ?? m.geometry.attributes.position.count) / 3 * ((m as { isInstancedMesh?: boolean }).isInstancedMesh ? (m.count ?? 1) : 1); }); return r; },
   awaken: (kit: "sv" | "td" | "ea", on: boolean) => gs.viewFor(kit)?.setAwakened(on),
+  reduced: (on: boolean) => { gs.reducedMotion = on; },
+  ambient: () => gs.ambientState(),
   quality: (q: "low" | "medium" | "high") => gs.setQuality(q),
 };

@@ -614,6 +614,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       router.sensitivity = settings.get().sensitivity;
       cam.setDistance(settings.get().cameraDistance);
       cam.reducedMotion = settings.get().reducedMotion;
+      g.reducedMotion = settings.get().reducedMotion || osReducedMotion();
       if (nextSettings.quality !== lastSettings.quality) { adaptive.setCeiling(tier(nextSettings.quality)); g.setQuality(adaptive.level); }
       lastSettings = nextSettings;
       if (layoutChanged) relayout();
@@ -633,6 +634,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     const cam = new R.CameraRig(m.colliders);
     cam.setDistance(settings.get().cameraDistance);
     cam.reducedMotion = settings.get().reducedMotion;
+    g.reducedMotion = settings.get().reducedMotion || osReducedMotion();
     matchCleanups.push(R.registerPresentation(bus, {
       scene: g.scene, camera: g.camera, players, settings, localId: () => { const me = localOf(); return me ? String(me.entityId) : undefined; },
       surfaceHeight: (x, z, fromY) => surfaceBelow(m.colliders, x, z, fromY),
@@ -818,6 +820,9 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   }
   return { scene: gs, dispose };
 }
+
+/** FB08: OS-level reduced motion preference; the in-game setting is ORed with it. */
+function osReducedMotion(): boolean { try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } }
 
 async function waitFor<T>(get: () => T | null, ms: number, what: string): Promise<T> {
   const t0 = performance.now();
