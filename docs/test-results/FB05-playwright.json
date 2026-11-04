@@ -1,0 +1,16 @@
+{
+  "timing-practice": {
+    "disabledMs": 1,
+    "pickMs": 1,
+    "matchMs": 1614.5999999046326
+  },
+  "timing-bots": {
+    "disabledMs": 0.7000000476837158,
+    "pickMs": 0.7000000476837158,
+    "matchMs": 485.30000019073486
+  },
+  "backCleanup": {
+    "matchmakes": 2,
+    "players": 2
+  }
+}

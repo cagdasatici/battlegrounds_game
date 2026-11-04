@@ -79,6 +79,8 @@ export class Lobby {
   private selected: KitId;
   private name: string;
   private last: { st: FlowState; view: LobbyView } | null = null;
+  /** FB05: entry button pressed on Welcome; marked busy and every other entry control disabled in the same frame as the click. */
+  private pressed: "play" | "practice" | "bots" | null = null;
   private readonly onClick: (e: Event) => void;
   /** GR12: the one reserved preview region; the app attaches the loaded scene to it. */
   readonly preview: FighterPreview;
@@ -96,6 +98,10 @@ export class Lobby {
     this.onClick = (e: Event): void => {
       const b = (e.target as HTMLElement | null)?.closest?.("button[data-act]") as HTMLElement | null;
       const a = b?.dataset["act"];
+      if (b && (a === "play" || a === "practice" || a === "bots") && this.root.dataset["screen"] === "welcome") {
+        if ((b as HTMLButtonElement).disabled || this.pressed) return;
+        this.pressed = a; this.applyPressed();
+      }
       if (a === "play") this.act.play();
       else if (a === "practice") this.act.practice();
       else if (a === "bots") this.act.bots?.();
@@ -136,6 +142,7 @@ export class Lobby {
     this.root.dataset["screen"] = st.screen;
     this.root.removeAttribute("aria-busy");
     if (st.screen !== "lobby") this.preview.hide();
+    if (st.screen !== "welcome") this.pressed = null;
     this.root.style.display = st.screen === "match" ? "none" : "flex";
     if (st.screen === "match") return;
     if (st.screen === "boot") { this.add("h1", "Elemental Battlegrounds"); this.add("p", "Preparing arena…"); return; }
@@ -179,6 +186,7 @@ export class Lobby {
       this.disableWhileBusy(st);
       if (view.updateVisible) this.add("button", "Update", { "data-act": "update" });
       this.disableWhileBusy(st);
+      this.applyPressed();
       return;
     }
     if (st.screen === "error" && st.error) {
@@ -194,6 +202,7 @@ export class Lobby {
     // lobby
     const practice = view.mode === "practice";
     this.add("h2", practice ? "Practice room" : "Private arena");
+    if (st.busy || st.pendingReady) this.add("p", st.pendingReady ? "Almost ready…" : BUSY_TEXT[st.busy!], { "data-ui": "status", role: "status" });
     this.add("p", practice ? "A training dummy waits for you. Nothing here counts in a real match." : `Players seated: ${view.seated} of ${view.capacity}`, { "data-ui": "room-status" });
     const pick = this.doc.createElement("div"); pick.className = "eb-fighter-pick";
     const cards = this.doc.createElement("div"); cards.className = "eb-fighter-cards"; cards.setAttribute("role", "group"); cards.setAttribute("aria-label", "Choose your fighter");
@@ -214,14 +223,35 @@ export class Lobby {
     const actionRow = this.doc.createElement("div"); actionRow.className = "eb-lobby-actions"; this.content.append(actionRow);
     this.content = actionRow;
     this.add("button", "Moves & ranges", { "data-act": "moves" });
-    this.add("button", "Ready", { "data-act": "ready" });
+    const readyBtn = this.add("button", st.pendingReady ? "Almost ready…" : "Ready", { "data-act": "ready" });
     this.add("button", "Back", { "data-act": "back" });
+    if (st.pendingReady) {
+      readyBtn.setAttribute("disabled", ""); readyBtn.setAttribute("aria-busy", "true");
+      for (const k of Array.from(this.root.querySelectorAll("button[data-act=kit]"))) k.setAttribute("disabled", "");
+    }
+  }
+
+  /** FB05: marks the pressed Welcome button busy ("Preparing…") and disables the others, without waiting for a flow event. */
+  private applyPressed(): void {
+    if (!this.pressed) return;
+    for (const b of Array.from(this.root.querySelectorAll(".eb-home-actions button")) as HTMLButtonElement[]) {
+      if (b.dataset["act"] === this.pressed) { b.setAttribute("aria-busy", "true"); b.textContent = "Preparing…"; b.disabled = true; b.setAttribute("aria-disabled", "true"); }
+      else { b.disabled = true; b.setAttribute("aria-disabled", "true"); }
+    }
+    this.root.setAttribute("aria-busy", "true");
+  }
+
+  /** FB05: the overlay opened by a pressed entry button closed without starting anything; make Welcome interactive again. */
+  releasePressed(): void {
+    if (!this.pressed) return;
+    this.pressed = null;
+    if (this.last) this.render(this.last.st, this.last.view);
   }
 
   /** GR12: while an entry action runs every control on the screen is inert, so a double click cannot repeat it. */
   private disableWhileBusy(st: FlowState): void {
     if (!st.busy) return;
-    for (const b of Array.from(this.root.querySelectorAll("button"))) b.disabled = true;
+    for (const b of Array.from(this.root.querySelectorAll("button"))) { b.disabled = true; b.setAttribute("aria-disabled", "true"); }
     this.root.setAttribute("aria-busy", "true");
   }
 

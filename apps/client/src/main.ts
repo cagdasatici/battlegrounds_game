@@ -382,7 +382,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   closeSetup.className = "eb-overlay-close";
   closeSetup.textContent = "Back to game";
   closeSetup.style.cssText = "min-height:48px;font:inherit";
-  closeSetup.onclick = () => { sparControls.style.display = "none"; syncGate(); };
+  closeSetup.onclick = () => { sparControls.style.display = "none"; lobby.releasePressed(); syncGate(); };
   sparControls.append(closeSetup);
   const sparButton = document.createElement("button");
   sparButton.className = "eb-launcher";
@@ -391,6 +391,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   const openBots = (): void => {
     if (setupPending || flowRef.current?.state.busy) return;
     if (!hostRoom) { disposeSetup(); disposeSetup = mountSparringSetup(sparControls, setupActions); }
+    flowRef.current?.warm(); // FB05: load renderer, physics and map while the person fills in the setup
     closeOtherOverlays("sparring");
     sparControls.style.display = "block";
     syncGate();
@@ -434,7 +435,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
         await flow.hostSparring(config, kit, listed === true);
         sparControls.style.display = "none";
         syncGate();
-      } finally { setupPending = false; }
+      } finally { setupPending = false; if (flowRef.current?.state.screen === "welcome") lobby.releasePressed(); }
     },
     copyLink: async () => {
       if (!hostRoom) throw new Error("No hosted match");
@@ -803,6 +804,14 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   }
 
   await flow.start();
+  // FB05: warm the code chunk and map file while Welcome is idle. The renderer is only created on an entry click.
+  const idleWarm = (): void => {
+    if (disposed) return;
+    void import("./gameRuntime.js").then((m) => { rt ??= m; }).catch(() => undefined);
+    void fetch(islandsUrl).catch(() => undefined);
+  };
+  if (typeof requestIdleCallback === "function") { const id = requestIdleCallback(idleWarm, { timeout: 2000 }); cleanups.push(() => cancelIdleCallback(id)); }
+  else { const id = window.setTimeout(idleWarm, 200); cleanups.push(() => window.clearTimeout(id)); }
   if (opts.auto && flow.state.screen === "welcome") {
     await flow.play();
     if ((flow.state.screen as string) === "lobby") flow.ready(lobby.kit);

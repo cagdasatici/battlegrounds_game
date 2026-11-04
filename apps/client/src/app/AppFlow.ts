@@ -18,7 +18,8 @@ type Step = "assets" | "login" | "join";
 export type FlowMode = "play" | "practice" | "sparring";
 /** GR12: what an in-flight entry action is doing. Display only; no byte progress is implied. */
 export type FlowBusy = "preparing" | "joining";
-export interface FlowState { screen: Screen; error: FlowError | null; canRetry: boolean; busy?: FlowBusy | null }
+/** FB05: `pendingReady` is true while the person already confirmed a fighter but background setup is still finishing. */
+export interface FlowState { screen: Screen; error: FlowError | null; canRetry: boolean; busy?: FlowBusy | null; pendingReady?: boolean }
 
 export interface FlowDeps {
   /** WebGL2 and WebAssembly are available. */
@@ -67,6 +68,12 @@ export class AppFlow {
   private failed: Step | null = null;
   private busy = false;
   private revision = 0;
+  /** FB05: shared asset load (concurrent callers await one load) and the in-flight early-entry run. */
+  private assetsP: Promise<void> | null = null;
+  private inflight: Promise<void> | null = null;
+  /** FB05: true from the early pick screen until the room is joined. */
+  private joining = false;
+  private pendingKit: KitId | null = null;
   private retryPending = false;
   /** Arena room picked from the room list; null means the boot-time room. */
   private target: string | null = null;
@@ -161,12 +168,61 @@ export class AppFlow {
   /** Loads renderer, physics and the map once (idempotent in the dep). Failure is ASSET_FAILED with Retry. */
   private async ensureAssets(): Promise<void> {
     if (this.assetsReady) return;
-    try { await this.deps.loadAssets(); } catch (e) { throw new AssetError(e); }
-    this.assetsReady = true;
+    this.assetsP ??= (async () => {
+      try { await this.deps.loadAssets(); } catch (e) { this.assetsP = null; throw new AssetError(e); }
+      this.assetsReady = true;
+    })();
+    await this.assetsP;
+  }
+
+  /** FB05: starts the asset load in the background (idle or on a Fight bots click). Failure is silent; the real entry retries. */
+  warm(): void {
+    if (this.assetsReady || this.state.screen === "error") return;
+    void this.ensureAssets().catch(() => undefined);
+  }
+
+  /**
+   * FB05: Practice shows the fighter pick at once. Asset load, sign-in and room join run in parallel in the background;
+   * Ready pressed before they finish is queued and sent the moment the room is joined.
+   */
+  private async runEarly(step: Step): Promise<void> {
+    this.busy = true; this.joining = true; this.pendingKit = null;
+    const revision = this.revision;
+    const d = this.deps;
+    this.set("lobby");
+    this.beginEntry();
+    const assets = this.ensureAssets();
+    const net = (async () => {
+      if (!this.loggedIn || d.needsLogin?.() === true) { await d.login(); this.loggedIn = true; }
+      if (revision !== this.revision) return;
+      await d.join(this.mode, this.target ?? undefined);
+    })();
+    const run = (async () => {
+      const [a, n] = await Promise.allSettled([assets, net]);
+      try {
+        if (revision !== this.revision) { if (n.status === "fulfilled") await d.leave(); return; }
+        if (a.status === "rejected" || n.status === "rejected") {
+          if (n.status === "fulfilled") { try { await d.leave(); } catch { /* the room may already be gone */ } }
+          const e: unknown = a.status === "rejected" ? a.reason : (n as PromiseRejectedResult).reason;
+          this.fail(e instanceof AssetError ? "assets" : step, e);
+          return;
+        }
+        this.failed = null; this.retries = 0; this.joining = false;
+        const kit = this.pendingKit; this.pendingKit = null;
+        this.set("lobby");
+        if (kit) this.ready(kit);
+      } finally {
+        this.busy = false; this.joining = false; this.inflight = null;
+        if (revision === this.revision) this.setBusy(null);
+      }
+    })();
+    this.inflight = run;
+    await run;
   }
 
   private async run(step: Step): Promise<void> {
     if (this.busy) return;
+    if (this.mode === "practice" && step === "login") return this.runEarly(step);
     this.busy = true;
     const revision = this.revision;
     try {
@@ -251,10 +307,9 @@ export class AppFlow {
     const revision = this.revision;
     try {
       this.beginEntry();
-      await this.ensureAssets();
-      this.setBusy("joining");
-      await this.deps.login();
+      await Promise.all([this.ensureAssets(), this.deps.login()]);
       this.loggedIn = true;
+      this.setBusy("joining");
       if (revision !== this.revision) return;
       this.mode = "sparring";
       await this.deps.sparring.create(config, listed);
@@ -276,6 +331,12 @@ export class AppFlow {
   /** Ready submits the chosen kit; gameplay is enabled by the caller once the server state is ready. */
   ready(kit: KitId): void {
     if (this.state.screen !== "lobby") return;
+    if (this.joining) {
+      this.pendingKit = kit;
+      this.state = { ...this.state, pendingReady: true };
+      for (const f of [...this.subs]) f(this.state);
+      return;
+    }
     this.deps.sendReady(kit);
     this.set("match");
   }
@@ -298,8 +359,11 @@ export class AppFlow {
   /** Back (or Leave): closes the room connection and returns to Welcome. */
   async back(): Promise<void> {
     this.revision++;
+    this.pendingKit = null;
     if (this.mode === "sparring") await this.deps.sparring?.end();
     try { await this.deps.leave(); } catch { /* the room may already be gone */ }
+    // FB05: wait for an early run to release its room (it leaves on the stale revision) so the next entry starts clean.
+    try { await this.inflight; } catch { /* already reported */ }
     this.failed = null; this.retries = 0;
     this.mode = "play"; this.target = null;
     this.set("welcome");
