@@ -124,7 +124,7 @@ test("signed-in room list shows arena and a listed hosted match; one tap joins; 
   // Listed sparring match with the full four-fighter roster is shown as Full and cannot be joined.
   const h = await invited("Host"), g = await invited("Late");
   try {
-    await button(h.page, "Host sparring").click();
+    await button(h.page, "Fight bots").click();
     await button(h.page, "Add opponent").click(); await button(h.page, "Add opponent").click();
     const created = h.page.waitForResponse((r) => new URL(r.url()).pathname === "/api/sparring" && r.request().method() === "POST");
     await h.page.getByLabel("List this match for other players").check();
@@ -143,7 +143,7 @@ test("signed-in room list shows arena and a listed hosted match; one tap joins; 
 
 async function host(bots: Difficulty[]) {
   const h = await invited("Arel");
-  await button(h.page, "Host sparring").click();
+  await button(h.page, "Fight bots").click();
   if (bots.length === 0) await button(h.page, "Remove Bot 1").click();
   await h.page.getByLabel("Your fighter").selectOption("td");
   const created = h.page.waitForResponse((r) => new URL(r.url()).pathname === "/api/sparring" && r.request().method() === "POST");
@@ -225,13 +225,13 @@ test("scoped guest: disconnect during combat keeps the seat and rejoins, KO agre
 
     // End the match: the guest returns to Welcome and its scope is dead. A new match gets a new code, a fresh link, zero scores.
     await button(h.page, "Sparring controls").click(); await button(h.page, "End match").click();
-    await expect(button(h.page, "Host sparring")).toBeVisible();
+    await expect(button(h.page, "Fight bots")).toBeVisible();
     // GR03: the closed match is an explicit error route for the guest; Back returns to Welcome.
     await expect(g.page.locator("[data-ui=error]")).toBeVisible({ timeout: 15_000 });
     await g.page.click("[data-act=back]");
     await expect(g.page.locator("[data-act=play]")).toBeVisible();
     await g.ctx.close(); g = undefined;
-    await button(h.page, "Host sparring").click();
+    await button(h.page, "Fight bots").click();
     await button(h.page, "Remove Bot 1").click();
     const created = h.page.waitForResponse((r) => new URL(r.url()).pathname === "/api/sparring" && r.request().method() === "POST");
     await button(h.page, "Start match").click();

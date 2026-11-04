@@ -110,7 +110,7 @@ for (const cfg of [
     try {
       const invite = svc.invites.create({ ttlMs: 120_000, maxUses: 1 }).token;
       await host.page.goto(`${base}/?debug=1&name=Arel#invite=${invite}`);
-      await button(host.page, "Host sparring").click();
+      await button(host.page, "Fight bots").click();
       await button(host.page, "Remove Bot 1").click();
       await host.page.getByLabel("Your fighter").selectOption("sv");
       const created = host.page.waitForResponse((r) => new URL(r.url()).pathname === "/api/sparring" && r.request().method() === "POST");

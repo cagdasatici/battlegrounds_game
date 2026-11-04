@@ -77,7 +77,7 @@ test("a listed hosted match appears for another player and joins with one tap; a
   const h = await invited("Host");
   const g = await invited("Nora");
   try {
-    await button(h.page, "Host sparring").click();
+    await button(h.page, "Fight bots").click();
     const created = h.page.waitForResponse(r => new URL(r.url()).pathname === "/api/sparring" && r.request().method() === "POST");
     await h.page.getByLabel("List this match for other players").check();
     await button(h.page, "Start match").click();
@@ -100,7 +100,7 @@ test("an unlisted hosted match is not shown", async () => {
   const h = await invited("Host2");
   const g = await invited("Nora2");
   try {
-    await button(h.page, "Host sparring").click();
+    await button(h.page, "Fight bots").click();
     const created = h.page.waitForResponse(r => new URL(r.url()).pathname === "/api/sparring" && r.request().method() === "POST");
     await button(h.page, "Start match").click();
     const code = (await (await created).json() as { roomCode: string }).roomCode;

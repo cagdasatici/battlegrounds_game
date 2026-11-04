@@ -62,7 +62,7 @@ async function host(bots: Difficulty[]) {
   const h = await open();
   const invite = svc.invites.create({ ttlMs: 120_000, maxUses: 1 }).token;
   await h.page.goto(`${base}/?debug=1&name=Arel#invite=${invite}`);
-  await button(h.page, "Host sparring").click();
+  await button(h.page, "Fight bots").click();
   if (bots.length === 0) await button(h.page, "Remove Bot 1").click();
   for (let i = 1; i < bots.length; i++) await button(h.page, "Add opponent").click();
   for (let i = 0; i < bots.length; i++) await h.page.getByLabel(`Bot ${i + 1} difficulty`).selectOption(bots[i]!);
@@ -87,7 +87,7 @@ async function link(p: Page): Promise<string> {
 }
 async function end(p: Page): Promise<void> {
   await button(p, "Sparring controls").click(); await button(p, "End match").click();
-  await expect(button(p, "Host sparring")).toBeVisible();
+  await expect(button(p, "Fight bots")).toBeVisible();
 }
 async function joinGuest(url: string) {
   const g = await open();
@@ -127,7 +127,7 @@ test("solo Easy attacks and changes replicated HP; touch layout and host ends/re
     await h.page.screenshot({ path: path.join(evidenceDir(root), "BOT5-solo.png") });
     await end(h.page);
     expect(svc.sparring.describe(h.code)).toBeNull();
-    await button(h.page, "Host sparring").click();
+    await button(h.page, "Fight bots").click();
     await h.page.getByLabel("Bot 1 difficulty").selectOption("easy");
     const created = h.page.waitForResponse(r => new URL(r.url()).pathname === "/api/sparring" && r.request().method() === "POST");
     await button(h.page, "Start match").click();

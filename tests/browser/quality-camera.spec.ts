@@ -120,7 +120,7 @@ test("QC01: opponent head and a shoulder stay visible in close combat at centre,
   try {
     const invite = svc.invites.create({ ttlMs: 120_000, maxUses: 1 }).token;
     await host.page.goto(`${base}/?debug=1&name=Arel#invite=${invite}`);
-    await button(host.page, "Host sparring").click();
+    await button(host.page, "Fight bots").click();
     await button(host.page, "Remove Bot 1").click(); // a bot would join the fight and spoil the two-fighter fixture
     await host.page.getByLabel("Your fighter").selectOption("td");
     const created = host.page.waitForResponse((r) => new URL(r.url()).pathname === "/api/sparring" && r.request().method() === "POST");

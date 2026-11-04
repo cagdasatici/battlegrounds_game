@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { AppFlow, retryDelayMs, type FlowDeps, type FlowError } from "../../apps/client/src/app/AppFlow.js";
 import { ClientError } from "../../apps/client/src/net/RoomClient.js";
 
@@ -211,5 +211,34 @@ describe("GR03 terminal close and reload recovery", () => {
     expect(b.flow.state.screen).toBe("welcome");
     expect(tries).toBe(1);
     expect(b.log).toEqual([]);
+  });
+});
+
+describe("GR12 busy phases", () => {
+  test("first entry shows preparing then joining, clears on the lobby, and repeated calls are ignored while busy", async () => {
+    let releaseAssets!: () => void, releaseJoin!: () => void;
+    const { flow, log } = mk({
+      loadAssets: async () => { await new Promise<void>((r) => { releaseAssets = r; }); },
+      join: async () => { await new Promise<void>((r) => { releaseJoin = r; }); },
+    });
+    const phases: (string | null)[] = [];
+    flow.subscribe((s) => phases.push(s.busy ?? null));
+    await flow.start();
+    const first = flow.play(); const second = flow.play(); const third = flow.practice();
+    expect(flow.state.busy).toBe("preparing");
+    releaseAssets();
+    await vi.waitFor(() => expect(flow.state.busy).toBe("joining"));
+    releaseJoin();
+    await Promise.all([first, second, third]);
+    expect(flow.state.screen).toBe("lobby");
+    expect(flow.state.busy ?? null).toBeNull();
+    expect(log.filter((x) => x === "login")).toHaveLength(1);
+    expect(phases.filter((p) => p !== null)).toEqual(["preparing", "joining"]);
+  });
+  test("an asset failure clears busy and keeps Retry available", async () => {
+    const { flow } = mk({ loadAssets: async () => { throw new Error("x"); } });
+    await flow.start();
+    await flow.play();
+    expect(flow.state).toEqual({ screen: "error", error: "ASSET_FAILED", canRetry: true });
   });
 });

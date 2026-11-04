@@ -16,7 +16,9 @@ export type FlowError =
 type Step = "assets" | "login" | "join";
 
 export type FlowMode = "play" | "practice" | "sparring";
-export interface FlowState { screen: Screen; error: FlowError | null; canRetry: boolean }
+/** GR12: what an in-flight entry action is doing. Display only; no byte progress is implied. */
+export type FlowBusy = "preparing" | "joining";
+export interface FlowState { screen: Screen; error: FlowError | null; canRetry: boolean; busy?: FlowBusy | null }
 
 export interface FlowDeps {
   /** WebGL2 and WebAssembly are available. */
@@ -80,6 +82,15 @@ export class AppFlow {
     this.state = { screen, error, canRetry };
     for (const f of [...this.subs]) f(this.state);
   }
+
+  /** GR12: publishes (or clears) the busy phase without changing the screen. */
+  private setBusy(busy: FlowBusy | null): void {
+    if ((this.state.busy ?? null) === busy) return;
+    this.state = busy === null ? { screen: this.state.screen, error: this.state.error, canRetry: this.state.canRetry } : { ...this.state, busy };
+    for (const f of [...this.subs]) f(this.state);
+  }
+
+  private beginEntry(): void { this.setBusy(this.assetsReady ? "joining" : "preparing"); }
 
   private fail(step: Step, e: unknown): void {
     this.failed = step;
@@ -159,8 +170,10 @@ export class AppFlow {
     this.busy = true;
     const revision = this.revision;
     try {
+      this.beginEntry();
       await this.ensureAssets();
       if (revision !== this.revision) return;
+      this.setBusy("joining");
       if (step === "login" && (!this.loggedIn || this.mode === "sparring" || this.deps.needsLogin?.() === true)) { await this.deps.login(); this.loggedIn = true; }
       if (revision !== this.revision) return;
       await this.deps.join(this.mode, this.target ?? undefined);
@@ -171,6 +184,7 @@ export class AppFlow {
       if (revision === this.revision) this.fail(e instanceof AssetError ? "assets" : step, e);
     } finally {
       this.busy = false;
+      if (revision === this.revision) this.setBusy(null);
     }
   }
 
@@ -207,7 +221,9 @@ export class AppFlow {
     this.busy = true;
     const revision = this.revision;
     try {
+      this.beginEntry();
       await this.ensureAssets();
+      this.setBusy("joining");
       await this.deps.login();
       this.loggedIn = true;
       if (revision !== this.revision) return;
@@ -226,7 +242,7 @@ export class AppFlow {
         this.failed = null;
         this.set("error", code, false);
       }
-    } finally { this.busy = false; }
+    } finally { this.busy = false; if (revision === this.revision) this.setBusy(null); }
   }
 
   async hostSparring(config: SparringConfig, kit: KitId, listed = false): Promise<void> {
@@ -234,7 +250,9 @@ export class AppFlow {
     this.busy = true;
     const revision = this.revision;
     try {
+      this.beginEntry();
       await this.ensureAssets();
+      this.setBusy("joining");
       await this.deps.login();
       this.loggedIn = true;
       if (revision !== this.revision) return;
@@ -252,7 +270,7 @@ export class AppFlow {
         try { await this.deps.leave(); } catch { /* transport may already be closed */ }
       }
       throw e;
-    } finally { this.busy = false; }
+    } finally { this.busy = false; if (revision === this.revision) this.setBusy(null); }
   }
 
   /** Ready submits the chosen kit; gameplay is enabled by the caller once the server state is ready. */

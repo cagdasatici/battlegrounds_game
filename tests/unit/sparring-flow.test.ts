@@ -133,6 +133,7 @@ test("dispose suppresses late transitions and removes subscriptions", async () =
   const seen = vi.fn(); flow.subscribe(seen);
   const joining = flow.play();
   await vi.waitFor(() => expect(release).toBeDefined());
+  const before = seen.mock.calls.length; // GR12: the busy phase is published while joining
   flow.dispose(); release(); await joining;
-  expect(seen).not.toHaveBeenCalled();
+  expect(seen).toHaveBeenCalledTimes(before);
 });

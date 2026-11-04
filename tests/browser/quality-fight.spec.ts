@@ -96,7 +96,7 @@ test(`Q01: four-fighter workload ${LONG ? `long ${MINUTES} min` : "smoke"} recor
     // Host sparring with two legal server bots (Easy, Medium); host plays Tide Duelist.
     const invite = svc.invites.create({ ttlMs: 120_000, maxUses: 1 }).token;
     await host.page.goto(`${base}/?debug=1&name=Arel#invite=${invite}`);
-    await button(host.page, "Host sparring").click();
+    await button(host.page, "Fight bots").click();
     await button(host.page, "Add opponent").click();
     await host.page.getByLabel("Bot 1 difficulty").selectOption("easy");
     await host.page.getByLabel("Bot 2 difficulty").selectOption("medium");

@@ -4,7 +4,7 @@
  */
 import {
   DataTexture, RGBAFormat, LinearFilter, Mesh, MeshBasicMaterial, PlaneGeometry,
-  Color, DirectionalLight, type InstancedMesh, Fog, HemisphereLight, PCFSoftShadowMap, PerspectiveCamera, Scene,
+  Color, DirectionalLight, Group, type InstancedMesh, Fog, HemisphereLight, PCFSoftShadowMap, PerspectiveCamera, PointLight, Scene,
   type BufferGeometry, type Material,
 } from "three";
 import { surfaceBelow, type Collider } from "@eb/shared/config/arena";
@@ -35,7 +35,18 @@ export interface RendererLike {
   shadowMap?: { enabled: boolean; type: number };
   render(scene: Scene, camera: PerspectiveCamera): void;
   dispose(): void;
+  /** GR12 lobby preview (optional so test doubles need no GL): a scissored viewport inside the one shared canvas. */
+  setViewport?(x: number, y: number, w: number, h: number): void;
+  setScissor?(x: number, y: number, w: number, h: number): void;
+  setScissorTest?(on: boolean): void;
+  setClearColor?(c: number, a?: number): void;
+  clear?(): void;
 }
+/** CSS-pixel rectangle of the reserved preview region, relative to the window. */
+export interface PreviewRect { left: number; top: number; width: number; height: number }
+const PREVIEW_BG = 0x0a1719;
+const PREVIEW_TINT: Readonly<Record<KitId, number>> = { sv: 0x9ad06a, td: 0x5fd0d8, ea: 0xff9a5c };
+const PREVIEW_TURN_RAD_PER_S = 0.7;
 export interface WindowLike {
   innerWidth: number;
   innerHeight: number;
@@ -90,6 +101,8 @@ export class GameScene {
   private env: { kit: EnvKit; meshes: InstancedMesh[] } | null = null;
   private envState: "none" | "loading" | "ready" | "failed" = "none";
   private readonly colliders: readonly Collider[];
+  /** GR12: the one lobby fighter preview. It lives in its own small scene and is drawn by the shared renderer. */
+  private preview: { scene: Scene; camera: PerspectiveCamera; pivot: Group; rim: PointLight; view: FighterView; kit: KitId } | null = null;
 
   constructor(private readonly renderer: RendererLike, colliders: readonly Collider[], private readonly win: WindowLike) {
     this.colliders = colliders;
@@ -168,6 +181,65 @@ export class GameScene {
     const extra = this.scene.getObjectByName("env.dressing.extra");
     if (extra) extra.visible = q !== "low";
     if (!this.disposed) this.resize();
+  }
+
+  /** GR12: kit currently shown in the preview, or null. */
+  get previewKit(): KitId | null { return this.preview?.kit ?? null; }
+  /** GR12: preview turntable angle (test hook for the reduced-motion check). */
+  get previewYaw(): number { return this.preview?.pivot.rotation.y ?? 0; }
+
+  /** GR12: shows `kit` (replacing and disposing the previous preview fighter) or, with null, releases the preview. Never allocates a renderer. */
+  setPreviewKit(kit: KitId | null): void {
+    if (this.disposed) return;
+    if (this.preview?.kit === kit) return;
+    if (kit === null) { this.releasePreview(); return; }
+    let p = this.preview;
+    if (p) { p.pivot.remove(p.view.group); p.view.dispose(); }
+    else {
+      const scene = new Scene();
+      const camera = new PerspectiveCamera(30, 220 / 200, 0.1, 50);
+      // The fighter origin is at hip height (feet about 0.9 m below), so frame around y = 0.
+      camera.position.set(0, 0.25, 5.2); camera.lookAt(0, 0.05, 0);
+      scene.add(new HemisphereLight(0xdff3ff, 0x20342f, 1.6));
+      const key = new DirectionalLight(0xffffff, 2.2); key.position.set(2.5, 4, 3); scene.add(key);
+      const rim = new PointLight(0xffffff, 12, 9); rim.position.set(-2, 1.8, -2); scene.add(rim);
+      const pivot = new Group(); scene.add(pivot);
+      p = { scene, camera, pivot, rim, view: null as unknown as FighterView, kit };
+      this.preview = p;
+    }
+    p.view = new FighterView(kit, this.ramp, { outline: true });
+    p.view.setShadows(false);
+    p.pivot.add(p.view.group);
+    p.pivot.rotation.y = Math.PI + 0.35; // fighters face -Z; turn toward the camera so the face shows
+    p.rim.color.setHex(PREVIEW_TINT[kit]);
+    p.scene.background = new Color(PREVIEW_BG).lerp(new Color(PREVIEW_TINT[kit]), 0.14);
+    p.kit = kit;
+  }
+
+  private releasePreview(): void {
+    const p = this.preview;
+    if (!p) return;
+    p.pivot.remove(p.view.group); p.view.dispose(); p.scene.clear();
+    this.preview = null;
+  }
+
+  /** GR12: draws the preview into `rect` of the shared canvas. `animate` false (reduced motion) holds the pose still. */
+  renderPreview(rect: PreviewRect, dtSec: number, animate: boolean): void {
+    const p = this.preview, r = this.renderer;
+    if (!p || this.renderPaused || this.disposed || !r.setViewport || !r.setScissor || !r.setScissorTest) return;
+    if (animate) { p.pivot.rotation.y += dtSec * PREVIEW_TURN_RAD_PER_S; p.view.update(dtSec); }
+    const w = this.win.innerWidth, h = this.win.innerHeight;
+    r.setScissorTest(false);
+    r.setViewport(0, 0, w, h);
+    r.setClearColor?.(PREVIEW_BG, 1);
+    r.clear?.();
+    const x = Math.max(0, rect.left), width = Math.max(1, Math.min(rect.width, w - x));
+    const height = Math.max(1, rect.height), y = Math.max(0, h - rect.top - height);
+    p.camera.aspect = width / height; p.camera.updateProjectionMatrix();
+    r.setScissorTest(true); r.setScissor(x, y, width, height); r.setViewport(x, y, width, height);
+    r.render(p.scene, p.camera);
+    r.setScissorTest(false); r.setViewport(0, 0, w, h);
+    this.onFrameRendered?.();
   }
 
   addFighter(id: string, kit: KitId): FighterView {
@@ -266,6 +338,7 @@ export class GameScene {
     this.disposed = true;
     this.win.removeEventListener("resize", this.onResize);
     for (const id of [...this.fighters.keys()]) this.removeFighter(id);
+    this.releasePreview();
     this.effects.dispose();
     this.projectiles.dispose();
     this.urns.dispose();

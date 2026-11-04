@@ -115,7 +115,7 @@ test("UX03: home, settings and setup fit both landscape sizes with visible selec
       expect(await panel.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
       await panel.locator("[data-act=close]").click();
     }
-    await page.getByRole("button", { name: "Host sparring", exact: true }).click();
+    await page.getByRole("button", { name: "Fight bots", exact: true }).click();
     await expect(page.getByRole("button", { name: "Add opponent", exact: true })).toBeVisible();
     await page.screenshot({ path: path.join(outDir, "UX03-host.png") });
     await page.getByRole("button", { name: "Back to game", exact: true }).first().click();
@@ -203,7 +203,7 @@ test("UX08: returning to the bookmarked root uses the saved player session", asy
 test("UX08: host setup includes Ember Artificer and starts the actual server fighter", async () => {
   const { ctx, page, errors } = await open("&name=Arel");
   try {
-    await page.getByRole("button", { name: "Host sparring", exact: true }).click();
+    await page.getByRole("button", { name: "Fight bots", exact: true }).click();
     await page.getByLabel("Your fighter").selectOption("ea");
     await page.getByRole("button", { name: "Start match", exact: true }).click();
     await page.waitForFunction(() => (window as unknown as { __eb?: unknown }).__eb !== undefined, undefined, { timeout: 30000 });

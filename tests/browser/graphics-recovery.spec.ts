@@ -191,7 +191,7 @@ test("failed boot after the canvas exists is cleaned up; retry leaves one canvas
       await page.click("[data-act=retry]");
     }
     await page.waitForSelector("[data-act=ready]", { timeout: 30_000 }).catch(async (e) => { throw new Error(`${e} :: ${(await page.locator("body").innerText()).slice(0, 400)}`); });
-    expect(await page.locator("canvas:not([data-ui=fighter-preview] canvas)").count()).toBe(1); // the lobby fighter preview is a separate pre-existing canvas
+    expect(await page.locator("canvas").count()).toBe(1); // GR12: the lobby preview shares the one game canvas
     const grown = await page.evaluate(() => (window as unknown as { __ctxListeners: number }).__ctxListeners);
     expect(grown).toBeLessThanOrEqual(3); // game renderer (three + lifecycle) and the lobby preview renderer; failed attempts net zero
     evidence["listeners"] = grown;

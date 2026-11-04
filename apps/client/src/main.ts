@@ -136,6 +136,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   const lobby = new Lobby(app, {
     play: () => { void flowRef.current?.play(); },
     practice: () => { void flowRef.current?.practice(); },
+    bots: () => { openBots(); },
+    rooms: () => { openRooms(); },
     guide: () => { openGuide(); },
     moves: () => { openMoves(); },
     update: () => { void updater.apply(); },
@@ -195,6 +197,12 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     inMatch: () => matchCleanups.length > 0,
     safeRect: () => readSafeRect(window, safeProbe),
     qualityStatus: () => gs ? `Rendering: ${gs.qualityLevel}${softwareGl ? " · software rendering limits this device to Low" : " · adapts to keep combat smooth"}` : "Your choice applies when you enter the arena.",
+  };
+  // GR12: the lobby preview holds still under the OS preference or the saved reduced-motion setting of the current profile.
+  lobby.preview.reducedMotion = () => {
+    let os = false;
+    try { os = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { os = false; }
+    return os || activeSettings().get().reducedMotion === true;
   };
   const settingsOpenHooks = new Set<() => void>();
   const settingsChangeHooks = new Set<() => void>();
@@ -289,7 +297,14 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       gs = scene; glRenderer = renderer; softwareGl = sw; graphics = lc;
       cleanups.push(() => { graphics?.dispose(); graphics = null; });
       map = m;
-      const idle = (): void => { if (matchCleanups.length === 0) gs?.render(); rafId = requestAnimationFrame(idle); };
+      lobby.preview.attach(scene);
+      // GR12: the lobby fighter preview is drawn by this same renderer from this same loop (no second renderer or scheduler).
+      // The lobby screen holds a joined room (matchCleanups is not empty there), so it is chosen by flow screen, not by cleanups.
+      const idle = (t: number): void => {
+        if (flowRef.current?.state.screen === "lobby") lobby.preview.tick(t);
+        else if (matchCleanups.length === 0) gs?.render();
+        rafId = requestAnimationFrame(idle);
+      };
       rafId = requestAnimationFrame(idle);
     },
     needsLogin: () => openAvailable && !opts.invite && openName !== lobby.displayName,
@@ -356,7 +371,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   flowRef.current = flow;
 
   const lobbyView = (): LobbyView =>
-    ({ updateVisible: updater.state.visible, seated: players().size, capacity: MAX_CLIENTS, connection: room ? "online" : "offline", mode: flow.mode === "practice" ? "practice" : "play" });
+    ({ updateVisible: updater.state.visible, seated: players().size, capacity: MAX_CLIENTS, connection: room ? "online" : "offline", mode: flow.mode === "practice" ? "practice" : "play", hostTools: sparToken === null && !sparRoom });
   let setupPending = false;
   const sparControls = document.createElement("div");
   sparControls.className = "eb-overlay";
@@ -371,13 +386,14 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   sparButton.className = "eb-launcher";
   sparButton.textContent = "Host sparring";
   sparButton.style.cssText = `position:fixed;right:16px;top:16px;z-index:${LAYER.modalContent};min-height:48px;font:600 17px Inter,system-ui,sans-serif`;
-  sparButton.onclick = () => {
-    if (setupPending) return;
+  const openBots = (): void => {
+    if (setupPending || flowRef.current?.state.busy) return;
     if (!hostRoom) { disposeSetup(); disposeSetup = mountSparringSetup(sparControls, setupActions); }
     closeOtherOverlays("sparring");
     sparControls.style.display = "block";
     syncGate();
   };
+  sparButton.onclick = openBots;
   app.append(sparControls, sparButton);
   // WEB3: room list. The panel exists only while open; its timer and listeners go with it.
   const roomsHost = document.createElement("div");
@@ -391,20 +407,16 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   const hideRooms = (): void => { disposeRooms?.(); disposeRooms = null; roomsHost.style.display = "none"; };
   closeRooms.onclick = hideRooms;
   roomsHost.append(closeRooms);
-  const roomsButton = document.createElement("button");
-  roomsButton.className = "eb-launcher";
-  roomsButton.textContent = "Find a room";
-  roomsButton.style.cssText = `position:fixed;right:16px;top:76px;z-index:${LAYER.modalContent};min-height:48px;font:600 17px Inter,system-ui,sans-serif`;
-  roomsButton.onclick = () => {
-    if (disposeRooms || flow.state.screen !== "welcome") return;
+  const openRooms = (): void => {
+    if (disposeRooms || flow.state.screen !== "welcome" || flow.state.busy) return;
     roomsHost.style.display = "block";
     disposeRooms = mountRoomList(roomsHost, {
       list: async () => { await flow.signIn(); return rc.listRooms(); },
       join: async (r) => { await flow.joinListed(r); hideRooms(); },
     });
   };
-  app.append(roomsHost, roomsButton);
-  cleanups.push(() => { hideRooms(); roomsHost.remove(); roomsButton.remove(); });
+  app.append(roomsHost);
+  cleanups.push(() => { hideRooms(); roomsHost.remove(); });
   // In a match the sparring button gets its own measured rectangle clear of every control (QU01); outside a match it keeps the lobby spot.
   const placeSparButton = (layout: Layout | null): void => {
     const r = layout ? placeSparringRect(layout) : null;
@@ -433,13 +445,13 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   let lobbyKey = "";
   const paintLobby = (force = false): void => {
     const v = lobbyView();
-    const key = `${updater.state.visible}|${flow.state.screen}|${flow.state.error}|${flow.state.canRetry}|${v.seated}|${v.connection}|${flow.mode}`;
+    const key = `${updater.state.visible}|${flow.state.screen}|${flow.state.error}|${flow.state.canRetry}|${flow.state.busy ?? ""}|${v.hostTools}|${v.seated}|${v.connection}|${flow.mode}`;
     if (!force && key === lobbyKey) return;
     lobbyKey = key;
     lobby.render(flow.state, v);
     guestLabel.hidden = flow.state.screen !== "welcome" || sparToken === null;
-    sparButton.hidden = !(hostRoom || (flow.state.screen === "welcome" && sparToken === null && !sparRoom));
-    roomsButton.hidden = !(flow.state.screen === "welcome" && sparToken === null && !sparRoom);
+    // GR12: Welcome carries Fight bots and Find a room itself; the floating launcher remains only for the in-match sparring controls.
+    sparButton.hidden = !hostRoom;
     if (flow.state.screen !== "welcome") hideRooms();
     sparButton.textContent = hostRoom ? "Sparring controls" : "Host sparring";
   };

@@ -102,6 +102,7 @@ test("overlays suspend gameplay: no motion, no casts, no typing into settings; f
     await page.click("[data-act=ready]");
     await page.waitForFunction(() => (window as unknown as { __eb?: unknown }).__eb !== undefined, undefined, { timeout: 30_000 });
     await localIdle(page);
+    await sleep(400); // GR12: the first frames after Ready still hold the input gate closed; a press before it syncs is ignored by design (GR05)
 
     // W held, then the menu opens: movement stops; D during the menu does nothing.
     const p0 = await pos(page);
