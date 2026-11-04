@@ -12,3 +12,9 @@ Changed: `PracticeDrills.ts` (block observe, `attackDue`, `BLOCK_DRILL`), `Pract
 
 ## Limits
 Left-handed/reduced-motion via stored settings in headless Chromium, not a device. Block lesson staged at x=2 (see decision). Physical iPad checks: NOT RUN.
+
+## Flake fix 2026-11-04
+Symptom: under full-suite load the "wrong facing and late guard" test timed out waiting for `retry` (GR15c "evade success" also failed in the same runs). Reproduced with a concurrent `pnpm test` plus looped file runs; at failure the server's drill `startTick` was unchanged, i.e. the Retry message had not been processed 3 s after sending, and the client had seen only the first hit.
+Root cause (test, not product): the test loop and `waitFor(() => drv.send(...))` polled every 10 ms, sending about 100 inputs/s against the server limit of 45/s (`RATE_LIMITS.inputPerSecond`). Every excess packet is dropped and logged, which under load delayed traffic on the same socket behind the flood. No product code is involved: Retry, seat and tick scheduling are all tick-based and were correct.
+Fix: `Driver.send` in tests/integration/practice-drills.test.ts is paced to one packet per 25 ms (held-state inputs, so skipped packets lose nothing). No timeouts, skips or retries changed.
+Executed: file 20/20 pass in a loop with a concurrent full `pnpm test` (the suite load covered roughly the first 3 minutes of the loop, then a second file run), zero "input rate limited" lines; full `pnpm test` 148 files passed, 1 skipped, 1912 tests passed; typecheck and lint pass. Before the fix the same method failed 2 of 8 file runs and 2 of 2 full runs.

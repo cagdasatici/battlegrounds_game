@@ -30,13 +30,19 @@ async function joinPractice(name: string): Promise<Practice> {
 }
 
 class Driver {
-  private seq = 0; private tick = 0;
+  private seq = 0; private tick = 0; private lastMs = 0;
   constructor(private readonly p: Practice) {}
   async hold(ms: number, over: Partial<InputPacket> = {}): Promise<void> {
     const end = Date.now() + ms;
     while (Date.now() < end) { this.send(over); await sleep(33); }
   }
+  /** Paced under the server's 45/s input limit (RATE_LIMITS.inputPerSecond): polling loops call this every 10 ms, and a
+   *  100/s flood is rate-limited and logged per packet, which under suite load starved the same socket (the Retry/Exit
+   *  message queued behind it). Inputs are held-state, so skipping a too-early packet loses nothing. */
   send(over: Partial<InputPacket> = {}): void {
+    const now = Date.now();
+    if (now - this.lastMs < 25) return;
+    this.lastMs = now;
     this.p.c.send("input", {
       v: 1, epoch: this.p.c.welcome!.epoch, seq: ++this.seq, sampleTick: ++this.tick, moveX: 0, moveZ: 0, yaw: 0, pitch: 0,
       attackHeld: false, blockHeld: false, jumpHeld: false, runHeld: false, chargeHeldSlot: 0, edges: [], ...over,
