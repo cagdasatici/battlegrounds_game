@@ -2141,6 +2141,8 @@ the roster.
 28 Agent readable AGENTS instructions
 Copy the following into the repository root AGENTS.md before T01. The document’s own task is complete
 at delivery; these instructions govern later game implementation.
+Current rules index: see docs/current-contract.md (amendments and decisions in force).
+
 # Elemental Battlegrounds implementation contract
 
 Read docs/spec.md and docs/tasks.md before changing code.
