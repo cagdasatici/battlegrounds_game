@@ -120,13 +120,26 @@ test("rooms: create, unlist, list again, close", async () => {
     await nav(page, "rooms").click();
     await expect(page.locator("li", { hasText: "Play (arena)" })).toBeVisible();
     await page.getByLabel("Room name").fill("Friday");
+    // GR08: rounds need bots. Nonzero targets are disabled at 0 bots and the choice resets to Endless.
+    const rounds = page.getByLabel("Rounds");
+    await expect(rounds.locator("option")).toHaveText(["Endless", "First to 5", "First to 10"]);
+    expect(await rounds.locator("option[value='5']").evaluate((o) => (o as HTMLOptionElement).disabled)).toBe(true);
+    expect(await rounds.locator("option[value='10']").evaluate((o) => (o as HTMLOptionElement).disabled)).toBe(true);
+    await expect(rounds).toHaveValue("0");
     await page.getByLabel("Bots", { exact: true }).selectOption("2");
+    expect(await rounds.locator("option[value='5']").evaluate((o) => (o as HTMLOptionElement).disabled)).toBe(false);
+    await rounds.selectOption("5");
+    await page.getByLabel("Bots", { exact: true }).selectOption("0");
+    await expect(rounds).toHaveValue("0");
+    await page.getByLabel("Bots", { exact: true }).selectOption("2");
+    await rounds.selectOption("5");
     await page.getByLabel("Bot difficulty").selectOption("hard");
     await page.screenshot({ path: path.join(evidenceDir(process.cwd()), "UX03-admin.png"), fullPage: true });
     await btn(page, "Create room").click();
     const row = page.locator("li", { hasText: "Friday" });
     await expect(row).toContainText("2 bots");
     await expect(row).toContainText("listed");
+    expect([...svc.roomMeta.values()].find((m) => m.name === "Friday")?.roundTarget).toBe(5);
     await row.getByRole("button", { name: "Unlist" }).click();
     await expect(row).toContainText("unlisted");
     await row.getByRole("button", { name: "List", exact: true }).click();

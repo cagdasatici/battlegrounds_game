@@ -7,7 +7,7 @@ import {
 } from "@eb/shared/protocol";
 import { COMBAT } from "@eb/shared/config/combat";
 import { computeContentHash } from "@eb/shared/config/content";
-import { ArenaState } from "../state/ArenaSchema.js";
+import { ArenaState, RoundStandingSchema } from "../state/ArenaSchema.js";
 import { PlayerSchema } from "../state/PlayerSchema.js";
 import { FixedClock } from "../sim/FixedClock.js";
 import { World } from "../sim/World.js";
@@ -67,7 +67,9 @@ export class ArenaRoom extends Room {
 
   faulted = false;
   /** Decision 0054: first-to-N KOs; 0 = endless. Only hosted sparring and bot rooms ever set it. */
-  roundTarget: RoundTarget = 0;
+  private target: RoundTarget = 0;
+  get roundTarget(): RoundTarget { return this.target; }
+  set roundTarget(t: RoundTarget) { this.target = t; this.state.roundTarget = t; }
   /** Tick at which the results phase ends; null outside roundOver. */
   private roundOverUntil: number | null = null;
   roomCode = "";
@@ -355,6 +357,10 @@ export class ArenaRoom extends Room {
     if ((standings[0]?.kills ?? 0) < this.roundTarget) return;
     this.state.phase = "roundOver";
     this.roundOverUntil = tick + ROUND_OVER_TICKS;
+    // GR08: freeze durable results in the same tick as the phase; later departures never rewrite them.
+    this.state.roundEndsAtTick = this.roundOverUntil;
+    this.state.roundStandings.clear();
+    for (const s of standings) this.state.roundStandings.push(Object.assign(new RoundStandingSchema(), s));
     const msg: RoundOverMessage = { tick, roundTarget: this.roundTarget, resumesAtTick: this.roundOverUntil, standings };
     this.broadcast(ServerMessage.roundOver, msg);
   }
@@ -369,6 +375,9 @@ export class ArenaRoom extends Room {
   /** Resets the scoreboard and puts every ready fighter on a fresh life at a spec section 10 spawn. */
   private startNextRound(tick: number): void {
     this.roundOverUntil = null;
+    this.state.roundEndsAtTick = 0;
+    this.state.roundStandings.clear();
+    this.state.roundNumber++;
     this.projectiles.clear();
     for (const p of this.state.players.values()) { p.kills = 0; p.deaths = 0; p.assists = 0; }
     const mv = this.movement, w = this.world;

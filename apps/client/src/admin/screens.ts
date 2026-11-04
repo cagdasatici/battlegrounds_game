@@ -175,7 +175,19 @@ export const mountRooms: Mount = (root, api) => {
   const difficulty = el(f.doc, "select"); difficulty.name = "difficulty"; difficulty.setAttribute("aria-label", "Bot difficulty");
   for (const value of ["easy", "medium", "hard"]) { const o = el(f.doc, "option", value); o.value = value; difficulty.append(o); }
   difficultyLabel.append(difficulty);
-  form.append(l, botLabel, difficultyLabel, el(f.doc, "p", "Four fighters maximum, including bots. Close a room to change its opponents."), create); f.body.append(form, list);
+  const targetLabel = el(f.doc, "label", "Rounds ");
+  const target = el(f.doc, "select"); target.name = "roundTarget"; target.setAttribute("aria-label", "Rounds");
+  for (const [value, text] of [["0", "Endless"], ["5", "First to 5"], ["10", "First to 10"]] as const) { const o = el(f.doc, "option", text); o.value = value; target.append(o); }
+  targetLabel.append(target);
+  // Rounds need at least one bot (server also enforces this); nonzero choices are disabled and reset to endless without bots.
+  const syncTarget = (): void => {
+    const none = Number(count.value) === 0;
+    for (const o of Array.from(target.options)) o.disabled = none && o.value !== "0";
+    if (none) target.value = "0";
+  };
+  count.addEventListener("change", syncTarget, { signal: f.events.signal });
+  syncTarget();
+  form.append(l, botLabel, difficultyLabel, targetLabel, el(f.doc, "p", "Four fighters maximum, including bots. Close a room to change its opponents."), create); f.body.append(form, list);
   const load = (): void => f.busy("load", async () => {
     try {
       const rows = await api.rooms();
@@ -193,7 +205,7 @@ export const mountRooms: Mount = (root, api) => {
     e.preventDefault();
     f.busy("create", async () => {
       create.disabled = true;
-      try { await api.createRoom(name.value.trim(), Array.from({ length: Number(count.value) }, () => difficulty.value as "easy" | "medium" | "hard")); name.value = ""; load(); } catch { fail(f, "Creating the room"); }
+      try { await api.createRoom(name.value.trim(), Array.from({ length: Number(count.value) }, () => difficulty.value as "easy" | "medium" | "hard"), Number(count.value) === 0 ? 0 : Number(target.value) as 0 | 5 | 10); name.value = ""; load(); } catch { fail(f, "Creating the room"); }
       if (f.alive()) create.disabled = false;
     });
   }, { signal: f.events.signal });

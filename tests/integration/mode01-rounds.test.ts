@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { Client, type Room } from "@colyseus/sdk";
 import { matchMaker } from "colyseus";
-import { startHarness, waitFor, players, freshCode, type Harness } from "../fixtures/harness.js";
+import { startHarness, waitFor, players, freshCode, loginClient, type Harness } from "../fixtures/harness.js";
 import { computeContentHash } from "../../packages/shared/src/config/content.js";
 import {
   JoinOptionsSchema, PROTOCOL_VERSION, ROUND_OVER_TICKS, type CombatEvent, type RoundOverMessage,
@@ -160,6 +160,89 @@ describe("MODE01 open FFA stays endless", () => {
     const room = await matchMaker.createRoom("arena", { roomCode: code });
     const live = matchMaker.getLocalRoomById(room.roomId) as unknown as BotArenaRoom;
     expect(live.roundTarget).toBe(10);
+    h.svc.roomMeta.delete(code);
+    await live.disconnect();
+  });
+});
+
+// GR08: durable round state replicated to every client; the roundOver message is only a transient cue.
+describe("GR08 durable round state over real clients", () => {
+  test("a late joiner and a reconnecting client see the frozen standings and deadline from state alone; the winner leaving does not rewrite them; reset lands at exactly +600", async () => {
+    const code = freshCode();
+    h.svc.roomMeta.set(code, { name: "Bots", listed: true, bots: ["easy"], roundTarget: 5 });
+    const a = await loginClient(h, "Winner"), b = await loginClient(h, "Watcher");
+    const ra = await a.join(code), rb = await b.join(code);
+    const live = matchMaker.getLocalRoomById(ra.roomId) as unknown as BotArenaRoom;
+    for (const r of [ra, rb]) r.send("ready", { kitId: "sv", contentHash: hash });
+    await waitFor(() => [...players(rb).values()].filter((p) => p.ready).length >= 2, 3000, "humans ready");
+    live.setSimulationInterval(() => undefined, 1000); // manual ticks from here on
+    expect(rb.state.roundTarget).toBe(5);
+    expect(rb.state.roundNumber).toBe(1);
+    expect(rb.state.roundEndsAtTick).toBe(0);
+    expect(rb.state.roundStandings.length).toBe(0);
+
+    let tick = live.sim.tick;
+    const winner = [...live.state.players.values()].find((p) => p.displayName === "Winner")!;
+    winner.kills = 5; winner.deaths = 1;
+    live.stepTick(++tick);
+    const koTick = tick;
+    expect(live.state.phase).toBe("roundOver");
+    expect(live.state.roundEndsAtTick).toBe(koTick + ROUND_OVER_TICKS);
+    await waitFor(() => rb.state.phase === "roundOver" && rb.state.roundStandings.length > 0, 3000, "results replicated");
+    const snapshot = (room: Room): unknown => ({
+      phase: room.state.phase, target: room.state.roundTarget, ends: room.state.roundEndsAtTick, n: room.state.roundNumber,
+      rows: [...room.state.roundStandings].map((s: { entityId: number; displayName: string; kills: number; deaths: number; assists: number }) => [s.entityId, s.displayName, s.kills, s.deaths, s.assists]),
+    });
+    expect((snapshot(rb) as { rows: unknown[][] }).rows[0]).toEqual([winner.entityId, "Winner", 5, 1, 0]);
+
+    // A client joining mid-results gets the same standings and deadline without any message replay.
+    const c = await loginClient(h, "Latecomer");
+    const rc = await c.join(code);
+    let cues = 0; rc.onMessage("roundOver", () => { cues++; });
+    await waitFor(() => rc.state.phase === "roundOver" && rc.state.roundStandings.length > 0, 3000, "late join sees results");
+    expect(snapshot(rc)).toEqual(snapshot(rb));
+
+    // Drop and reconnect the watcher during results: same state again, nothing replayed.
+    const token = rb.reconnectionToken;
+    rb.reconnection.enabled = false;
+    rb.connection.close(4010, "network lost");
+    await waitFor(() => [...players(ra).values()].some((p) => p.displayName === "Watcher" && p.connected === false), 3000, "watcher dropped");
+    const back = await new Client(`ws://localhost:${h.port}`).reconnect(token);
+    await waitFor(() => back.state.phase === "roundOver" && back.state.roundStandings.length > 0, 3000, "reconnect sees results");
+    expect(snapshot(back)).toEqual(snapshot(rc));
+
+    // The winner leaves: frozen standings still name the winner.
+    await ra.leave();
+    await waitFor(() => !players(rc).has(String(winner.entityId)), 3000, "winner removed");
+    expect(live.state.phase).toBe("roundOver");
+    expect((snapshot(rc) as { rows: unknown[][] }).rows[0]![1]).toBe("Winner");
+
+    // Exactly +599 still results, exactly +600 resets scores/standings/deadline and bumps the round number.
+    while (tick < koTick + ROUND_OVER_TICKS - 1) live.stepTick(++tick);
+    expect(live.state.phase).toBe("roundOver");
+    expect(live.state.roundStandings.length).toBeGreaterThan(0);
+    live.stepTick(++tick);
+    expect(tick).toBe(koTick + ROUND_OVER_TICKS);
+    expect(live.state.phase).toBe("playing");
+    expect(live.state.roundStandings.length).toBe(0);
+    expect(live.state.roundEndsAtTick).toBe(0);
+    expect(live.state.roundNumber).toBe(2);
+    for (const p of live.state.players.values()) expect([p.kills, p.deaths, p.assists]).toEqual([0, 0, 0]);
+    await waitFor(() => rc.state.roundNumber === 2 && rc.state.roundStandings.length === 0 && rc.state.phase === "playing", 3000, "reset replicated");
+    expect(cues).toBe(0);
+    await c.leave(); await b.leave();
+    h.svc.roomMeta.delete(code);
+  });
+
+  test("a hosted sparring room mirrors its target into state, and botless admin creation stays endless", async () => {
+    const r = await rig(10);
+    expect(r.room.state.roundTarget).toBe(10);
+    r.room.leave();
+    const code = freshCode();
+    h.svc.roomMeta.set(code, { name: "NoBots", listed: true, roundTarget: 5 });
+    const room = await matchMaker.createRoom("arena", { roomCode: code });
+    const live = matchMaker.getLocalRoomById(room.roomId) as unknown as BotArenaRoom;
+    expect(live.state.roundTarget).toBe(0);
     h.svc.roomMeta.delete(code);
     await live.disconnect();
   });

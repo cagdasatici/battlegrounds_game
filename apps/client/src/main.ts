@@ -7,7 +7,7 @@ import { meterFraction } from "@eb/shared/awakening";
 import { COMBAT } from "@eb/shared/config/combat";
 import { surfaceBelow, parseArenaMap, type ArenaMap } from "@eb/shared/config/arena";
 import {
-  MAX_CLIENTS, P0_KITS, PRACTICE_ROOM_CODE, RoundOverMessageSchema, ServerMessage,
+  MAX_CLIENTS, P0_KITS, PRACTICE_ROOM_CODE, ServerMessage,
   type ActionResult, type CombatEvent, type KitId, type PongMessage, type WelcomeMessage,
 } from "@eb/shared/protocol";
 import islandsUrl from "../../../assets/maps/islands.v1.json?url";
@@ -35,7 +35,7 @@ import type { GameScene, Quality } from "./scene/GameScene.js";
 import { Hud, readSafeRect } from "./ui/Hud.js";
 import { Nameplates, plateLayout } from "./ui/Nameplates.js";
 import { DamageCues, cueAngle } from "./ui/DamageCues.js";
-import { RoundResults } from "./ui/RoundResults.js";
+import { RoundResults, objectiveText } from "./ui/RoundResults.js";
 import {
   BlockNotice, RejectionNotice, cooldownFraction, cooldownLabel, dashStatus, equippedSkillNames, formTimerText, skillAvailability, meterLabel, respawnSecondsLeft, scoreboardRows, stillpointText,
 } from "./ui/HudFormat.js";
@@ -514,13 +514,17 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     const plates = new Nameplates(document.body, document, () => plateOrigin);
     matchCleanups.push(() => plates.dispose());
     const cues = new DamageCues(document.body, document);
-    const roundResults = new RoundResults(document.body, document);
+    const roundResults = new RoundResults(document.body, document,
+      () => { closeOtherOverlays("settings"); menuOpen = false; kitMenu = true; syncGate(); }, () => { void flow.back(); });
     matchCleanups.push(() => roundResults.dispose());
-    const unsubRound = r.onMessage(ServerMessage.roundOver, (m: unknown) => {
-      const parsed = RoundOverMessageSchema.safeParse(m);
-      if (parsed.success) roundResults.show(parsed.data, Math.floor(clock.serverTick(performance.now()) ?? ((r.state as { serverTick?: number }).serverTick ?? 0)));
-    });
-    matchCleanups.push(() => unsubRound());
+    // GR08: the roundOver message is only a transient cue; the card is drawn from replicated state (join, reconnect, patches).
+    const roundState = (): { phase: string; roundTarget: number; roundEndsAtTick: number; standings: { entityId: number; displayName: string; kills: number; deaths: number; assists: number }[] } => {
+      const s = r.state as { phase?: string; roundTarget?: number; roundEndsAtTick?: number; roundStandings?: Iterable<{ entityId: number; displayName: string; kills: number; deaths: number; assists: number }> };
+      return {
+        phase: s.phase ?? "playing", roundTarget: s.roundTarget ?? 0, roundEndsAtTick: s.roundEndsAtTick ?? 0,
+        standings: [...(s.roundStandings ?? [])].map((x) => ({ entityId: x.entityId, displayName: x.displayName, kills: x.kills, deaths: x.deaths, assists: x.assists })),
+      };
+    };
     matchCleanups.push(() => cues.dispose());
     let hudKey = "";
     const currentLayout = (): Layout => {
@@ -554,6 +558,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       gate.set("sparring", sparControls.style.display !== "none");
       gate.set("orientation", lastLayout.tooSmall);
       gate.set("connection", !(lifecycle?.inputEnabled ?? false));
+      gate.set("round", (r.state as { phase?: string }).phase === "roundOver");
     };
     let lastSettings = settings.get();
     const onSettingsChange = (): void => {
@@ -655,13 +660,19 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       const me = localOf();
       const stateTick = (r.state as { serverTick?: number }).serverTick ?? 0;
       const now = Math.floor(clock.serverTick(performance.now()) ?? stateTick);
-      roundResults.update((r.state as { phase?: string }).phase ?? "playing", now);
+      const round = roundState();
+      const roundOver = round.phase === "roundOver";
+      roundResults.render(round, now, kitMenu || menuOpen);
+      let leader: HudPlayer | undefined;
+      for (const p of players().values()) if (p.ready !== false && (!leader || p.kills > leader.kills)) leader = p;
+      const objective = objectiveText(round.roundTarget, round.phase, me, leader);
       const ml = meterLabel(me?.kitId ?? opts.kitId, me?.meter100 ?? 0);
-      const dead = me?.action === "Dead" && ko !== null;
+      const dead = me?.action === "Dead" && ko !== null && !roundOver;
       const pending = me?.owner?.pendingKit ?? "";
       const st = {
         name: me?.displayName ?? lobby.displayName, hp: (me?.hp100 ?? 10000) / 100, maxHp: 100, meter: ml.fraction, meterText: ml.text,
         facingLock: router.facingLock, portrait: window.innerHeight > window.innerWidth,
+        objective,
         castText: castDescription(me?.moveId ?? "", me?.action ?? ""),
         skillRoles: skillRoles(me?.kitId ?? opts.kitId, me?.form ?? "Base"),
         skills: equippedSkillNames(me?.kitId ?? opts.kitId, me?.form ?? "Base"),

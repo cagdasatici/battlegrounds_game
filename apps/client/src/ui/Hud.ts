@@ -29,6 +29,8 @@ export interface HudState {
   /** Per slot cooldown fraction, 0 = ready, 1 = just used (radial ring). */
   cooldownFracs?: readonly number[];
   reducedMotion?: boolean;
+  /** GR08: `First to N \u00b7 You K \u00b7 Leader L`; null/absent for endless FFA and the results phase. */
+  objective?: string | null;
   castText?: string;
   /** True for a short window after the server confirmed a block of the local player's guard. */
   blocked?: boolean;
@@ -124,6 +126,7 @@ export class Hud {
   private prevKeys: string[] = [];
   private readonly pulseTimers = new Set<ReturnType<typeof setTimeout>>();
   private opacity = 1;
+  private readonly objectiveEl: HTMLElement;
   private readonly kitListener: (e: Event) => void;
   private readonly menuListener: (e: Event) => void;
 
@@ -142,6 +145,7 @@ export class Hud {
       return el;
     };
     this.info = mk("info", "left:50%;top:8px;transform:translateX(-50%);text-shadow:0 1px 2px #000;white-space:pre");
+    this.objectiveEl = mk("objective", "left:50%;top:68px;transform:translateX(-50%);max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;text-shadow:0 1px 2px #000;z-index:8");
     this.badge = mk("block-feedback", "left:50%;top:44%;transform:translateX(-50%);background:#e8b84af0;color:#111;padding:6px 18px;border-radius:14px;font-size:20px");
     this.badge.textContent = "Blocked!";
     this.toast = mk("rejection", "left:50%;top:56%;transform:translateX(-50%);background:#000a;padding:6px 14px;border-radius:14px");
@@ -190,6 +194,8 @@ export class Hud {
     const line = [st.castText, st.formText, st.stillpointText].filter((t) => t !== undefined && t !== "").join("   ");
     this.info.style.display = line ? "block" : "none";
     this.info.textContent = line;
+    this.objectiveEl.style.display = st.objective ? "block" : "none";
+    this.objectiveEl.textContent = st.objective ?? "";
     this.badge.style.display = st.blocked ? "block" : "none";
     this.toast.style.display = st.rejection ? "block" : "none";
     this.toast.textContent = st.rejection ?? "";

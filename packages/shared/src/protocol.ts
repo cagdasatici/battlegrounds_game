@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const PROTOCOL_VERSION = 2 as const;
+export const PROTOCOL_VERSION = 3 as const;
 export const TICK_RATE = 60 as const;
 export const PATCH_RATE_MS = 50 as const;
 export const MAX_CLIENTS = 4 as const;
