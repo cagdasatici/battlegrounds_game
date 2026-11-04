@@ -1,9 +1,11 @@
 import type { BotDecision, BotObservation, Difficulty } from "@eb/shared/sparring";
+import { pickMove, preferredDistance, stepCharge } from "./BotTactics.js";
 
 const INTERVAL: Record<Difficulty, number> = { easy: 30, medium: 15, hard: 6 };
 const neutral = (): BotDecision => ({
   targetId: null, attackHeld: false, blockHeld: false,
   approach: false, castSlot: 0, dash: false, awaken: false, retreat: false, yaw: 0,
+  holdSlot: 0, releaseSlot: 0, losLost: 0,
 });
 
 /** Pure, spawn-relative decisions. The room owns movement safety and skill input IDs. */
@@ -16,9 +18,15 @@ export function decideBot(
   if (age < interval) return neutral();
   const eligible = observation.enemies.filter(enemy =>
     enemy.id !== observation.selfId && enemy.alive && enemy.connected && enemy.ready);
+  const tactical = difficulty !== "easy" && observation.tactics !== undefined;
+  if (tactical && previousDecision.holdSlot !== 0) {
+    const charged = stepCharge(difficulty, observation, previousDecision, eligible);
+    if (charged) return charged;
+    previousDecision = { ...previousDecision, holdSlot: 0, releaseSlot: 0, losLost: 0 };
+  }
   if (age % interval !== 0) {
     return eligible.some(enemy => enemy.id === previousDecision.targetId)
-      ? { ...previousDecision, castSlot: 0, dash: false, awaken: false }
+      ? { ...previousDecision, castSlot: 0, releaseSlot: 0, dash: false, awaken: false }
       : neutral();
   }
 
@@ -33,6 +41,7 @@ export function decideBot(
   }
   if (!target) return neutral();
   const k = Math.floor(age / interval);
+  if (tactical) return decideTactical(difficulty, observation, target, Math.sqrt(distanceSquared), k);
   const inReach = distanceSquared <= 4;
   let blockHeld = difficulty !== "easy" && target.attacking && distanceSquared <= 9;
   const awaken = observation.meterFull && difficulty !== "easy" && distanceSquared <= 36;
@@ -55,8 +64,32 @@ export function decideBot(
     attackHeld: inReach && !blockHeld && castSlot === 0,
     blockHeld,
     approach: !inReach && !blockHeld && !retreat,
-    castSlot, dash, awaken, retreat,
+    castSlot, dash, awaken, retreat, holdSlot: 0, releaseSlot: 0, losLost: 0,
     // Existing movement convention: yaw zero faces -Z. Coincident poses face zero.
     yaw: dx === 0 && dz === 0 ? 0 : Math.atan2(-dx, -dz),
   };
+}
+
+function decideTactical(difficulty: Difficulty, o: BotObservation, target: BotObservation["enemies"][number], d: number, k: number): BotDecision {
+  const t = o.tactics!;
+  const dx = target.x - o.self.x, dz = target.z - o.self.z;
+  const base: BotDecision = { ...neutral(), targetId: target.id, yaw: dx === 0 && dz === 0 ? 0 : Math.atan2(-dx, -dz) };
+  // Legal hard defensive dash (same trigger as before, only while the dash is actually available).
+  if (difficulty === "hard" && target.attacking && d <= 3 && k % 2 === 1 && t.dashReady) {
+    return { ...base, dash: true, retreat: true };
+  }
+  if (o.meterFull && t.grounded && t.form === "Base" && d <= 6) return { ...base, awaken: true };
+  const counter = pickMove("counter", difficulty, k, d, target, t);
+  const rangedSlot = counter === 0 ? pickMove("ranged", difficulty, k, d, target, t) : 0;
+  const close = counter === 0 && rangedSlot === 0 ? pickMove("close", difficulty, k, d, target, t) : 0;
+  const castSlot = counter || rangedSlot || close;
+  if (castSlot > 0) {
+    const holds = t.readyMoves[castSlot - 1] === "ea.b3";
+    return { ...base, castSlot, holdSlot: holds ? 3 : 0 };
+  }
+  if (target.attacking && d <= 3) return { ...base, blockHeld: true };
+  if (d <= 2 && target.los === true) return { ...base, attackHeld: true };
+  const preferred = preferredDistance(t.kitId, t);
+  if (preferred > 2 && d < preferred - 3) return { ...base, retreat: true };
+  return { ...base, approach: d > preferred };
 }

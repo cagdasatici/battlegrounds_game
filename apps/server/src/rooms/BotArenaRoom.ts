@@ -12,13 +12,16 @@ import type { PipelineSeat } from "../sim/TickPipeline.js";
 import { decideBot } from "../sim/SparringBrain.js";
 import { isAlive } from "../sim/ActionMachine.js";
 import { NAV, NavGrid } from "../sim/BotNavigation.js";
-const neutral = (): BotDecision => ({ targetId: null, attackHeld: false, blockHeld: false, approach: false, castSlot: 0, dash: false, awaken: false, retreat: false, yaw: 0 });
+import { facesWithin60 } from "../sim/BotTactics.js";
+const neutral = (): BotDecision => ({ targetId: null, attackHeld: false, blockHeld: false, approach: false, castSlot: 0, dash: false, awaken: false, retreat: false, yaw: 0, holdSlot: 0, releaseSlot: 0, losLost: 0 });
 interface BotSeat extends PipelineSeat {
   difficulty: Difficulty;
   decision: BotDecision;
   lifeId: number;
   spawnTick: number;
   nav: BotNavState;
+  /** GR14: kit and form the tactic state belongs to; any change clears it. */
+  tacticKey: string;
 }
 /** GR13 per-bot route memory; voluntary walk intent only. */
 interface BotNavState {
@@ -56,7 +59,7 @@ export class BotArenaRoom extends ArenaRoom {
       this.respawns.startLife(id, this.sim.tick);
       this.movement!.add(id, this.chooseBotSpawn(index));
       this.bots.set(`bot:${id}`, { entityId: id, input: new InputChannel(0), pendingKit: null, difficulty,
-        decision: neutral(), lifeId: p.lifeId, spawnTick: this.sim.tick, nav: freshNav() });
+        decision: neutral(), lifeId: p.lifeId, spawnTick: this.sim.tick, nav: freshNav(), tacticKey: `${kit}:Base` });
       this.pipeline.publishBody(id);
     });
   }
@@ -115,7 +118,7 @@ export class BotArenaRoom extends ArenaRoom {
     if (!mv || !world) return;
     const enemies = [...this.state.players.values()].map(p => {
       const f = this.combat.get(p.entityId), pos = mv.position(p.entityId);
-      return { id: p.entityId, x: pos?.[0] ?? 0, z: pos?.[2] ?? 0, alive: !!f && isAlive(f), connected: p.connected,
+      return { id: p.entityId, x: pos?.[0] ?? 0, y: pos?.[1] ?? 0, z: pos?.[2] ?? 0, yaw: mv.get(p.entityId)?.state.facingYaw ?? 0, alive: !!f && isAlive(f), connected: p.connected,
         ready: p.ready, attacking: !!f && ["Windup", "Active"].includes(f.action) };
     });
     for (const bot of this.bots.values()) {
@@ -123,16 +126,41 @@ export class BotArenaRoom extends ArenaRoom {
       bot.input.neutralize();
       if (!f || !body || !pos || !isAlive(f)) { bot.decision = neutral(); continue; }
       if (f.lifeId !== bot.lifeId) { bot.lifeId = f.lifeId; bot.spawnTick = f.actionStartTick; bot.decision = neutral(); bot.nav = freshNav(); }
-      const slotReady = (slot: 1 | 2 | 3 | 4): boolean => {
-        // TODO(BOT6): charge-hold casts need skillDown/skillUp timing; bots skip ea Base slot 3.
-        if (f.kitId === "ea" && f.form === "Base" && slot === 3) return false;
+      const key = `${f.kitId}:${f.form}`;
+      if (key !== bot.tacticKey) { bot.tacticKey = key; bot.decision = neutral(); }
+      // GR14: a move is ready only if Idle, off cooldown, form valid and its once-per-form bit is clear.
+      const readyMove = (slot: 1 | 2 | 3 | 4): string => {
         const def = this.abilities.registry.slotted(f.kitId, f.form, slot);
-        return f.action === "Idle" && !!def && (f.cooldowns.get(def.id) ?? 0) <= tick;
+        if (!def || f.action !== "Idle" || (f.cooldowns.get(def.id) ?? 0) > tick) return "";
+        if (def.oncePerForm && (f.awakenedUsedMask & (1 << (slot - 1))) !== 0) return "";
+        return def.id;
       };
+      const readyMoves: [string, string, string, string] = [readyMove(1), readyMove(2), readyMove(3), readyMove(4)];
+      const chargeStart = this.abilities.chargeStartOf(bot.entityId);
+      const routeMemo = new Map<number, boolean>();
+      const visible = enemies.filter(e => this.botTargetAllowed(e.id)).map(e => ({
+        ...e, los: !world.segmentBlocked([pos[0], pos[1] + 0.5, pos[2]], [e.x, e.y + 0.5, e.z]),
+        facingSelf: facesWithin60(e.yaw, e, { x: pos[0], z: pos[2] }),
+      }));
       bot.decision = decideBot(bot.difficulty, { tick, spawnTick: bot.spawnTick, selfId: bot.entityId,
-        self: { x: pos[0], z: pos[2] }, enemies: enemies.filter(e => this.botTargetAllowed(e.id)),
-        slotsReady: [slotReady(1), slotReady(2), slotReady(3), slotReady(4)],
-        meterFull: f.meter100 >= meterRequired100(f.kitId) }, bot.decision);
+        self: { x: pos[0], z: pos[2] }, enemies: visible,
+        slotsReady: [readyMoves[0] !== "", readyMoves[1] !== "", readyMoves[2] !== "", readyMoves[3] !== ""],
+        meterFull: f.meter100 >= meterRequired100(f.kitId),
+        tactics: {
+          kitId: f.kitId, form: f.form === "Awakened" ? "Awakened" : "Base", grounded: body.state.grounded, readyMoves,
+          chargeSlot: chargeStart > 0 ? 3 : 0, chargeStartTick: chargeStart,
+          dashReady: f.action === "Idle" && (f.cooldowns.get("dash.back") ?? 0) <= tick,
+          routeSafe: id => {
+            let ok = routeMemo.get(id);
+            if (ok === undefined) {
+              const e = enemies.find(x => x.id === id);
+              ok = !!e && (this.navGrid ??= NavGrid.build(world)).plan(pos[0], pos[2], e.x, e.z).status === "ok";
+              routeMemo.set(id, ok);
+            }
+            return ok;
+          },
+          supported: id => { const e = enemies.find(x => x.id === id); return !!e && world.walkableTop(e.x, e.z) !== null; },
+        } }, bot.decision);
       const d = bot.decision;
       let moveX = d.approach ? -Math.sin(d.yaw) : d.retreat ? Math.sin(d.yaw) : 0;
       let moveZ = d.approach ? -Math.cos(d.yaw) : d.retreat ? Math.cos(d.yaw) : 0;
@@ -159,14 +187,15 @@ export class BotArenaRoom extends ArenaRoom {
         if (f.action === "Idle" || f.action === "Guard") { body.state.vx = 0; body.state.vz = 0; }
       }
       if ((f.action === "Idle" || f.action === "Guard") && d.targetId !== null) body.state.facingYaw = d.yaw;
-      bot.input.held = { ...neutralIntent(), moveX, moveZ, yaw: d.yaw, attackHeld: d.attackHeld, blockHeld: d.blockHeld };
+      bot.input.held = { ...neutralIntent(), moveX, moveZ, yaw: d.yaw, attackHeld: d.attackHeld, blockHeld: d.blockHeld, chargeHeldSlot: d.holdSlot };
       bot.input.lastInputTick = tick;
       bot.input.lastReceivedSeq++;
-      const push = (edge: { kind: "dash" | "awaken" } | { kind: "skillDown"; slot: 1 | 2 | 3 | 4 }) => {
+      const push = (edge: { kind: "dash" | "awaken" } | { kind: "skillDown" | "skillUp"; slot: 1 | 2 | 3 | 4 }) => {
         const id = ++bot.input.lastEdgeId;
         bot.input.queue.push({ edge: { id, ...edge }, arrivalTick: tick, seq: bot.input.lastReceivedSeq });
       };
-      // The slot-1 path never sent skillUp, so bots send skillDown only.
+      // Press moves ignore skillUp; only a held charge (Ember Orb) reacts to the release edge.
+      if (d.releaseSlot > 0) push({ kind: "skillUp", slot: d.releaseSlot as 1 | 2 | 3 | 4 });
       if (d.awaken) push({ kind: "awaken" });
       if (d.dash) push({ kind: "dash" });
       if (d.castSlot > 0) push({ kind: "skillDown", slot: d.castSlot as 1 | 2 | 3 | 4 });

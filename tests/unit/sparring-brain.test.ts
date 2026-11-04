@@ -3,7 +3,7 @@ import type { BotDecision, BotObservation, Difficulty } from "../../packages/sha
 import { decideBot } from "../../apps/server/src/sim/SparringBrain.js";
 
 const neutral: BotDecision = {
-  targetId: null, attackHeld: false, blockHeld: false, approach: false, castSlot: 0, dash: false, awaken: false, retreat: false, yaw: 0,
+  targetId: null, attackHeld: false, blockHeld: false, approach: false, castSlot: 0, dash: false, awaken: false, retreat: false, yaw: 0, holdSlot: 0, releaseSlot: 0, losLost: 0,
 };
 const enemy = (id = 2, x = 0, z = -2): BotObservation["enemies"][number] => ({
   id, x, z, alive: true, connected: true, ready: true, attacking: false,
@@ -16,7 +16,7 @@ const observe = (overrides: Partial<BotObservation> = {}): BotObservation => ({
 describe("BOT1 deterministic sparring brain", () => {
   test.each<[Difficulty, number]>([["easy", 30], ["medium", 15], ["hard", 6]])(
     "%s waits a full interval on each life and samples relative to spawn", (tier, interval) => {
-      const stale = { ...neutral, targetId: 2, approach: true, attackHeld: true, castSlot: 1 as const, dash: true, awaken: true, retreat: true, yaw: 1 };
+      const stale = { ...neutral, targetId: 2, approach: true, attackHeld: true, castSlot: 1 as const, dash: true, awaken: true, retreat: true, yaw: 1, holdSlot: 0, releaseSlot: 0, losLost: 0 };
       for (const spawnTick of [0, 101]) {
         for (let age = 0; age < interval; age++) {
           expect(decideBot(tier, observe({ spawnTick, tick: spawnTick + age }), stale)).toEqual(neutral);

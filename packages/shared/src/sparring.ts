@@ -40,6 +40,26 @@ export type SparringEndRequest = z.infer<typeof SparringEndRequestSchema>;
 
 /** World-space x/z metres. */
 export type SparringPoint = { x: number; z: number };
+/**
+ * GR14 role-aware observation. Only server-visible state of the bot and static world queries; never hidden client
+ * input or future state. Absent for the legacy policy (easy mode and old callers).
+ */
+export interface BotTacticsObservation {
+  kitId: string;
+  form: "Base" | "Awakened";
+  grounded: boolean;
+  /** Move ID per skill slot 1..4, or "" unless ready: Idle, cooldown elapsed, form valid and once-per-form bit clear. */
+  readyMoves: readonly [string, string, string, string];
+  /** Slot of the charge being held (0 = none; only Ember Orb, slot 3) and the tick it was committed. */
+  chargeSlot: 0 | 1 | 2 | 3 | 4;
+  chargeStartTick: number;
+  /** Fighter can start an evasive back dash now. */
+  dashReady: boolean;
+  /** Bounded ground route (GR13) exists to the enemy; lazy because planning is not free. */
+  routeSafe(enemyId: number): boolean;
+  /** Enemy stands on supported static ground (Furnace Drop destination). */
+  supported(enemyId: number): boolean;
+}
 export interface BotObservation {
   tick: number;
   spawnTick: number;
@@ -50,7 +70,12 @@ export interface BotObservation {
   meterFull: boolean;
   enemies: ReadonlyArray<SparringPoint & {
     id: number; alive: boolean; connected: boolean; ready: boolean; attacking: boolean;
+    /** GR14: static line of sight from bot to this enemy. */
+    los?: boolean;
+    /** GR14: enemy facing within 60 degrees of the bot. */
+    facingSelf?: boolean;
   }>;
+  tactics?: BotTacticsObservation;
 }
 export interface BotDecision {
   targetId: number | null;
@@ -63,6 +88,12 @@ export interface BotDecision {
   awaken: boolean;
   retreat: boolean;
   yaw: number;
+  /** GR14: slot whose charge the bot keeps holding this tick (chargeHeldSlot); 0 = none. */
+  holdSlot: 0 | 1 | 2 | 3 | 4;
+  /** GR14: one-tick skillUp edge for that slot; 0 = none. */
+  releaseSlot: 0 | 1 | 2 | 3 | 4;
+  /** GR14: consecutive ticks the charge target has been out of line of sight. */
+  losLost: number;
 }
 export interface SparringSetupActions {
   start(config: SparringConfig, kitId: KitId, listed?: boolean): Promise<void>;

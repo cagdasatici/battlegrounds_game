@@ -63,7 +63,7 @@ describe("BOT0 frozen sparring contracts", () => {
       tick: 30, spawnTick: 0, selfId: 1, self: { x: 0, z: 0 }, slotsReady: [true, true, true, true], meterFull: false,
       enemies: [{ id: 2, x: 1, z: 0, alive: true, connected: true, ready: true, attacking: false }],
     };
-    const neutral: BotDecision = { targetId: null, attackHeld: false, blockHeld: false, approach: false, castSlot: 0, dash: false, awaken: false, retreat: false, yaw: 0 };
+    const neutral: BotDecision = { targetId: null, attackHeld: false, blockHeld: false, approach: false, castSlot: 0, dash: false, awaken: false, retreat: false, yaw: 0, holdSlot: 0, releaseSlot: 0, losLost: 0 };
     const actions: SparringSetupActions = { start: async () => {}, copyLink: async () => "local fixture", end: async () => {} };
     expect(observation.enemies[0]?.id).toBe(2);
     expect(neutral.targetId).toBeNull();
