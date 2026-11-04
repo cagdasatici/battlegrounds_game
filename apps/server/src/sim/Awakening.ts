@@ -1,4 +1,5 @@
 import { meterRequired100 } from "@eb/shared/awakening";
+import { COMBAT } from "@eb/shared/config/combat";
 import type { RejectReason } from "@eb/shared/protocol";
 import { beginAwakening, isAlive, isProtected, type Fighter } from "./ActionMachine.js";
 import type { CombatSystem } from "./Combat.js";
@@ -101,7 +102,7 @@ export class AwakeningSystem {
       const a = this.host.combat.get(c.attackerId);
       if (!a || !isAlive(a) || a.form !== "Base" || a.action === "Awakening") continue;
       if (c.projectile && a.lifeId !== c.projectile.ownerLifeId) continue; // a detached shot of a past life builds nothing (spec 15)
-      a.meter100 = Math.min(meterRequired100(a.kitId), a.meter100 + r.damage100);
+      a.meter100 = Math.min(meterRequired100(a.kitId), a.meter100 + Math.floor((r.damage100 * COMBAT.meter.gainNum) / COMBAT.meter.gainDen));
     }
   }
 

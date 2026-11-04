@@ -51,7 +51,8 @@ export const COMBAT = {
   assistMinDamage: 20,
   inputLeaseTicks: 15,
   bufferTicks: 6,
-  meter: { svRequired100: 20000, otherRequired100: 35000 },
+  /** FB04: gain = floor(damage100 * gainNum / gainDen) = 2.5x damage (owner request 2026-11-04). */
+  meter: { svRequired100: 20000, otherRequired100: 35000, gainNum: 5, gainDen: 2 },
   /** T23 urn rules (spec 10, 15). D values. Pickup channel, reach and stick limit are spec 15 numbers. */
   props: { pickupTicks: 12, pickupRadius: 1.2, pickupStickMax: 0.1, returnTicks: 600, throwRecovery: 20 },
   /** T23 wall opportunity (spec 13): enemy within 0.6 m of a vertical static collider, attacker within 2 m. */

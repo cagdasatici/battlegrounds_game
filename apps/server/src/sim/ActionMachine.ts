@@ -233,8 +233,8 @@ export function kill(f: Fighter, tick: number): boolean {
   f.landingBonus = false;
   f.counterOpenUntil = 0;
   f.lethalCounterUntil = 0;
-  // Death resets meter and consumes any awakening (spec 11, 15).
-  f.meter100 = 0; f.form = "Base"; f.formEndTick = 0; f.awakenedUsedMask = 0; f.contextSpent = false;
+  // Death ends any awakening but keeps the meter (FB04, owner request overrides spec 11/15 reset).
+  f.form = "Base"; f.formEndTick = 0; f.awakenedUsedMask = 0; f.contextSpent = false;
   f.armored = false;
   setAction(f, "Dead", tick, OPEN);
   return true;
@@ -254,7 +254,7 @@ export function respawn(f: Fighter, tick: number, lifeId: number): void {
   f.armored = false;
   f.counterOpenUntil = 0;
   f.lethalCounterUntil = 0;
-  f.form = "Base"; f.formEndTick = 0; f.awakenedUsedMask = 0; f.contextSpent = false; f.meter100 = 0;
+  f.form = "Base"; f.formEndTick = 0; f.awakenedUsedMask = 0; f.contextSpent = false; // meter kept (FB04)
   f.protectedUntilTick = tick + COMBAT.spawnProtectionTicks;
   setAction(f, "Idle", tick, OPEN);
 }

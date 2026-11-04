@@ -299,7 +299,7 @@ describe("death and detached attribution", () => {
   test("a living owner of the same life gains meter equal to the damage dealt", async () => {
     const r = await make();
     charge(r, 30, T0 + 30 + 6 + 40);
-    expect(r.cs.get(1)!.meter100).toBe(1500);
+    expect(r.cs.get(1)!.meter100).toBe(3750); // FB04: 1500 x 2.5
   });
   test("a lethal projectile hit is one KO and never negative HP", async () => {
     const r = await make();
@@ -379,7 +379,7 @@ describe("counter and reflect (A10 reflect rows)", () => {
     expect(back[0]!.r.candidate.attackerId).toBe(2);
     expect(back[0]!.r.damage100).toBe(1500);
     expect(r.hp(2)).toBe(10000);
-    expect(r.cs.get(2)!.meter100).toBe(1500); // meter only once the reflected shot damages someone
+    expect(r.cs.get(2)!.meter100).toBe(3750); // meter only once the reflected shot damages someone // FB04: 1500 x 2.5
   });
   test("the reflect gains no meter before the reflected shot lands", async () => {
     const r = await make({ kits: { 2: "sv" } });

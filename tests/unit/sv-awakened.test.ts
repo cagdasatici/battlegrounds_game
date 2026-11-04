@@ -424,7 +424,7 @@ describe("awakened damage never feeds the next meter (D)", () => {
     aw.gain([cand("sv.a1"), cand("sv.a2")]);
     expect(cs.get(1)!.meter100).toBe(0);
     aw.gain([cand("sv.b2")]);
-    expect(cs.get(1)!.meter100).toBe(1000);
+    expect(cs.get(1)!.meter100).toBe(2500); // FB04: normal hit 1000 x 2.5
   });
 });
 

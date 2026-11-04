@@ -1,3 +1,4 @@
+import { COMBAT } from "../../packages/shared/src/config/combat.js";
 import type { KitId } from "../../packages/shared/src/protocol.js";
 import { describe, expect, test } from "vitest";
 import { buildAbilityRegistry, defineAbility, type AbilitySpec } from "../../packages/shared/src/abilities.js";
@@ -56,12 +57,12 @@ describe("meter thresholds", () => {
 });
 
 describe("damage based meter", () => {
-  test("gains exactly the HP removed (hundredths) from a real hit", () => {
+  test("gains 2.5x the HP removed (FB04, old constant x 2.5) from a real hit", () => {
     const r = rig();
     r.cast(T0);
     for (let t = T0; t < T0 + 12; t++) r.step(t);
     expect(r.cs.get(2)!.hp100).toBe(9000);
-    expect(r.cs.get(1)!.meter100).toBe(1000);
+    expect(r.cs.get(1)!.meter100).toBe(Math.floor(1000 * 2.5)); // FB04: was 1000
   });
 
   test("overkill is not counted: only the HP actually removed", () => {
@@ -70,7 +71,7 @@ describe("damage based meter", () => {
     r.cast(T0);
     for (let t = T0; t < T0 + 12; t++) r.step(t);
     expect(r.cs.get(2)!.hp100).toBe(0);
-    expect(r.cs.get(1)!.meter100).toBe(300);
+    expect(r.cs.get(1)!.meter100).toBe(750); // FB04: 300 x 2.5, was 300
   });
 
   test("blocked and countered hits build no meter", () => {
@@ -233,7 +234,7 @@ describe("Stone Vanguard activation (sv.activate)", () => {
     expect(r.aw.activeCount).toBe(0);
   });
 
-  test("death during activation drops it: single KO, meter 0, no form", () => {
+  test("death during activation drops it: single KO, meter kept (FB04), no form", () => {
     const r = rig();
     const f = r.cs.get(1)!;
     f.meter100 = 20000;
@@ -242,19 +243,19 @@ describe("Stone Vanguard activation (sv.activate)", () => {
     r.aw.reset(1);
     for (let t = T0 + 5; t < T0 + 50; t++) r.step(t);
     expect(f.form).toBe("Base");
-    expect(f.meter100).toBe(0);
+    expect(f.meter100).toBe(20000);
     expect(f.koCount).toBe(1);
     expect(r.aw.activeCount).toBe(0);
   });
 
-  test("death consumes the form and resets meter; respawn starts Base with zero meter", () => {
+  test("death ends the form but keeps the meter through respawn (FB04, overrides spec 11/15 reset)", () => {
     const r = rig();
     const f = r.cs.get(1)!;
     f.form = "Awakened"; f.meter100 = 12345; f.awakenedUsedMask = 3; f.formEndTick = T0 + 99;
     r.cs.kill(1, T0);
-    expect([f.form, f.meter100, f.awakenedUsedMask, f.formEndTick]).toEqual(["Base", 0, 0, 0]);
+    expect([f.form, f.meter100, f.awakenedUsedMask, f.formEndTick]).toEqual(["Base", 12345, 0, 0]);
     r.cs.respawn(1, T0 + 180, 9);
-    expect([f.form, f.meter100, f.contextSpent]).toEqual(["Base", 0, false]);
+    expect([f.form, f.meter100, f.contextSpent]).toEqual(["Base", 12345, false]);
   });
 });
 
@@ -403,5 +404,24 @@ describe("cleanup", () => {
     expect(r.aw.activeCount).toBe(0);
     r.aw.dispose();
     expect(r.aw.activeCount).toBe(0);
+  });
+});
+
+describe("FB04 meter registry", () => {
+  test("gain multiplier is 2.5x in the numeric registry; thresholds unchanged", () => {
+    expect((COMBAT.meter.gainNum * 1000) / COMBAT.meter.gainDen).toBe(2500);
+    expect([COMBAT.meter.svRequired100, COMBAT.meter.otherRequired100]).toEqual([20000, 35000]);
+  });
+
+  test("meter survives KO then respawn, Awakened form ends on death", () => {
+    const r = rig();
+    const f = r.cs.get(1)!;
+    f.meter100 = 7000;
+    r.cs.kill(1, T0);
+    r.cs.respawn(1, T0 + 180, 9);
+    expect(f.meter100).toBe(7000);
+    f.form = "Awakened"; f.formEndTick = T0 + 9999;
+    r.cs.kill(1, T0 + 200);
+    expect([f.form, f.meter100]).toEqual(["Base", 7000]);
   });
 });

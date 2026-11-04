@@ -448,11 +448,11 @@ export class TickPipeline {
       const centre: MapVec3 = [ax, (w.groundHeight(ax, az) ?? ay) + ARENA.capsule.centreAboveSurface, az];
       // A queued kit change applies here for a dead fighter (spec 6).
       const seat = [...this.d.seats().values()].find((s) => s.entityId === id);
-      if (seat?.pendingKit) { f.kitId = seat.pendingKit; seat.pendingKit = null; }
+      if (seat?.pendingKit) { if (seat.pendingKit !== f.kitId) f.meter100 = 0; /* kit change still resets (FB04) */ f.kitId = seat.pendingKit; seat.pendingKit = null; }
       const p = this.d.state.players.get(String(id));
       if (p) p.owner.pendingKit = "";
       const lifeId = this.d.nextLifeId();
-      combat.respawn(id, tick, lifeId); // full HP, cooldowns, meter and form reset, standard spawn protection
+      combat.respawn(id, tick, lifeId); // full HP, cooldowns and form reset (meter kept, FB04), standard spawn protection
       this.d.m1.reset(id);
       this.d.abilities.reset(id);
       this.d.awakening.reset(id);
