@@ -64,7 +64,7 @@ test.beforeAll(async () => {
 });
 test.afterAll(async () => {
   mkdirSync(outDir, { recursive: true });
-  writeFileSync(path.join(outDir, "GR15b-playwright.json"), JSON.stringify(evidence, null, 2));
+  writeFileSync(path.join(outDir, "GR15c-playwright.json"), JSON.stringify(evidence, null, 2));
   await browser?.close();
   await vite?.close();
   await game?.gracefullyShutdown(false);
@@ -159,7 +159,7 @@ for (const vp of [{ width: 1024, height: 768 }, { width: 1180, height: 820 }]) {
         const panel = page.locator("[data-ui=practice]");
         await panel.locator("[data-expand]").click();
         await expect(panel.locator("li")).toHaveCount(7);
-        await expect(panel.locator("button[data-drill=start]")).toHaveCount(2);
+        await expect(panel.locator("button[data-drill=start]")).toHaveCount(3);
         await panel.locator("button[data-drill=start][data-lesson=block]").click();
         const hint = panel.locator("[data-ui=practice-hint]");
         await expect(hint).toHaveText("Face the dummy and hold Guard before its strike lands.");
@@ -181,9 +181,63 @@ for (const vp of [{ width: 1024, height: 768 }, { width: 1180, height: 820 }]) {
         await panel.locator("button[data-drill=retry]").click();
         await expect(hint).toHaveText("Face the dummy and hold Guard before its strike lands.");
         await panel.locator("button[data-drill=exit]").click();
-        await expect(panel.locator("button[data-drill=start]")).toHaveCount(2);
+        await expect(panel.locator("button[data-drill=start]")).toHaveCount(3);
         await expect(panel.locator("button[data-toggle=guard]")).toBeVisible();
         evidence[`block-${hand}-${vp.width}`] = { panel: m, pageErrors: errors };
+        expect(errors).toEqual([]);
+      } finally { await ctx.close(); }
+    });
+  }
+}
+
+for (const vp of [{ width: 1024, height: 768 }, { width: 1180, height: 820 }]) {
+  for (const hand of ["right", "left"] as const) {
+    test(`Leave the warning ${vp.width}x${vp.height} ${hand}-handed: prep copy, real sideways move, server success, failure, Retry, Exit`, async () => {
+      test.setTimeout(180_000);
+      const ctx = await browser.newContext({ viewport: vp, hasTouch: true, reducedMotion: hand === "left" ? "reduce" : "no-preference" });
+      const page = await ctx.newPage();
+      const errors: string[] = [];
+      page.on("pageerror", (e) => errors.push(String(e)));
+      await page.addInitScript((s) => { try { localStorage.setItem("eb.settings.v1.Evra", s); } catch { /* blocked */ } }, settings(hand));
+      try {
+        await page.goto(`${base}/?room=flow&debug=1&name=Evra&kit=sv#invite=${svc.invites.create({ ttlMs: 120_000, maxUses: 1 }).token}`);
+        await page.waitForSelector("[data-act=practice]");
+        await page.click("[data-act=practice]");
+        await page.click("[data-act=ready]");
+        await page.waitForFunction(() => (window as unknown as { __eb?: unknown }).__eb !== undefined, undefined, { timeout: 30_000 });
+        await until(async () => (await snap(page)).players.some((q) => q.local && q.action === "Idle") || null, 15_000, "ready");
+        const panel = page.locator("[data-ui=practice]");
+        await panel.locator("[data-expand]").click();
+        await expect(panel.locator("button[data-drill=start][data-lesson=evade]")).toHaveText("Leave the warning");
+        await panel.locator("button[data-drill=start][data-lesson=evade]").click();
+        const hint = panel.locator("[data-ui=practice-hint]");
+        await expect(hint).toHaveText("Get ready \u2014 move sideways when the warning appears.");
+        await expect(panel.locator("button[data-drill=retry]")).toBeVisible();
+        const m = await page.evaluate(() => {
+          const b = document.querySelector("[data-ui=practice]")!.getBoundingClientRect();
+          return { sw: document.documentElement.scrollWidth, iw: innerWidth, l: b.left, r: b.right, b: b.bottom, ih: innerHeight };
+        });
+        expect(m.sw).toBeLessThanOrEqual(m.iw);
+        expect(m.l).toBeGreaterThanOrEqual(0); expect(m.r).toBeLessThanOrEqual(m.iw); expect(m.b).toBeLessThanOrEqual(m.ih);
+        await page.screenshot({ path: path.join(outDir, `GR15c-lesson-prep-${hand}-${vp.width}x${vp.height}.png`) });
+        // Stay put through the first cast: the server judges a stationary player as failed (specific copy, no auto repeat).
+        await expect(hint).toHaveText("Try again \u2014 move sideways when the warning appears.", { timeout: 20_000 });
+        await page.screenshot({ path: path.join(outDir, `GR15c-lesson-failed-${hand}-${vp.width}x${vp.height}.png`) });
+        await panel.locator("button[data-drill=retry]").click();
+        await expect(hint).toHaveText("Get ready \u2014 move sideways when the warning appears.");
+        // The instant the dummy's windup (the warning) is replicated, step sideways with the real key. Tight poll: the windup is 24 ticks.
+        for (const t0 = Date.now(); ; await sleep(2)) {
+          const s = await snap(page);
+          if (s.players.find((q) => q.name === "Practice dummy")!.action === "Windup") break;
+          if (Date.now() - t0 > 15_000) throw new Error("timeout: dummy windup");
+        }
+        await page.keyboard.down("KeyD");
+        await expect(hint).toHaveText("You left the attack before it landed.", { timeout: 10_000 });
+        await page.keyboard.up("KeyD");
+        await page.screenshot({ path: path.join(outDir, `GR15c-lesson-success-${hand}-${vp.width}x${vp.height}.png`) });
+        await panel.locator("button[data-drill=exit]").click();
+        await expect(panel.locator("button[data-drill=start]")).toHaveCount(3);
+        evidence[`evade-${hand}-${vp.width}`] = { panel: m, pageErrors: errors };
         expect(errors).toEqual([]);
       } finally { await ctx.close(); }
     });

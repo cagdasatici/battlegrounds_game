@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { BLOCK_DRILL, DrillTracker, type ResolvedHitSummary } from "../../apps/server/src/sim/PracticeDrills.js";
+import { SV_DEFS } from "../../packages/shared/src/config/kits/index.js";
+import { BLOCK_DRILL, DrillTracker, EVADE_DRILL, inFaultStrikeFootprint, type ResolvedHitSummary } from "../../apps/server/src/sim/PracticeDrills.js";
 
 const P = 1, D = 2, BOT = 3;
 const hit = (o: Partial<ResolvedHitSummary> = {}): ResolvedHitSummary =>
@@ -93,5 +94,94 @@ describe("GR15b block lesson tracker", () => {
     expect(due(2000, 2700)).toEqual([]); // stops after exit
     const h = running();
     expect(h.attackDue(130)).toBe(false); // the hit lesson has no dummy attacks
+  });
+});
+
+describe("GR15c evade lesson tracker", () => {
+  const cast = { castCounter: 1, activeStart: 144, activeEnd: 148 };
+  const touch = (o: Partial<ResolvedHitSummary> = {}): ResolvedHitSummary =>
+    ({ attackerId: D, targetId: P, moveId: "sv.b1", outcome: "hit", damage100: 2000, ...o });
+  const trial = (): DrillTracker => { const t = new DrillTracker(); t.start("evade", 10); return t; };
+  const drive = (t: DrillTracker, o: { inside?: boolean; outside?: boolean; clean?: boolean; hits?: ResolvedHitSummary[] }): string | null => {
+    t.evadeBind(cast, o.inside ?? true);
+    let r: string | null = null;
+    for (let k = cast.activeStart; k < cast.activeEnd; k++) {
+      t.evadeNote(k, k === cast.activeStart ? (o.hits ?? []) : [], P, D);
+      r = t.evadeStep(k, o.outside ?? true, o.clean ?? true) ?? r;
+    }
+    return r;
+  };
+  test("cast is due exactly once at preparation tick + 120", () => {
+    const t = trial();
+    expect(EVADE_DRILL.prepTicks).toBe(120);
+    const due: number[] = []; for (let k = 0; k < 400; k++) if (t.evadeCastDue(k)) due.push(k);
+    expect(due).toEqual([130]);
+    t.evadeBind(cast, true);
+    expect(t.evadeCastDue(130)).toBe(false);
+    expect(new DrillTracker().evadeCastDue(130)).toBe(false);
+  });
+  test("starting inside and leaving all footprints with no result passes once", () => {
+    const t = trial();
+    expect(drive(t, {})).toBe("success");
+    expect([t.state, t.successTick]).toEqual(["success", 147]);
+    expect(t.evadeStep(148, true, true)).toBeNull();
+  });
+  test.each([
+    ["stationary hit", { outside: false, hits: [touch()] }],
+    ["stationary but no result (still inside)", { outside: false }],
+    ["started outside the footprint", { inside: false }],
+    ["guarded (blocked)", { outside: false, hits: [touch({ outcome: "blocked", damage100: 0 })] }],
+    ["countered", { hits: [touch({ outcome: "countered", damage100: 0 })] }],
+    ["captured", { hits: [touch({ outcome: "captured", damage100: 0 })] }],
+    ["protected", { hits: [touch({ outcome: "protected", damage100: 0 })] }],
+    ["invulnerable", { hits: [touch({ outcome: "invulnerable", damage100: 0 })] }],
+    ["protection active (not clean)", { clean: false }],
+  ])("%s fails and shows failure state", (_n, o) => {
+    const t = trial();
+    expect(drive(t, o)).toBe("failed");
+    expect(t.state).toBe("failed");
+    expect(t.successTick).toBe(0);
+  });
+  test("results from other attackers or moves are not this cast", () => {
+    const t = trial();
+    expect(drive(t, { hits: [touch({ attackerId: 9 }), touch({ moveId: "m1.1" })] })).toBe("success");
+  });
+  test("death, leave or kit change voids the trial: no result, Retry still available", () => {
+    const t = trial();
+    t.evadeBind(cast, true);
+    t.evadeVoid();
+    for (let k = 144; k < 150; k++) expect(t.evadeStep(k, true, true)).toBeNull();
+    expect(t.state).toBe("running");
+    expect(t.retry(500)).toBe(true);
+    expect(t.trial?.phase).toBe("wait");
+  });
+  test("retry builds a fresh trial with fresh cast identity; exit clears it", () => {
+    const t = trial();
+    drive(t, { outside: false });
+    const old = t.trial;
+    expect(t.retry(300)).toBe(true);
+    expect(t.trial).not.toBe(old);
+    expect([t.state, t.trial?.castCounter, t.trial?.phase]).toEqual(["running", 0, "wait"]);
+    expect(t.evadeCastDue(420)).toBe(true);
+    t.evadeBind({ castCounter: 2, activeStart: 444, activeEnd: 448 }, true);
+    expect(t.trial?.castCounter).toBe(2);
+    expect(t.exit()).toBe(true);
+    expect(t.trial).toBeNull();
+  });
+  test("other lessons never create a trial or evade results", () => {
+    const h = running();
+    expect(h.trial).toBeNull();
+    expect(h.evadeBind(cast, true)).toBe(false);
+    expect(trial().observe(20, [hit()], P, D)).toBe(false);
+  });
+  test("footprint helper uses the ability's geometry: 2 m ahead is inside, 3 m to the side is outside, wave skips ragdolled", () => {
+    const def = SV_DEFS.find((d) => d.id === "sv.b1")!;
+    const at = (x: number, z: number) => ({ x, y: 0.9, z, facingYaw: 0, grounded: true });
+    const dummy = at(0, 0);
+    expect(inFaultStrikeFootprint(def, Math.PI, dummy, at(0, 2), false)).toBe(true); // facing +z
+    expect(inFaultStrikeFootprint(def, Math.PI, dummy, at(3, 2), false)).toBe(false);
+    expect(inFaultStrikeFootprint(def, Math.PI, dummy, at(0, -2), false)).toBe(false); // behind
+    expect(inFaultStrikeFootprint(def, Math.PI, dummy, at(0, 6), false)).toBe(true); // wave reaches 8 m
+    expect(inFaultStrikeFootprint(def, Math.PI, dummy, at(0, 6), true)).toBe(false); // ragdolled: not in the wave
   });
 });

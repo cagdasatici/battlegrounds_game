@@ -63,7 +63,7 @@ export const LeaveMessageSchema = z.strictObject({});
 export const PracticeSetSchema = z.strictObject({ guard: z.boolean(), ragdoll: z.boolean(), bots: z.array(z.enum(["easy", "medium", "hard"])).max(2).optional() });
 export type PracticeSetMessage = z.infer<typeof PracticeSetSchema>;
 /** GR15a: practice-only lesson intent. Success is never sent by the client; it is read from owner fields. */
-export const PracticeDrillSchema = z.strictObject({ action: z.enum(["start", "retry", "exit"]), drill: z.enum(["hit", "block"]) });
+export const PracticeDrillSchema = z.strictObject({ action: z.enum(["start", "retry", "exit"]), drill: z.enum(["hit", "block", "evade"]) });
 export type PracticeDrillMessage = z.infer<typeof PracticeDrillSchema>;
 /** Practice tutorial steps in order. Each is confirmed by the server from simulation state, never by the client. */
 export const TUTORIAL_STEPS = ["move", "turn", "attack", "block", "dash", "skills", "awaken"] as const;

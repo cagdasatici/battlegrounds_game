@@ -256,3 +256,103 @@ describe("GR15b confirmed-block lesson (real clients)", () => {
     await pr.c.leave();
   }, 60000);
 });
+
+// GR15c: the dummy is a Stone Vanguard casting the existing sv.b1 once at preparation tick + 120; only server geometry + results judge it.
+const startEvade = async (pr: Practice): Promise<number> => {
+  pr.c.send("practiceDrill", { action: "start", drill: "evade" });
+  await waitFor(() => state(pr) === "running" && pr.me().owner.drillId === "evade", 3000, "evade running");
+  return pr.me().owner.drillStartTick as number;
+};
+const trialOf = (pr: Practice): unknown => pr.server.drill.trial;
+const dummyKit = (pr: Practice): string => pr.server.combat.get(pr.server.dummyId)!.kitId;
+const teleportX = (pr: Practice, x: number): void => {
+  const a = pr.server.movement!.get(pr.me().entityId)!;
+  const t = a.rb.translation();
+  const p = { x, y: t.y, z: t.z };
+  a.rb.setTranslation(p, true); a.rb.setNextKinematicTranslation(p);
+};
+
+describe("GR15c leave-the-warning lesson (real clients)", () => {
+  test("placement, Stone Vanguard dummy, a stationary player is hit once and fails; no auto repeat; Exit restores the Tide Duelist", async () => {
+    const pr = await joinPractice("Edda");
+    const start = await startEvade(pr);
+    const mv = pr.server.movement!;
+    const pp = mv.position(pr.me().entityId)!, dp = mv.position(pr.server.dummyId)!;
+    expect(Math.hypot(pp[0] - dp[0], pp[2] - dp[2])).toBeCloseTo(2, 1);
+    expect(Math.abs(pp[1] - dp[1])).toBeLessThan(0.2);
+    expect(dummyKit(pr)).toBe("sv");
+    expect(seatOf(pr)).not.toBeNull();
+    expect(pr.me().hp100).toBe(10000);
+    await waitFor(() => state(pr) === "failed", 8000, "stationary player fails");
+    expect(pr.me().hp100).toBe(8000); // one direct 20 HP hit, no wave
+    expect(pr.me().owner.drillSuccessTick).toBe(0);
+    expect(pr.server.sim.tick).toBeGreaterThanOrEqual(start + 120 + 24);
+    expect(seatOf(pr)).toBeNull();
+    const until = pr.server.sim.tick + 400; // no automatic repeat
+    await waitFor(() => pr.server.sim.tick > until, 8000, "wait past two prep periods");
+    expect(state(pr)).toBe("failed");
+    expect(pr.me().hp100).toBe(7000); // the ability's own +10 HP landing bonus after the launch; a second cast would be lower
+    pr.c.send("practiceDrill", { action: "exit", drill: "evade" });
+    await waitFor(() => state(pr) === "idle", 3000, "exit");
+    expect(dummyKit(pr)).toBe("td");
+    const home = mv.position(pr.server.dummyId)!;
+    expect([Math.round(home[0]) + 0, Math.round(home[2])]).toEqual([0, -1]);
+    expect(trialOf(pr)).toBeNull();
+    await pr.c.leave();
+  }, 40000);
+
+  test("timely sideways movement passes once untouched; Retry uses a fresh trial; starting outside and holding guard do not pass", async () => {
+    const pr = await joinPractice("Fynn");
+    const start = await startEvade(pr);
+    const drv = new Driver(pr);
+    const first = trialOf(pr);
+    await waitFor(() => (drv.send(), pr.server.sim.tick >= start + 119), 8000, "just before the cast");
+    await drv.hold(700, { moveX: 1 });
+    await waitFor(() => state(pr) === "success", 3000, "evade success");
+    const t = pr.me().owner.drillSuccessTick as number;
+    expect(t).toBeGreaterThanOrEqual(start + 120 + 24);
+    expect(pr.me().hp100).toBe(10000);
+    expect(seatOf(pr)).toBeNull();
+    await sleep(600);
+    expect(pr.me().owner.drillSuccessTick).toBe(t);
+    // Retry: fresh trial, fresh preparation, positions reset (player back inside the box).
+    pr.c.send("practiceDrill", { action: "retry", drill: "evade" });
+    await waitFor(() => state(pr) === "running" && pr.me().owner.drillStartTick > start, 3000, "retry");
+    expect(trialOf(pr)).not.toBe(first);
+    const s2 = pr.me().owner.drillStartTick as number;
+    expect(pr.me().owner.drillSuccessTick).toBe(0);
+    expect(seatOf(pr)).not.toBeNull();
+    // Starting outside the footprint when the windup begins does not count as evasion (and nothing hits).
+    teleportX(pr, pr.server.movement!.position(pr.server.dummyId)![0] + 4);
+    await waitFor(() => state(pr) === "failed", 8000, "outside start fails");
+    expect(pr.me().hp100).toBe(10000);
+    expect(pr.server.sim.tick).toBeGreaterThanOrEqual(s2 + 120 + 24);
+    // Retry again: guarding in place gets a blocked result, which is not evasion.
+    pr.c.send("practiceDrill", { action: "retry", drill: "evade" });
+    await waitFor(() => state(pr) === "running" && pr.me().owner.drillStartTick > s2, 3000, "retry 2");
+    await drv.hold(2800, { blockHeld: true });
+    await waitFor(() => state(pr) !== "running", 3000, "guard judged");
+    expect(state(pr)).toBe("failed");
+    await pr.c.leave();
+  }, 60000);
+
+  test("player death and a kit change cancel the trial: no success, no failure, Retry/Exit remain", async () => {
+    const pr = await joinPractice("Gwen");
+    const start = await startEvade(pr);
+    pr.server.combat.get(pr.me().entityId)!.hp100 = 1; // the cast kills
+    await waitFor(() => seatOf(pr) === null, 8000, "trial cancelled by death");
+    expect(state(pr)).toBe("running");
+    expect(pr.me().owner.drillSuccessTick).toBe(0);
+    await sleep(500);
+    expect(state(pr)).toBe("running");
+    pr.c.send("practiceDrill", { action: "retry", drill: "evade" });
+    await waitFor(() => pr.me().owner.drillStartTick > start && pr.me().hp100 === 10000, 4000, "retry after death");
+    pr.server.combat.get(pr.me().entityId)!.kitId = "td"; // simulate an applied kit change mid-preparation
+    await waitFor(() => seatOf(pr) === null, 3000, "trial cancelled by kit change");
+    const until = pr.server.sim.tick + 250;
+    await waitFor(() => pr.server.sim.tick > until, 8000, "past the cast tick");
+    expect(state(pr)).toBe("running");
+    expect(pr.me().hp100).toBe(10000);
+    await pr.c.leave();
+  }, 60000);
+});

@@ -42,7 +42,7 @@ import {
 } from "./ui/HudFormat.js";
 import { mountHowToPlay } from "./ui/HowToPlay.js";
 import { KIT_LABEL, Lobby, type LobbyView } from "./ui/Lobby.js";
-import { PracticePanel } from "./ui/PracticePanel.js";
+import { PracticePanel, EVADE_PREP_TICKS } from "./ui/PracticePanel.js";
 import { LAYER, setModalOpen } from "./ui/Layers.js";
 import { SettingsPanel } from "./ui/Settings.js";
 
@@ -76,7 +76,7 @@ interface HudPlayer extends LoopPlayer {
   owner?: {
     evasiveEndTick?: number; chargeStartTick?: number;
     ackInputTick: number; epoch: number; pendingKit?: string; lethalCounterRemaining?: number;
-    tutorialStep?: number; tutorialSkillMask?: number; dummyGuard?: boolean; dummyRagdoll?: boolean; practiceBotCount?: number; practiceBotDifficulty?: string; drillState?: string; drillId?: string;
+    tutorialStep?: number; tutorialSkillMask?: number; dummyGuard?: boolean; dummyRagdoll?: boolean; practiceBotCount?: number; practiceBotDifficulty?: string; drillState?: string; drillId?: string; drillStartTick?: number;
   } | undefined;
 }
 
@@ -688,7 +688,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       matchCleanups.push(() => panel.dispose());
       const panelTimer = window.setInterval(() => {
         const o = localOf()?.owner;
-        panel.render({ step: o?.tutorialStep ?? 0, skillMask: o?.tutorialSkillMask ?? 0, dummyGuard: o?.dummyGuard ?? false, dummyRagdoll: o?.dummyRagdoll ?? false, botCount: o?.practiceBotCount ?? 0, botDifficulty: o?.practiceBotDifficulty ?? "easy", drillState: o?.drillState ?? "idle", drillId: o?.drillId ?? "" });
+        panel.render({ step: o?.tutorialStep ?? 0, skillMask: o?.tutorialSkillMask ?? 0, dummyGuard: o?.dummyGuard ?? false, dummyRagdoll: o?.dummyRagdoll ?? false, botCount: o?.practiceBotCount ?? 0, botDifficulty: o?.practiceBotDifficulty ?? "easy", drillState: o?.drillState ?? "idle", drillId: o?.drillId ?? "", drillPrep: ((r.state as { serverTick?: number }).serverTick ?? 0) - ((o as { drillStartTick?: number } | undefined)?.drillStartTick ?? 0) < EVADE_PREP_TICKS });
       }, 100);
       matchCleanups.push(() => window.clearInterval(panelTimer));
     }

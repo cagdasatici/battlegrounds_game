@@ -164,7 +164,7 @@ test("Practice from Welcome: dummy room, server confirmed tutorial in order, tog
 
     // Leave: back to Welcome, panel and debug probe gone.
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: /leave/i }).click();
+    await page.getByRole("button", { name: "Leave", exact: true }).click();
     await expect(page.locator("[data-act=practice]")).toBeVisible();
     await expect(panel).toHaveCount(0);
     expect(await page.evaluate(() => (window as unknown as { __eb?: unknown }).__eb === undefined)).toBe(true);

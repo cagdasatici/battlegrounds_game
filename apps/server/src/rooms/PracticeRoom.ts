@@ -9,7 +9,9 @@ import { applyReaction, isAlive } from "../sim/ActionMachine.js";
 import { TutorialTracker } from "../sim/Tutorial.js";
 import { InputChannel, neutralIntent } from "../net/ValidateInput.js";
 import type { PipelineSeat } from "../sim/TickPipeline.js";
-import { DrillTracker, type ResolvedHitSummary } from "../sim/PracticeDrills.js";
+import { DrillTracker, inFaultStrikeFootprint, EVADE_DRILL, type ResolvedHitSummary } from "../sim/PracticeDrills.js";
+import { isInvulnerable, isProtected } from "../sim/ActionMachine.js";
+import type { AbilityPose } from "../sim/AbilityRunner.js";
 import { BotArenaRoom } from "./BotArenaRoom.js";
 
 /** Dummy home and the player's start, on the main island (islands.v1 main slab covers |x| < 20, |z| < 20). */
@@ -26,6 +28,11 @@ const BLOCK_GAP_M = 1.6;
  * (0, -1) stands about 1.76 m above the floor the player walks on), so a same-height face-off cannot exist there. Exit restores the home point.
  */
 const BLOCK_DUMMY_AT: readonly [number, number] = [2, -1];
+/**
+ * GR15c: the evade lesson shares the block lesson's level staging (dummy at x = 2; see above). The spec's 2 m face-off is kept:
+ * the player starts 2 m in front of the dummy, inside the sv.b1 direct box, and steps sideways (+x or -x) to leave it.
+ */
+const EVADE_GAP_M = 2;
 const DUMMY_REFILL_BELOW_100 = 4000;
 const DUMMY_RAGDOLL_TICKS = 90;
 
@@ -41,6 +48,9 @@ export class PracticeRoom extends BotArenaRoom {
   dummyId = 0;
   /** GR15b: temporary pipeline seat for the lesson dummy (key `drill:dummy`); null whenever no defense lesson attacks. */
   private dummySeat: PipelineSeat | null = null;
+  /** GR15c: the player's kit when the trial began; a change cancels the trial. */
+  private evadePlayerKit = "";
+  private evadeEdge = 0;
   private toggles = { guard: false, ragdoll: false };
   private practiceBucket = new TokenBucket(4, 4, 0);
 
@@ -80,9 +90,14 @@ export class PracticeRoom extends BotArenaRoom {
     const seat = [...this.seats.values()][0];
     const pf = seat && this.combat.get(seat.entityId);
     const df = this.combat.get(this.dummyId);
-    if (!seat || !pf || !isAlive(pf) || !df || !isAlive(df)) { this.detachDummy(tick, true); return; }
+    if (!seat || !pf || !isAlive(pf) || !df || !isAlive(df)) { this.drill.evadeVoid(); this.detachDummy(tick, true); return; }
     ds.input.lastInputTick = tick; // keeps the input lease fresh
     if (this.drill.attackDue(tick)) ds.input.held = { ...neutralIntent(), attackHeld: true, yaw: Math.PI };
+    if (this.drill.drillId === "evade") {
+      ds.input.held = { ...neutralIntent(), yaw: Math.PI }; // aim +z toward the player's start
+      // One ordinary slot 1 press (existing sv.b1), once per trial, on the preparation-end tick. Same edge path as any seat.
+      if (this.drill.evadeCastDue(tick)) ds.input.queue.push({ edge: { id: ++this.evadeEdge, kind: "skillDown", slot: 1 }, arrivalTick: tick, seq: 0 });
+    }
   }
 
   /** After a block lesson the dummy returns to its home point so ordinary practice and the other lesson are unchanged. */
@@ -90,8 +105,9 @@ export class PracticeRoom extends BotArenaRoom {
     const mv = this.movement;
     if (!mv) return;
     const f = this.combat.get(this.dummyId);
-    if (f) { this.combat.respawn(this.dummyId, tick, ++this.lifeSeq); f.protectedUntilTick = 0; }
+    if (f) { this.combat.respawn(this.dummyId, tick, ++this.lifeSeq); f.protectedUntilTick = 0; f.kitId = "td"; } // GR15c: ordinary practice Tide Duelist
     this.m1.reset(this.dummyId);
+    this.abilities.reset(this.dummyId);
     mv.add(this.dummyId, this.standPoint(DUMMY_AT), Math.PI);
     this.pipeline.publishBody(this.dummyId);
   }
@@ -170,7 +186,7 @@ export class PracticeRoom extends BotArenaRoom {
       const was = this.drill.drillId;
       if (this.drill.exit()) {
         this.detachDummy(tick, true);
-        if (was === "block") this.restoreDummyHome(tick);
+        if (was === "block" || was === "evade") this.restoreDummyHome(tick);
         this.syncDrill(p);
       }
       return;
@@ -180,7 +196,7 @@ export class PracticeRoom extends BotArenaRoom {
     if (!changed) return;
     this.detachDummy(tick, false);
     this.resetForLesson(seat.entityId, p, tick);
-    if (this.drill.drillId === "block") this.attachDummy();
+    if (this.drill.drillId === "block" || this.drill.drillId === "evade") this.attachDummy();
     this.syncDrill(p);
   }
 
@@ -210,10 +226,15 @@ export class PracticeRoom extends BotArenaRoom {
       this.respawns.complete(id, tick);
       this.pipeline.publishBody(id);
     };
-    const block = this.drill.drillId === "block";
+    const evade = this.drill.drillId === "evade";
+    const block = this.drill.drillId === "block" || evade;
+    const gap = evade ? EVADE_GAP_M : BLOCK_GAP_M;
     const dummyAt = block ? BLOCK_DUMMY_AT : DUMMY_AT;
-    put(playerId, block ? [dummyAt[0], dummyAt[1] + BLOCK_GAP_M] : DRILL_PLAYER_AT, 0); // yaw 0 faces -z, toward the dummy
+    put(playerId, block ? [dummyAt[0], dummyAt[1] + gap] : DRILL_PLAYER_AT, 0); // yaw 0 faces -z, toward the dummy
     put(this.dummyId, dummyAt, Math.PI);
+    const df = this.combat.get(this.dummyId), pf = this.combat.get(playerId);
+    if (df) df.kitId = evade ? "sv" : "td"; // GR15c: Stone Vanguard only for this lesson
+    if (pf) this.evadePlayerKit = pf.kitId;
     this.pipeline.republish(tick);
   }
 
@@ -221,13 +242,47 @@ export class PracticeRoom extends BotArenaRoom {
     const seat = [...this.seats.values()][0];
     const p = seat && this.playerOf(seat);
     if (!seat || !p) return;
+    this.drill.evadeNote(tick, hits, seat.entityId, this.dummyId);
     if (this.drill.observe(tick, hits, seat.entityId, this.dummyId)) { this.detachDummy(tick, false); this.syncDrill(p); }
   }
 
   override stepTick(tick: number): void {
     this.driveDummy(tick);
     super.stepTick(tick);
+    this.observeEvade(tick);
     this.observeTutorial(tick);
+  }
+
+  private abilityPose(id: number): AbilityPose | null {
+    const b = this.movement?.get(id), pos = this.movement?.position(id);
+    return b && pos ? { x: pos[0], y: pos[1], z: pos[2], facingYaw: b.state.facingYaw, grounded: b.state.grounded } : null;
+  }
+
+  /** GR15c: bind the dummy's sv.b1 once its windup began, then judge it from server geometry and results only. */
+  private observeEvade(tick: number): void {
+    const t = this.drill.trial;
+    if (this.drill.drillId !== "evade" || this.drill.state !== "running" || !t || (t.phase !== "wait" && t.phase !== "live")) return;
+    const seat = [...this.seats.values()][0];
+    const p = seat && this.playerOf(seat);
+    const pf = seat && this.combat.get(seat.entityId), df = this.combat.get(this.dummyId);
+    if (!seat || !p || !pf || !df || !isAlive(pf) || !isAlive(df) || df.kitId !== "sv" || pf.kitId !== this.evadePlayerKit) {
+      this.drill.evadeVoid(); this.detachDummy(tick, true); return; // death, kit change: no result for this trial
+    }
+    const def = this.abilities.registry.slotted("sv", "Base", 1);
+    const cast = this.abilities.castOf(this.dummyId);
+    const dp = this.abilityPose(this.dummyId), pp = this.abilityPose(seat.entityId);
+    if (!def || !dp || !pp) return;
+    const inside = (aim: number): boolean => inFaultStrikeFootprint(def, aim, dp, pp, pf.action === "Ragdolled");
+    const clean = !isProtected(pf, tick) && !isInvulnerable(pf, tick);
+    if (t.phase === "wait") {
+      if (tick < this.drill.startTick + EVADE_DRILL.prepTicks) return;
+      if (!cast || cast.def.id !== EVADE_DRILL.moveId) { this.drill.evadeVoid(); this.detachDummy(tick, true); return; }
+      this.drill.evadeBind(cast, inside(cast.aimYaw) && clean);
+      return;
+    }
+    const aim = cast && cast.castCounter === t.castCounter ? cast.aimYaw : Math.PI;
+    const r = this.drill.evadeStep(tick, !inside(aim), clean);
+    if (r) { this.detachDummy(tick, false); this.syncDrill(p); }
   }
 
   /** The dummy is driven by server state only: refill, optional guard hold, optional ragdoll loop. */
