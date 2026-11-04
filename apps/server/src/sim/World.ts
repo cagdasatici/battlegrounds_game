@@ -93,6 +93,24 @@ export class World {
     return hit ? fromY - hit.timeOfImpact : null;
   }
 
+  /** GR13: highest ground/bridge top whose footprint contains (x, z), or null over the void. Reads the loaded map only. */
+  walkableTop(x: number, z: number): number | null {
+    let best: number | null = null;
+    for (const c of this.map.colliders) {
+      if (c.role !== "ground" && c.role !== "bridge") continue;
+      let inside: boolean, top: number;
+      if (c.shape === "cuboid") {
+        inside = Math.abs(x - c.centre[0]) <= c.halfExtents[0] && Math.abs(z - c.centre[2]) <= c.halfExtents[2];
+        top = c.centre[1] + c.halfExtents[1];
+      } else {
+        inside = Math.hypot(x - c.centre[0], z - c.centre[2]) <= c.radius;
+        top = c.centre[1] + c.halfHeight;
+      }
+      if (inside && (best === null || top > best)) best = top;
+    }
+    return best;
+  }
+
   /** True when static geometry blocks the straight segment a->b (player capsules are ignored). */
   segmentBlocked(a: MapVec3, b: MapVec3): boolean {
     const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
