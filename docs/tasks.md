@@ -237,7 +237,7 @@ Findings: [full review](reviews/full-game-review.md). Execution packets: [game i
 | GR11 | HUD text budget and overlay hierarchy | GR05 GR07 GR08 | IMPLEMENTED, DEVICE CHECK PENDING | 392da80 | docs/test-results/GR11.md |
 | GR12 | Clear entry routes and fighter preview | GR03 GR11 | IMPLEMENTED, DEVICE CHECK PENDING | 9f00420 | docs/test-results/GR12.md |
 | GR13 | Bounded ground navigation for bots | GR02 | DONE | 1ec97b1 | docs/test-results/GR13.md |
-| GR14 | Role-aware bot tactics and charging | GR07 GR13 | DONE | pending | docs/test-results/GR14.md (create in slice) |
+| GR14 | Role-aware bot tactics and charging | GR07 GR13 | DONE | 2f432df | docs/test-results/GR14.md (create in slice) |
 | GR15a | Confirmed-hit practice lesson | GR05 GR07 GR11 | TODO | | docs/test-results/GR15a.md (create in slice) |
 | GR15b | Confirmed-block practice lesson | GR15a | TODO | | docs/test-results/GR15b.md (create in slice) |
 | GR15c | Telegraph-evasion practice lesson | GR15b | TODO | | docs/test-results/GR15c.md (create in slice) |
