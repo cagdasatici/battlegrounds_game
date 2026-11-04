@@ -169,6 +169,8 @@ export class BotArenaRoom extends ArenaRoom {
         const route = target ? this.routeStep(bot, tick, world, pos[0], pos[2], target.x, target.z) : null;
         if (route) { moveX = route[0]; moveZ = route[1]; }
       } else bot.nav.progress = null;
+      // FB02: slower bots shrink the intent magnitude; physics and speed caps are untouched.
+      moveX *= d.moveScale ?? 1; moveZ *= d.moveScale ?? 1;
       // Predict the ordinary walk step, including inertia, then query the actual static collider world.
       const step = integrateMovement({ ...body.state }, { moveX, moveZ, run: false, guard: d.blockHeld, jumpPressed: false }, tick);
       const nx = pos[0] + step.dx, nz = pos[2] + step.dz;

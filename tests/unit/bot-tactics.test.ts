@@ -75,12 +75,13 @@ describe("GR14 role table", () => {
 });
 
 describe("GR14 difficulty rules", () => {
-  test("medium never uses awakened moves; hard does; easy keeps the legacy policy", () => {
+  test("medium never uses awakened moves; hard does; easy never awakens, dashes or holds", () => {
     const id = "sv.a2", d = 8;
     expect(decideBot("medium", observe(id, d, { tier: "medium", tick: 15 * 20 }), neutral).castSlot).toBe(0);
     expect(decideBot("hard", observe(id, d), neutral).castSlot).toBe(2);
-    expect(decideBot("easy", { ...observe("sv.b1", 1), tick: 90, spawnTick: 0 }, neutral).castSlot).toBe(1); // legacy slot 1 every third sample
-    expect(decideBot("easy", { ...observe("sv.b1", 1), tick: 60 }, neutral).castSlot).toBe(0);
+    for (const tick of [30, 60, 90, 120]) {
+      expect(decideBot("easy", { ...observe("sv.b1", 1), tick, spawnTick: 0 }, neutral)).toMatchObject({ dash: false, awaken: false, holdSlot: 0 });
+    }
   });
 
   test("medium uses base slot 3 and 4 moves now", () => {

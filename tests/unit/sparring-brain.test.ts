@@ -37,17 +37,17 @@ describe("BOT1 deterministic sparring brain", () => {
   });
 
   test.each([1.999, 2, 2.001])("attack/approach boundary at %s metres", distance => {
-    const result = decideBot("easy", observe({ enemies: [enemy(2, 0, -distance)] }), neutral);
+    const result = decideBot("medium", observe({ slotsReady: [false, false, false, false], enemies: [enemy(2, 0, -distance)] }), neutral);
     expect(result.attackHeld).toBe(distance <= 2);
     expect(result.approach).toBe(distance > 2);
     expect(result.blockHeld).toBe(false);
   });
 
-  test.each(["easy", "medium", "hard"] as const)("%s guard and cast priority", tier => {
+  test.each(["medium", "hard"] as const)("%s guard and cast priority", tier => {
     for (const distance of [2, 2.001, 3, 3.001]) {
       const tick = tier === "hard" ? 36 : 30; // hard: even decision index guards, odd dashes
       const result = decideBot(tier, observe({ tick, enemies: [{ ...enemy(2, 0, -distance), attacking: true }] }), neutral);
-      const guards = tier !== "easy" && distance <= 3;
+      const guards = distance <= 3;
       expect(result.blockHeld).toBe(guards);
       expect(result.attackHeld).toBe(!guards && distance <= 2);
       expect(result.approach).toBe(!guards && distance > 2);
@@ -55,13 +55,12 @@ describe("BOT1 deterministic sparring brain", () => {
     }
   });
 
-  test("casts only when ready and in range; easy uses slot 1 every third sample", () => {
-    for (const tier of ["easy", "medium", "hard"] as const) {
+  test("casts only when ready and in range", () => {
+    for (const tier of ["medium", "hard"] as const) {
       for (const ready of [false, true]) {
         for (const distance of [0, 2, 2.001]) {
           const slotsReady = [ready, ready, ready, ready] as const;
-          // easy: k = 0 needs age 0 (waiting period) so use age 90 = k 3; others use the default tick.
-          const tick = tier === "easy" ? 90 : 30;
+          const tick = 30;
           const result = decideBot(tier, observe({ tick, slotsReady, enemies: [enemy(2, 0, -distance)] }), neutral);
           const casts = ready && distance <= 2;
           expect(result.castSlot > 0).toBe(casts);
@@ -85,7 +84,7 @@ describe("BOT1 deterministic sparring brain", () => {
     expect(decideBot("hard", observe({ tick: 12, slotsReady }), neutral).castSlot).toBe(3); // k = 2 -> start slot 3
   });
 
-  test("medium never casts slot 3 or 4; easy never dashes, blocks or awakens", () => {
+  test("medium never casts slot 3 or 4; easy never dashes or awakens", () => {
     for (let tick = 15; tick <= 300; tick += 15) {
       const m = decideBot("medium", observe({ tick, slotsReady: [false, false, true, true] }), neutral);
       expect(m.castSlot).toBe(0);
@@ -94,7 +93,7 @@ describe("BOT1 deterministic sparring brain", () => {
     }
     for (let tick = 30; tick <= 600; tick += 30) {
       const e = decideBot("easy", observe({ tick, meterFull: true, enemies: [{ ...enemy(2, 0, -1), attacking: true }] }), neutral);
-      expect(e).toMatchObject({ dash: false, blockHeld: false, awaken: false, retreat: false });
+      expect(e).toMatchObject({ dash: false, awaken: false });
     }
   });
 

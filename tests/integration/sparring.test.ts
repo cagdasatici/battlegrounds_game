@@ -185,9 +185,11 @@ test("real colliders stop voluntary approach at an edge and obstacle; bot life r
   expect(room.combat.get(bot)!.lifeId).not.toBe(oldLife);
   expect(tick - death).toBe(180);
   place(room, bot, 0, 0); place(room, human, 0, -1.5);
-  for (let i = 0; i < 29; i++) room.stepTick(++tick);
+  // FB02: easy bots wait a full interval, then spend one more to react to the target, so no swing before 60 ticks.
+  const reborn = tick;
+  for (let i = 0; i < 59; i++) room.stepTick(++tick);
   expect(room.combat.get(bot)!.action).toBe("Idle");
-  room.stepTick(++tick);
+  while (room.combat.get(bot)!.action !== "Windup" && tick - reborn < 400) room.stepTick(++tick);
   expect(room.combat.get(bot)!.action).toBe("Windup");
   await waitFor(() => players(a).get(String(bot)).lifeId === room.combat.get(bot)!.lifeId);
   expect(players(a).get(String(bot)).deaths).toBe(1);

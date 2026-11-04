@@ -88,6 +88,8 @@ export interface BotDecision {
   awaken: boolean;
   retreat: boolean;
   yaw: number;
+  /** FB02: movement intent magnitude multiplier in (0,1]; absent = 1. */
+  moveScale?: number;
   /** GR14: slot whose charge the bot keeps holding this tick (chargeHeldSlot); 0 = none. */
   holdSlot: 0 | 1 | 2 | 3 | 4;
   /** GR14: one-tick skillUp edge for that slot; 0 = none. */
