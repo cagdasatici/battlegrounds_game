@@ -229,7 +229,7 @@ Findings: [full review](reviews/full-game-review.md). Execution packets: [game i
 | GR03 | Reconnect, reload and page lifecycle | GR01 | IMPLEMENTED, DEVICE CHECK PENDING | 23389f0 | docs/test-results/GR03.md |
 | GR04 | Authoritative snapshot-time prediction | GR02 GR03 | IMPLEMENTED, DEVICE CHECK PENDING | 8d5ef28 | docs/test-results/GR04.md |
 | GR05 | One gameplay input gate | GR03 | IMPLEMENTED, DEVICE CHECK PENDING | d1487cf | docs/test-results/GR05.md |
-| GR06 | Held keyboard Jump and finisher parity | GR05 | TODO | | docs/test-results/GR06.md (create in slice) |
+| GR06 | Held keyboard Jump and finisher parity | GR05 | IMPLEMENTED, DEVICE CHECK PENDING | 8ed2823 | docs/test-results/GR06.md |
 | GR07 | Used skills, charge and evasive status | GR05 | TODO | | docs/test-results/GR07.md (create in slice) |
 | GR08 | Durable round results and live objective | GR03 GR05 | TODO | | docs/test-results/GR08.md (create in slice) |
 | GR09 | Graphics recovery and failed-load cleanup | GR05 | TODO | | docs/test-results/GR09.md (create in slice) |
