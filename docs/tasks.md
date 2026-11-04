@@ -239,6 +239,6 @@ Findings: [full review](reviews/full-game-review.md). Execution packets: [game i
 | GR13 | Bounded ground navigation for bots | GR02 | DONE | 1ec97b1 | docs/test-results/GR13.md |
 | GR14 | Role-aware bot tactics and charging | GR07 GR13 | DONE | 2f432df | docs/test-results/GR14.md (create in slice) |
 | GR15a | Confirmed-hit practice lesson | GR05 GR07 GR11 | IMPLEMENTED, DEVICE CHECK PENDING | c99b1a7 | docs/test-results/GR15a.md |
-| GR15b | Confirmed-block practice lesson | GR15a | TODO | | docs/test-results/GR15b.md (create in slice) |
+| GR15b | Confirmed-block practice lesson | GR15a | IMPLEMENTED, DEVICE CHECK PENDING | PENDING_HASH | docs/test-results/GR15b.md |
 | GR15c | Telegraph-evasion practice lesson | GR15b | TODO | | docs/test-results/GR15c.md (create in slice) |
 | GR15d | Current contract index and physical acceptance | GR00–GR14 GR15a–c QD01 | BLOCKED | | docs/test-results/GR15d.md (create in slice); missing two physical iPads and two human players; implementation prerequisites also pending |

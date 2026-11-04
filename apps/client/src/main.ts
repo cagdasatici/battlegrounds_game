@@ -76,7 +76,7 @@ interface HudPlayer extends LoopPlayer {
   owner?: {
     evasiveEndTick?: number; chargeStartTick?: number;
     ackInputTick: number; epoch: number; pendingKit?: string; lethalCounterRemaining?: number;
-    tutorialStep?: number; tutorialSkillMask?: number; dummyGuard?: boolean; dummyRagdoll?: boolean; practiceBotCount?: number; practiceBotDifficulty?: string; drillState?: string;
+    tutorialStep?: number; tutorialSkillMask?: number; dummyGuard?: boolean; dummyRagdoll?: boolean; practiceBotCount?: number; practiceBotDifficulty?: string; drillState?: string; drillId?: string;
   } | undefined;
 }
 
@@ -684,11 +684,11 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     lifecycle?.setRequireReady(true);
     paintConnection(lifecycle?.phase ?? "connecting");
     if (flow.mode === "practice") {
-      const panel = new PracticePanel(document.body, (t) => { r.send("practice", t); }, document, openMoves, (action) => { r.send("practiceDrill", { action, drill: "hit" }); });
+      const panel = new PracticePanel(document.body, (t) => { r.send("practice", t); }, document, openMoves, (action, drill) => { r.send("practiceDrill", { action, drill }); });
       matchCleanups.push(() => panel.dispose());
       const panelTimer = window.setInterval(() => {
         const o = localOf()?.owner;
-        panel.render({ step: o?.tutorialStep ?? 0, skillMask: o?.tutorialSkillMask ?? 0, dummyGuard: o?.dummyGuard ?? false, dummyRagdoll: o?.dummyRagdoll ?? false, botCount: o?.practiceBotCount ?? 0, botDifficulty: o?.practiceBotDifficulty ?? "easy", drillState: o?.drillState ?? "idle" });
+        panel.render({ step: o?.tutorialStep ?? 0, skillMask: o?.tutorialSkillMask ?? 0, dummyGuard: o?.dummyGuard ?? false, dummyRagdoll: o?.dummyRagdoll ?? false, botCount: o?.practiceBotCount ?? 0, botDifficulty: o?.practiceBotDifficulty ?? "easy", drillState: o?.drillState ?? "idle", drillId: o?.drillId ?? "" });
       }, 100);
       matchCleanups.push(() => window.clearInterval(panelTimer));
     }

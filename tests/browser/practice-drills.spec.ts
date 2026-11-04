@@ -64,7 +64,7 @@ test.beforeAll(async () => {
 });
 test.afterAll(async () => {
   mkdirSync(outDir, { recursive: true });
-  writeFileSync(path.join(outDir, "GR15a-playwright.json"), JSON.stringify(evidence, null, 2));
+  writeFileSync(path.join(outDir, "GR15b-playwright.json"), JSON.stringify(evidence, null, 2));
   await browser?.close();
   await vite?.close();
   await game?.gracefullyShutdown(false);
@@ -103,7 +103,7 @@ for (const vp of [{ width: 1024, height: 768 }, { width: 1180, height: 820 }]) {
         await panel.locator("[data-expand]").click();
         await expect(panel.locator("[data-ui=practice-lessons]")).toContainText("Combat lessons");
         await expect(panel.locator("li")).toHaveCount(7); // the seven-step tutorial is preserved
-        await panel.locator("button[data-drill=start]").click();
+        await panel.locator("button[data-drill=start][data-lesson=hit]").click();
         const hint = panel.locator("[data-ui=practice-hint]");
         await expect(hint).toHaveText("Move close, face the dummy, then land a Strike.");
         await expect(panel.locator("button[data-drill=retry]")).toBeVisible();
@@ -131,9 +131,59 @@ for (const vp of [{ width: 1024, height: 768 }, { width: 1180, height: 820 }]) {
         await panel.locator("button[data-drill=retry]").click();
         await expect(hint).toHaveText("Move close, face the dummy, then land a Strike.");
         await panel.locator("button[data-drill=exit]").click();
-        await expect(panel.locator("button[data-drill=start]")).toBeVisible();
+        await expect(panel.locator("button[data-drill=start][data-lesson=hit]")).toBeVisible();
         await expect(panel.locator("button[data-toggle=guard]")).toBeVisible();
         evidence[`${hand}-${vp.width}`] = { panel: m, pageErrors: errors };
+        expect(errors).toEqual([]);
+      } finally { await ctx.close(); }
+    });
+  }
+}
+
+for (const vp of [{ width: 1024, height: 768 }, { width: 1180, height: 820 }]) {
+  for (const hand of ["right", "left"] as const) {
+    test(`Block a strike ${vp.width}x${vp.height} ${hand}-handed: server confirms a real guard, Retry, Exit`, async () => {
+      test.setTimeout(180_000);
+      const ctx = await browser.newContext({ viewport: vp, hasTouch: true, reducedMotion: hand === "left" ? "reduce" : "no-preference" });
+      const page = await ctx.newPage();
+      const errors: string[] = [];
+      page.on("pageerror", (e) => errors.push(String(e)));
+      await page.addInitScript((s) => { try { localStorage.setItem("eb.settings.v1.Brin", s); } catch { /* blocked */ } }, settings(hand));
+      try {
+        await page.goto(`${base}/?room=flow&debug=1&name=Brin&kit=sv#invite=${svc.invites.create({ ttlMs: 120_000, maxUses: 1 }).token}`);
+        await page.waitForSelector("[data-act=practice]");
+        await page.click("[data-act=practice]");
+        await page.click("[data-act=ready]");
+        await page.waitForFunction(() => (window as unknown as { __eb?: unknown }).__eb !== undefined, undefined, { timeout: 30_000 });
+        await until(async () => (await snap(page)).players.some((q) => q.local && q.action === "Idle") || null, 15_000, "ready");
+        const panel = page.locator("[data-ui=practice]");
+        await panel.locator("[data-expand]").click();
+        await expect(panel.locator("li")).toHaveCount(7);
+        await expect(panel.locator("button[data-drill=start]")).toHaveCount(2);
+        await panel.locator("button[data-drill=start][data-lesson=block]").click();
+        const hint = panel.locator("[data-ui=practice-hint]");
+        await expect(hint).toHaveText("Face the dummy and hold Guard before its strike lands.");
+        await expect(panel.locator("button[data-drill=retry]")).toBeVisible();
+        const m = await page.evaluate(() => {
+          const b = document.querySelector("[data-ui=practice]")!.getBoundingClientRect();
+          return { sw: document.documentElement.scrollWidth, iw: innerWidth, l: b.left, r: b.right, b: b.bottom, ih: innerHeight };
+        });
+        expect(m.sw).toBeLessThanOrEqual(m.iw);
+        expect(m.l).toBeGreaterThanOrEqual(0); expect(m.r).toBeLessThanOrEqual(m.iw); expect(m.b).toBeLessThanOrEqual(m.ih);
+        await page.screenshot({ path: path.join(outDir, `GR15b-lesson-running-${hand}-${vp.width}x${vp.height}.png`) });
+        // Hold the real guard control through the dummy's first strike; success text comes only from the server owner record.
+        const guard = (await page.locator("[data-control=block]").boundingBox())!;
+        await page.mouse.move(guard.x + guard.width / 2, guard.y + guard.height / 2);
+        await page.mouse.down();
+        await expect(hint).toHaveText("Block confirmed. Try holding Guard a little later.", { timeout: 20_000 });
+        await page.mouse.up();
+        await page.screenshot({ path: path.join(outDir, `GR15b-lesson-success-${hand}-${vp.width}x${vp.height}.png`) });
+        await panel.locator("button[data-drill=retry]").click();
+        await expect(hint).toHaveText("Face the dummy and hold Guard before its strike lands.");
+        await panel.locator("button[data-drill=exit]").click();
+        await expect(panel.locator("button[data-drill=start]")).toHaveCount(2);
+        await expect(panel.locator("button[data-toggle=guard]")).toBeVisible();
+        evidence[`block-${hand}-${vp.width}`] = { panel: m, pageErrors: errors };
         expect(errors).toEqual([]);
       } finally { await ctx.close(); }
     });

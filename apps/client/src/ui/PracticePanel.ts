@@ -7,11 +7,15 @@ import type { Difficulty } from "@eb/shared/sparring";
 import { tutorialView } from "./PracticeFormat.js";
 import { LAYER } from "./Layers.js";
 
-export interface PracticeState { step: number; skillMask: number; dummyGuard: boolean; dummyRagdoll: boolean; botCount?: number; botDifficulty?: string; drillState?: string }
+export interface PracticeState { step: number; skillMask: number; dummyGuard: boolean; dummyRagdoll: boolean; botCount?: number; botDifficulty?: string; drillState?: string; drillId?: string }
 export type DrillAction = "start" | "retry" | "exit";
+export type DrillLesson = "hit" | "block";
 /** GR15a copy. Success text is shown only when the server owner record says success. */
 export const DRILL_HINT = "Move close, face the dummy, then land a Strike.";
 export const DRILL_SUCCESS = "Hit confirmed. Try a different distance.";
+/** GR15b copy. */
+export const BLOCK_HINT = "Face the dummy and hold Guard before its strike lands.";
+export const BLOCK_SUCCESS = "Block confirmed. Try holding Guard a little later.";
 
 export class PracticePanel {
   private readonly root: HTMLElement;
@@ -27,7 +31,7 @@ export class PracticePanel {
   constructor(
     parent: HTMLElement, private readonly setToggles: (t: { guard: boolean; ragdoll: boolean; bots?: Difficulty[] }) => void,
     private readonly doc: Document = document, private readonly onMoves: () => void = () => undefined,
-    private readonly sendDrill: (action: DrillAction) => void = () => undefined,
+    private readonly sendDrill: (action: DrillAction, lesson: DrillLesson) => void = () => undefined,
   ) {
     this.root = doc.createElement("div");
     this.root.dataset["ui"] = "practice";
@@ -39,7 +43,7 @@ export class PracticePanel {
       if ((e.target as HTMLElement | null)?.closest?.("button[data-expand]")) { this.expanded = !this.expanded; this.render(this.cur, true); return; }
       if ((e.target as HTMLElement | null)?.closest?.("button[data-moves]")) { this.onMoves(); return; }
       const drill = (e.target as HTMLElement | null)?.closest?.("button[data-drill]") as HTMLElement | null;
-      if (drill) { this.sendDrill(drill.dataset["drill"] as DrillAction); return; }
+      if (drill) { const lesson = (drill.dataset["lesson"] ?? this.cur.drillId) === "block" ? "block" : "hit"; this.sendDrill(drill.dataset["drill"] as DrillAction, lesson); return; }
       const action = (e.target as HTMLElement | null)?.closest?.("button[data-bots]") as HTMLElement | null;
       if (action) {
         const difficulty = this.root.querySelector<HTMLSelectElement>("select[name=practice-difficulty]")?.value as Difficulty ?? "easy";
@@ -81,7 +85,9 @@ export class PracticePanel {
     const hint = this.doc.createElement("p");
     hint.dataset["ui"] = "practice-hint";
     const drillState = st.drillState ?? "idle";
-    hint.textContent = drillState === "success" ? DRILL_SUCCESS : drillState === "running" ? DRILL_HINT : v.hint;
+    const block = st.drillId === "block";
+    hint.textContent = drillState === "success" ? (block ? BLOCK_SUCCESS : DRILL_SUCCESS)
+      : drillState === "running" ? (block ? BLOCK_HINT : DRILL_HINT) : v.hint;
     if (drillState === "success") hint.setAttribute("role", "status");
     hint.style.cssText = "margin:6px 0";
     const toggle = this.doc.createElement("button");
@@ -136,12 +142,13 @@ export class PracticePanel {
 
   /** Lesson controls: Land a strike (idle, expanded only), Retry/Exit once a lesson exists. Display and intent only. */
   private lessonButtons(state: string, offerStart: boolean): HTMLButtonElement[] {
-    const mk = (action: DrillAction, text: string): HTMLButtonElement => {
+    const mk = (action: DrillAction, text: string, lesson?: DrillLesson): HTMLButtonElement => {
       const b = this.doc.createElement("button"); b.dataset["drill"] = action; b.textContent = text;
+      if (lesson) b.dataset["lesson"] = lesson;
       b.style.cssText = "min-height:44px;margin:4px 4px 0 0;border:1px solid #87bd9a;border-radius:8px;background:#224238;color:#c7f38b";
       return b;
     };
-    if (state === "idle") return offerStart ? [mk("start", "Land a strike")] : [];
+    if (state === "idle") return offerStart ? [mk("start", "Land a strike", "hit"), mk("start", "Block a strike", "block")] : [];
     return [mk("retry", "Retry"), mk("exit", "Exit")];
   }
 

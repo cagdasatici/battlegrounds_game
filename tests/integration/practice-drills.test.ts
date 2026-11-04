@@ -128,7 +128,7 @@ describe("GR15a confirmed-hit lesson (real clients)", () => {
 
   test("invalid payloads and other rooms are rejected", async () => {
     const pr = await joinPractice("Mina");
-    pr.c.send("practiceDrill", { action: "start", drill: "block" });
+    pr.c.send("practiceDrill", { action: "start", drill: "parry" });
     pr.c.send("practiceDrill", { action: "bogus", drill: "hit" });
     await sleep(200);
     expect(state(pr)).toBe("idle");
@@ -139,6 +139,7 @@ describe("GR15a confirmed-hit lesson (real clients)", () => {
     ffa.send("ready", { kitId: "td", contentHash: ffa.localContentHash });
     await waitFor(() => [...players(ffaRoom).values()].some((p: P) => p.ready), 3000, "ffa ready");
     ffa.send("practiceDrill", { action: "start", drill: "hit" });
+    ffa.send("practiceDrill", { action: "start", drill: "block" });
     await sleep(300);
     const mine = [...players(ffaRoom).values()].find((p: P) => p.owner !== undefined) as P;
     expect(mine.owner.drillState).toBe("idle");
@@ -146,4 +147,112 @@ describe("GR15a confirmed-hit lesson (real clients)", () => {
     expect(players(ffaRoom).size).toBe(1);
     await ffa.leave(); await pr.c.leave();
   }, 30000);
+});
+
+// GR15b: the lesson dummy attacks through the ordinary pipeline seat; only a server `blocked` result completes it.
+const seatOf = (pr: Practice): unknown => (pr.server as unknown as { dummySeat: unknown }).dummySeat;
+const startBlock = async (pr: Practice): Promise<number> => {
+  pr.c.send("practiceDrill", { action: "start", drill: "block" });
+  await waitFor(() => state(pr) === "running" && pr.me().owner.drillId === "block", 3000, "block running");
+  return pr.me().owner.drillStartTick as number;
+};
+
+describe("GR15b confirmed-block lesson (real clients)", () => {
+  test("placement, one attack per period through a temporary seat, holding guard early does not pass, frontal block passes once", async () => {
+    const pr = await joinPractice("Bram");
+    const start = await startBlock(pr);
+    const mv = pr.server.movement!;
+    const pp = mv.position(pr.me().entityId)!, dp = mv.position(pr.server.dummyId)!;
+    expect(Math.hypot(pp[0] - dp[0], pp[2] - dp[2])).toBeCloseTo(1.6, 1);
+" + rows.join("
+    expect(Math.abs(pp[1] - dp[1])).toBeLessThan(0.2);
+    expect(seatOf(pr)).not.toBeNull();
+    const ids = (pr.server as unknown as { extraBodyIds(): number[] }).extraBodyIds();
+    expect(ids).toEqual([]); // not published twice while it has a seat
+    const drv = new Driver(pr);
+    // Guard held from the start: holding alone, before the first attack, does not complete.
+    await drv.hold(1000, { blockHeld: true });
+    expect(pr.server.sim.tick).toBeLessThan(start + 120);
+    expect(state(pr)).toBe("running");
+    await drv.hold(3500, { blockHeld: true });
+    await waitFor(() => state(pr) === "success", 4000, "block success");
+    const t = pr.me().owner.drillSuccessTick as number;
+    expect(t).toBeGreaterThanOrEqual(start + 120);
+    expect(t).toBeLessThan(start + 120 + 30);
+    expect(pr.me().hp100).toBe(10000); // block chip is zero for an M1
+    expect(seatOf(pr)).toBeNull(); // dummy attacks stop after success
+    expect((pr.server as unknown as { extraBodyIds(): number[] }).extraBodyIds()).toEqual([pr.server.dummyId]);
+    await drv.hold(3500, { blockHeld: true });
+    expect(pr.me().owner.drillSuccessTick).toBe(t);
+    expect(pr.me().hp100).toBe(10000);
+    await pr.c.leave();
+  }, 40000);
+
+  test("wrong facing and late guard do not pass; each attack is one ordinary first hit, 180 ticks apart; retry rearms; exit cancels", async () => {
+    const pr = await joinPractice("Cleo");
+    const start = await startBlock(pr);
+    const drv = new Driver(pr);
+    const me = pr.server.combat.get(pr.me().entityId)!;
+    const hpLog: { tick: number; hp: number }[] = [];
+    let last = me.hp100;
+    // Wrong facing: turned away from the dummy while holding guard.
+    pr.server.movement!.get(pr.me().entityId)!.state.facingYaw = Math.PI;
+    const end = Date.now() + 2800;
+    while (Date.now() < end) {
+      drv.send({ blockHeld: true, yaw: Math.PI });
+      if (me.hp100 !== last) { hpLog.push({ tick: pr.server.sim.tick, hp: me.hp100 }); last = me.hp100; }
+      await sleep(10);
+    }
+    expect(state(pr)).toBe("running");
+    expect(hpLog.length).toBe(1);
+    const first = 10000 - hpLog[0]!.hp;
+    expect(first).toBeGreaterThan(0);
+    expect(hpLog[0]!.tick).toBeGreaterThanOrEqual(start + 120 + 8);
+    // Second scheduled attack lands 180 ticks after the first (integer schedule; the same single first-hit damage).
+    await waitFor(() => hpLog.length >= 1 && (drv.send({ blockHeld: true, yaw: Math.PI }), me.hp100 !== last), 6000, "second attack");
+    expect(last - me.hp100).toBe(first);
+    expect(state(pr)).toBe("running");
+    // Retry rearms with a fresh preparation delay and a fresh seat.
+    await sleep(300);
+    pr.c.send("practiceDrill", { action: "retry", drill: "block" });
+    await waitFor(() => pr.me().owner.drillStartTick > start && pr.me().hp100 === 10000, 3000, "retry");
+    expect(seatOf(pr)).not.toBeNull();
+    // Exit before the first attack: the seat is gone and nothing ever lands.
+    await sleep(300);
+    pr.c.send("practiceDrill", { action: "exit", drill: "block" });
+    await waitFor(() => state(pr) === "idle", 3000, "exit");
+    expect(seatOf(pr)).toBeNull();
+    const home = pr.server.movement!.position(pr.server.dummyId)!;
+    expect([Math.round(home[0]), Math.round(home[2])]).toEqual([0, -1]); // exit restores the dummy's home point
+    const until = pr.server.sim.tick + 400;
+    await waitFor(() => pr.server.sim.tick > until, 8000, "wait past a full schedule");
+    expect(pr.me().hp100).toBe(10000);
+    await pr.c.leave();
+  }, 60000);
+
+  test("a guard that starts during the swing is too late; player death stops the dummy and leaves Retry (no success)", async () => {
+    const pr = await joinPractice("Dara");
+    const start = await startBlock(pr);
+    const drv = new Driver(pr);
+    const me = pr.server.combat.get(pr.me().entityId)!;
+    // Guard requested only after the first attack began: lands as an unguarded hit.
+    await waitFor(() => pr.server.sim.tick >= start + 120 + 5, 8000, "attack began");
+    await drv.hold(500, { blockHeld: true });
+    expect(state(pr)).toBe("running");
+    expect(me.hp100).toBeLessThan(10000);
+    // Lethal state: the next ordinary hit kills; the lesson must not grant success and the dummy stops.
+    await sleep(300);
+    pr.c.send("practiceDrill", { action: "retry", drill: "block" });
+    await waitFor(() => pr.me().owner.drillStartTick > start && me.hp100 === 10000, 3000, "retry");
+    const fresh = pr.server.combat.get(pr.me().entityId)!;
+    fresh.hp100 = 1;
+    await waitFor(() => fresh.action === "Dead" || fresh.hp100 === 0 || seatOf(pr) === null, 8000, "death");
+    await waitFor(() => seatOf(pr) === null, 3000, "dummy seat removed");
+    expect(state(pr)).toBe("running");
+    const hold = pr.server.sim.tick + 400;
+    await waitFor(() => pr.server.sim.tick > hold, 8000, "wait past a full schedule");
+    expect(state(pr)).toBe("running"); // Retry is offered by the panel; success was never granted
+    expect(pr.me().owner.drillSuccessTick).toBe(0);
+    await pr.c.leave();
+  }, 60000);
 });

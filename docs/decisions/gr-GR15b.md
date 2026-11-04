@@ -1,0 +1,8 @@
+# GR15b decision: confirmed-block practice lesson
+
+- Wire: no new message and no new owner field, so `PROTOCOL_VERSION` stays 4. Only the existing `practiceDrill` enum gains `block` (strict schema unchanged otherwise).
+- Success source: `onResolvedHits` -> `DrillTracker.observe`. Requires outcome `blocked`, attacker = dummy, target = player, an `m1.*` move. Unguarded hits, wrong-facing hits, guard-startup hits, counters and captures never count; holding guard alone never counts.
+- Dummy attacks: a private `PipelineSeat` (key `drill:dummy`, its own `InputChannel`, no client) is added to `pipelineSeats()` only while a block lesson runs and removed from `extraBodyIds()` for the same time. `beforeDrain` (after the inherited bot hook) sets a one-tick `attackHeld` on ticks `startTick + 120 + 180k` (`DrillTracker.attackDue`, integer ticks). The ordinary M1 system, pipeline transitions and hit resolver do everything else, so only the first chain hit exists. No second tick loop.
+- Teardown: success detaches the seat; exit, player leave and player or dummy death detach and return the dummy to a fresh idle life (a swing in progress is cancelled). Player death leaves the drill `running` (Retry/Exit shown), never success.
+- Authority conflict recorded: the spec says player 1.6 m ahead of the dummy at the same height. At the dummy's home (0,-1) the slab has a raised collider (probe: dummy rests about 1.76 m above the floor the player stands on at (0,0.6)), so a same-height face-off is impossible there. The block lesson is staged at dummy (2,-1), player (2,0.6); exit restores the dummy to (0,-1). The hit lesson keeps GR15a placement.
+- Copy: hint from the spec; success text `Block confirmed. Try holding Guard a little later.` is a local design choice (D).

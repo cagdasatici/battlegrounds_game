@@ -7,6 +7,8 @@ import { PlayerSchema } from "../state/PlayerSchema.js";
 import { TokenBucket } from "../net/RateLimits.js";
 import { applyReaction, isAlive } from "../sim/ActionMachine.js";
 import { TutorialTracker } from "../sim/Tutorial.js";
+import { InputChannel, neutralIntent } from "../net/ValidateInput.js";
+import type { PipelineSeat } from "../sim/TickPipeline.js";
 import { DrillTracker, type ResolvedHitSummary } from "../sim/PracticeDrills.js";
 import { BotArenaRoom } from "./BotArenaRoom.js";
 
@@ -17,6 +19,13 @@ const PLAYER_AT: readonly [number, number] = [0, 5];
 /** GR15a lesson positions: 3 m apart, facing each other. The dummy keeps its home point because (0, 0) is the island seam. */
 const DRILL_PLAYER_AT: readonly [number, number] = [0, 2];
 /** The dummy is refilled below this HP so the practice never ends in a knockout (it still takes and shows damage). */
+/** GR15b: the player stands this far in front of the dummy for the block lesson (same height, facing it). */
+const BLOCK_GAP_M = 1.6;
+/**
+ * The block lesson is staged at x = 2, not on the centre line: the slab around x = 0 has a raised collider (probed: the dummy at
+ * (0, -1) stands about 1.76 m above the floor the player walks on), so a same-height face-off cannot exist there. Exit restores the home point.
+ */
+const BLOCK_DUMMY_AT: readonly [number, number] = [2, -1];
 const DUMMY_REFILL_BELOW_100 = 4000;
 const DUMMY_RAGDOLL_TICKS = 90;
 
@@ -30,6 +39,8 @@ export class PracticeRoom extends BotArenaRoom {
   readonly tutorial = new TutorialTracker();
   readonly drill = new DrillTracker();
   dummyId = 0;
+  /** GR15b: temporary pipeline seat for the lesson dummy (key `drill:dummy`); null whenever no defense lesson attacks. */
+  private dummySeat: PipelineSeat | null = null;
   private toggles = { guard: false, ragdoll: false };
   private practiceBucket = new TokenBucket(4, 4, 0);
 
@@ -45,13 +56,64 @@ export class PracticeRoom extends BotArenaRoom {
 
   override onLeave(client: Client): void {
     this.drill.exit();
+    this.detachDummy(this.sim.tick, true);
     super.onLeave(client);
   }
 
   protected override botTargetAllowed(id: number): boolean { return id !== this.dummyId; }
   protected override chooseBotSpawn(index: number): MapVec3 { return this.standPoint([index === 0 ? 5 : -5, 0]); }
 
-  protected override extraBodyIds(): readonly number[] { return this.dummyId > 0 ? [this.dummyId] : []; }
+  /** The dummy is published by the seat loop while it has a lesson seat; listing it twice would duplicate physics/publish. */
+  protected override extraBodyIds(): readonly number[] { return this.dummyId > 0 && !this.dummySeat ? [this.dummyId] : []; }
+
+  protected override pipelineSeats(): ReadonlyMap<string, PipelineSeat> {
+    const base = super.pipelineSeats();
+    return this.dummySeat ? new Map<string, PipelineSeat>([...base, ["drill:dummy", this.dummySeat]]) : base;
+  }
+
+  /** Neutral intent every tick; one-tick attack hold only on a scheduled tick. The ordinary M1 system does the rest. */
+  protected override beforeDrain(tick: number): void {
+    super.beforeDrain(tick);
+    const ds = this.dummySeat;
+    if (!ds) return;
+    ds.input.neutralize();
+    const seat = [...this.seats.values()][0];
+    const pf = seat && this.combat.get(seat.entityId);
+    const df = this.combat.get(this.dummyId);
+    if (!seat || !pf || !isAlive(pf) || !df || !isAlive(df)) { this.detachDummy(tick, true); return; }
+    ds.input.lastInputTick = tick; // keeps the input lease fresh
+    if (this.drill.attackDue(tick)) ds.input.held = { ...neutralIntent(), attackHeld: true, yaw: Math.PI };
+  }
+
+  /** After a block lesson the dummy returns to its home point so ordinary practice and the other lesson are unchanged. */
+  private restoreDummyHome(tick: number): void {
+    const mv = this.movement;
+    if (!mv) return;
+    const f = this.combat.get(this.dummyId);
+    if (f) { this.combat.respawn(this.dummyId, tick, ++this.lifeSeq); f.protectedUntilTick = 0; }
+    this.m1.reset(this.dummyId);
+    mv.add(this.dummyId, this.standPoint(DUMMY_AT), Math.PI);
+    this.pipeline.publishBody(this.dummyId);
+  }
+
+  private attachDummy(): void {
+    this.dummySeat = { entityId: this.dummyId, input: new InputChannel(0), pendingKit: null };
+  }
+
+  /** Removes the lesson seat. `cancel` also cancels a swing in progress (exit, death, leave) by returning the dummy to a fresh idle life. */
+  private detachDummy(tick: number, cancel: boolean): void {
+    if (!this.dummySeat) return;
+    this.dummySeat.input.neutralize();
+    this.dummySeat = null;
+    if (!cancel) return;
+    const f = this.combat.get(this.dummyId), q = this.state.players.get(String(this.dummyId));
+    if (!f || !q) return;
+    const lifeId = ++this.lifeSeq;
+    this.combat.respawn(this.dummyId, tick, lifeId);
+    f.protectedUntilTick = 0;
+    this.m1.reset(this.dummyId);
+    q.lifeId = lifeId;
+  }
 
   protected override chooseSpawn(): MapVec3 { return this.standPoint(PLAYER_AT); }
 
@@ -105,13 +167,20 @@ export class PracticeRoom extends BotArenaRoom {
     if (!m.success) { this.noteInvalid(client, "practice_drill_invalid"); return; }
     const tick = this.sim.tick;
     if (m.data.action === "exit") {
-      if (this.drill.exit()) this.syncDrill(p);
+      const was = this.drill.drillId;
+      if (this.drill.exit()) {
+        this.detachDummy(tick, true);
+        if (was === "block") this.restoreDummyHome(tick);
+        this.syncDrill(p);
+      }
       return;
     }
     if (!p.ready) return;
     const changed = m.data.action === "start" ? this.drill.start(m.data.drill, tick) : this.drill.retry(tick);
     if (!changed) return;
+    this.detachDummy(tick, false);
     this.resetForLesson(seat.entityId, p, tick);
+    if (this.drill.drillId === "block") this.attachDummy();
     this.syncDrill(p);
   }
 
@@ -141,8 +210,10 @@ export class PracticeRoom extends BotArenaRoom {
       this.respawns.complete(id, tick);
       this.pipeline.publishBody(id);
     };
-    put(playerId, DRILL_PLAYER_AT, 0); // yaw 0 faces -z, toward the dummy
-    put(this.dummyId, DUMMY_AT, Math.PI);
+    const block = this.drill.drillId === "block";
+    const dummyAt = block ? BLOCK_DUMMY_AT : DUMMY_AT;
+    put(playerId, block ? [dummyAt[0], dummyAt[1] + BLOCK_GAP_M] : DRILL_PLAYER_AT, 0); // yaw 0 faces -z, toward the dummy
+    put(this.dummyId, dummyAt, Math.PI);
     this.pipeline.republish(tick);
   }
 
@@ -150,7 +221,7 @@ export class PracticeRoom extends BotArenaRoom {
     const seat = [...this.seats.values()][0];
     const p = seat && this.playerOf(seat);
     if (!seat || !p) return;
-    if (this.drill.observe(tick, hits, seat.entityId, this.dummyId)) this.syncDrill(p);
+    if (this.drill.observe(tick, hits, seat.entityId, this.dummyId)) { this.detachDummy(tick, false); this.syncDrill(p); }
   }
 
   override stepTick(tick: number): void {
