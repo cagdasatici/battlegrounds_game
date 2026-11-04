@@ -35,6 +35,7 @@ import { originOk } from "../http/securityHeaders.js";
 import type { AuthServices } from "../auth/Services.js";
 import { log } from "../ops/StructuredLog.js";
 import { roomDirectory } from "./RoomDirectory.js";
+import type { ResolvedHitSummary } from "../sim/PracticeDrills.js";
 
 /** Set once by createGameServer. Kept off Colyseus options so clients can never override it. */
 let authServices: AuthServices | null = null;
@@ -110,6 +111,7 @@ export class ArenaRoom extends Room {
     poseOf: (id) => this.poseOf(id), occupantOf: (id) => this.occupantOf(id), respawn: this.respawns, nextLifeId: () => ++this.lifeSeq,
     sendActionResult: (sid, seat, edgeId, seq, tick, ok, reason, castId) => this.sendActionResult(sid, seat, edgeId, seq, tick, ok, reason, castId),
     broadcastEvent: (tick, kind, actor, target, lifeId, moveId, dmg, extra) => this.broadcastEvent(tick, kind, actor, target, lifeId, moveId, dmg, extra),
+    onResolvedHits: (tick, hits) => this.onResolvedHits(tick, hits),
   });
 
   override async onCreate(options: { roomCode?: string }): Promise<void> {
@@ -289,6 +291,8 @@ export class ArenaRoom extends Room {
   protected authServices(): AuthServices | null { return authServices; }
   protected pipelineSeats(): ReadonlyMap<string, PipelineSeat> { return this.seats; }
   protected beforeDrain(_tick: number): void {}
+  /** GR15a hook: only the practice room consumes resolved hit summaries. */
+  protected onResolvedHits(_tick: number, _hits: readonly ResolvedHitSummary[]): void {}
 
   // ---- internals ----
   /** Lowest id in 1..255 not used by a replicated player. entityId is uint8 on the wire (PlayerSchema). */

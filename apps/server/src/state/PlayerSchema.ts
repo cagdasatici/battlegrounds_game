@@ -20,6 +20,11 @@ export class OwnerSchema extends Schema {
   dummyRagdoll = false;
   practiceBotCount = 0;
   practiceBotDifficulty = "easy";
+  /** GR15a practice lesson: drillState is idle/running/success; ticks are absolute server ticks. */
+  drillId = "";
+  drillState = "idle";
+  drillStartTick = 0;
+  drillSuccessTick = 0;
   /** GR04 owner locomotion state after physics (same tick as the pose). Ticks are absolute server ticks; -1 = never. */
   grounded = false;
   lastGroundedTick = -1;
@@ -31,6 +36,7 @@ defineTypes(OwnerSchema, {
   ackSeq: "uint32", ackInputTick: "uint32", epoch: "uint32", pendingKit: "string",
   evasiveEndTick: "uint32", chargeStartTick: "uint32", lethalCounterRemaining: "uint16",
   tutorialStep: "uint8", tutorialSkillMask: "uint8", dummyGuard: "boolean", dummyRagdoll: "boolean", practiceBotCount: "uint8", practiceBotDifficulty: "string",
+  drillId: "string", drillState: "string", drillStartTick: "uint32", drillSuccessTick: "uint32",
   grounded: "boolean", lastGroundedTick: "int32", jumpPressTick: "int32", jumpedSinceGrounded: "boolean", airJumpsUsed: "uint8",
 });
 

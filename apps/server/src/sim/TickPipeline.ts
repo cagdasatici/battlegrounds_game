@@ -16,6 +16,7 @@ import type { ProjectileSystem } from "./Projectiles.js";
 import type { UrnSystem } from "./Urns.js";
 import { UrnSchema } from "../state/UrnSchema.js";
 import { ProjectileSchema } from "../state/ProjectileSchema.js";
+import type { ResolvedHitSummary } from "./PracticeDrills.js";
 import { creditedAttacker, type HitCandidate, type HitResult } from "./HitResolver.js";
 import { dashCandidates } from "./DashAttack.js";
 import { killRewardFor } from "@eb/shared/config/passives";
@@ -57,6 +58,8 @@ export interface TickPipelineDeps {
   nextLifeId: () => number;
   sendActionResult: (sessionId: string, seat: PipelineSeat, edgeId: number, seq: number, tick: number, accepted: boolean,
     reason?: ActionResult["reason"], castId?: string) => void;
+  /** GR15a: called once per resolving tick with immutable summaries, before launches and events. */
+  onResolvedHits?: (tick: number, results: readonly ResolvedHitSummary[]) => void;
   broadcastEvent: (tick: number, kind: CombatEvent["kind"], actor: number, target: number | undefined,
     lifeId: number, moveId?: string, damage100?: number, extra?: { hitClass?: "light" | "heavy"; targetHp100?: number }) => void;
 }
@@ -268,6 +271,12 @@ export class TickPipeline {
     const { combat, m1, abilities, awakening } = this.d;
     const results = this.results;
     abilities.afterResolve(tick, results);
+    if (this.d.onResolvedHits) {
+      this.d.onResolvedHits(tick, Object.freeze(results.map((r) => Object.freeze({
+        attackerId: r.candidate.attackerId, targetId: r.candidate.targetId, moveId: r.candidate.moveId,
+        outcome: r.outcome, damage100: r.damage100,
+      }))));
+    }
     this.d.projectiles?.settle(tick, results); // after counter stances had their chance to reflect
     awakening.gain(results);
     // T23: damage or capture drops a carried urn (spec 15). Blocked and countered hits do neither.

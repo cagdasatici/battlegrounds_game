@@ -7,7 +7,11 @@ import type { Difficulty } from "@eb/shared/sparring";
 import { tutorialView } from "./PracticeFormat.js";
 import { LAYER } from "./Layers.js";
 
-export interface PracticeState { step: number; skillMask: number; dummyGuard: boolean; dummyRagdoll: boolean; botCount?: number; botDifficulty?: string }
+export interface PracticeState { step: number; skillMask: number; dummyGuard: boolean; dummyRagdoll: boolean; botCount?: number; botDifficulty?: string; drillState?: string }
+export type DrillAction = "start" | "retry" | "exit";
+/** GR15a copy. Success text is shown only when the server owner record says success. */
+export const DRILL_HINT = "Move close, face the dummy, then land a Strike.";
+export const DRILL_SUCCESS = "Hit confirmed. Try a different distance.";
 
 export class PracticePanel {
   private readonly root: HTMLElement;
@@ -23,6 +27,7 @@ export class PracticePanel {
   constructor(
     parent: HTMLElement, private readonly setToggles: (t: { guard: boolean; ragdoll: boolean; bots?: Difficulty[] }) => void,
     private readonly doc: Document = document, private readonly onMoves: () => void = () => undefined,
+    private readonly sendDrill: (action: DrillAction) => void = () => undefined,
   ) {
     this.root = doc.createElement("div");
     this.root.dataset["ui"] = "practice";
@@ -33,6 +38,8 @@ export class PracticePanel {
     this.onClick = (e: Event): void => {
       if ((e.target as HTMLElement | null)?.closest?.("button[data-expand]")) { this.expanded = !this.expanded; this.render(this.cur, true); return; }
       if ((e.target as HTMLElement | null)?.closest?.("button[data-moves]")) { this.onMoves(); return; }
+      const drill = (e.target as HTMLElement | null)?.closest?.("button[data-drill]") as HTMLElement | null;
+      if (drill) { this.sendDrill(drill.dataset["drill"] as DrillAction); return; }
       const action = (e.target as HTMLElement | null)?.closest?.("button[data-bots]") as HTMLElement | null;
       if (action) {
         const difficulty = this.root.querySelector<HTMLSelectElement>("select[name=practice-difficulty]")?.value as Difficulty ?? "easy";
@@ -73,12 +80,14 @@ export class PracticePanel {
     this.root.append(title);
     const hint = this.doc.createElement("p");
     hint.dataset["ui"] = "practice-hint";
-    hint.textContent = v.hint;
+    const drillState = st.drillState ?? "idle";
+    hint.textContent = drillState === "success" ? DRILL_SUCCESS : drillState === "running" ? DRILL_HINT : v.hint;
+    if (drillState === "success") hint.setAttribute("role", "status");
     hint.style.cssText = "margin:6px 0";
     const toggle = this.doc.createElement("button");
     toggle.dataset["expand"] = "1"; toggle.textContent = this.expanded ? "Collapse" : "Expand";
     toggle.setAttribute("aria-expanded", String(this.expanded));
-    if (!this.expanded) { this.root.append(hint, toggle); return; }
+    if (!this.expanded) { this.root.append(hint, ...this.lessonButtons(drillState, false), toggle); return; }
     this.root.append(toggle);
     const guide = this.doc.createElement("button"); guide.textContent = "Moves & ranges"; guide.dataset["moves"] = "1";
     guide.style.cssText = "min-height:44px;border-radius:8px;background:#224238;color:#c7f38b;border:1px solid #87bd9a;margin-bottom:8px"; this.root.append(guide);
@@ -96,6 +105,9 @@ export class PracticePanel {
     const summary = this.doc.createElement("summary"); summary.textContent = `Training checklist · ${Math.min(st.step, 7)}/7`;
     checklist.append(summary, list); this.root.append(checklist);
     this.root.append(hint);
+    const lessons = this.doc.createElement("div"); lessons.dataset["ui"] = "practice-lessons"; lessons.style.cssText = "margin:6px 0";
+    const lessonTitle = this.doc.createElement("div"); lessonTitle.textContent = "Combat lessons"; lessonTitle.style.cssText = "font-weight:700";
+    lessons.append(lessonTitle, ...this.lessonButtons(drillState, true)); this.root.append(lessons);
     const row = this.doc.createElement("div");
     row.style.cssText = "display:flex;gap:6px";
     for (const [id, label, on] of [["guard", "Dummy guards", st.dummyGuard], ["ragdoll", "Dummy ragdoll", st.dummyRagdoll]] as const) {
@@ -120,6 +132,17 @@ export class PracticePanel {
     }
     const status = this.doc.createElement("p"); status.setAttribute("role", "status"); status.textContent = `${st.botCount ?? 0}/2 active bots · ${st.botDifficulty ?? "easy"} · dummy stays available`;
     opponents.append(status); this.root.append(opponents);
+  }
+
+  /** Lesson controls: Land a strike (idle, expanded only), Retry/Exit once a lesson exists. Display and intent only. */
+  private lessonButtons(state: string, offerStart: boolean): HTMLButtonElement[] {
+    const mk = (action: DrillAction, text: string): HTMLButtonElement => {
+      const b = this.doc.createElement("button"); b.dataset["drill"] = action; b.textContent = text;
+      b.style.cssText = "min-height:44px;margin:4px 4px 0 0;border:1px solid #87bd9a;border-radius:8px;background:#224238;color:#c7f38b";
+      return b;
+    };
+    if (state === "idle") return offerStart ? [mk("start", "Land a strike")] : [];
+    return [mk("retry", "Retry"), mk("exit", "Exit")];
   }
 
   dispose(): void {

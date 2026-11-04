@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const PROTOCOL_VERSION = 3 as const;
+export const PROTOCOL_VERSION = 4 as const;
 export const TICK_RATE = 60 as const;
 export const PATCH_RATE_MS = 50 as const;
 export const MAX_CLIENTS = 4 as const;
@@ -62,6 +62,9 @@ export const LeaveMessageSchema = z.strictObject({});
 /** Practice room dummy toggles (T18d). Intent only: the server applies them to its own dummy. */
 export const PracticeSetSchema = z.strictObject({ guard: z.boolean(), ragdoll: z.boolean(), bots: z.array(z.enum(["easy", "medium", "hard"])).max(2).optional() });
 export type PracticeSetMessage = z.infer<typeof PracticeSetSchema>;
+/** GR15a: practice-only lesson intent. Success is never sent by the client; it is read from owner fields. */
+export const PracticeDrillSchema = z.strictObject({ action: z.enum(["start", "retry", "exit"]), drill: z.enum(["hit"]) });
+export type PracticeDrillMessage = z.infer<typeof PracticeDrillSchema>;
 /** Practice tutorial steps in order. Each is confirmed by the server from simulation state, never by the client. */
 export const TUTORIAL_STEPS = ["move", "turn", "attack", "block", "dash", "skills", "awaken"] as const;
 export type TutorialStep = (typeof TUTORIAL_STEPS)[number];
@@ -132,6 +135,7 @@ export const ClientMessage = {
   ping: "ping",
   leave: "leave",
   practice: "practice",
+  practiceDrill: "practiceDrill",
 } as const;
 export const ServerMessage = {
   welcome: "welcome",
