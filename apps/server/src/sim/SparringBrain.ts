@@ -4,7 +4,7 @@ import { pickMove, preferredDistance, stepCharge } from "./BotTactics.js";
 /** FB02 (D local design choices, docs/decisions/fb-FB02.md). Medium/hard only carry interval and full speed. */
 export const BOT_PARAMS = {
   easy: {
-    interval: 30, moveScale: 0.55, reactionTicks: 30, swingCooldownTicks: 90, whiffRate: 0.4, blockRate: 0.3,
+    interval: 30, moveScale: 0.55, reactionTicks: 30, swingCooldownTicks: 90, whiffRate: 0.4, blockRate: 0,
     skillRate: 0.08, aimErrorDeg: 25, wanderMinTicks: 60, wanderMaxTicks: 120, wanderChance: 0.25, pursuitGiveUpTicks: 180,
   },
   medium: { interval: 15, moveScale: 1 },

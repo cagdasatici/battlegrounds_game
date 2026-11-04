@@ -9,7 +9,7 @@ Owner report 2026-11-04: "Easy bot is not easy, it is hard to beat. Make it much
 | Swing spacing | held M1 chain; slot 1 every 3rd sample | one single-tick swing per 90 ticks, next decision backs off (no combo) |
 | Whiff rate (off-angle swing 60-180 deg) | 0 | 0.40 |
 | Aim error | 0 | +-25 deg |
-| Block when attacked in range | 0 (easy never blocked) | 0.30 (70% no block); no dash/evade/awaken |
+| Block when attacked in range | 0 (easy never blocked) | 0 (owner: easier; never blocks); no dash/evade/awaken |
 | Skill use | slot 1 every 3rd sample | slot 1 at 0.08 of in-reach swing decisions |
 | Pursuit | unlimited | give up after 180 ticks of engagement, wander |
 | Wander / idle | none | segments of 60, 90 or 120 ticks, 0.25 chance per segment, half idle and half random-heading walk |
