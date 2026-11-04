@@ -111,7 +111,12 @@ interface Rect { id: string; x: number; y: number; w: number; h: number }
 async function controlRects(p: Page): Promise<Rect[]> {
   return p.$$eval("[data-control]", (els) => els.map((e) => { const r = e.getBoundingClientRect(); return { id: (e as HTMLElement).dataset["control"]!, x: r.x, y: r.y, w: r.width, h: r.height }; }));
 }
-const overlap = (a: Rect, b: Rect): boolean => a.x < b.x + b.w - 0.5 && b.x < a.x + a.w - 0.5 && a.y < b.y + b.h - 0.5 && b.y < a.y + a.h - 0.5;
+const ROUND_IDS = new Set(["attack", "jump", "dash", "block", "facing", "skill1", "skill2", "skill3", "skill4"]);
+/** FB06: round controls are circles, so two of them overlap only when their centres are closer than the radii sum. */
+const overlap = (a: Rect, b: Rect): boolean => {
+  if (ROUND_IDS.has(a.id) && ROUND_IDS.has(b.id)) return Math.hypot(a.x + a.w / 2 - b.x - b.w / 2, a.y + a.h / 2 - b.y - b.h / 2) < (a.w + b.w) / 2 - 0.5;
+  return a.x < b.x + b.w - 0.5 && b.x < a.x + a.w - 0.5 && a.y < b.y + b.h - 0.5 && b.y < a.y + a.h - 0.5;
+};
 
 for (const kit of ["sv", "td", "ea"] as const) {
   for (const vp of [{ width: 1024, height: 768 }, { width: 1180, height: 820 }]) {

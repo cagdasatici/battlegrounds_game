@@ -15,9 +15,10 @@ export type EditedLayout = Layout & { opacity: number };
 /** Wide landscape from 900 CSS px of safe width, otherwise compact landscape. */
 export const viewportClass = (W: number): ViewportClass => (W >= COMPACT_WIDTH ? "wide" : "compact");
 
-/** Side clusters swap sides for left hand play; the centre strip, awakening bar and health bar stay put. */
+/** Side clusters swap sides for left hand play; skills and the awakening bar move with the attack cluster (FB06); only the health bar stays centred. */
 const MIRRORED: ReadonlySet<ControlId> = new Set<ControlId>([
   "joystick", "attack", "jump", "dash", "block", "facing", "menu", "fighter", "scoreboard",
+  "skill1", "skill2", "skill3", "skill4", "awaken",
 ]);
 
 function place(c: ControlRect, cx: number, cy: number, size: number, scale = 1): ControlRect {

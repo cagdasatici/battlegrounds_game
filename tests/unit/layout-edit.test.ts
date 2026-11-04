@@ -21,15 +21,21 @@ describe("applyProfile", () => {
   test("empty profile and right hand reproduces the section 7 fixture", () => {
     const l = applyProfile(base, defaultProfile(), "right");
     near(l.controls.attack.cx, 932); near(l.controls.attack.cy, 578);
-    near(l.controls.skill1.cx, 377);
+    near(l.controls.skill1.cx, 932 - 185 * Math.sin(10 * Math.PI / 180));
     expect(l.opacity).toBe(0.9);
   });
-  test("left hand mirrors the side clusters but not the centre strip", () => {
+  test("left hand mirrors the side clusters, skills and Awaken", () => {
     const l = applyProfile(base, defaultProfile(), "left");
     near(l.controls.attack.cx, 1024 - 932);
     near(l.controls.joystick.cx, 1024 - 104);
-    near(l.controls.skill1.cx, 377);
-    near(l.controls.awaken.cx, 512);
+    // FB06: skills and Awaken move with the side cluster, so they mirror too.
+    near(l.controls.skill1.cx, 1024 - base.controls.skill1.cx);
+    near(l.controls.skill4.cx, 1024 - base.controls.skill4.cx);
+    near(l.controls.awaken.cx, 1024 - base.controls.awaken.cx);
+    near(l.controls.health.cx, 512);
+    for (const safe of [{ x0: 0, y0: 0, W: 1180, H: 820 }, { x0: 0, y0: 0, W: 700, H: 420 }]) {
+      expect(validateLayout(applyProfile(computeLayout(safe), defaultProfile(), "left")), JSON.stringify(safe)).toEqual([]);
+    }
     expect(validateLayout(l)).toEqual([]);
   });
   test("normalized position and size are applied; hit target keeps the 48 px floor", () => {
@@ -59,7 +65,7 @@ describe("editControl rejects unsafe edits", () => {
     if (!r.ok) expect(r.issues.some((i) => i.kind === "outside")).toBe(true);
   });
   test("a size that makes neighbours collide is rejected", () => {
-    const r = editControl(base, defaultProfile(), "right", "skill2", { nx: 467 / 1024, ny: 704 / 768, size: 1.3 });
+    const r = editControl(base, defaultProfile(), "right", "skill2", { nx: base.controls.skill1.cx / 1024 + 0.01, ny: base.controls.skill1.cy / 768, size: 1.3 });
     expect(r.ok).toBe(false);
   });
   test("size outside 0.85 to 1.30 is rejected before layout is considered", () => {

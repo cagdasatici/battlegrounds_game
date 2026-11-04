@@ -35,6 +35,9 @@ export interface Layout {
 export const MIN_TARGET_PX = 48;
 export const MIN_GAP_PX = 8;
 export const COMPACT_WIDTH = 900;
+/** FB06 arc: angle from straight up, counter-clockwise (toward the left), of skill 1 and the step to each next skill. */
+export const SKILL_ARC_START_DEG = 10;
+export const SKILL_ARC_STEP_DEG = 29;
 
 export const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
 
@@ -59,21 +62,24 @@ export function computeLayout(safe: SafeRect): Layout {
     hh: interactive ? Math.max(vh, MIN_TARGET_PX) : 0,
     interactive,
   });
-  const skillW = 82 * s;
-  // Spec: default pitch 90s; for W<900 the gap shrinks to 6s. The gap is floored at MIN_GAP_PX
-  // because 6s at s=0.78 is 4.7 px, which would violate the 8 px separation rule (documented conflict).
-  const pitch = W < COMPACT_WIDTH ? skillW + Math.max(6 * s, MIN_GAP_PX) : 90 * s;
-  const skill = (i: 1 | 2 | 3 | 4) =>
-    mk(`skill${i}`, "rect", W / 2 + (i - 2.5) * pitch, H - 64 * s, skillW, 60 * s);
+  // FB06: skills 1-4 sit on a thumb arc around Attack (up and over to the left). Skill 1 is nearest the
+  // thumb's resting point (top), 4 the farthest sweep. Positions derive from the Attack anchor so they scale.
+  const atkX = W - 92 * s, atkY = H - 190 * s;
+  const arcR = 185 * s;
+  const skillD = 80 * s;
+  const skill = (i: 1 | 2 | 3 | 4) => {
+    const th = (SKILL_ARC_START_DEG + (i - 1) * SKILL_ARC_STEP_DEG) * Math.PI / 180;
+    return mk(`skill${i}`, "circle", atkX - arcR * Math.sin(th), atkY - arcR * Math.cos(th), skillD, skillD);
+  };
   const controls: Record<ControlId, ControlRect> = {
     joystick: mk("joystick", "circle", 104 * s, H - 112 * s, 136 * s, 136 * s),
-    attack: mk("attack", "circle", W - 92 * s, H - 190 * s, 76 * s, 76 * s),
+    attack: mk("attack", "circle", atkX, atkY, 76 * s, 76 * s),
     jump: mk("jump", "circle", W - 76 * s, H - 80 * s, 68 * s, 68 * s),
     dash: mk("dash", "circle", W - 180 * s, H - 110 * s, 64 * s, 64 * s),
     block: mk("block", "circle", W - 182 * s, H - 205 * s, 64 * s, 64 * s),
     facing: mk("facing", "circle", W - 78 * s, H - 286 * s, 48 * s, 48 * s),
     skill1: skill(1), skill2: skill(2), skill3: skill(3), skill4: skill(4),
-    awaken: mk("awaken", "rect", W / 2, H - 126 * s, 320 * s, 44 * s),
+    awaken: mk("awaken", "rect", W - 8 * s - 100 * s, atkY - arcR - 40 * s - MIN_GAP_PX - 22 * s, 200 * s, 44 * s),
     menu: mk("menu", "rect", 32 * s, 32 * s, 48 * s, 48 * s),
     fighter: mk("fighter", "rect", 92 * s, 32 * s, 48 * s, 48 * s),
     health: mk("health", "rect", W / 2, 32 * s, 240 * s, 32 * s, false),
@@ -84,8 +90,13 @@ export function computeLayout(safe: SafeRect): Layout {
   // the 8 px separation (documented spec conflict; resolution is a local D choice).
   const menuR = controls.menu.cx + controls.menu.hw / 2;
   controls.fighter.cx = Math.max(controls.fighter.cx, menuR + MIN_GAP_PX + controls.fighter.hw / 2);
-  const skillTop = controls.skill1.cy - controls.skill1.hh / 2;
+  const skillTop = Math.min(...[1, 2, 3, 4].map((i) => controls[`skill${i}` as ControlId].cy - controls[`skill${i}` as ControlId].hh / 2));
   controls.awaken.cy = Math.min(controls.awaken.cy, skillTop - MIN_GAP_PX - controls.awaken.hh / 2);
+  // On short screens the pushed-up bar would sit under the scoreboard button; slide it left of that button instead.
+  const sb = controls.scoreboard;
+  if (controls.awaken.cy - controls.awaken.hh / 2 < sb.cy + sb.hh / 2 + MIN_GAP_PX) {
+    controls.awaken.cx = Math.min(controls.awaken.cx, sb.cx - sb.hw / 2 - MIN_GAP_PX - controls.awaken.hw / 2);
+  }
   return { safe, s, tooSmall: W < 700 || H < 420, controls };
 }
 

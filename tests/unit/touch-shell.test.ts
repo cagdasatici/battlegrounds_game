@@ -14,9 +14,9 @@ describe("ControlLayout fixture (section 7)", () => {
     expect(L1024.s).toBe(1);
     const exp: [keyof typeof L1024.controls, number, number][] = [
       ["attack", 932, 578], ["jump", 948, 688], ["dash", 844, 658], ["block", 842, 563],
-      ["skill1", 377, 704], ["skill2", 467, 704], ["skill3", 557, 704], ["skill4", 647, 704],
+      ["skill1", 899.88, 395.81], ["skill2", 815.58, 434.23], ["skill3", 760.47, 508.70], ["skill4", 748.38, 600.55],
     ];
-    for (const [id, x, y] of exp) { near(c(id).cx, x); near(c(id).cy, y); }
+    for (const [id, x, y] of exp) { expect(Math.abs(c(id).cx - x)).toBeLessThan(0.1); expect(Math.abs(c(id).cy - y)).toBeLessThan(0.1); }
   });
   test("D01 simulated: 1024x768, 1180x820 and inset/compact viewports have no issues", () => {
     const rects = [
@@ -67,7 +67,7 @@ describe("PointerRouter ownership (section 8)", () => {
     r.move({ pointerId: 2, x: 600, y: 300 });
     r.down({ pointerId: 3, x: 932, y: 578 });
     r.down({ pointerId: 4, x: 948, y: 688 });
-    r.down({ pointerId: 5, x: 377, y: 704 });
+    r.down({ pointerId: 5, x: c("skill1").cx, y: c("skill1").cy });
     expect(r.activePointers).toBe(5);
     const p = s.sample(10)!;
     expect(r.moveZ).toBeCloseTo(1); // router stays camera relative; packet is world space (T08)
@@ -84,7 +84,7 @@ describe("PointerRouter ownership (section 8)", () => {
   });
   test("moving a captured pointer over another button does not activate it", () => {
     const { r, s } = mk();
-    r.down({ pointerId: 1, x: 377, y: 704 });
+    r.down({ pointerId: 1, x: c("skill1").cx, y: c("skill1").cy });
     r.move({ pointerId: 1, x: 932, y: 578 });
     r.up(1); // release outside its button
     const p = s.sample(1)!;
@@ -127,12 +127,12 @@ describe("PointerRouter ownership (section 8)", () => {
   test("cancel releases without skillUp; awakening only when meter full; facing toggles", () => {
     let full = false;
     const { r, s } = mk({ awakeningReady: () => full });
-    r.down({ pointerId: 1, x: 467, y: 704 });
+    r.down({ pointerId: 1, x: c("skill2").cx, y: c("skill2").cy });
     r.cancel(1);
-    r.down({ pointerId: 2, x: 512, y: 642 });
+    r.down({ pointerId: 2, x: c("awaken").cx, y: c("awaken").cy });
     r.up(2);
     full = true;
-    r.down({ pointerId: 3, x: 512, y: 642 });
+    r.down({ pointerId: 3, x: c("awaken").cx, y: c("awaken").cy });
     r.down({ pointerId: 4, x: 946, y: 482 });
     const p = s.sample(1)!;
     expect(p.edges.map((e) => e.kind)).toEqual(["awaken"]); // GR05: a skillDown cancelled before sampling never casts

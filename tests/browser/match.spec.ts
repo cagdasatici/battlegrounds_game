@@ -96,7 +96,7 @@ async function open(name: string, kit: string): Promise<{ ctx: BrowserContext; p
 
 // Touch shell control centres at 1024x768 (spec section 7 fixture).
 const JOY = { x: 104, y: 656 }, ATTACK = { x: 932, y: 578 };
-const SKILL = [377, 467, 557, 647].map((x) => ({ x, y: 704 }));
+const SKILL = [[900, 396], [816, 434], [760, 509], [748, 601]].map(([x, y]) => ({ x: x!, y: y! })); // FB06 arc
 
 test("two browser contexts fight: walk, four-hit chain, four Vanguard skills, replicated HP agrees", async () => {
   test.setTimeout(150_000);

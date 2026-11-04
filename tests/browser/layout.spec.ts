@@ -37,9 +37,9 @@ test.afterAll(async () => {
 
 const FIXTURE_1024: Record<string, [number, number]> = {
   attack: [932, 578], jump: [948, 688], dash: [844, 658], block: [842, 563],
-  skill1: [377, 704], skill2: [467, 704], skill3: [557, 704], skill4: [647, 704],
+  skill1: [899.88, 395.81], skill2: [815.58, 434.23], skill3: [760.47, 508.70], skill4: [748.38, 600.55],
 };
-const ROUND = new Set(["attack", "jump", "dash", "block", "facing"]);
+const ROUND = new Set(["attack", "jump", "dash", "block", "facing", "skill1", "skill2", "skill3", "skill4"]);
 
 for (const [W, H] of [[1024, 768], [1180, 820]] as const) {
   test(`T07 layout at ${W}x${H}`, async () => {
@@ -60,8 +60,10 @@ for (const [W, H] of [[1024, 768], [1180, 820]] as const) {
     const expected: Record<string, [number, number]> = W === 1024 ? FIXTURE_1024 : {
       attack: [W - 92 * s, H - 190 * s], jump: [W - 76 * s, H - 80 * s],
       dash: [W - 180 * s, H - 110 * s], block: [W - 182 * s, H - 205 * s],
-      skill1: [W / 2 - 1.5 * 90 * s, H - 64 * s], skill2: [W / 2 - 0.5 * 90 * s, H - 64 * s],
-      skill3: [W / 2 + 0.5 * 90 * s, H - 64 * s], skill4: [W / 2 + 1.5 * 90 * s, H - 64 * s],
+      ...Object.fromEntries([0, 1, 2, 3].map((i) => {
+        const th = (10 + 29 * i) * Math.PI / 180; // FB06 thumb arc, radius 185s around Attack
+        return [`skill${i + 1}`, [W - 92 * s - 185 * s * Math.sin(th), H - 190 * s - 185 * s * Math.cos(th)]];
+      })),
     };
     const measured: Record<string, unknown> = {};
     for (const [id, [ex, ey]] of Object.entries(expected)) {
