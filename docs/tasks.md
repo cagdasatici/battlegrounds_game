@@ -128,7 +128,7 @@ Plan and file ownership are in [the web plan](web-plan.md); hosting steps are in
 | Task | Title | Depends on | Status | Commit | Test report | Notes |
 |---|---|---|---|---|---|---|
 | ORB2 | Render Ember Orb from replicated server state (item 2) | T19 T20 T21 | IMPLEMENTED (DEVICE CHECK PENDING) | b19f246 | docs/test-results/ORB2.md | Two Chromium contexts: flight, reflection, expiry. Physical iPad NOT RUN |
-| FB02 | Easy bot much easier and error-prone | GR14 | DONE | HASH | docs/test-results/FB02.md | Owner report 2026-11-04 |
+| FB02 | Easy bot much easier and error-prone | GR14 | DONE | 54e07c3 | docs/test-results/FB02.md | Owner report 2026-11-04 |
 | FB01 | iPad selection overlay suppression | GR11 | IMPLEMENTED, DEVICE CHECK PENDING | 8027a46 | docs/test-results/FB01.md | Owner report 2026-11-04 |
 
 ## Quality 90 release track
