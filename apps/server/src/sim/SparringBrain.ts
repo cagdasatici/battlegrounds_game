@@ -1,13 +1,17 @@
 import type { BotDecision, BotObservation, Difficulty } from "@eb/shared/sparring";
 import { pickMove, preferredDistance, stepCharge } from "./BotTactics.js";
 
-/** FB02 (D local design choices, docs/decisions/fb-FB02.md). Medium/hard only carry interval and full speed. */
+/** FB02/FB03 (D local design choices, docs/decisions/fb-FB02.md, fb-FB03.md). Hard only carries interval and full speed. */
 export const BOT_PARAMS = {
   easy: {
     interval: 30, moveScale: 0.55, reactionTicks: 30, swingCooldownTicks: 90, whiffRate: 0.4, blockRate: 0,
     skillRate: 0.08, aimErrorDeg: 25, wanderMinTicks: 60, wanderMaxTicks: 120, wanderChance: 0.25, pursuitGiveUpTicks: 180,
   },
-  medium: { interval: 15, moveScale: 1 },
+  // FB03 (D): medium sits between easy and hard; applied as a shaping layer over the GR14 policy (decideMedium).
+  medium: {
+    interval: 15, moveScale: 0.8, reactionTicks: 12, swingCooldownTicks: 45, maxChain: 2, whiffRate: 0.15, blockRate: 0.25,
+    skillRate: 0.85, aimErrorDeg: 10, wanderMinTicks: 60, wanderMaxTicks: 120, wanderChance: 0.05, pursuitGiveUpTicks: 360,
+  },
   hard: { interval: 6, moveScale: 1 },
 } as const;
 const INTERVAL: Record<Difficulty, number> = {
@@ -22,9 +26,10 @@ export function botRandom(selfId: number, spawnTick: number, index: number, salt
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
+interface WanderParams { wanderMinTicks: number; wanderMaxTicks: number; wanderChance: number; pursuitGiveUpTicks: number }
+
 /** Stateless engage/wander schedule from spawn: segments of 60-120 ticks; a pursuit is dropped after 180 ticks. */
-function easyWandering(o: BotObservation, age: number): { wandering: boolean; segment: number } {
-  const E = BOT_PARAMS.easy;
+function easyWandering(o: BotObservation, age: number, E: WanderParams = BOT_PARAMS.easy): { wandering: boolean; segment: number } {
   let t = 0, run = 0;
   for (let segment = 0; ; segment++) {
     const steps = (E.wanderMaxTicks - E.wanderMinTicks) / 30 + 1;
@@ -66,6 +71,33 @@ function decideEasy(o: BotObservation, target: BotObservation["enemies"][number]
   }
   return { ...base, approach: !inReach };
 }
+/**
+ * FB03: shape the GR14 medium decision (D local design choices). Reaction delay on a new target, pursuit give-up and
+ * wander, aim error, whiffs, a 45 tick swing rhythm (chains of at most 2 decisions), partial blocking and skill use.
+ */
+function decideMedium(o: BotObservation, target: BotObservation["enemies"][number], d2: number, k: number, previous: BotDecision, raw: BotDecision): BotDecision {
+  const M = BOT_PARAMS.medium;
+  const r = (salt: number) => botRandom(o.selfId, o.spawnTick, k, 20 + salt);
+  const yawTo = raw.yaw;
+  const aimed = yawTo + (r(0) * 2 - 1) * M.aimErrorDeg * Math.PI / 180;
+  // Reaction: noticing a new target costs one full decision interval (15 >= reactionTicks) of idling.
+  if (previous.targetId !== target.id) return { ...neutral(), targetId: target.id, yaw: yawTo, moveScale: M.moveScale };
+  const { wandering, segment } = easyWandering(o, o.tick - o.spawnTick, M);
+  if (wandering) {
+    const walk = botRandom(o.selfId, o.spawnTick, segment, 4) < 0.5;
+    return { ...neutral(), moveScale: M.moveScale, retreat: walk, yaw: walk ? botRandom(o.selfId, o.spawnTick, segment, 3) * Math.PI * 2 : 0 };
+  }
+  const out: BotDecision = { ...raw, yaw: aimed, moveScale: M.moveScale };
+  if (out.blockHeld && r(1) >= M.blockRate) { out.blockHeld = false; out.approach = d2 > 4; }
+  if (out.castSlot > 0 && r(2) >= M.skillRate) { out.castSlot = 0; out.holdSlot = 0; out.attackHeld = d2 <= 4; }
+  if (out.attackHeld) {
+    // 45 tick rhythm: at most `maxChain` consecutive swing decisions, then one decision without a basic swing.
+    if (k % (M.swingCooldownTicks / M.interval) >= M.maxChain) { out.attackHeld = false; }
+    else if (r(3) < M.whiffRate) out.yaw = yawTo + (r(4) < 0.5 ? -1 : 1) * (Math.PI / 3 + r(5) * (2 * Math.PI / 3));
+  }
+  return out;
+}
+
 const neutral = (): BotDecision => ({
   targetId: null, attackHeld: false, blockHeld: false,
   approach: false, castSlot: 0, dash: false, awaken: false, retreat: false, yaw: 0,
@@ -75,6 +107,8 @@ const neutral = (): BotDecision => ({
 /** Pure, spawn-relative decisions. The room owns movement safety and skill input IDs. */
 export function decideBot(
   difficulty: Difficulty, observation: BotObservation, previousDecision: BotDecision,
+  /** FB03: false returns the unshaped GR14 medium policy (used by GR14 rule tests only). */
+  shapeMedium = true,
 ): BotDecision {
   const age = observation.tick - observation.spawnTick;
   const interval = INTERVAL[difficulty];
@@ -107,7 +141,8 @@ export function decideBot(
   if (!target) return neutral();
   const k = Math.floor(age / interval);
   if (difficulty === "easy") return decideEasy(observation, target, distanceSquared, k, previousDecision);
-  if (tactical) return decideTactical(difficulty, observation, target, Math.sqrt(distanceSquared), k);
+  const shape = (raw: BotDecision) => difficulty === "medium" && shapeMedium ? decideMedium(observation, target!, distanceSquared, k, previousDecision, raw) : raw;
+  if (tactical) return shape(decideTactical(difficulty, observation, target, Math.sqrt(distanceSquared), k));
   const inReach = distanceSquared <= 4;
   let blockHeld = target.attacking && distanceSquared <= 9;
   const awaken = observation.meterFull && distanceSquared <= 36;
@@ -123,7 +158,7 @@ export function decideBot(
   }
   const dx = target.x - observation.self.x;
   const dz = target.z - observation.self.z;
-  return {
+  return shape({
     targetId: target.id,
     attackHeld: inReach && !blockHeld && castSlot === 0,
     blockHeld,
@@ -131,7 +166,7 @@ export function decideBot(
     castSlot, dash, awaken, retreat, holdSlot: 0, releaseSlot: 0, losLost: 0,
     // Existing movement convention: yaw zero faces -Z. Coincident poses face zero.
     yaw: dx === 0 && dz === 0 ? 0 : Math.atan2(-dx, -dz),
-  };
+  });
 }
 
 function decideTactical(difficulty: Difficulty, o: BotObservation, target: BotObservation["enemies"][number], d: number, k: number): BotDecision {

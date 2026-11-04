@@ -25,7 +25,7 @@ describe("FB02 easy bot parameters", () => {
     });
     expect(BOT_PARAMS.easy.reactionTicks).toBeGreaterThanOrEqual(30);
     expect(BOT_PARAMS.easy.skillRate).toBeLessThanOrEqual(0.1);
-    expect(BOT_PARAMS.medium).toEqual({ interval: 15, moveScale: 1 });
+    expect(BOT_PARAMS.medium.interval).toBe(15); // FB03 retuned the rest of medium
     expect(BOT_PARAMS.hard).toEqual({ interval: 6, moveScale: 1 });
   });
 
@@ -35,7 +35,7 @@ describe("FB02 easy bot parameters", () => {
     expect(first).toMatchObject({ approach: false, attackHeld: false, blockHeld: false, castSlot: 0 });
     expect(first.moveScale).toBe(0.55);
     const medium = decideBot("medium", obs(1, 0, 30, -5), neutral);
-    expect(medium.moveScale).toBeUndefined();
+    expect(medium.moveScale).toBe(0.8); // FB03
   });
 
   test("swings are >= 90 ticks apart and never held across ticks (no combo)", () => {

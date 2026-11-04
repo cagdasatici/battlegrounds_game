@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 import type { BotDecision, BotObservation, Difficulty } from "../../packages/shared/src/sparring.js";
-import { decideBot } from "../../apps/server/src/sim/SparringBrain.js";
+import { decideBot as decideShaped } from "../../apps/server/src/sim/SparringBrain.js";
+
+/** FB03: these tests pin the raw GR14 rules; the medium shaping layer is covered by fb03-medium-bot.test.ts. */
+const decideBot = (...a: [Parameters<typeof decideShaped>[0], Parameters<typeof decideShaped>[1], Parameters<typeof decideShaped>[2]]) => decideShaped(...a, false);
 
 const neutral: BotDecision = {
   targetId: null, attackHeld: false, blockHeld: false, approach: false, castSlot: 0, dash: false, awaken: false, retreat: false, yaw: 0, holdSlot: 0, releaseSlot: 0, losLost: 0,
