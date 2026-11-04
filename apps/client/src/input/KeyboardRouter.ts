@@ -48,15 +48,15 @@ export class KeyboardRouter {
     if (id === undefined) return;
     this.down.add(code);
     this.router.keyHold(id, true);
-    // Space, Q and G are edges: the pseudo hold ends at once. Guard and skills stay held until keyup.
-    if (id === "jump" || id === "dash" || id === "awaken") this.router.keyHold(id, false);
+    // Q and G are edges: the pseudo hold ends at once. Space keeps jumpHeld until keyup/cancel (grounded combo finisher parity).
+    if (id === "dash" || id === "awaken") this.router.keyHold(id, false);
   }
 
   keyUp(code: string): void {
     if (!this.down.delete(code)) return;
     if (MOVE_KEYS.has(code)) { this.applyMove(); return; }
     const id = HOLDS[code];
-    if (id === "block" || id === "skill1" || id === "skill2" || id === "skill3" || id === "skill4") this.router.keyHold(id, false);
+    if (id === "block" || id === "jump" || id === "skill1" || id === "skill2" || id === "skill3" || id === "skill4") this.router.keyHold(id, false);
   }
 
   /** Mouse button 0 is the attack hold. */

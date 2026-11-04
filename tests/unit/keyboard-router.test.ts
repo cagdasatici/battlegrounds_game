@@ -100,4 +100,28 @@ describe("KeyboardRouter (spec section 11 keys)", () => {
     k.keyDown("KeyW");
     expect(r.moveZ).toBe(1);
   });
+
+  test("GR06: Space emits one jump edge and holds jumpHeld until keyup; repeat adds nothing; a second press is a new edge", () => {
+    const { r, k } = mk();
+    k.keyDown("Space");
+    k.keyDown("Space", true); k.keyDown("Space");
+    expect(r.held("jump")).toBe(true);
+    expect(r.takeEdges()).toEqual([{ kind: "jump" }]);
+    k.keyUp("Space");
+    expect(r.held("jump")).toBe(false);
+    k.keyDown("Space");
+    expect(r.takeEdges()).toEqual([{ kind: "jump" }]);
+    k.keyDown("KeyQ"); k.keyDown("KeyG");
+    expect(r.held("dash")).toBe(false);
+    expect(r.held("awaken")).toBe(false);
+  });
+  test("GR06: blur/menu cancels a held Space and a later keyup is inert", () => {
+    const { r, k } = mk();
+    k.keyDown("Space");
+    k.releaseAll();
+    expect(r.held("jump")).toBe(false);
+    k.keyUp("Space");
+    k.keyDown("Space"); k.keyDown("Escape");
+    expect(r.held("jump")).toBe(false);
+  });
 });
