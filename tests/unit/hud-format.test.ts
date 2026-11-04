@@ -2,6 +2,9 @@ import { describe, expect, test } from "vitest";
 import {
   RejectionNotice, cooldownFraction, cooldownLabel, formTimerText, meterLabel, rejectionText, respawnSecondsLeft, scoreboardRows, stillpointText,
 } from "../../apps/client/src/ui/HudFormat.js";
+import { EA_DEFS, SV_DEFS, TD_DEFS } from "../../packages/shared/src/config/kits/index.js";
+import { COMBAT } from "../../packages/shared/src/config/combat.js";
+import { dashStatus, skillAvailability, type SkillAvailabilityState } from "../../apps/client/src/ui/HudFormat.js";
 import { computeLayout } from "../../apps/client/src/input/ControlLayout.js";
 import { Hud, hudModel } from "../../apps/client/src/ui/Hud.js";
 
@@ -246,5 +249,77 @@ describe("Hud KO card and scoreboard (UX14)", () => {
     for (const f of card.listeners["click"] ?? []) f({ target: { closest: () => btn } });
     expect(n).toBe(1);
     hud.dispose();
+  });
+});
+
+describe("GR07 honest action status", () => {
+  const td2 = TD_DEFS.find((d) => d.id === "td.a2")!;
+  const ea3 = EA_DEFS.find((d) => d.id === "ea.b3")!;
+  const sv1 = SV_DEFS.find((d) => d.id === "sv.b1")!;
+  const idle: SkillAvailabilityState = { usedMask: 0, cooldownEndTick: 0, activeMove: "", chargeStartTick: 0 };
+
+  test("Used persists through a miss and cooldown expiry, and clears only when the mask resets", () => {
+    expect(td2.oncePerForm).toBe(true);
+    const bit = 1 << (td2.slot! - 1);
+    expect(skillAvailability(td2, { ...idle, usedMask: bit, activeMove: "td.a2" }, 100).kind).toBe("used");
+    expect(skillAvailability(td2, { ...idle, usedMask: bit, cooldownEndTick: 900 }, 100).kind).toBe("used");
+    expect(skillAvailability(td2, { ...idle, usedMask: bit }, 99999)).toEqual({ kind: "used", text: "Used", fraction: 1 });
+    expect(skillAvailability(td2, idle, 100).kind).toBe("ready");
+    expect(skillAvailability(td2, { ...idle, usedMask: bit ^ 0xf }, 100).kind).toBe("ready"); // other slots' bits do not matter
+  });
+
+  test("a non-oncePerForm move ignores the mask", () => {
+    expect(skillAvailability(sv1, { ...idle, usedMask: 0xf }, 10).kind).toBe("ready");
+  });
+
+  test("charge percentage: 179 ticks shows 99, 180 shows 100, authoritative start only", () => {
+    const st = { ...idle, activeMove: "ea.b3", chargeStartTick: 1000 };
+    expect(skillAvailability(ea3, st, 1179)).toMatchObject({ kind: "charging", text: "Charge 99%" });
+    expect(skillAvailability(ea3, st, 1180)).toMatchObject({ kind: "charging", text: "Charge 100%" });
+    expect(skillAvailability(ea3, st, 5000).text).toBe("Charge 100%");
+    expect(skillAvailability(ea3, st, 900).text).toBe("Charge 0%");
+    // Another active move or no authoritative start tick is never charging.
+    expect(skillAvailability(ea3, { ...st, activeMove: "ea.b1" }, 1100).kind).toBe("ready");
+    expect(skillAvailability(ea3, { ...st, chargeStartTick: 0 }, 1100).kind).toBe("ready");
+    // Cancellation (server clears chargeStartTick) falls back to the cooldown.
+    expect(skillAvailability(ea3, { ...idle, activeMove: "ea.b3", cooldownEndTick: 1300 }, 1200).kind).toBe("cooldown");
+  });
+
+  test("cooldown wins over Ready and keeps the existing label", () => {
+    const a = skillAvailability(sv1, { ...idle, cooldownEndTick: 500 + 192 }, 500);
+    expect(a.kind).toBe("cooldown");
+    expect(a.text).toBe("3.2");
+    expect(a.fraction).toBeGreaterThan(0);
+  });
+
+  test("Dash becomes Escape while Ragdolled: Wait before tick 12, then cooldown or Ready", () => {
+    const m = COMBAT.evasive.minRagdollAge;
+    expect(m).toBe(12);
+    expect(dashStatus("Idle", 0, 0, 100)).toBeNull();
+    expect(dashStatus("Ragdolled", 100, 0, 111)).toEqual({ label: "Escape", text: "Wait" });
+    expect(dashStatus("Ragdolled", 100, 0, 112)).toEqual({ label: "Escape", text: "Ready" });
+    expect(dashStatus("Ragdolled", 100, 112 + COMBAT.evasive.cooldown, 112)).toEqual({ label: "Escape", text: "30" });
+    expect(dashStatus("Ragdolled", 100, 200, 200)).toEqual({ label: "Escape", text: "Ready" }); // boundary: end tick reached
+  });
+
+  test("Vanguard Awakened without a timer reads choose one finisher; timed forms keep a countdown", () => {
+    expect(formTimerText("Awakened", 0, 100, "sv")).toBe("Awakened \u00b7 choose one finisher");
+    expect(formTimerText("Awakened", 0, 100, "td")).toBe("");
+    expect(formTimerText("Awakened", 100 + 300, 100, "td")).toBe("Awakened 5.0");
+    expect(formTimerText("Base", 0, 100, "sv")).toBe("");
+  });
+
+  test("HUD model shows Used / Charge / Escape text and the release hint", () => {
+    const L = computeLayout({ x0: 0, y0: 0, W: 1024, H: 768 }, 1, "right");
+    const base = { name: "n", hp: 100, maxHp: 100, meter: 0, facingLock: false, portrait: false, skills: ["a", "b", "c", "d"] };
+    const m = hudModel(L, { ...base,
+      skillStates: [{ kind: "used", text: "Used", fraction: 1 }, { kind: "charging", text: "Charge 50%", fraction: 0.5 }, { kind: "ready", text: "Ready", fraction: 0 }, { kind: "cooldown", text: "2.0", fraction: 0.3 }],
+      dash: { label: "Escape", text: "Wait" } });
+    const box = (id: string) => m.boxes.find((b) => b.id === id)!;
+    expect(box("skill1")).toMatchObject({ sub: "Used", ready: false });
+    expect(box("skill2")).toMatchObject({ sub: "Charge 50%", hint: "Release to fire" });
+    expect(box("skill3").ready).toBe(true);
+    expect(box("dash")).toMatchObject({ label: "Escape", sub: "Wait" });
+    expect(hudModel(L, base).boxes.find((b) => b.id === "dash")!.label).toBe("Dash");
   });
 });

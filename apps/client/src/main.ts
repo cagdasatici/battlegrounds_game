@@ -37,7 +37,7 @@ import { Nameplates, plateLayout } from "./ui/Nameplates.js";
 import { DamageCues, cueAngle } from "./ui/DamageCues.js";
 import { RoundResults } from "./ui/RoundResults.js";
 import {
-  BlockNotice, RejectionNotice, cooldownFraction, cooldownLabel, equippedSkillNames, formTimerText, meterLabel, respawnSecondsLeft, scoreboardRows, stillpointText,
+  BlockNotice, RejectionNotice, cooldownFraction, cooldownLabel, dashStatus, equippedSkillNames, formTimerText, skillAvailability, meterLabel, respawnSecondsLeft, scoreboardRows, stillpointText,
 } from "./ui/HudFormat.js";
 import { mountHowToPlay } from "./ui/HowToPlay.js";
 import { KIT_LABEL, Lobby, type LobbyView } from "./ui/Lobby.js";
@@ -70,7 +70,9 @@ interface MatchHooks { drop?: () => void; welcome?: (w: WelcomeMessage) => void 
 interface HudPlayer extends LoopPlayer {
   form: string; formEndTick: number; kills: number; deaths: number; assists: number;
   cooldownEndTicks: ArrayLike<number>;
+  awakenedUsedMask?: number; actionStartTick?: number;
   owner?: {
+    evasiveEndTick?: number; chargeStartTick?: number;
     ackInputTick: number; epoch: number; pendingKit?: string; lethalCounterRemaining?: number;
     tutorialStep?: number; tutorialSkillMask?: number; dummyGuard?: boolean; dummyRagdoll?: boolean; practiceBotCount?: number; practiceBotDifficulty?: string;
   } | undefined;
@@ -665,9 +667,14 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
         skills: equippedSkillNames(me?.kitId ?? opts.kitId, me?.form ?? "Base"),
         blocked: blockNotice.active(performance.now()),
         cooldowns: [0, 1, 2, 3].map((i) => cooldownLabel(me?.cooldownEndTicks?.[i] ?? 0, now)),
+        skillStates: skillDefinitions(me?.kitId ?? opts.kitId, me?.form ?? "Base").map((d, i) => skillAvailability(d, {
+          usedMask: me?.awakenedUsedMask ?? 0, cooldownEndTick: me?.cooldownEndTicks?.[i] ?? 0, activeMove: me?.moveId ?? "", chargeStartTick: me?.owner?.chargeStartTick ?? 0,
+        }, now)),
+        skillKeys: skillDefinitions(me?.kitId ?? opts.kitId, me?.form ?? "Base").map((d) => d.id),
+        dash: me ? dashStatus(me.action, me.actionStartTick ?? 0, me.owner?.evasiveEndTick ?? 0, now) : null,
         cooldownFracs: skillDefinitions(me?.kitId ?? opts.kitId, me?.form ?? "Base").map((d, i) => cooldownFraction(me?.cooldownEndTicks?.[i] ?? 0, now, d.cooldown)),
         reducedMotion: settings.get().reducedMotion,
-        formText: me ? formTimerText(me.form, me.formEndTick, now) : "",
+        formText: me ? formTimerText(me.form, me.formEndTick, now, me.kitId) : "",
         stillpointText: stillpointText(me?.owner?.lethalCounterRemaining ?? 0),
         rejection: rejections.current(performance.now()),
         respawn: dead && ko ? koCard(ko as { tick: number; by: string; actorId: string | null }, now) : null,
@@ -728,7 +735,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
             entityId: p.entityId, name: p.displayName, kitId: p.kitId, hp100: p.hp100, action: p.action, moveId: p.moveId ?? "", ready: p.ready ?? false,
             x: p.x / 100, y: p.y / 100, z: p.z / 100, local: p.owner !== undefined,
             kills: p.kills, deaths: p.deaths, assists: p.assists, meter100: p.meter100 ?? 0, cooldownEndTicks: Array.from(p.cooldownEndTicks ?? []),
-            form: p.form,
+            form: p.form, awakenedUsedMask: p.awakenedUsedMask ?? 0, actionStartTick: p.actionStartTick ?? 0,
+            chargeStartTick: p.owner?.chargeStartTick ?? 0, evasiveEndTick: p.owner?.evasiveEndTick ?? 0, formEndTick: p.formEndTick,
           })),
           practice: flow.mode === "practice"
             ? { step: localOf()?.owner?.tutorialStep ?? 0, skillMask: localOf()?.owner?.tutorialSkillMask ?? 0, dummyGuard: localOf()?.owner?.dummyGuard ?? false, dummyRagdoll: localOf()?.owner?.dummyRagdoll ?? false }

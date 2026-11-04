@@ -5,6 +5,7 @@
 import { meterFraction } from "@eb/shared/awakening";
 import { EA_DEFS, SV_DEFS, TD_DEFS } from "@eb/shared/config/kits/index";
 import { COMBAT } from "@eb/shared/config/combat";
+import type { AbilityDef } from "@eb/shared/abilities";
 import { TICK_RATE, type RejectReason } from "@eb/shared/protocol";
 
 /** Remaining time: one decimal under 10 s (never shows 0.0 while locked), ceiling seconds from 10 s. Empty when ready. */
@@ -68,8 +69,9 @@ export function meterLabel(kitId: string, meter100: number): { fraction: number;
   return { fraction, text: fraction >= 1 ? "Ready" : `${Math.floor(fraction * 100)}%` };
 }
 
-export function formTimerText(form: string, formEndTick: number, nowTick: number): string {
+export function formTimerText(form: string, formEndTick: number, nowTick: number, kitId?: string): string {
   if (form === "Base") return "";
+  if (form === "Awakened" && formEndTick === 0 && kitId === "sv") return "Awakened \u00b7 choose one finisher";
   const t = cooldownLabel(formEndTick, nowTick);
   return t === "" ? "" : `${form} ${t}`;
 }
@@ -106,4 +108,45 @@ const KIT_DEFS: Readonly<Record<string, typeof SV_DEFS>> = { sv: SV_DEFS, td: TD
 export function equippedSkillNames(kitId: string, form: string): string[] {
   const defs = KIT_DEFS[kitId] ?? [];
   return [1, 2, 3, 4].map((slot) => shortSkillLabel(defs.find((d) => d.slot === slot && d.form === (form === "Awakened" ? "Awakened" : "Base"))?.label ?? ""));
+}
+
+/** Authoritative per-skill inputs for `skillAvailability` (all replicated values; nothing from local presses). */
+export interface SkillAvailabilityState {
+  /** Replicated `awakenedUsedMask`: bit (slot-1) set once an oncePerForm move was committed this form. */
+  usedMask: number;
+  /** Replicated `cooldownEndTicks[slot-1]`; 0 = ready. */
+  cooldownEndTick: number;
+  /** Replicated `moveId` of the current cast ("" when idle). */
+  activeMove: string;
+  /** Owner-only `chargeStartTick`; 0 = not charging. */
+  chargeStartTick: number;
+}
+export interface SkillAvailability { kind: "ready" | "cooldown" | "used" | "charging"; text: string; fraction: number }
+
+/** Ember Orb full-charge length in ticks (config chargeMaxTicks 180); the display percentage is floor(clamp((now-start)/180)*100). */
+export const CHARGE_DISPLAY_TICKS = 180;
+
+/**
+ * Honest button status. Precedence: Used (oncePerForm bit, except the move currently charging), Charge NN%, cooldown, Ready.
+ * "Used" persists through a miss or interruption until the server resets the form (mask cleared). Display only.
+ */
+export function skillAvailability(def: Pick<AbilityDef, "id" | "slot" | "oncePerForm" | "cooldown">, state: SkillAvailabilityState, nowTick: number): SkillAvailability {
+  const charging = state.chargeStartTick > 0 && state.activeMove === def.id;
+  const bit = def.slot ? 1 << (def.slot - 1) : 0;
+  if (def.oncePerForm && (state.usedMask & bit) !== 0 && !charging) return { kind: "used", text: "Used", fraction: 1 };
+  if (charging) {
+    const pct = Math.floor(Math.min(1, Math.max(0, (nowTick - state.chargeStartTick) / CHARGE_DISPLAY_TICKS)) * 100);
+    return { kind: "charging", text: `Charge ${pct}%`, fraction: pct / 100 };
+  }
+  const label = cooldownLabel(state.cooldownEndTick, nowTick);
+  if (label !== "") return { kind: "cooldown", text: label, fraction: cooldownFraction(state.cooldownEndTick, nowTick, def.cooldown) };
+  return { kind: "ready", text: "Ready", fraction: 0 };
+}
+
+/** While Ragdolled the Dash button is Escape (server: ragdoll age >= evasive.minRagdollAge, then the evasive cooldown). Null otherwise. */
+export function dashStatus(action: string, actionStartTick: number, evasiveEndTick: number, nowTick: number): { label: string; text: string } | null {
+  if (action !== "Ragdolled") return null;
+  if (nowTick - actionStartTick < COMBAT.evasive.minRagdollAge) return { label: "Escape", text: "Wait" };
+  const cd = cooldownLabel(evasiveEndTick, nowTick);
+  return { label: "Escape", text: cd === "" ? "Ready" : cd };
 }

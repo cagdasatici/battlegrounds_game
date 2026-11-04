@@ -3,7 +3,7 @@
  * all values shown (HP, meter) come from server snapshots supplied by the caller.
  */
 import type { ControlId, Layout, SafeRect } from "../input/ControlLayout.js";
-import { shortSkillLabel, skillStatus, type ScoreRow } from "./HudFormat.js";
+import { shortSkillLabel, skillStatus, type ScoreRow, type SkillAvailability } from "./HudFormat.js";
 
 export interface HudState {
   name: string;
@@ -20,6 +20,12 @@ export interface HudState {
   /** Four equipped short skill names for the current form. When given, skill buttons show name and readiness. */
   skills?: readonly string[];
   skillRoles?: readonly string[];
+  /** Authoritative per-slot status (ready/cooldown/used/charging); overrides `cooldowns` text when given. */
+  skillStates?: readonly SkillAvailability[];
+  /** Identity of each equipped move (kit|form|id); the ready pulse only fires for a cooldown ending on the same move. */
+  skillKeys?: readonly string[];
+  /** Ragdolled: Dash button shows Escape plus its authoritative readiness text. */
+  dash?: { label: string; text: string } | null;
   /** Per slot cooldown fraction, 0 = ready, 1 = just used (radial ring). */
   cooldownFracs?: readonly number[];
   reducedMotion?: boolean;
@@ -64,11 +70,14 @@ export function hudModel(layout: Layout, st: HudState): HudModel {
       round: c.shape === "circle", label: boxLabel(c.id, st, meterText),
     };
     const slot = c.id === "skill1" ? 0 : c.id === "skill2" ? 1 : c.id === "skill3" ? 2 : c.id === "skill4" ? 3 : -1;
+    if (c.id === "dash" && st.dash) { box.label = st.dash.label; box.sub = st.dash.text; box.ready = st.dash.text === "Ready"; }
     if (slot >= 0 && st.skills) {
-      const s = skillStatus(st.cooldowns?.[slot] ?? "");
+      const a = st.skillStates?.[slot];
+      const s = a ? { ready: a.kind === "ready", text: a.text } : skillStatus(st.cooldowns?.[slot] ?? "");
       box.label = `${slot + 1} ${shortSkillLabel(st.skills[slot] ?? "")}`.trim();
       const hint = st.skillRoles?.[slot]; if (hint !== undefined) box.hint = hint;
       box.sub = s.text; box.ready = s.ready;
+      if (a?.kind === "charging") box.hint = "Release to fire";
     }
     if (c.id === "block" && st.blocked) { box.label = "Blocked!"; box.ready = true; }
     return box;
@@ -111,6 +120,8 @@ export class Hud {
   private koRing: HTMLElement | null = null;
   private readonly koListener: (e: Event) => void;
   private prevFracs: number[] = [];
+  private prevKinds: string[] = [];
+  private prevKeys: string[] = [];
   private readonly pulseTimers = new Set<ReturnType<typeof setTimeout>>();
   private opacity = 1;
   private readonly kitListener: (e: Event) => void;
@@ -276,14 +287,18 @@ export class Hud {
 
   /** Radial cooldown sweep plus a 400 ms pulse when the slot becomes ready (display only). */
   private ring(el: HTMLElement, i: number, st: HudState): void {
-    const f = st.cooldownFracs?.[i] ?? 0;
+    const a = st.skillStates?.[i];
+    const f = a ? (a.kind === "cooldown" ? a.fraction : 0) : st.cooldownFracs?.[i] ?? 0;
+    const kind = a ? a.kind : f > 0 ? "cooldown" : "ready";
+    const key = st.skillKeys?.[i] ?? "";
     el.style.backgroundImage = f > 0 ? `conic-gradient(#0009 ${f * 360}deg, transparent 0)` : "";
-    if ((this.prevFracs[i] ?? 0) > 0 && f === 0 && st.reducedMotion !== true) {
+    // Pulse only when a cooldown on the same equipped move ends; never on form/kit/life switches or Used transitions.
+    if (this.prevKinds[i] === "cooldown" && kind === "ready" && this.prevKeys[i] === key && st.reducedMotion !== true) {
       el.classList.add("eb-ready-pulse");
       const t = setTimeout(() => { this.pulseTimers.delete(t); el.classList.remove("eb-ready-pulse"); }, 400);
       this.pulseTimers.add(t);
     }
-    this.prevFracs[i] = f;
+    this.prevFracs[i] = f; this.prevKinds[i] = kind; this.prevKeys[i] = key;
   }
 
   /** Control opacity from the layout editor (0.35 to 0.90); display only. */
@@ -313,6 +328,7 @@ export class Hud {
         );
         Object.assign(el.style, { flexDirection: "column", lineHeight: "1.15", fontSize: "10px", whiteSpace: "normal", textAlign: "center", overflow: "hidden", padding: "3px" });
         el.style.fontSize = b.width >= 64 ? "13px" : "10px";
+        el.dataset["state"] = b.sub;
         el.style.borderStyle = b.ready ? "solid" : "dashed";
         el.style.borderWidth = b.ready ? "3px" : "2px";
       } else {
