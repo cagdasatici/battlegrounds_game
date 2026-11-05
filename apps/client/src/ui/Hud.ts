@@ -385,7 +385,7 @@ export class Hud {
     }
     this.renderExtras(st);
     this.panel.style.display = m.panel ? "flex" : "none";
-    this.panel.textContent = m.panel === "rotate" ? "Turn your iPad sideways" : m.panel === "enlarge" ? "Enlarge the window to play" : "";
+    this.panel.textContent = m.panel === "rotate" ? "Turn your device sideways" : m.panel === "enlarge" ? "Enlarge the window to play" : "";
     return m;
   }
 
