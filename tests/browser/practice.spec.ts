@@ -104,6 +104,12 @@ test("Practice from Welcome: dummy room, server confirmed tutorial in order, tog
 
     const panel = page.locator("[data-ui=practice]");
     await expect(panel).toBeVisible();
+    // Hide to a chip (phones), then restore.
+    await panel.locator("[data-hide]").click();
+    await expect(panel.locator("[data-ui=practice-hint]")).toHaveCount(0);
+    await expect(panel.locator("[data-hide]")).toHaveText("Practice \u25B8");
+    await panel.locator("[data-hide]").click();
+    await expect(panel.locator("[data-ui=practice-hint]")).toBeVisible();
     await panel.locator("[data-expand]").click(); // GR11: the panel starts collapsed
     await expect(panel.locator("li")).toHaveCount(7);
     const s0 = await snap(page);

@@ -31,6 +31,9 @@ export class PracticePanel {
   private key = "";
   /** GR11: collapsed by default (title, hint, Expand); expanded configuration overlays the arena, never a modal. */
   private expanded = false;
+  /** Hidden to a small "Practice" chip so it stops covering the arena on small screens (phones). */
+  private hidden = false;
+  private readonly baseCss: string;
   private cur: PracticeState = { step: 0, skillMask: 0, dummyGuard: false, dummyRagdoll: false };
   /** Toggles as last requested by this person; rapid clicks build on each other until the server's value arrives. */
   private intent = { guard: false, ragdoll: false };
@@ -46,7 +49,9 @@ export class PracticePanel {
     this.root.style.cssText = "position:fixed;top:calc(max(8px,env(safe-area-inset-top)) + 46px);left:max(16px,env(safe-area-inset-left));z-index:" + LAYER.practice + ";"
       + "width:min(280px,30vw);max-height:46vh;overflow:auto;padding:8px 10px;border-radius:12px;box-sizing:border-box;"
       + "background:#0b1118d9;color:#fff;font:13px Inter,system-ui,sans-serif;pointer-events:auto";
+    this.baseCss = this.root.style.cssText;
     this.onClick = (e: Event): void => {
+      if ((e.target as HTMLElement | null)?.closest?.("button[data-hide]")) { this.hidden = !this.hidden; this.render(this.cur, true); return; }
       if ((e.target as HTMLElement | null)?.closest?.("button[data-expand]")) { this.expanded = !this.expanded; this.render(this.cur, true); return; }
       if ((e.target as HTMLElement | null)?.closest?.("button[data-moves]")) { this.onMoves(); return; }
       const drill = (e.target as HTMLElement | null)?.closest?.("button[data-drill]") as HTMLElement | null;
@@ -78,7 +83,7 @@ export class PracticePanel {
   }
 
   render(st: PracticeState, force = false): void {
-    const key = JSON.stringify([st, this.expanded]);
+    const key = JSON.stringify([st, this.expanded, this.hidden]);
     if (force) this.key = "";
     if (key === this.key) return;
     this.key = key;
@@ -86,9 +91,23 @@ export class PracticePanel {
     this.intent = { guard: st.dummyGuard, ragdoll: st.dummyRagdoll };
     const v = tutorialView(st.step, st.skillMask);
     this.root.replaceChildren();
+    const hide = this.doc.createElement("button");
+    hide.dataset["hide"] = "1";
+    if (this.hidden) {
+      // Chip only: no hint, no lessons. Tap to bring the panel back.
+      this.root.style.cssText = this.baseCss.replace(/width:[^;]*;/, "width:auto;").replace(/padding:[^;]*;/, "padding:0;").replace(/background:[^;]*;/, "background:transparent;");
+      hide.textContent = "Practice ▸"; hide.setAttribute("aria-label", "Show practice panel");
+      hide.style.cssText = "min-height:44px;padding:0 14px;border-radius:10px;border:1px solid #9fd3ff55;background:#0b1118d9;color:#fff;font:600 13px Inter,system-ui,sans-serif";
+      this.root.append(hide);
+      return;
+    }
+    this.root.style.cssText = this.baseCss;
     const title = this.doc.createElement("div");
-    title.textContent = "Practice";
-    title.style.cssText = "font:700 15px Inter,system-ui,sans-serif;margin-bottom:4px";
+    title.style.cssText = "font:700 15px Inter,system-ui,sans-serif;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between";
+    const titleText = this.doc.createElement("span"); titleText.textContent = "Practice";
+    hide.textContent = "✕"; hide.setAttribute("aria-label", "Hide practice panel");
+    hide.style.cssText = "min-width:44px;min-height:44px;margin:-8px -6px -8px 0;border:0;background:transparent;color:#fff;font:600 16px system-ui";
+    title.append(titleText, hide);
     this.root.append(title);
     const hint = this.doc.createElement("p");
     hint.dataset["ui"] = "practice-hint";
