@@ -26,6 +26,7 @@ describe("ControlLayout fixture (section 7)", () => {
       // iPhone landscape safe rects (phone cluster) and the narrow iPad edge.
       { x0: 0, y0: 0, W: 844, H: 390 }, { x0: 47, y0: 0, W: 750, H: 369 }, { x0: 0, y0: 0, W: 667, H: 375 },
       { x0: 59, y0: 0, W: 814, H: 409 }, { x0: 0, y0: 0, W: 560, H: 320 }, { x0: 0, y0: 0, W: 560, H: 600 },
+      { x0: 0, y0: 0, W: 844, H: 311 }, { x0: 0, y0: 0, W: 480, H: 290 }, { x0: 0, y0: 0, W: 700, H: 300 },
     ];
     for (const r of rects) {
       const l = computeLayout(r);
@@ -38,8 +39,8 @@ describe("ControlLayout fixture (section 7)", () => {
   });
   test("scale clamps and small windows are flagged", () => {
     expect(computeLayout({ x0: 0, y0: 0, W: 600, H: 600 }).s).toBe(0.78);
-    expect(computeLayout({ x0: 0, y0: 0, W: 559, H: 600 }).tooSmall).toBe(true);
-    expect(computeLayout({ x0: 0, y0: 0, W: 900, H: 319 }).tooSmall).toBe(true);
+    expect(computeLayout({ x0: 0, y0: 0, W: 479, H: 600 }).tooSmall).toBe(true);
+    expect(computeLayout({ x0: 0, y0: 0, W: 900, H: 289 }).tooSmall).toBe(true);
     expect(computeLayout({ x0: 0, y0: 0, W: 844, H: 390 }).tooSmall).toBe(false); // iPhone landscape is playable
     expect(computeLayout({ x0: 0, y0: 0, W: 3000, H: 3000 }).s).toBe(1.25);
   });
@@ -154,7 +155,7 @@ describe("PointerRouter ownership (section 8)", () => {
     expect(neutral).toBe(1);
     expect(s.sample(1)).toMatchObject({ moveX: 0, moveZ: 0, blockHeld: false });
     r.down({ pointerId: 4, x: 842, y: 563 });
-    r.setLayout(computeLayout({ x0: 0, y0: 0, W: 500, H: 400 }));
+    r.setLayout(computeLayout({ x0: 0, y0: 0, W: 400, H: 400 }));
     expect(r.activePointers).toBe(0);
     expect(r.down({ pointerId: 5, x: 100, y: 100 })).toBe(false); // too small: inputs disabled
     const n = s.neutral(2)!;
@@ -220,6 +221,6 @@ describe("Hud model", () => {
     expect(atk).toMatchObject({ left: 894, top: 540, width: 76, round: true });
     expect(m).toMatchObject({ panel: null, hpText: "72 / 100", meterPct: 50, awakenReady: false });
     expect(hudModel(L1024, { ...st, portrait: true }).panel).toBe("rotate");
-    expect(hudModel(computeLayout({ x0: 0, y0: 0, W: 500, H: 400 }), { ...st, meter: 1 })).toMatchObject({ panel: "enlarge", awakenReady: true });
+    expect(hudModel(computeLayout({ x0: 0, y0: 0, W: 400, H: 400 }), { ...st, meter: 1 })).toMatchObject({ panel: "enlarge", awakenReady: true });
   });
 });

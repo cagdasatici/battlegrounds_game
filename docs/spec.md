@@ -429,7 +429,7 @@ For W<900, use s from the formula and reduce the skill strip gap to 6s; rerun th
 safe width is below 700 or H below 420, show a rotate or enlarge window panel and release inputs.
 Conflict note (user requirement, 2026-11-05): iPhone landscape must be playable. Safe H below 560 uses a
 compact phone cluster (D values in ControlLayout computePhoneLayout); the enlarge panel now applies only
-below W 560 or H 320. This overrides the 700/420 gate above. Portrait
+below W 480 or H 290. This overrides the 700/420 gate above. Portrait
 is supported for lobby and settings; active combat shows “Turn your iPad sideways” and does not pretend
 that orientation can be forced. The avatar remains vulnerable until normal server timeout rules apply.
 Layout editor in Settings allows drag, size 0.85–1.30 times default, opacity 0.35–0.90, left hand mirror and

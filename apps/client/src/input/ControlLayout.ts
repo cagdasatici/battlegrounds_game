@@ -27,7 +27,7 @@ export interface ControlRect {
 export interface Layout {
   safe: SafeRect;
   s: number;
-  /** True when the safe rect is too small for combat (W<560 or H<320). */
+  /** True when the safe rect is too small for combat (W<480 or H<290). */
   tooSmall: boolean;
   controls: Record<ControlId, ControlRect>;
 }
@@ -103,7 +103,7 @@ export function computeLayout(safe: SafeRect): Layout {
   return { safe, s, tooSmall: tooSmallFor(W, H), controls };
 }
 
-const tooSmallFor = (W: number, H: number): boolean => W < 560 || H < 320;
+const tooSmallFor = (W: number, H: number): boolean => W < 480 || H < 290;
 
 /**
  * Phone landscape (user requirement: playable on iPhone; overrides the section 7 H>=420 gate). A tighter right
@@ -111,7 +111,9 @@ const tooSmallFor = (W: number, H: number): boolean => W < 560 || H < 320;
  */
 function computePhoneLayout(safe: SafeRect): Layout {
   const { x0, y0, W, H } = safe;
-  const u = clamp(H / 390, 0.8, 1);
+  const u = clamp(H / 390, 0.82, 1);
+  // Short browser viewports (iPhone with toolbars, ~300 px): sizes stop shrinking at u, vertical offsets keep compressing.
+  const v = clamp(H / 390, 0.66, 1);
   const mk = (
     id: ControlId, shape: "circle" | "rect", cx: number, cy: number, vw: number, vh: number, interactive = true,
   ): ControlRect => ({
@@ -120,20 +122,20 @@ function computePhoneLayout(safe: SafeRect): Layout {
     hh: interactive ? Math.max(vh, MIN_TARGET_PX) : 0,
     interactive,
   });
-  const atkX = W - 80 * u, atkY = H - 80 * u, arcR = 170 * u, skillD = 56 * u;
+  const atkX = W - 80 * u, atkY = H - 80 * v, arcR = 170 * u, skillD = 56 * u;
   const skill = (i: 1 | 2 | 3 | 4) => {
     const th = (10 + (i - 1) * 28) * Math.PI / 180;
-    return mk(`skill${i}`, "circle", atkX - arcR * Math.sin(th), atkY - arcR * Math.cos(th), skillD, skillD);
+    return mk(`skill${i}`, "circle", atkX - arcR * Math.sin(th), atkY - arcR * (v / u) * Math.cos(th), skillD, skillD);
   };
-  const top = 30 * u;
+  const top = Math.max(30 * v, MIN_TARGET_PX / 2 + 4);
   const sbX = W - 32 * u;
   const controls: Record<ControlId, ControlRect> = {
-    joystick: mk("joystick", "circle", 90 * u, H - 90 * u, 120 * u, 120 * u),
+    joystick: mk("joystick", "circle", 90 * u, H - 90 * v, 120 * u, 120 * u),
     attack: mk("attack", "circle", atkX, atkY, 72 * u, 72 * u),
-    jump: mk("jump", "circle", W - 172 * u, H - 40 * u, 56 * u, 56 * u),
-    dash: mk("dash", "circle", W - 40 * u, H - 178 * u, 56 * u, 56 * u),
-    block: mk("block", "circle", W - 146 * u, H - 156 * u, 56 * u, 56 * u),
-    facing: mk("facing", "circle", W - 36 * u, H - 252 * u, 48, 48),
+    jump: mk("jump", "circle", W - 172 * u, H - 40 * v, 56 * u, 56 * u),
+    dash: mk("dash", "circle", W - 40 * u, H - 178 * v, 56 * u, 56 * u),
+    block: mk("block", "circle", W - 140 * u, H - 150 * v, 56 * u, 56 * u),
+    facing: mk("facing", "circle", W - 32 * u, H - 256 * v, 48, 48),
     skill1: skill(1), skill2: skill(2), skill3: skill(3), skill4: skill(4),
     // Centred under the health bar so the left hand mirror leaves both in place.
     awaken: mk("awaken", "rect", W / 2, top + 14 * u + MIN_GAP_PX + MIN_TARGET_PX / 2, 160 * u, 44),
