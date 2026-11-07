@@ -114,6 +114,7 @@ test.each(["easy", "medium", "hard"] as const)("%s ordinary combat, interruption
   await waitFor(() => room.sim.tick > room.combat.get(human)!.protectedUntilTick + 2, 4000);
   place(room, bot, 0, 0); place(room, human, 0, -1.5);
   room.combat.get(human)!.hp100 = 100;
+  (room as unknown as { regenDelayTicks: number }).regenDelayTicks = 1e9;
   applyReaction(room.combat.get(bot)!, room.sim.tick, { kind: "stun", ticks: 40 }, false);
   const start = room.sim.tick;
   await sleep(250);

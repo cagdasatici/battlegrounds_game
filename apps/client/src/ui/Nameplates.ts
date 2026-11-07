@@ -66,7 +66,13 @@ export class Nameplates {
       e.el.style.left = `${out.left + o.x}px`;
       e.el.style.top = `${out.top + o.y}px`;
       if (out.kind === "plate") {
-        if (e.label && e.label.textContent !== out.name) e.label.textContent = out.name;
+        if (e.label) {
+          const bot = /^Bot \d/.test(out.name);
+          const text = bot ? `\u{1F916} ${out.name}` : out.name;
+          if (e.label.textContent !== text) e.label.textContent = text;
+          e.label.style.color = bot ? "#ff7043" : "#fff";
+          e.el.style.filter = bot ? "drop-shadow(0 0 4px #ff3d00)" : "";
+        }
         if (e.fill) {
           const f = Math.max(0, Math.min(1, out.hpFrac));
           e.fill.style.width = `${f * 100}%`;

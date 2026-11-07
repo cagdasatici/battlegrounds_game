@@ -1,6 +1,7 @@
 import type { Client } from "colyseus";
 import { JoinOptionsSchema } from "@eb/shared/protocol";
 import { TEAM_PLAY, teamBotCount } from "@eb/shared/config/teamPlay";
+import { COMBAT } from "@eb/shared/config/combat";
 import { BotArenaRoom } from "./BotArenaRoom.js";
 import { sparringAuthId, sparringPrincipal } from "../http/sparringRoutes.js";
 import { originOk } from "../http/securityHeaders.js";
@@ -10,10 +11,29 @@ export class SparringRoom extends BotArenaRoom {
   private teamPlay = false;
   private teamStartTick = 0;
   private isBot(id: number): boolean { return [...this.bots.values()].some((b) => b.entityId === id); }
-  protected override isFriendly(a: number, t: number): boolean { return this.teamPlay && this.isBot(a) === this.isBot(t); }
+  protected override isFriendly(a: number, t: number): boolean { return this.teamPlay && this.isBot(a) && this.isBot(t); }
   protected override botsNeverWander(): boolean { return this.teamPlay; }
   protected override botTargetAllowed(id: number): boolean { return !this.teamPlay || !this.isBot(id); }
+  /** Out-of-combat regen for every fighter in hosted sparring; tick based, driven by observed HP drops. */
+  /** Test seam: ticks without damage before regen starts. */
+  regenDelayTicks: number = TEAM_PLAY.regenDelayTicks;
+  private readonly regen = new Map<number, { hp: number; hurtTick: number }>();
+  private regenStep(tick: number): void {
+    for (const p of this.state.players.values()) {
+      const f = this.combat.get(p.entityId);
+      if (!f) continue;
+      const r = this.regen.get(p.entityId) ?? { hp: f.hp100, hurtTick: tick };
+      if (f.hp100 < r.hp || f.lifeId !== (r as { life?: number }).life) r.hurtTick = tick;
+      (r as { life?: number }).life = f.lifeId;
+      if (f.hp100 < COMBAT.hp100Max && tick - r.hurtTick >= this.regenDelayTicks && (tick - r.hurtTick) % TEAM_PLAY.regenIntervalTicks === 0) {
+        this.combat.heal(f, TEAM_PLAY.regenAmount100, "regen", tick);
+      }
+      r.hp = f.hp100;
+      this.regen.set(p.entityId, r);
+    }
+  }
   protected override beforeDrain(tick: number): void {
+    this.regenStep(tick);
     if (this.teamPlay) {
       const want = teamBotCount(tick - this.teamStartTick);
       if (this.bots.size < want) this.addBots(Array(want - this.bots.size).fill(TEAM_PLAY.startDifficulty), this.bots.size);

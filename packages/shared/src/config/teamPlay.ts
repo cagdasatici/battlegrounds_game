@@ -1,6 +1,10 @@
 /** Team play (decision 0060, D value): humans form one team against a bot team that ramps up over time. All timers are integer ticks. */
 export const TEAM_PLAY = {
-  maxHumans: 2,
+  maxHumans: 3,
+  /** Out-of-combat regen: starts after 2 s without damage, then 2.5 HP every 30 ticks (5 HP/s). */
+  regenDelayTicks: 120,
+  regenIntervalTicks: 30,
+  regenAmount100: 250,
   startBots: 2,
   maxBots: 4,
   startDifficulty: "easy",

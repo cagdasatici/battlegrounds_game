@@ -30,7 +30,7 @@ export function mountSparringSetup(root: HTMLElement, actions: SparringSetupActi
   controls.append(listedLabel);
   const teamLabel = doc.createElement("label");
   const teamBox = doc.createElement("input"); teamBox.type = "checkbox"; teamBox.style.minHeight = "24px"; teamBox.dataset["teamPlay"] = "1";
-  teamLabel.append(teamBox, "Team play: up to 2 friends vs bots (2 easy bots, growing to 4)");
+  teamLabel.append(teamBox, "Team play: up to 3 players vs bots (2 easy bots, growing to 4)");
   controls.append(teamLabel);
   const roundLabel = doc.createElement("label"); roundLabel.append("Round length");
   const roundSelect = doc.createElement("select"); roundSelect.dataset["roundTarget"] = "1";
