@@ -229,6 +229,7 @@ test("QA01: simultaneous hits, reconnect during a cast, KO agreement, guest leav
   a.send("ready", { kitId: "sv", contentHash: hash }); b.send("ready", { kitId: "td", contentHash: hash });
   await waitFor(() => players(a).size === 2 && [...players(a).values()].every(p => p.ready) && [...players(b).values()].every(p => p.ready));
   const room = live(a);
+  (room as unknown as { humansProtected: boolean }).humansProtected = false; // this test exercises human-vs-human resolution
   const idOf = (r: Room, name: string) => [...players(r).values()].find(p => p.displayName === name)!.entityId as number;
   const hostId = idOf(a, "Host"), guestId = idOf(a, "Guest");
   await waitFor(() => [...room.combat.all()].every(f => room.sim.tick > f.protectedUntilTick + 2), 6000, "spawn protection");
@@ -299,3 +300,20 @@ test("QA01: simultaneous hits, reconnect during a cast, KO agreement, guest leav
   expect([...players(a2).values()].every(p => p.kills === 0 && p.deaths === 0)).toBe(true);
   await owner.api("/api/sparring/end", { roomCode });
 }, 40000);
+
+test("humans cannot damage each other in hosted sparring", async () => {
+  const owner = await host([]), a = await owner.join(), g = await guest(owner), b = await join(g.api, owner.code);
+  a.send("ready", { kitId: "sv", contentHash: hash }); b.send("ready", { kitId: "td", contentHash: hash });
+  await waitFor(() => players(a).size === 2 && [...players(a).values()].every(p => p.ready));
+  const room = live(a);
+  const hostId = [...players(a).values()].find(p => p.displayName === "Host")!.entityId as number;
+  const guestId = [...players(a).values()].find(p => p.displayName === "Guest")!.entityId as number;
+  await waitFor(() => [...room.combat.all()].every(f => room.sim.tick > f.protectedUntilTick + 2), 6000, "spawn protection");
+  place(room, hostId, 0, 0); place(room, guestId, 0, -1.5);
+  room.movement!.get(hostId)!.state.facingYaw = 0;
+  const epoch = (room as unknown as { seats: Map<string, { input: { epoch: number } }> }).seats.get(a.sessionId)!.input.epoch;
+  for (let i = 1; i <= 40; i++) { a.send("input", { v: 1, epoch, seq: i, sampleTick: 0, moveX: 0, moveZ: 0, yaw: 0, pitch: 0, attackHeld: true, blockHeld: false, jumpHeld: false, runHeld: false, chargeHeldSlot: 0, edges: [] }); await sleep(33); }
+  expect(players(a).get(String(guestId)).hp100).toBe(10000);
+  expect(players(a).get(String(hostId)).hp100).toBe(10000);
+  await owner.api("/api/sparring/end", { roomCode: owner.code });
+}, 20000);

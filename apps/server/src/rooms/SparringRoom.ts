@@ -9,9 +9,12 @@ import { originOk } from "../http/securityHeaders.js";
 /** Private hosted FFA. Humans retain ordinary transport seats; bots never have synthetic clients. */
 export class SparringRoom extends BotArenaRoom {
   private teamPlay = false;
+  /** Humans cannot damage each other in hosted sparring. Test seam only. */
+  humansProtected = true;
   private teamStartTick = 0;
   private isBot(id: number): boolean { return [...this.bots.values()].some((b) => b.entityId === id); }
-  protected override isFriendly(a: number, t: number): boolean { return this.teamPlay && this.isBot(a) && this.isBot(t); }
+  /** Hosted sparring: humans never damage each other; in team play bots do not damage bots either. */
+  protected override isFriendly(a: number, t: number): boolean { return (this.isBot(a) ? this.teamPlay && this.isBot(t) : this.humansProtected && !this.isBot(t)); }
   protected override botsNeverWander(): boolean { return this.teamPlay; }
   protected override botTargetAllowed(id: number): boolean { return !this.teamPlay || !this.isBot(id); }
   /** Out-of-combat regen for every fighter in hosted sparring; tick based, driven by observed HP drops. */
