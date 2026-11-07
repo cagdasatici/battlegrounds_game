@@ -19,6 +19,7 @@ import type { ClockSync } from "../net/ClockSync.js";
 import type { CameraRig, Framed } from "../scene/CameraRig.js";
 import type { LoopProjectile } from "../scene/ProjectileViews.js";
 import type { LoopUrn } from "../scene/UrnViews.js";
+import type { LoopBeast } from "../scene/BeastView.js";
 import type { GameScene } from "../scene/GameScene.js";
 
 /** Replicated public record, as read from room.state.players (centimetres, quantized yaw). */
@@ -41,7 +42,7 @@ export interface LoopPlayer {
   /** Present only on the local player (owner-only view, decision 0007). */
   owner?: ({ ackInputTick: number; epoch: number } & Partial<OwnerLoco>) | undefined;
 }
-export interface LoopState { serverTick: number; players: Iterable<[string, LoopPlayer]>; projectiles?: Iterable<[string, LoopProjectile]>; urns?: Iterable<[string, LoopUrn]> }
+export interface LoopState { serverTick: number; players: Iterable<[string, LoopPlayer]>; projectiles?: Iterable<[string, LoopProjectile]>; urns?: Iterable<[string, LoopUrn]>; beast?: LoopBeast }
 
 export interface LoopDeps {
   scene: GameScene;
@@ -142,6 +143,7 @@ export class GameLoop {
     this.framing = null;
     this.d.scene.projectiles.clear();
     this.d.scene.urns.clear();
+    this.d.scene.beast.clear();
     this.prediction = null;
   }
 
@@ -215,6 +217,7 @@ export class GameLoop {
 
   private syncState(st: LoopState, est: number | null): void {
     this.d.scene.projectiles.sync(st.projectiles ?? [], st.serverTick, est ?? st.serverTick);
+    this.d.scene.beast.sync(st.beast, st.serverTick);
     // `st.players` may be a one-shot iterator: materialize it once and reuse below.
     const players = [...st.players];
     st = { ...st, players };

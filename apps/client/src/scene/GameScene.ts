@@ -17,6 +17,7 @@ import { makeToonRamp } from "./FighterModel.js";
 import { FighterView } from "./FighterView.js";
 import { ProjectileViews } from "./ProjectileViews.js";
 import { UrnViews } from "./UrnViews.js";
+import { BeastView } from "./BeastView.js";
 import { SnapshotBuffer } from "../net/SnapshotBuffer.js";
 
 export type Quality = "low" | "medium" | "high";
@@ -85,6 +86,8 @@ export class GameScene {
   readonly effects = new EffectsPool();
   readonly projectiles = new ProjectileViews(this.scene, this.effects);
   readonly urns = new UrnViews(this.scene);
+  /** BEAST01: the sparring beast presentation. */
+  readonly beast = new BeastView(this.scene);
   private readonly contacts = new Map<string, Mesh<PlaneGeometry, MeshBasicMaterial>>();
   private readonly contactTexture = makeContactTexture();
   private geometries = new Set<BufferGeometry>();
@@ -319,6 +322,7 @@ export class GameScene {
     this.effects.discardTransient();
     this.projectiles.clear();
     this.urns.clear();
+    this.beast.clear();
     this.clearRemoteBuffers();
   }
 
@@ -340,6 +344,8 @@ export class GameScene {
     }
     this.effects.update(dtSec);
     this.urns.update(dtSec);
+    this.beast.setViewer(this.camera.position);
+    this.beast.update(dtSec);
     this.arena.sky.position.copy(this.camera.position);
     if (!this.reducedMotion) {
       this.arena.clouds.rotation.y += dtSec * 0.003;
@@ -362,6 +368,7 @@ export class GameScene {
     this.effects.dispose();
     this.projectiles.dispose();
     this.urns.dispose();
+    this.beast.dispose();
     for (const g of this.geometries) g.dispose();
     for (const m of this.materials) m.dispose();
     if (this.env) {

@@ -250,3 +250,11 @@ Findings: [full review](reviews/full-game-review.md). Execution packets: [game i
 | GR15b | Confirmed-block practice lesson | GR15a | IMPLEMENTED, DEVICE CHECK PENDING | b576148 | docs/test-results/GR15b.md |
 | GR15c | Telegraph-evasion practice lesson | GR15b | IMPLEMENTED, DEVICE CHECK PENDING | b9a9ea4 | docs/test-results/GR15c.md |
 | GR15d | Current contract index and physical acceptance | GR00–GR14 GR15a–c QD01 | BLOCKED: two physical iPads and two human players unavailable | | docs/test-results/GR15d.md; docs/current-contract.md |
+
+## Sparring beast (2026-11-07)
+
+Owner request: a very large character (5.5x height and width) that appears in sparring after a while, has much more HP, can hit and throw humans but never over an edge, and is fun rather than hard. Decision: [docs/decisions/beast-BEAST01.md](decisions/beast-BEAST01.md). The beast is a server controlled sparring enemy, not a fourth playable fighter, so the three fighter scope is unchanged.
+
+| Task | Title | Depends on | Status | Commit | Test report |
+|---|---|---|---|---|---|
+| BEAST01 | Larger arena and the sparring beast | GR15c | IMPLEMENTED, DEVICE CHECK PENDING | see git log; iPad NOT RUN | docs/test-results/BEAST01.md |

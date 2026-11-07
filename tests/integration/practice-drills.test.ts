@@ -229,7 +229,7 @@ describe("GR15b confirmed-block lesson (real clients)", () => {
     await waitFor(() => state(pr) === "idle", 3000, "exit");
     expect(seatOf(pr)).toBeNull();
     const home = pr.server.movement!.position(pr.server.dummyId)!;
-    expect([Math.round(home[0]), Math.round(home[2])]).toEqual([0, -1]); // exit restores the dummy's home point
+    expect([Math.round(home[0]) + 0, Math.round(home[2])]).toEqual([0, -1]); // exit restores the dummy's home point
     const until = pr.server.sim.tick + 400;
     await waitFor(() => pr.server.sim.tick > until, 8000, "wait past a full schedule");
     expect(pr.me().hp100).toBe(10000);

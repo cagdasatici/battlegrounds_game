@@ -103,9 +103,9 @@ describe("server Rapier world", () => {
     }
   });
   test("bridges are walkable mid span and the gap beside them is void", () => {
-    expect(w.groundHeight(27, 0)).toBeCloseTo(0, 4);
-    expect(w.groundHeight(0, -23)).toBeCloseTo(0, 4);
-    expect(w.groundHeight(27, 3)).toBeNull();
+    expect(w.groundHeight(39, 0)).toBeCloseTo(0, 4);
+    expect(w.groundHeight(0, -33)).toBeCloseTo(0, 4);
+    expect(w.groundHeight(39, 3)).toBeNull();
   });
   test("pillar blocks a capsule; step is fixed 1/60 s; dispose is idempotent", async () => {
     expect(w.capsuleOverlaps([12, 0.9, 10], 0.35, 0.55)).toContain("pillar.3");

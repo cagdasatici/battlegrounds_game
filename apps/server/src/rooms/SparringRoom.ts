@@ -5,6 +5,12 @@ import { COMBAT } from "@eb/shared/config/combat";
 import { BotArenaRoom } from "./BotArenaRoom.js";
 import { sparringAuthId, sparringPrincipal } from "../http/sparringRoutes.js";
 import { originOk } from "../http/securityHeaders.js";
+import { BEAST, BEAST_ENTITY_ID } from "@eb/shared/config/beast";
+import { BeastSystem, type BeastHuman } from "../sim/BeastSystem.js";
+import { botRandom } from "../sim/SparringBrain.js";
+import { isAlive } from "../sim/ActionMachine.js";
+import type { HitCandidate, HitResult } from "../sim/HitResolver.js";
+import type { PipelineSeat } from "../sim/TickPipeline.js";
 
 /** Private hosted FFA. Humans retain ordinary transport seats; bots never have synthetic clients. */
 export class SparringRoom extends BotArenaRoom {
@@ -14,8 +20,39 @@ export class SparringRoom extends BotArenaRoom {
   private teamStartTick = 0;
   private tierIdx = 0; private tierWindowStart = 0; private lastHumanDeaths = 0; private lastBotDeaths = 0;
   private isBot(id: number): boolean { return [...this.bots.values()].some((b) => b.entityId === id); }
-  /** Hosted sparring: humans never damage each other; in team play bots do not damage bots either. */
-  protected override isFriendly(a: number, t: number): boolean { return (this.isBot(a) ? this.teamPlay && this.isBot(t) : this.humansProtected && !this.isBot(t)); }
+  /** BEAST01: the sparring beast. Created in onCreate; spawns on its own schedule. */
+  beast!: BeastSystem;
+  private beastRound = 1;
+  /** Test seam: false keeps the beast away entirely. */
+  beastEnabled = true;
+  private humanList(): BeastHuman[] {
+    const out: BeastHuman[] = [];
+    const mv = this.movement;
+    for (const p of this.state.players.values()) {
+      if (this.isBot(p.entityId) || !p.connected) continue;
+      const f = this.combat.get(p.entityId), pos = mv?.position(p.entityId);
+      if (!f || !pos || !isAlive(f)) continue;
+      out.push({ id: p.entityId, x: pos[0], y: pos[1], z: pos[2], grounded: mv!.get(p.entityId)?.state.grounded ?? false });
+    }
+    return out;
+  }
+  protected override pipelineSeats(): ReadonlyMap<string, PipelineSeat> {
+    const seats = super.pipelineSeats();
+    if (!this.beast?.active) return seats;
+    return new Map<string, PipelineSeat>([...seats, ["beast", this.beast.seat]]);
+  }
+  protected override extraCandidates(tick: number): readonly HitCandidate[] { return this.beast?.candidates(tick) ?? []; }
+  protected override extraLaunches(tick: number, results: readonly HitResult[]) { return this.beast?.launches(tick, results) ?? []; }
+  protected override discardCandidate(c: HitCandidate): boolean { return BeastSystem.capturesBeast(c); }
+  protected override hurtboxOf(id: number) {
+    return id === BEAST_ENTITY_ID && this.beast?.active ? { hurtRadius: BEAST.hurtRadius, hurtHalfHeight: BEAST.hurtHalfHeight } : null;
+  }
+  /** Hosted sparring: humans never damage each other; in team play bots do not damage bots either. The beast fights humans only. */
+  protected override isFriendly(a: number, t: number): boolean {
+    if (a === BEAST_ENTITY_ID) return this.isBot(t);
+    if (t === BEAST_ENTITY_ID) return this.isBot(a);
+    return (this.isBot(a) ? this.teamPlay && this.isBot(t) : this.humansProtected && !this.isBot(t));
+  }
   protected override botsNeverWander(): boolean { return this.teamPlay; }
   protected override botTargetAllowed(id: number): boolean { return !this.teamPlay || !this.isBot(id); }
   /** Out-of-combat regen for every fighter in hosted sparring; tick based, driven by observed HP drops. */
@@ -37,6 +74,10 @@ export class SparringRoom extends BotArenaRoom {
     }
   }
   protected override beforeDrain(tick: number): void {
+    if (this.beast) {
+      if (this.state.roundNumber !== this.beastRound) { this.beastRound = this.state.roundNumber; this.beast.reset(tick); }
+      else if (this.beastEnabled) this.beast.update(tick);
+    }
     this.regenStep(tick);
     if (this.teamPlay) {
       const want = teamBotCount(tick - this.teamStartTick);
@@ -63,6 +104,12 @@ export class SparringRoom extends BotArenaRoom {
     this.autoDispose = false;
     this.roundTarget = info.roundTarget;
     this.teamStartTick = this.sim.tick; this.tierWindowStart = this.sim.tick;
+    const seed = this.roomEpoch & 0x7fffffff;
+    this.beast = new BeastSystem({
+      state: this.state.beast, combat: this.combat, respawns: this.respawns, movement: () => this.movement, world: () => this.world,
+      nextLifeId: () => ++this.lifeSeq, registerOccupant: (id) => this.registerOccupant(id), releaseOccupant: (id) => this.releaseOccupant(id),
+      humans: () => this.humanList(), rand: (index, salt) => botRandom(seed, 0, index, salt),
+    }, this.sim.tick);
     this.addBots(info.bots);
     this.maxClients = info.teamPlay ? TEAM_PLAY.maxHumans : 4 - info.bots.length;
   }

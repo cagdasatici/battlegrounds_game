@@ -51,6 +51,12 @@ export interface TickPipelineDeps {
   beforeDrain?: (tick: number) => void;
   /** Seatless simulated entities (practice dummy): body and action are published, no owner record. */
   extraBodies?: () => readonly number[];
+  /** BEAST01: server driven hit candidates that do not come from a kit (the sparring beast). */
+  extraCandidates?: (tick: number) => readonly HitCandidate[];
+  /** BEAST01: launches for the extra candidates' results, applied with the kit launches. */
+  extraLaunches?: (tick: number, results: readonly HitResult[]) => readonly { targetId: number; vx: number; vy: number; vz: number }[];
+  /** BEAST01: true discards a candidate before resolution (captures cannot target the beast). */
+  discard?: (c: HitCandidate) => boolean;
   /** Team play: hits between teammates are discarded before resolution. */
   friendly?: (attackerId: number, targetId: number) => boolean;
   poseOf: (id: number) => M1Pose | undefined;
@@ -257,12 +263,14 @@ export class TickPipeline {
       ...this.d.abilities.collect(tick),
       ...(this.d.projectiles?.collect(tick) ?? []),
       ...this.d.awakening.collect(tick),
+      ...(this.d.extraCandidates?.(tick) ?? []),
     ];
   }
 
   private resolve(tick: number): void {
     const friendly = this.d.friendly;
-    const live = friendly ? this.candidates.filter((c) => c.attackerId === c.targetId || !friendly(c.attackerId, c.targetId)) : this.candidates;
+    const kept = this.d.discard ? this.candidates.filter((c) => !this.d.discard!(c)) : this.candidates;
+    const live = friendly ? kept.filter((c) => c.attackerId === c.targetId || !friendly(c.attackerId, c.targetId)) : kept;
     this.results = this.d.combat.resolve(tick, live, (id) => {
       const q = this.d.poseOf(id);
       return q && { x: q.x, z: q.z, facingYaw: q.facingYaw, grounded: q.grounded };
@@ -289,7 +297,7 @@ export class TickPipeline {
     for (const r of results) {
       if ((r.outcome === "hit" && r.damage100 > 0) || r.outcome === "captured") this.d.urns?.drop(r.candidate.targetId);
     }
-    const launches = [...m1.launches(tick, results, (id) => combat.get(id), (id) => this.d.poseOf(id)), ...abilities.launches(tick, results)];
+    const launches = [...m1.launches(tick, results, (id) => combat.get(id), (id) => this.d.poseOf(id)), ...abilities.launches(tick, results), ...(this.d.extraLaunches?.(tick, results) ?? [])];
     for (const l of launches) {
       const b = this.d.movement()?.get(l.targetId);
       if (!b) continue;

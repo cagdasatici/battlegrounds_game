@@ -14,9 +14,9 @@
         0
       ],
       "halfExtents": [
-        24,
+        36,
         2.5,
-        16
+        26
       ]
     },
     {
@@ -29,9 +29,9 @@
         0
       ],
       "halfExtents": [
-        20,
+        32,
         2.5,
-        20
+        30
       ]
     },
     {
@@ -39,9 +39,9 @@
       "role": "ground",
       "shape": "cylinder",
       "centre": [
-        -20,
+        -32,
         -2.5,
-        -16
+        -26
       ],
       "radius": 4,
       "halfHeight": 2.5
@@ -51,9 +51,9 @@
       "role": "ground",
       "shape": "cylinder",
       "centre": [
-        20,
+        32,
         -2.5,
-        -16
+        -26
       ],
       "radius": 4,
       "halfHeight": 2.5
@@ -63,9 +63,9 @@
       "role": "ground",
       "shape": "cylinder",
       "centre": [
-        -20,
+        -32,
         -2.5,
-        16
+        26
       ],
       "radius": 4,
       "halfHeight": 2.5
@@ -75,9 +75,9 @@
       "role": "ground",
       "shape": "cylinder",
       "centre": [
-        20,
+        32,
         -2.5,
-        16
+        26
       ],
       "radius": 4,
       "halfHeight": 2.5
@@ -87,7 +87,7 @@
       "role": "ground",
       "shape": "cuboid",
       "centre": [
-        -36,
+        -48,
         -2.5,
         0
       ],
@@ -102,7 +102,7 @@
       "role": "bridge",
       "shape": "cuboid",
       "centre": [
-        -27,
+        -39,
         -0.25,
         0
       ],
@@ -117,7 +117,7 @@
       "role": "guardrail",
       "shape": "cuboid",
       "centre": [
-        -41.9,
+        -53.9,
         0.5,
         0
       ],
@@ -132,7 +132,7 @@
       "role": "ground",
       "shape": "cuboid",
       "centre": [
-        36,
+        48,
         -2.5,
         0
       ],
@@ -147,7 +147,7 @@
       "role": "bridge",
       "shape": "cuboid",
       "centre": [
-        27,
+        39,
         -0.25,
         0
       ],
@@ -162,7 +162,7 @@
       "role": "guardrail",
       "shape": "cuboid",
       "centre": [
-        41.9,
+        53.9,
         0.5,
         0
       ],
@@ -179,7 +179,7 @@
       "centre": [
         0,
         -2.5,
-        -32
+        -42
       ],
       "halfExtents": [
         6,
@@ -194,7 +194,7 @@
       "centre": [
         0,
         -0.25,
-        -23
+        -33
       ],
       "halfExtents": [
         2,
@@ -209,7 +209,7 @@
       "centre": [
         0,
         -2.5,
-        32
+        42
       ],
       "halfExtents": [
         6,
@@ -224,7 +224,7 @@
       "centre": [
         0,
         -0.25,
-        23
+        33
       ],
       "halfExtents": [
         2,
@@ -359,7 +359,7 @@
     {
       "id": 4,
       "position": [
-        -34,
+        -46,
         0,
         -3
       ]
@@ -367,7 +367,7 @@
     {
       "id": 5,
       "position": [
-        34,
+        46,
         0,
         -3
       ]
@@ -375,7 +375,7 @@
     {
       "id": 6,
       "position": [
-        -34,
+        -46,
         0,
         3
       ]
@@ -383,7 +383,7 @@
     {
       "id": 7,
       "position": [
-        34,
+        46,
         0,
         3
       ]
@@ -455,5 +455,5 @@
       ]
     }
   ],
-  "contentHash": "6361e0b51fe4a072"
+  "contentHash": "9a80341aa55229b2"
 }

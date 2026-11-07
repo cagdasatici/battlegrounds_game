@@ -24,12 +24,12 @@ const length = (nodes: number[]) => nodes.slice(1).reduce((s, n, i) => {
   const [ax, az] = grid.xz(nodes[i]!), [bx, bz] = grid.xz(n); return s + Math.hypot(bx - ax, bz - az);
 }, 0);
 
-test("grid covers 85 x 77 candidates and rejects void, rails and obstacle cells", () => {
-  expect(grid.size).toBe(6545);
+test("grid covers 113 x 101 candidates and rejects void, rails and obstacle cells", () => {
+  expect(grid.size).toBe(11413);
   expect(grid.validCount()).toBeGreaterThan(2000);
   const at = (x: number, z: number) => grid.valid(grid.index(x - NAV.minX, z - NAV.minZ));
-  for (const [x, z] of [[-12, -10], [12, 10], [-10, 0], [10, 0], [42, 0], [-42, 0], [50 - 20, 30]] as const) expect(at(x, z), `${x},${z}`).toBe(false);
-  for (const [x, z] of [[0, 0], [0, -26], [-27, 0], [41, 0], [-36, 5]] as const) expect(at(x, z), `${x},${z}`).toBe(true);
+  for (const [x, z] of [[-12, -10], [12, 10], [-10, 0], [10, 0], [54, 0], [-54, 0], [50, 30]] as const) expect(at(x, z), `${x},${z}`).toBe(false);
+  for (const [x, z] of [[0, 0], [0, -26], [-27, 0], [53, 0], [-48, 5]] as const) expect(at(x, z), `${x},${z}`).toBe(true);
 });
 
 const blocked: Array<[string, [number, number], [number, number], number]> = [

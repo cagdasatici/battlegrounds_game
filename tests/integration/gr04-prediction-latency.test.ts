@@ -57,6 +57,10 @@ async function scenario(rttMs: number): Promise<void> {
     const aId = view().entityId as number;
     await waitFor(() => room.sim.tick > room.combat.get(aId)!.protectedUntilTick + 2 && room.movement!.get(aId)!.state.grounded, 8000, "settled");
     await sleep(150);
+    // BEAST01: the spawn deck moved out; start where the old run began (34, 3), now on the enlarged main island.
+    room.movement!.add(aId, [34, 0.9 + (room.world!.groundHeight(34, 3) ?? 0), 3]);
+    await waitFor(() => room.movement!.get(aId)!.state.grounded, 8000, "replaced");
+    await sleep(150);
     const seat = [...(room as unknown as { seats: Map<string, SeatLike> }).seats.values()].find((s) => s.entityId === aId)!;
     const body = room.movement!.get(aId)!;
 

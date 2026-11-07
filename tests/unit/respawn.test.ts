@@ -22,11 +22,11 @@ const pt = (x: number, z: number): Pt => ({ x, z });
 
 describe("A18 deterministic spawn choice (pure)", () => {
   test("picks the valid anchor farthest from the nearest living enemy; ties go to the lowest anchor id", () => {
-    // Enemy at anchor 0 (-18,-14): farthest anchor is id 7 (34,3).
+    // Enemy at anchor 0 (-18,-14): farthest anchor is id 7 (46,3).
     expect(pickSpawn(anchors, [pt(-18, -14)], [], [pt(-18, -14)])).toMatchObject({ valid: true, anchor: { id: 7 } });
     // No enemies: every distance is infinite, lowest id wins.
     expect(pickSpawn(anchors, [], [], []).anchor.id).toBe(0);
-    // Mirror symmetric enemy at the centre: all anchors on the +-18 ring tie only with equals; id 4 (-34,-3) is farthest first.
+    // Mirror symmetric enemy at the centre: all anchors on the +-18 ring tie only with equals; id 4 (-46,-3) is farthest first.
     const centre = pickSpawn(anchors, [pt(0, 0)], [], [pt(0, 0)]);
     expect(centre.anchor.id).toBe(4);
     expect(pickSpawn(anchors, [pt(0, 0)], [], [pt(0, 0)]).anchor.id).toBe(centre.anchor.id); // repeatable
@@ -34,13 +34,13 @@ describe("A18 deterministic spawn choice (pure)", () => {
 
   test("rejects anchors within 2 m of an occupied capsule and inside an active hostile hit region", () => {
     const enemy = pt(-18, -14);
-    // Occupy anchor 7 itself: the next farthest, id 5 (34,-3), wins (id 6 is 6 m farther south but nearer by rank).
-    const occ = pickSpawn(anchors, [enemy, pt(34, 3)], [], [enemy, pt(34, 3)]);
+    // Occupy anchor 7 itself: the next farthest, id 5 (46,-3), wins (id 6 is 6 m farther south but nearer by rank).
+    const occ = pickSpawn(anchors, [enemy, pt(46, 3)], [], [enemy, pt(46, 3)]);
     expect(occ.valid).toBe(true);
     expect(occ.anchor.id).not.toBe(7);
-    expect(pickSpawn(anchors, [enemy, pt(34, 3.01)], [], [enemy]).anchor.id).not.toBe(7); // 0.01 m away: still rejected
-    expect(pickSpawn(anchors, [enemy, pt(34, 5.0)], [], [enemy]).anchor.id).toBe(7); // exactly 2 m: allowed
-    const hot = pickSpawn(anchors, [enemy], [{ x: 34, z: 3, r: 2 }], [enemy]);
+    expect(pickSpawn(anchors, [enemy, pt(46, 3.01)], [], [enemy]).anchor.id).not.toBe(7); // 0.01 m away: still rejected
+    expect(pickSpawn(anchors, [enemy, pt(46, 5.0)], [], [enemy]).anchor.id).toBe(7); // exactly 2 m: allowed
+    const hot = pickSpawn(anchors, [enemy], [{ x: 46, z: 3, r: 2 }], [enemy]);
     expect(hot.valid).toBe(true);
     expect(hot.anchor.id).not.toBe(7);
   });
@@ -264,9 +264,9 @@ describe("respawn timing and safety (T17)", () => {
     expect(r.pl(2).hp100).toBe(COMBAT.hp100Max);
     expect(r.eventsOf("respawn")).toHaveLength(1);
     expect(r.eventsOf("respawn")[0]).toMatchObject({ actorId: "2", lifeId: f.lifeId, tick: r.tick });
-    // Chosen anchor: farthest from the living enemy at anchor 0 is id 7 (34,3).
+    // Chosen anchor: farthest from the living enemy at anchor 0 is id 7 (46,3).
     const pos = r.movement.position(2)!;
-    expect([Math.round(pos[0]), Math.round(pos[2])]).toEqual([34, 3]);
+    expect([Math.round(pos[0]), Math.round(pos[2])]).toEqual([46, 3]);
     // The first life's KO cannot be repeated.
     r.step(5);
     expect(r.eventsOf("ko")).toHaveLength(1);
@@ -292,12 +292,12 @@ describe("respawn timing and safety (T17)", () => {
     const due = r.tick + COMBAT.respawnTicks - 1;
     r.at(due);
     // The attacker stands at anchor 7's x/z while swinging on the respawn tick.
-    r.movement.add(1, [34, 0.9 + (r.world.groundHeight(34, 3) ?? 0), 3]);
+    r.movement.add(1, [46, 0.9 + (r.world.groundHeight(46, 3) ?? 0), 3]);
     r.hit(1, 2, 500);
     r.step();
     expect(r.combat.get(2)!.action).toBe("Idle");
     const pos = r.movement.position(2)!;
-    expect(`${Math.round(pos[0])},${Math.round(pos[2])}`).not.toBe("34,3");
+    expect(`${Math.round(pos[0])},${Math.round(pos[2])}`).not.toBe("46,3");
   });
 
   test("A18 fallback: with every anchor occupied it waits 60 ticks, then spawns at the farthest anchor with protection", async () => {
@@ -332,7 +332,7 @@ describe("respawn timing and safety (T17)", () => {
     r.step();
     expect(r.combat.get(1)!.action).toBe("Idle");
     const pos = r.movement.position(1)!;
-    expect([Math.round(pos[0]), Math.round(pos[2])]).toEqual([34, 3]);
+    expect([Math.round(pos[0]), Math.round(pos[2])]).toEqual([46, 3]);
   });
 
   test("leaving during the countdown forgets the respawn; nothing spawns later", async () => {

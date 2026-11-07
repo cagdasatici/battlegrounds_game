@@ -36,6 +36,9 @@ import type { GameScene, Quality } from "./scene/GameScene.js";
 import { Hud, readSafeRect } from "./ui/Hud.js";
 import { Nameplates, plateLayout } from "./ui/Nameplates.js";
 import { DamageCues, cueAngle } from "./ui/DamageCues.js";
+import { BeastBar } from "./ui/BeastBar.js";
+import { BEAST_ENTITY_ID } from "@eb/shared/config/beast";
+import type { LoopBeast } from "./scene/BeastView.js";
 import { RoundResults, objectiveText } from "./ui/RoundResults.js";
 import {
   BlockNotice, RejectionNotice, freezeKo, type KoRecord, cooldownFraction, cooldownLabel, dashStatus, equippedSkillNames, formTimerText, skillAvailability, meterLabel, respawnSecondsLeft, scoreboardRows, stillpointText,
@@ -531,7 +534,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       else if (e.kind === "ko") ko = freezeKo(e.tick, e.actorId === e.targetId ? undefined : e.actorId, e.actorId === e.targetId ? undefined : players().get(e.actorId), (k) => KIT_LABEL[k as KitId] ?? k);
       else if (e.kind === "respawn") ko = null;
       else if (e.kind === "hit" && e.actorId !== undefined && e.actorId !== e.targetId) {
-        const atk = players().get(e.actorId);
+        const beastState = (r.state as { beast?: LoopBeast }).beast;
+        const atk = players().get(e.actorId) ?? (e.actorId === String(BEAST_ENTITY_ID) && beastState && beastState.phase === "alive" ? { x: beastState.x, y: beastState.y, z: beastState.z } : undefined);
         if (atk) {
           const q = R.projectPoint(cam.pose, { x: atk.x / 100, y: atk.y / 100, z: atk.z / 100 }, g.camera.aspect);
           cues.hit(cueAngle(q), e.hitClass === "heavy", performance.now());
@@ -556,6 +560,8 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     const plates = new Nameplates(document.body, document, () => plateOrigin);
     matchCleanups.push(() => plates.dispose());
     const cues = new DamageCues(document.body, document);
+    const beastBar = new BeastBar(document.body, document);
+    matchCleanups.push(() => beastBar.dispose());
     const roundResults = new RoundResults(document.body, document,
       () => { closeOtherOverlays("settings"); menuOpen = false; kitMenu = true; syncGate(); }, () => { void flow.back(); });
     matchCleanups.push(() => roundResults.dispose());
@@ -658,6 +664,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
         pos: { x: p.x / 100, y: p.y / 100, z: p.z / 100 }, local: p.owner !== undefined,
         alive: p.action !== "Dead" && p.ready !== false, kitId: p.kitId,
       })), (v) => R.projectPoint(cam.pose, v, g.camera.aspect), rect.W, rect.H));
+      beastBar.frame((r.state as { beast?: LoopBeast }).beast, Math.floor(clock.serverTick(performance.now()) ?? ((r.state as { serverTick?: number }).serverTick ?? 0)));
       cues.frame(performance.now(), (me as { hp100?: number } | undefined)?.hp100 !== undefined ? (me as { hp100: number }).hp100 / 10000 : 1, settings.get().reducedMotion);
       capRaf = requestAnimationFrame(capFrame);
     };
@@ -666,7 +673,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     const loop = new R.GameLoop({
       scene: g, camera: cam, collide: kitHandle.collide, router, sampler, clock,
       inputEnabled: () => (lifecycle?.inputEnabled ?? false) && !gate.closed,
-      readState: (): LoopState => ({ serverTick: (r.state as { serverTick?: number }).serverTick ?? 0, players: players().entries(), projectiles: (r.state as LoopState).projectiles ?? [], urns: (r.state as LoopState).urns ?? [] }),
+      readState: (): LoopState => ({ serverTick: (r.state as { serverTick?: number }).serverTick ?? 0, players: players().entries(), projectiles: (r.state as LoopState).projectiles ?? [], urns: (r.state as LoopState).urns ?? [], ...((r.state as LoopState).beast ? { beast: (r.state as LoopState).beast! } : {}) }),
       sendInput: (p) => { if (lifecycle?.phase === "active") rc.send("input", p); },
       sendPing: (p) => { if (lifecycle?.phase === "active" || lifecycle?.phase === "connecting") rc.send("ping", p); },
       onFrameTime: (ms) => { const q = adaptive.push(ms); if (q) { g.setQuality(q); settingsRef?.panel.refreshRuntime(); } },

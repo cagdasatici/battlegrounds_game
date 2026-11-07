@@ -293,7 +293,9 @@ function planApproaches(): EnvPlacement[] {
     add({ model: "Grass_Common_Short", x: -32.5, y: 0.005, z: side * 4.4, yaw: side * 0.7, scale: 0.08, region: "w" });
     add({ model: "Fern_1", x: side * 3.2, y: 0.005, z: -28, yaw: side, scale: 0.05, region: "n" });
   }
-  return out;
+  // BEAST01: the main island grew by 12 m (x) and 10 m (z) per side; each approach moves out with its satellite.
+  const shift: Record<string, readonly [number, number]> = { e: [12, 0], w: [-12, 0], n: [0, -10], s: [0, 10] };
+  return out.map((p) => { const d = shift[p.region ?? ""]; return d ? { ...p, x: p.x + d[0], z: p.z + d[1] } : p; });
 }
 
 /**

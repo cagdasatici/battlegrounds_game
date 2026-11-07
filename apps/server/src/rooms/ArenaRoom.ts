@@ -24,7 +24,7 @@ import { AwakeningSystem } from "../sim/Awakening.js";
 import { RespawnSystem, pickSpawn, type Pt } from "../sim/RespawnSystem.js";
 import { TickPipeline, type PipelineSeat } from "../sim/TickPipeline.js";
 import { ALL_HANDLERS, buildKitRegistry } from "../kits/index.js";
-import type { HitResult } from "../sim/HitResolver.js";
+import type { HitCandidate, HitResult } from "../sim/HitResolver.js";
 import { locomotionLocked, intentsSuppressed } from "../sim/ActionMachine.js";
 import { NEUTRAL_MOVE, type MoveIntent } from "@eb/shared/movement";
 import { ARENA, type MapVec3 } from "@eb/shared/config/arena";
@@ -109,6 +109,7 @@ export class ArenaRoom extends Room {
   protected readonly pipeline: TickPipeline = new TickPipeline({
     state: this.state, combat: this.combat, m1: this.m1, abilities: this.abilities, awakening: this.awakening,
     projectiles: this.projectiles, urns: this.urns, movement: () => this.movement, world: () => this.world, seats: () => this.pipelineSeats(), beforeDrain: (tick) => this.beforeDrain(tick), extraBodies: () => this.extraBodyIds(), friendly: (a, t) => this.isFriendly(a, t),
+    extraCandidates: (tick) => this.extraCandidates(tick), extraLaunches: (tick, r) => this.extraLaunches(tick, r), discard: (c) => this.discardCandidate(c),
     poseOf: (id) => this.poseOf(id), occupantOf: (id) => this.occupantOf(id), respawn: this.respawns, nextLifeId: () => ++this.lifeSeq,
     sendActionResult: (sid, seat, edgeId, seq, tick, ok, reason, castId) => this.sendActionResult(sid, seat, edgeId, seq, tick, ok, reason, castId),
     broadcastEvent: (tick, kind, actor, target, lifeId, moveId, dmg, extra) => this.broadcastEvent(tick, kind, actor, target, lifeId, moveId, dmg, extra),
@@ -416,6 +417,11 @@ export class ArenaRoom extends Room {
   /** Entities simulated without a seat (the practice dummy) whose bodies are still published each tick. */
   protected extraBodyIds(): readonly number[] { return []; }
   protected isFriendly(_attackerId: number, _targetId: number): boolean { return false; }
+  /** BEAST01 seams: server driven hits, their launches, a pre-resolution filter and a per-entity hurtbox override. */
+  protected extraCandidates(_tick: number): readonly HitCandidate[] { return []; }
+  protected extraLaunches(_tick: number, _results: readonly HitResult[]): readonly { targetId: number; vx: number; vy: number; vz: number }[] { return []; }
+  protected discardCandidate(_c: HitCandidate): boolean { return false; }
+  protected hurtboxOf(_id: number): { hurtRadius: number; hurtHalfHeight: number } | null { return null; }
 
   private abilityHost(): AbilityHost {
     // Lazy: the projectile system is built from this very host, so its members are resolved on first use.
@@ -445,7 +451,8 @@ export class ArenaRoom extends Room {
   private poseOf(id: number): M1Pose | undefined {
     const b = this.movement?.get(id);
     const p = this.movement?.position(id);
-    return b && p ? { x: p[0], y: p[1], z: p[2], facingYaw: b.state.facingYaw, grounded: b.state.grounded } : undefined;
+    const hb = this.hurtboxOf(id);
+    return b && p ? { x: p[0], y: p[1], z: p[2], facingYaw: b.state.facingYaw, grounded: b.state.grounded, ...(hb ?? {}) } : undefined;
   }
 
   private broadcastEvent(tick: number, kind: CombatEvent["kind"], actor: number, target: number | undefined,
