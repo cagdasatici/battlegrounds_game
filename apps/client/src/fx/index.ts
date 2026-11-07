@@ -6,6 +6,7 @@ import { AirJumpFx } from "./AirJump.js";
 import { AttackTelegraphs } from "./AttackTelegraphs.js";
 import { CombatText } from "./CombatText.js";
 import { HitFx } from "./HitFx.js";
+import { LayeredFx } from "./LayeredFx.js";
 import { Sfx } from "./Sfx.js";
 import { EaFx } from "./kits/ea.js";
 import { SvFx } from "./kits/sv.js";
@@ -32,6 +33,6 @@ export interface PresentationDeps {
 
 /** Attaches every presentation module to the bus; the returned disposer detaches them all. */
 export function registerPresentation(bus: CombatBus, deps: PresentationDeps): () => void {
-  const ds = [HitFx.attach(bus, deps), CombatText.attach(bus, deps), Sfx.attach(bus, deps), SvFx.attach(bus, deps), TdFx.attach(bus, deps), EaFx.attach(bus, deps), AttackTelegraphs.attach(bus, deps), AirJumpFx.attach(bus, deps)];
+  const ds = [HitFx.attach(bus, deps), CombatText.attach(bus, deps), Sfx.attach(bus, deps), SvFx.attach(bus, deps), TdFx.attach(bus, deps), EaFx.attach(bus, deps), AttackTelegraphs.attach(bus, deps), AirJumpFx.attach(bus, deps), LayeredFx.attach(bus, deps)];
   return () => { for (const d of ds) d(); };
 }

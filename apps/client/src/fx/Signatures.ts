@@ -54,7 +54,7 @@ export function windupSeconds(moveId: string): number {
   const d = DEFS.find((x) => x.id === moveId);
   return Math.min(1.4, Math.max(0.3, (d?.startup ?? 18) / 60));
 }
-const reachOf = (moveId: string): number => Math.min(8, Math.max(1.5, DEFS.find((x) => x.id === moveId)?.range ?? 3));
+export const reachOf = (moveId: string): number => Math.min(8, Math.max(1.5, DEFS.find((x) => x.id === moveId)?.range ?? 3));
 
 const TAU = Math.PI * 2;
 const rnd = (a: number, b: number): number => a + Math.random() * (b - a);

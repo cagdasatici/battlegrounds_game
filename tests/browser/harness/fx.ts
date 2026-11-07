@@ -7,10 +7,11 @@ import { POOL_CAPACITY } from "../../../apps/client/src/scene/EffectsPool.js";
 import { GameScene } from "../../../apps/client/src/scene/GameScene.js";
 import { CombatBus } from "../../../apps/client/src/app/CombatBus.js";
 import { registerPresentation } from "../../../apps/client/src/fx/index.js";
+import { layeredFxProbe } from "../../../apps/client/src/fx/LayeredFx.js";
 import type { CombatEvent } from "../../../packages/shared/src/protocol.js";
 
 type Kit = "sv" | "td" | "ea";
-interface P { x: number; y: number; z: number; facingYaw: number; action: string; moveId: string; actionStartTick: number; actionEndTick: number; kitId: Kit }
+interface P { x: number; y: number; z: number; facingYaw: number; action: string; moveId: string; actionStartTick: number; actionEndTick: number; kitId: Kit; beast: boolean }
 
 const renderer = new WebGLRenderer({ antialias: true });
 document.body.append(renderer.domElement);
@@ -35,7 +36,7 @@ function place(id: string, kit: Kit, x: number, z: number, yaw: number): void {
   const old = gs.viewFor(id);
   if (!old) gs.addFighter(id, kit);
   gs.viewFor(id)!.setPose(x, 0.9, z, yaw);
-  players.set(id, { x: x * 100, y: 90, z: z * 100, facingYaw: yawQ(yaw), action: "Idle", moveId: "", actionStartTick: 0, actionEndTick: 0, kitId: kit });
+  players.set(id, { x: x * 100, y: 90, z: z * 100, facingYaw: yawQ(yaw), action: "Idle", moveId: "", actionStartTick: 0, actionEndTick: 0, kitId: kit, beast: false });
 }
 // Default lineup: sv attacker faces td victim across 3 m, the other two stand behind as bystanders.
 place("sv", "sv", -1.5, 6, -Math.PI / 2 + Math.PI); // yaw irrelevant for pose, facing set below
@@ -79,6 +80,9 @@ requestAnimationFrame(loop);
     p.action = action; p.moveId = moveId; p.actionStartTick = t; p.actionEndTick = t + ticks;
     gs.viewFor(id)?.setAction(action, moveId, ticks);
   },
+  /** FX01: sets the replicated beast flag of a fighter. */
+  beast: (id: string, on: boolean) => { players.get(id)!.beast = on; },
+  layers: () => ({ decals: layeredFxProbe.decals(), pulses: layeredFxProbe.pulses(), decalMeshes: gs.scene.children.filter((c) => c.name === "fx.decal").length, pulseEl: document.querySelector('[data-fx="screen-pulse"]') !== null }),
   idle: (id: string) => { const p = players.get(id)!; p.action = "Idle"; p.moveId = ""; gs.viewFor(id)?.setAction("Idle", "", 0); },
   /** Emits a server combat event on the bus. */
   event: (e: Partial<CombatEvent>) => { emit({ eventId: `e${seq++}`, tick: tick(), kind: "hit", actorId: "sv", targetId: "td", lifeId: 1, ...e } as CombatEvent); },
