@@ -727,7 +727,7 @@ describe("td.b2 with the real collision world (swept movement)", () => {
   });
 
   test("acceptance: crossing a wall never drags the victim through it (wall.0 spans z -0.3..0.3)", async () => {
-    const s = await setup([-10, 0.92, 2.5], [-10, 0.92, 1.0]);
+    const s = await setup([-16, 0.92, 2.5], [-16, 0.92, 1.0]);
     try {
       s.tick(1000, true);
       let minZ = Infinity;
@@ -1057,7 +1057,7 @@ describe("td.b3 Tidal Cast (throwCapture)", () => {
     const world = await World.create();
     const sys = new MovementSystem(world);
     try {
-      sys.add(1, [10, 0.92, -3]); // walks into wall.1 (z -0.3..0.3)
+      sys.add(1, [16, 0.92, -3]); // walks into wall.1 (z -0.3..0.3)
       sys.add(2, [0, 0.92, 8]); // stays on open floor
       let wallTick = -1;
       for (let t = 1; t <= 200; t++) {

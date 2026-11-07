@@ -40,7 +40,8 @@ async function login(wsPort: number | null, name: string): Promise<RoomClient> {
   return c;
 }
 
-const RUN_TICKS = 203;
+// GFX01: pillar.1 moved to (20, -16); the run aims at its near corner (x 18.5, z -15) from the same start, so the heading is now (-32.5, -26.6).
+const RUN_TICKS = 190;
 
 async function scenario(rttMs: number): Promise<void> {
   const px = new LatencyProxy(h.port, { rttMs, jitterMs: 0, seed: 4 + rttMs });
@@ -60,7 +61,7 @@ async function scenario(rttMs: number): Promise<void> {
     await waitFor(() => room.sim.tick > room.combat.get(aId)!.protectedUntilTick + 2 && room.movement!.get(aId)!.state.grounded, 8000, "settled");
     await sleep(150);
     // ARENA01: the arena is 1.5x larger, so the run starts at (51, 11.6) and lasts RUN_TICKS. It crosses the main.z/main.x overlap at x=50 during the
-    // first ramp (the server capsule then hovers at y 0.92, the level the client rebuilds from cm quantised snapshots), and grazes the pillar.1 corner (z -9, x ~10.5) about 4 ticks before the run ends, as the original run did (a face-on stop lets the later double jump land on top of the pillar),
+    // first ramp (the server capsule then hovers at y 0.92, the level the client rebuilds from cm quantised snapshots), and grazes the pillar.1 corner (z -15, x ~18.5) about 4 ticks before the run ends, as the original run did (a face-on stop lets the later double jump land on top of the pillar),
     // after the snapshot sampling window: replaying a snapshot across a contact is chaotic at cm precision.
     room.movement!.add(aId, [51, 0.9 + (room.world!.groundHeight(51, 11.6) ?? 0), 11.6]);
     await waitFor(() => room.movement!.get(aId)!.state.grounded, 8000, "replaced");
@@ -71,8 +72,8 @@ async function scenario(rttMs: number): Promise<void> {
     const t0 = body.rb.translation();
     const pred = new Prediction(kit.collide, { x: t0.x, y: t0.y, z: t0.z }, body.state.facingYaw);
     pred.state = { ...body.state };
-    const sx = Math.sign(t0.x), sz = Math.sign(t0.z), len = Math.hypot(6, 3);
-    const run: MoveIntent = { moveX: (-sx * 6) / len, moveZ: (-sz * 3) / len, run: true, guard: false, jumpPressed: false };
+    const sx = Math.sign(t0.x), sz = Math.sign(t0.z), len = Math.hypot(32.5, 26.6);
+    const run: MoveIntent = { moveX: (-sx * 32.5) / len, moveZ: (-sz * 26.6) / len, run: true, guard: false, jumpPressed: false };
 
     // Authoritative per-tick log on the server, and the owner snapshots exactly as client A's replicated state shows them.
     const serverAt = new Map<number, { x: number; y: number; z: number }>();

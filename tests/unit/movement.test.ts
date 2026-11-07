@@ -110,13 +110,13 @@ describe("server MovementSystem against the islands collision world", () => {
     expect(dx).toBeLessThan(ideal + 0.01);
   });
 
-  test("wall blocks movement: wall.1 at x=10 spans z -0.3..0.3, height 1.2", () => {
-    sys.add(1, [10, 0.92, -3]);
+  test("wall blocks movement: wall.1 at x=16 spans z -0.3..0.3, height 1.2", () => {
+    sys.add(1, [16, 0.92, -3]);
     run(240, () => mv({ moveZ: 1 })); // 4 s toward +Z into the wall
     const p = sys.position(1)!;
     expect(p[2]).toBeLessThan(-0.3 - COMBAT.capsule.radius + 0.01);
     expect(p[2]).toBeGreaterThan(-0.3 - COMBAT.capsule.radius - 0.1);
-    expect(p[0]).toBeCloseTo(10, 1);
+    expect(p[0]).toBeCloseTo(16, 1);
     expect(world.capsuleOverlaps(p, COMBAT.capsule.radius, COMBAT.capsule.halfHeight).filter((id) => id.startsWith("wall"))).toEqual([]);
   });
 

@@ -51,7 +51,8 @@ test("FB08 arena loads without console errors; draw calls and triangles per tier
           await page.waitForTimeout(250);
           const info = await page.evaluate(() => (window as unknown as { __art: Art }).__art.info());
           results[`${view}-${q}-${w}x${h}`] = info;
-          expect(info.triangles).toBeLessThanOrEqual(300000);
+          // GFX01: low and medium keep the 300k budget; the high tier now buys a denser meadow and forest, so it gets a higher ceiling.
+          expect(info.triangles).toBeLessThanOrEqual(q === "high" ? 520000 : 300000);
           await page.screenshot({ path: path.join(out, `${TAG}${VARIANT ? "-" + VARIANT.replace(/\W/g, "") : ""}-${view}-${q}-${w}x${h}.png`) });
           if (TAG === "final" && q === "medium" && view === "overview") await page.screenshot({ path: path.join(docs, `FB08-${w}x${h}.png`) });
         }

@@ -91,13 +91,13 @@ describe("T19 projectile wire rows", () => {
     await sleep(60);
     p.shoot(-4, y, -4, 1, 120); // free lane: control
     await waitFor(() => p.byName(p.rb, "Nora").hp100 === 8500 && p.byName(p.ra, "Nora").hp100 === 8500, 3000, "control hit replicated");
-    // Cover lane: wall.0 is 0.6 m thick at x -10, z 0; B stands 1 m behind it.
-    const y2 = p.put(p.bId, -10, 1);
+    // Cover lane: wall.0 is 0.6 m thick at x -16, z 0; B stands 1 m behind it.
+    const y2 = p.put(p.bId, -16, 1);
     await waitFor(() => p.room.combat.get(p.bId)!.action === "Idle" || p.room.combat.get(p.bId)!.action === "Recovery", 2000, "B settles");
     await sleep(200);
     const before = p.events.length;
     const hpBefore = p.room.combat.get(p.bId)!.hp100;
-    p.shoot(-10, y2, -4, 1, 120);
+    p.shoot(-16, y2, -4, 1, 120);
     await sleep(400);
     expect(p.room.projectiles.size).toBe(0);
     expect(p.room.combat.get(p.bId)!.hp100).toBe(hpBefore);

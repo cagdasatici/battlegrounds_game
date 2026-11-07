@@ -14,7 +14,8 @@ export const MAP_SCHEMA_VERSION = 1;
 /**
  * ARENA01 (D): every horizontal dimension of the world is 1.5x the BEAST01 layout. This is the single scale knob;
  * the island sizes, satellite positions, boundary radius, main-island spawn anchors and beast anchors all derive
- * from it, except the central cover cluster (pillars, walls, urns), which stays where it was so the arena gains open field around it. Vertical dimensions (thickness, capsule, void) and prop sizes are unchanged.
+ * from it. GFX01 (D): the cover cluster (pillars, walls, urns) was first left at its old coordinates, which stranded it in the middle of the 1.5x larger
+ * island; it is now spread out to COVER_X/COVER_Z so the cover frames the open centre and sits between the centre glyph and the spawn decks. Vertical dimensions (thickness, capsule, void) and prop sizes are unchanged.
  */
 export const ARENA_SCALE = 1.5;
 const S = ARENA_SCALE;
@@ -23,6 +24,8 @@ const MAIN_WIDTH = 72 * S, MAIN_DEPTH = 60 * S;
 const BRIDGE_GAP = 6;
 const SAT_SIZE = 12;
 const satX = MAIN_WIDTH / 2 + BRIDGE_GAP + SAT_SIZE / 2, satZ = MAIN_DEPTH / 2 + BRIDGE_GAP + SAT_SIZE / 2;
+/** GFX01 (D): cover cluster half spacing in metres: pillars at (+-COVER_X, +-COVER_Z), urns 4 m either side of each pillar, walls on the x axis. */
+const COVER_X = 20, COVER_Z = 16, WALL_X = 16;
 const sc = (v: readonly [number, number, number]): readonly [number, number, number] => [v[0] * S, v[1], v[2] * S];
 
 /** Spec section 10 and capsule row of section 12. */
@@ -34,8 +37,8 @@ export const ARENA = {
   main: { width: MAIN_WIDTH, depth: MAIN_DEPTH, cornerRadius: 4 /* D */ },
   satellite: { size: SAT_SIZE, centres: [[-satX, 0], [satX, 0], [0, -satZ], [0, satZ]] as ReadonlyArray<readonly [number, number]> },
   bridge: { width: 4, thickness: 0.5 /* D */ },
-  pillar: { size: [3, 2, 2] as const, centres: [[-12, 1, -10], [12, 1, -10], [-12, 1, 10], [12, 1, 10]] as ReadonlyArray<readonly [number, number, number]> },
-  wall: { size: [4, 1.2, 0.6] as const, centres: [[-10, 0.6, 0], [10, 0.6, 0]] as ReadonlyArray<readonly [number, number, number]> },
+  pillar: { size: [3, 2, 2] as const, centres: [[-COVER_X, 1, -COVER_Z], [COVER_X, 1, -COVER_Z], [-COVER_X, 1, COVER_Z], [COVER_X, 1, COVER_Z]] as ReadonlyArray<readonly [number, number, number]> },
+  wall: { size: [4, 1.2, 0.6] as const, centres: [[-WALL_X, 0.6, 0], [WALL_X, 0.6, 0]] as ReadonlyArray<readonly [number, number, number]> },
   clearCentreDiameter: 12,
   /** D: guardrails only on the outer edge of the east and west spawn decks. */
   guardrail: { height: 1, thickness: 0.2 },
@@ -43,7 +46,7 @@ export const ARENA = {
     ...([[-18, 0, -14], [18, 0, -14], [-18, 0, 14], [18, 0, 14]] as const).map(sc),
     [-(satX - 2), 0, -3], [satX - 2, 0, -3], [-(satX - 2), 0, 3], [satX - 2, 0, 3],
   ] as ReadonlyArray<readonly [number, number, number]>,
-  urnAnchors: [[-9, 0.25, -10], [9, 0.25, -10], [-9, 0.25, 10], [9, 0.25, 10], [-15, 0.25, -10], [15, 0.25, -10], [-15, 0.25, 10], [15, 0.25, 10]] as ReadonlyArray<readonly [number, number, number]>,
+  urnAnchors: [[-(COVER_X - 4), 0.25, -COVER_Z], [COVER_X - 4, 0.25, -COVER_Z], [-(COVER_X - 4), 0.25, COVER_Z], [COVER_X - 4, 0.25, COVER_Z], [-(COVER_X + 4), 0.25, -COVER_Z], [COVER_X + 4, 0.25, -COVER_Z], [-(COVER_X + 4), 0.25, COVER_Z], [COVER_X + 4, 0.25, COVER_Z]] as ReadonlyArray<readonly [number, number, number]>,
   urnRadius: 0.25,
   capsule: { radius: 0.35, halfHeight: 0.55, centreAboveSurface: 0.9 },
   /** D: max top height difference treated as a seamless walkable join. */

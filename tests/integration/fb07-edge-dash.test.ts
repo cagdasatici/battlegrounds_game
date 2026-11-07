@@ -78,8 +78,8 @@ describe("FB07 edge-aware dash (real client input)", () => {
   test("a dash along a bridge stays on the bridge", async () => {
     const t = await twoPlayers();
     const y = t.pos()[1];
-    // West bridge runs along x at z = 0; start on it.
-    const sx = -22;
+    // West bridge runs along x at z = 0 (x -60..-54 since ARENA01); start on it. GFX01: the old x -22 start now meets wall.0 (x -18..-14).
+    const sx = -59;
     expect(t.room.world!.walkableTop(sx, 0)).not.toBeNull();
     t.place(sx, 0, y);
     await sleep(100);

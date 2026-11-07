@@ -205,7 +205,7 @@ export class SettingsPanel {
     this.el("p", "Graphics quality", {}, visuals);
     const q = this.el("div", "", { class: "eb-segment", role: "group", "aria-label": "Graphics quality" }, visuals);
     for (const v of ["low", "medium", "high"]) this.el("button", v, { "data-quality": v, "aria-pressed": "false" }, q);
-    this.el("p", "Low: simpler fighters, no shadow maps. Medium: detailed fighters and shadows. High: larger pixel and effects budgets.", {}, visuals);
+    this.el("p", "Low: no shadows, sparse grass, short view, no particles. Medium: shadows, tone mapping, wind-swept grass and flowers, fireflies. High: sharper 2K shadows, full resolution, dense meadow, more trees, longer view.", {}, visuals);
     this.el("p", "", { "data-ui": "quality-status", role: "status" }, visuals);
     this.el("p", "Quick Use casts on press; turn it off to cast on release. Hold Ember Orb to charge in either mode.", {}, controls);
     this.el("p", "Combat text", {}, controls);

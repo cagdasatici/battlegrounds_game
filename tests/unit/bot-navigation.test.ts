@@ -28,14 +28,14 @@ test("grid covers the map bounds plus a 2 m margin (149 x 131 candidates) and re
   expect(grid.size).toBe(149 * 131);
   expect(grid.validCount()).toBeGreaterThan(2000);
   const at = (x: number, z: number) => grid.valid(grid.index(x - NAV.minX, z - NAV.minZ));
-  for (const [x, z] of [[-12, -10], [12, 10], [-10, 0], [10, 0], [72, 0], [-72, 0], [66, 30]] as const) expect(at(x, z), `${x},${z}`).toBe(false);
+  for (const [x, z] of [[-20, -16], [20, 16], [-16, 0], [16, 0], [72, 0], [-72, 0], [66, 30]] as const) expect(at(x, z), `${x},${z}`).toBe(false);
   for (const [x, z] of [[0, 0], [0, -26], [-27, 0], [71, 0], [-48, 5]] as const) expect(at(x, z), `${x},${z}`).toBe(true);
 });
 
 const blocked: Array<[string, [number, number], [number, number], number]> = [
-  ["pillar.0", [-12, -13], [-12, -7], 6], ["pillar.1", [12, -13], [12, -7], 6],
-  ["pillar.2", [-12, 7], [-12, 13], 6], ["pillar.3", [12, 7], [12, 13], 6],
-  ["wall.0", [-10, -3], [-10, 3], 6], ["wall.1", [10, -3], [10, 3], 6],
+  ["pillar.0", [-20, -19], [-20, -13], 6], ["pillar.1", [20, -19], [20, -13], 6],
+  ["pillar.2", [-20, 13], [-20, 19], 6], ["pillar.3", [20, 13], [20, 19], 6],
+  ["wall.0", [-16, -3], [-16, 3], 6], ["wall.1", [16, -3], [16, 3], 6],
 ];
 for (const [name, a, b, straight] of blocked) {
   test(`routes around ${name} without clipping it`, () => {

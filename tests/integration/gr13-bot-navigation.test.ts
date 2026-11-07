@@ -73,13 +73,13 @@ test("a bot crosses each bridge from every satellite to an idle human at the cen
 
 test("a target behind a pillar is reached instead of stopping on its front face", async () => {
   const s = await setup();
-  for (const [bx, bz, hx, hz] of [[12, -7.5, 12, -13], [-12, -7.5, -12, -13], [12, 7.5, 12, 13], [-12, 7.5, -12, 13]] as const) {
+  for (const [bx, bz, hx, hz] of [[20, -13.5, 20, -19], [-20, -13.5, -20, -19], [20, 13.5, 20, 19], [-20, 13.5, -20, 19]] as const) {
     const r = s.run(bx, bz, hx, hz);
     expect(r.ticks, `${bx},${bz} -> ${hx},${hz}`).not.toBeNull();
     expect(r.maxPath).toBeGreaterThan(2);
   }
   // Wall: bot on one side of wall.1, human on the other.
-  expect(s.run(10, -2, 10, 2).ticks).not.toBeNull();
+  expect(s.run(16, -2, 16, 2).ticks).not.toBeNull();
   await s.end();
 }, 120_000);
 

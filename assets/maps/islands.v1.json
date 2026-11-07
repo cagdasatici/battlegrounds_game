@@ -237,9 +237,9 @@
       "role": "obstacle",
       "shape": "cuboid",
       "centre": [
-        -12,
+        -20,
         1,
-        -10
+        -16
       ],
       "halfExtents": [
         1.5,
@@ -252,9 +252,9 @@
       "role": "obstacle",
       "shape": "cuboid",
       "centre": [
-        12,
+        20,
         1,
-        -10
+        -16
       ],
       "halfExtents": [
         1.5,
@@ -267,9 +267,9 @@
       "role": "obstacle",
       "shape": "cuboid",
       "centre": [
-        -12,
+        -20,
         1,
-        10
+        16
       ],
       "halfExtents": [
         1.5,
@@ -282,9 +282,9 @@
       "role": "obstacle",
       "shape": "cuboid",
       "centre": [
-        12,
+        20,
         1,
-        10
+        16
       ],
       "halfExtents": [
         1.5,
@@ -297,7 +297,7 @@
       "role": "obstacle",
       "shape": "cuboid",
       "centre": [
-        -10,
+        -16,
         0.6,
         0
       ],
@@ -312,7 +312,7 @@
       "role": "obstacle",
       "shape": "cuboid",
       "centre": [
-        10,
+        16,
         0.6,
         0
       ],
@@ -393,67 +393,67 @@
     {
       "id": 0,
       "position": [
-        -9,
+        -16,
         0.25,
-        -10
+        -16
       ]
     },
     {
       "id": 1,
       "position": [
-        9,
+        16,
         0.25,
-        -10
+        -16
       ]
     },
     {
       "id": 2,
       "position": [
-        -9,
+        -16,
         0.25,
-        10
+        16
       ]
     },
     {
       "id": 3,
       "position": [
-        9,
+        16,
         0.25,
-        10
+        16
       ]
     },
     {
       "id": 4,
       "position": [
-        -15,
+        -24,
         0.25,
-        -10
+        -16
       ]
     },
     {
       "id": 5,
       "position": [
-        15,
+        24,
         0.25,
-        -10
+        -16
       ]
     },
     {
       "id": 6,
       "position": [
-        -15,
+        -24,
         0.25,
-        10
+        16
       ]
     },
     {
       "id": 7,
       "position": [
-        15,
+        24,
         0.25,
-        10
+        16
       ]
     }
   ],
-  "contentHash": "6af9ad2bdbf35d67"
+  "contentHash": "d7bb93e714991509"
 }

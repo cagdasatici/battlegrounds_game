@@ -10,9 +10,9 @@ describe("T23 wall attack over a real Colyseus connection (three clients)", () =
   test("wall attack: fourth M1 beside a wall captures (3), hits 3 at +12 and 6 at +30, releases at +36, seen identically by three clients", async () => {
     const x = await setup(h, "td");
     const y = x.room.movement!.position(x.aId)![1];
-    // Waist wall centred (-10, 0.6, 0), faces at z = +-0.3. B 0.5 m off the south face, A 1.2 m behind B facing -Z.
-    x.place(x.bId, -10, y, 0.8, Math.PI);
-    x.place(x.aId, -10, y, 2.0, 0);
+    // Waist wall centred (-16, 0.6, 0), faces at z = +-0.3. B 0.5 m off the south face, A 1.2 m behind B facing -Z.
+    x.place(x.bId, -16, y, 0.8, Math.PI);
+    x.place(x.aId, -16, y, 2.0, 0);
     x.place(x.cId, 30, y, 30, 0);
     await new Promise((r) => setTimeout(r, 80));
     const p = x.pressAttack();

@@ -259,6 +259,7 @@ Owner request: a very large character (5.5x height and width) that appears in sp
 |---|---|---|---|---|---|
 | BEAST01 | Larger arena and the sparring beast | GR15c | IMPLEMENTED, DEVICE CHECK PENDING | see git log; iPad NOT RUN | docs/test-results/BEAST01.md |
 | ARENA01 | World 1.5x larger per horizontal dimension via ARENA_SCALE; map definition registry (grove) in packages/shared/src/config/maps.ts | BEAST01 | IMPLEMENTED, DEVICE CHECK PENDING: central cover (pillars, walls, urns) deliberately not scaled; iPad NOT RUN; browser screenshots of the larger scenery NOT RUN | see git log | tests/unit/maps.test.ts |
+| GFX01 | Environment overhaul of the grove map and meaningful graphics tiers: procedural sky with sun, layered-noise meadow with dirt paths, instanced swaying grass/flowers/pebbles, four tree species, scenery islets, pollen and fireflies, ACES tone mapping, per-tier shadows/pixel budget/fog; cover cluster redistributed over the 1.5x map | ARENA01 | IMPLEMENTED, DEVICE CHECK PENDING: iPad NOT RUN; default stays medium (measured 60 fps on this Mac); bloom/SSAO not done | see git log | docs/test-results/GFX01.md; tests/unit/gfx01-environment.test.ts |
 
 | Task | Title | Depends on | Status | Commit | Test report |
 |---|---|---|---|---|---|

@@ -48,9 +48,9 @@ describe("R14 prediction against the real Rapier collider", () => {
     expect(Math.abs(t0.x)).toBeCloseTo(27, 1);
     // Run diagonally at the face of the pillar nearest the spawn: contact, then slide along it.
     const sx = Math.sign(t0.x), sz = Math.sign(t0.z);
-    // ARENA01: spawn is 9 m farther out in x and 7 m in z; aim at the same pillar-face point as before (dx 13.5, dz 9.25).
-    const len = Math.hypot(13.5, 9.25);
-    const run: MoveIntent = { moveX: (-sx * 13.5) / len, moveZ: (-sz * 9.25) / len, run: true, guard: false, jumpPressed: false };
+    // GFX01: pillars moved to (+-20, +-16); aim at the middle of the spawn-side x face of the nearest pillar (dx 5.5, dz 5).
+    const len = Math.hypot(5.5, 5);
+    const run: MoveIntent = { moveX: (-sx * 5.5) / len, moveZ: (-sz * 5) / len, run: true, guard: false, jumpPressed: false };
 
     // Server-side pose log per tick (the real room, not a fake).
     const serverAt = new Map<number, { x: number; y: number; z: number }>();

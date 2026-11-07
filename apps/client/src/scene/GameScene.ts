@@ -4,12 +4,17 @@
  */
 import {
   DataTexture, RGBAFormat, LinearFilter, Mesh, MeshBasicMaterial, PlaneGeometry,
-  Color, DirectionalLight, Group, type InstancedMesh, Fog, HemisphereLight, PCFSoftShadowMap, PerspectiveCamera, PointLight, Scene,
+  Color, DirectionalLight, Group, type InstancedMesh, HemisphereLight, PCFSoftShadowMap, PerspectiveCamera, PointLight, Scene,
   type BufferGeometry, type Material,
 } from "three";
-import { ARENA_SCALE, surfaceBelow, type Collider } from "@eb/shared/config/arena";
+import { ARENA, surfaceBelow, type Collider } from "@eb/shared/config/arena";
 import type { KitId } from "@eb/shared/protocol";
-import { buildArena, buildDressing, SKY } from "./ArenaView.js";
+import { buildArena, buildDressing, SCENERY_ISLETS } from "./ArenaView.js";
+import {
+  EnvironmentLayer, QUALITY_PROFILES, aimSun, applyAtmosphere, applyShadowProfile, createLights, getEnvTheme, pixelRatioForProfile, profileFor,
+  type EnvTheme,
+} from "../render/environment/index.js";
+import { wearPointsFor } from "../render/environment/groundShading.js";
 import { loadEnvKit, type EnvKit } from "./EnvAssets.js";
 import { CAMERA, type CameraPose } from "./CameraRig.js";
 import { EffectsPool } from "./EffectsPool.js";
@@ -22,12 +27,11 @@ import { CraterViews } from "./CraterViews.js";
 import { SnapshotBuffer } from "../net/SnapshotBuffer.js";
 
 export type Quality = "low" | "medium" | "high";
-/** Rendered pixel budget per quality (spec section 24) and the allowed scale relative to CSS pixels. */
-export const PIXEL_BUDGET: Readonly<Record<Quality, number>> = { low: 750_000, medium: 1_500_000, high: 2_500_000 };
-export const PIXEL_RATIO_RANGE = { min: 0.6, max: 1.5 } as const;
+/** Rendered pixel budget per quality and the allowed scale relative to CSS pixels. GFX01: the table lives in render/environment/quality.ts so every tier row is in one place. */
+export const PIXEL_BUDGET: Readonly<Record<Quality, number>> = { low: QUALITY_PROFILES.low.pixelBudget, medium: QUALITY_PROFILES.medium.pixelBudget, high: QUALITY_PROFILES.high.pixelBudget };
+export const PIXEL_RATIO_RANGE = { min: 0.6, max: 2 } as const;
 export function pixelRatioFor(q: Quality, cssW: number, cssH: number, dpr: number): number {
-  const fit = Math.sqrt(PIXEL_BUDGET[q] / Math.max(1, cssW * cssH));
-  return Math.min(PIXEL_RATIO_RANGE.max, Math.max(PIXEL_RATIO_RANGE.min, Math.min(dpr, fit)));
+  return pixelRatioForProfile(profileFor(q), cssW, cssH, dpr);
 }
 
 /** Subset of WebGLRenderer used here, so tests can inject a fake without a GL context. */
@@ -35,6 +39,9 @@ export interface RendererLike {
   setSize(w: number, h: number): void;
   setPixelRatio?(r: number): void;
   shadowMap?: { enabled: boolean; type: number };
+  /** GFX01: ACES tone mapping on medium and high (optional so test doubles need no GL). */
+  toneMapping?: number;
+  toneMappingExposure?: number;
   render(scene: Scene, camera: PerspectiveCamera): void;
   dispose(): void;
   /** GR12 lobby preview (optional so test doubles need no GL): a scissored viewport inside the one shared canvas. */
@@ -78,9 +85,6 @@ function makeContactTexture(): DataTexture {
   const t = new DataTexture(pixels, 32, 32, RGBAFormat); t.magFilter = LinearFilter; t.needsUpdate = true; return t;
 }
 
-/** Half-width of the shadow frustum in metres: follows the camera pivot so 1024 texels stay sharp near the action. */
-const SHADOW_HALF = 24;
-
 export class GameScene {
   readonly scene = new Scene();
   readonly camera = new PerspectiveCamera(CAMERA.fovDeg, 1, CAMERA.near, CAMERA.far);
@@ -102,7 +106,12 @@ export class GameScene {
   /** GR09: called after each frame that was actually drawn (never while paused). */
   onFrameRendered: (() => void) | null = null;
   private quality: Quality = "medium";
-  private readonly sun = new DirectionalLight(0xffe4bd, 2.25);
+  private readonly theme: EnvTheme;
+  private readonly lights: ReturnType<typeof createLights>;
+  private readonly sun: DirectionalLight;
+  /** GFX01: instanced ground cover, procedural trees and ambient particles for the map theme. */
+  private readonly envLayer: EnvironmentLayer;
+  private focus = { x: 0, z: 0 };
   private readonly ramp: DataTexture = makeToonRamp();
   private readonly arena: ReturnType<typeof buildArena>;
   private env: { kit: EnvKit; meshes: InstancedMesh[] } | null = null;
@@ -111,27 +120,20 @@ export class GameScene {
   /** GR12: the one lobby fighter preview. It lives in its own small scene and is drawn by the shared renderer. */
   private preview: { scene: Scene; camera: PerspectiveCamera; pivot: Group; rim: PointLight; view: FighterView; kit: KitId } | null = null;
 
-  constructor(private readonly renderer: RendererLike, colliders: readonly Collider[], private readonly win: WindowLike) {
+  constructor(private readonly renderer: RendererLike, colliders: readonly Collider[], private readonly win: WindowLike, themeId = "grove") {
+    this.theme = getEnvTheme(themeId);
+    this.lights = createLights(this.theme);
+    this.sun = this.lights.sun;
     this.colliders = colliders;
     try { this.reducedMotion = win.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true; } catch { this.reducedMotion = false; }
-    this.scene.background = new Color(SKY.horizon);
-    this.scene.fog = new Fog(SKY.fog, 75 * ARENA_SCALE, CAMERA.far);
-    this.scene.add(new HemisphereLight(0xb9d9f2, 0x44483a, 0.95));
-    this.sun.position.set(28, 50, 18);
-    this.sun.shadow.mapSize.set(1024, 1024);
-    const cam = this.sun.shadow.camera;
-    cam.left = -SHADOW_HALF; cam.right = SHADOW_HALF; cam.top = SHADOW_HALF; cam.bottom = -SHADOW_HALF; cam.near = 5; cam.far = 140;
-    this.sun.shadow.bias = -0.0004;
-    this.sun.shadow.normalBias = 0.04;
-    // Cool fill light from the opposite side gives fighters a bright rim edge; it casts no shadow.
-    const rim = new DirectionalLight(0x8fc9ff, 0.65);
-    rim.position.set(-25, 18, -30);
-    this.scene.add(this.sun, this.sun.target, rim);
-    this.arena = buildArena(colliders, this.ramp);
+    applyAtmosphere(this.scene, renderer, this.theme, profileFor("medium"), CAMERA.far);
+    this.scene.add(this.lights.hemi, this.sun, this.sun.target, this.lights.rim);
+    this.arena = buildArena(colliders, this.ramp, { detail: 1, theme: this.theme });
     for (const g of this.arena.geometries) this.geometries.add(g);
     for (const m of this.arena.materials) this.materials.add(m);
     this.scene.add(this.arena.group);
     this.craters.cutGround(this.arena.terrain);
+    this.envLayer = new EnvironmentLayer(this.scene, colliders, this.ramp, this.theme, SCENERY_ISLETS, wearPointsFor(colliders, ARENA.spawnAnchors));
     if (renderer.shadowMap) renderer.shadowMap.type = PCFSoftShadowMap;
     this.setQuality("medium");
     win.addEventListener("resize", this.onResize);
@@ -162,7 +164,7 @@ export class GameScene {
       const { group, meshes, extra } = buildDressing(this.colliders, kit);
       this.env = { kit, meshes };
       this.scene.add(group);
-      extra.visible = this.quality !== "low";
+      extra.visible = profileFor(this.quality).extraProps;
       const trees = this.arena.group.getObjectByName("deco.isletTrees");
       if (trees) trees.visible = false;
       this.envState = "ready";
@@ -177,29 +179,38 @@ export class GameScene {
   get fighterCount(): number { return this.fighters.size; }
   get shadowsEnabled(): boolean { return this.sun.castShadow; }
 
-  /** Quality tiers (spec section 23): one shadow casting light at 1024 on medium and high, no shadows on low. */
+  /**
+   * Quality tiers (GFX01, supersedes spec section 23): each tier row in render/environment/quality.ts changes shadow map size and softness, pixel budget,
+   * tone mapping, grass/flower/pebble pools, wind sway, ambient particles, fog distance, scenery tree share, clouds and supporting props.
+   */
   setQuality(q: Quality): void {
     this.quality = q;
+    const p = profileFor(q);
     this.effects.configure(this.scene, q);
-    const shadows = q !== "low";
+    const shadows = p.shadowMapSize > 0;
     this.sun.castShadow = shadows;
-    if (this.renderer.shadowMap && this.renderer.shadowMap.enabled !== shadows) {
-      this.renderer.shadowMap.enabled = shadows;
+    applyShadowProfile(this.sun, p);
+    const toneChanged = applyAtmosphere(this.scene, this.renderer, this.theme, p, CAMERA.far);
+    let recompile = toneChanged;
+    if (this.renderer.shadowMap && this.renderer.shadowMap.enabled !== shadows) { this.renderer.shadowMap.enabled = shadows; recompile = true; }
+    if (recompile) {
       this.scene.traverse((o) => {
         const m = (o as { material?: Material | Material[] }).material;
         for (const x of Array.isArray(m) ? m : m ? [m] : []) x.needsUpdate = true;
       });
     }
     for (const { view } of this.fighters.values()) view.setShadows(shadows);
+    this.envLayer.setProfile(p);
+    this.envLayer.setAnimated(!this.reducedMotion);
     // Low tier also drops the purely decorative ground cover; collision, telegraphs and fighters are unaffected.
     const cover = this.arena.group.getObjectByName("deco.cover");
     if (cover) cover.visible = q !== "low";
-    // FB08: cloud shell and motes are medium/high only, so low never exceeds the baseline draw calls.
-    this.arena.cloudShell.visible = q !== "low";
-    this.arena.motes.visible = q !== "low";
+    // FB08: cloud shell and motes follow the profile, so low never exceeds the baseline draw calls.
+    this.arena.cloudShell.visible = p.cloudShell;
+    this.arena.motes.visible = p.motes;
     // QE02: supporting approach props follow the same rule; core landmarks and the sparse low-tier tufts stay.
     const extra = this.scene.getObjectByName("env.dressing.extra");
-    if (extra) extra.visible = q !== "low";
+    if (extra) extra.visible = p.extraProps;
     if (!this.disposed) this.resize();
   }
 
@@ -302,11 +313,10 @@ export class GameScene {
     this.camera.position.set(p.position.x, p.position.y, p.position.z);
     this.camera.lookAt(p.pivot.x, p.pivot.y, p.pivot.z);
     // The sun's shadow box follows the pivot, snapped to whole texels so shadow edges do not shimmer.
-    const texel = (SHADOW_HALF * 2) / 1024;
+    const pr = profileFor(this.quality), texel = (pr.shadowHalf * 2) / (pr.shadowMapSize || 1024);
     const tx = Math.round(p.pivot.x / texel) * texel, tz = Math.round(p.pivot.z / texel) * texel;
-    this.sun.target.position.set(tx, 0, tz);
-    this.sun.position.set(tx + 28, 50, tz + 18);
-    this.sun.target.updateMatrixWorld();
+    aimSun(this.sun, this.theme, tx, tz);
+    this.focus = { x: p.pivot.x, z: p.pivot.z };
   }
 
   resize(): void {
@@ -360,6 +370,8 @@ export class GameScene {
         this.arena.setMotes(this.ambientTime);
       }
     }
+    this.envLayer.setAnimated(!this.reducedMotion);
+    this.envLayer.update(dtSec, this.focus.x, this.focus.z, this.camera, this.win.innerHeight * pixelRatioFor(this.quality, this.win.innerWidth, this.win.innerHeight, this.win.devicePixelRatio ?? 1));
     this.renderer.render(this.scene, this.camera);
     this.onFrameRendered?.();
   }
@@ -375,6 +387,7 @@ export class GameScene {
     this.urns.dispose();
     this.beast.dispose();
     this.craters.dispose();
+    this.envLayer.dispose();
     for (const g of this.geometries) g.dispose();
     for (const m of this.materials) m.dispose();
     if (this.env) {

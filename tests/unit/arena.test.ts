@@ -108,7 +108,7 @@ describe("server Rapier world", () => {
     expect(w.groundHeight(57, 3)).toBeNull();
   });
   test("pillar blocks a capsule; step is fixed 1/60 s; dispose is idempotent", async () => {
-    expect(w.capsuleOverlaps([12, 0.9, 10], 0.35, 0.55)).toContain("pillar.3");
+    expect(w.capsuleOverlaps([20, 0.9, 16], 0.35, 0.55)).toContain("pillar.3");
     expect(w.rapier.timestep).toBeCloseTo(1 / 60, 6);
     w.step();
     const w2 = await World.create();

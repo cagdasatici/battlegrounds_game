@@ -10,9 +10,9 @@ describe("T23 urns over a real Colyseus connection (three clients)", () => {
   test("urn: pickup after 12 ticks, throw hits for 8 HP, urn returns to its anchor 600 ticks after the throw, all replicated to three clients", async () => {
     const x = await setup(h, "td");
     const y = x.room.movement!.position(x.aId)![1];
-    // Urn 0 stands at (-9, 0.25, -10). A beside it facing -Z, B 4 m ahead, C far away.
-    x.place(x.aId, -9, y, -9.4, 0);
-    x.place(x.bId, -9, y, -13.4, Math.PI);
+    // Urn 0 stands at (-16, 0.25, -16). A beside it facing -Z, B 4 m ahead, C far away.
+    x.place(x.aId, -16, y, -15.4, 0);
+    x.place(x.bId, -16, y, -19.4, Math.PI);
     x.place(x.cId, 30, y, 30, 0);
     await new Promise((r) => setTimeout(r, 80));
     let p = x.pressAttack();
@@ -43,8 +43,8 @@ describe("T23 urns over a real Colyseus connection (three clients)", () => {
 
   async function holdUrn(x: Awaited<ReturnType<typeof setup>>) {
     const y = x.room.movement!.position(x.aId)![1];
-    x.place(x.aId, -9, y, -9.4, 0);
-    x.place(x.bId, -9, y, -13.4, Math.PI);
+    x.place(x.aId, -16, y, -15.4, 0);
+    x.place(x.bId, -16, y, -19.4, Math.PI);
     x.place(x.cId, 30, y, 30, 0);
     await new Promise((r) => setTimeout(r, 80));
     const p = x.pressAttack();

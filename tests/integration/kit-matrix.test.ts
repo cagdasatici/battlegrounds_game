@@ -183,7 +183,7 @@ const ROWS: Row[] = [
     expectVictimAction: "Idle", waitTicks: 60, expectCasterForm: "Awakened" },
   { move: "td.b1", casterKit: "td", victimKit: "sv", setup: plain, edge: sk(1), expectVictimHp100: 10000 - 2400, expectVictimAction: "Ragdolled", waitTicks: 85 },
   // Drag stops at wall.0 (spans z -0.3..0.3, capsule radius 0.4): victim z stays > 0.67 and well short of the full 3 m.
-  { move: "td.b2", casterKit: "td", victimKit: "sv", setup: async (c) => { faceEachOther(c, [-10, 1.0]); await sleep(60); }, edge: sk(2),
+  { move: "td.b2", casterKit: "td", victimKit: "sv", setup: async (c) => { faceEachOther(c, [-16, 1.0]); await sleep(60); }, edge: sk(2),
     expectVictimHp100: 10000 - 1900, expectVictimAction: "Ragdolled", waitTicks: 90,
     check: (v) => { expect(v.z).toBeGreaterThan(0.3 + 0.4 - 0.05); expect(1.0 - v.z).toBeLessThan(0.6); } },
   { move: "td.b3", casterKit: "td", victimKit: "sv", setup: plain, edge: sk(3), expectVictimHp100: 10000 - 900, expectVictimAction: "Ragdolled", waitTicks: 60 },

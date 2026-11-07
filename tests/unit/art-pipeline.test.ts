@@ -235,13 +235,14 @@ describe("T25 scene quality", () => {
     expect(isSoftwareRenderer(null)).toBe(false);
   });
   const win = (dpr: number): WindowLike => ({ innerWidth: 1180, innerHeight: 820, devicePixelRatio: dpr, addEventListener() {}, removeEventListener() {} });
-  it("caps rendered pixels by quality and keeps the ratio between 0.6 and 1.5", () => {
+  it("caps rendered pixels by quality and keeps the ratio between 0.6 and 2", () => {
     for (const q of ["low", "medium", "high"] as const) {
       const r = pixelRatioFor(q, 1180, 820, 2);
-      expect(r).toBeGreaterThanOrEqual(0.6); expect(r).toBeLessThanOrEqual(1.5);
-      expect(1180 * 820 * r * r).toBeLessThanOrEqual({ low: 750_000, medium: 1_500_000, high: 2_500_000 }[q] * 1.001);
+      expect(r).toBeGreaterThanOrEqual(0.6); expect(r).toBeLessThanOrEqual(2);
+      expect(1180 * 820 * r * r).toBeLessThanOrEqual({ low: 700_000, medium: 1_500_000, high: 4_000_000 }[q] * 1.001);
     }
-    expect(pixelRatioFor("high", 400, 300, 3)).toBe(1.5);
+    expect(pixelRatioFor("high", 400, 300, 3)).toBe(2);
+    expect(pixelRatioFor("medium", 400, 300, 3)).toBe(1.5);
     expect(pixelRatioFor("low", 4000, 3000, 1)).toBe(0.6);
   });
   it("turns shadows off on low and on for medium and high, and applies the pixel ratio to the renderer", () => {

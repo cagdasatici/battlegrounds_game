@@ -13,6 +13,10 @@ import {
 } from "three";
 import { ARENA, ARENA_SCALE, type Collider } from "@eb/shared/config/arena";
 import { ENV_VARIANT, RIM_HEX, cloudAlpha, moteBob, motePlacements, mixHex, mulberry32, plankHex, skyHex, strataHex } from "./EnvPalette.js";
+import { GROVE_THEME, type EnvTheme } from "../render/environment/theme.js";
+import { groundHex, wearPointsFor, type WearPoint } from "../render/environment/groundShading.js";
+import { makeSkyMaterial } from "../render/environment/sky.js";
+import { sceneryIslets } from "../render/environment/treePlan.js";
 import { instancePlacements, type EnvKit, type EnvModelId, type EnvPlacement } from "./EnvAssets.js";
 
 export const SKY = { horizon: 0xc2d5df, zenith: 0x326b9e, nadir: 0x6e9eae, fog: 0xb7cdd8 } as const;
@@ -62,6 +66,13 @@ const xf = (x: number, y: number, z: number, sx = 1, sy = 1, sz = 1, rx = 0, ry 
 };
 const lerpHex = mixHex;
 const box = (w: number, h: number, d: number): BoxGeometry => new BoxGeometry(w, h, d);
+/** Drops one face group of a BoxGeometry (0 +x, 1 -x, 2 +y, 3 -y, 4 +z, 5 -z): the finely tessellated meadow lip never shows its underside. */
+function withoutFace(g: BoxGeometry, face: number): BoxGeometry {
+  const idx = g.getIndex()!, keep: number[] = [];
+  g.groups.forEach((grp, i) => { if (i !== face) for (let k = grp.start; k < grp.start + grp.count; k++) keep.push(idx.getX(k)); });
+  g.setIndex(keep); g.clearGroups();
+  return g;
+}
 
 export interface ArenaBuild {
   readonly group: Group;
@@ -81,27 +92,22 @@ export interface ArenaBuild {
 }
 
 const RIM_W = 0.32;
+/** GFX01: vertex spacing (m) of the walkable top, so ground colour has real resolution on the 1.5x larger islands. */
+const GROUND_CELL = 1.6;
 const isGround = (c: Collider): boolean => c.role === "ground";
 
-function groundGeometry(c: Collider, all: readonly Collider[]): BufferGeometry {
+function groundGeometry(c: Collider, all: readonly Collider[], theme: EnvTheme, wear: readonly WearPoint[]): BufferGeometry {
   const b = new Batch();
   const top = c.centre[1] + (c.shape === "cuboid" ? c.halfExtents[1] : c.halfHeight);
   const bottom = top - (c.shape === "cuboid" ? c.halfExtents[1] : c.halfHeight) * 2;
   const lip = 0.38;
   const rock: Shader = (_x, y) => strataHex(ENV_VARIANT.rock, (top - lip - y) / Math.max(1, top - lip - bottom), PALETTE.rockHi, PALETTE.rockLow, 0x4e3a28);
-  const grass: Shader = (x, _y, z, _nx, ny) => {
-    if (ny <= 0.5) return PALETTE.grassSide;
-    // Broad, quiet patches read at gameplay distance; warm wear leads the east spawn to the bridge.
-    const wear = Math.exp(-Math.pow((z + 1.5) / 3.2, 2)) * Math.max(0, Math.min(1, (x - 15) / 12));
-    const meadow = 0.5 + 0.5 * Math.sin(x * 0.27 + Math.cos(z * 0.31));
-    const route = Math.min(Math.abs(x), Math.abs(z));
-    const path = Math.exp(-(route * route) / 2.8) * Math.min(1, Math.hypot(x, z) / 9);
-    return lerpHex(lerpHex(0x496d54, 0x91a36a, meadow), 0xb8ac84, Math.max(wear * 0.85, path * .7));
-  };
+  // GFX01: layered noise meadow with dirt paths and trampled pads (render/environment/groundShading.ts).
+  const grass: Shader = (x, _y, z, _nx, ny) => (ny <= 0.5 ? PALETTE.grassSide : groundHex(theme, x, z, wear));
   if (c.shape === "cuboid") {
     const [hx, hy, hz] = c.halfExtents;
     b.add(box(hx * 2, hy * 2 - lip, hz * 2), xf(c.centre[0], bottom + (hy * 2 - lip) / 2, c.centre[2]), rock);
-    b.add(new BoxGeometry(hx * 2 + 0.08, lip, hz * 2 + 0.08, 12, 1, 12), xf(c.centre[0], top - lip / 2, c.centre[2]), grass);
+    b.add(withoutFace(new BoxGeometry(hx * 2 + 0.08, lip, hz * 2 + 0.08, Math.ceil(hx * 2 / GROUND_CELL), 1, Math.ceil(hz * 2 / GROUND_CELL)), 3), xf(c.centre[0], top - lip / 2, c.centre[2]), grass);
     // FB08: pale edge strips on the walkable top (inside the collider) so ledges read at a glance; skipped where
     // another island overlaps, so only true outer edges are lit.
     if (ENV_VARIANT.rock > 0) for (const sd of [-1, 1]) {
@@ -234,6 +240,9 @@ const SKY_RADIUS = 165 * ARENA_SCALE;
 /** Distant islets as [x, topY, z, radius]. Shared by the code-built islets and the glTF dressing plan. */
 export const ISLETS: ReadonlyArray<readonly [number, number, number, number]> = ([[-78, -12, -62, 9], [86, -4, -48, 11], [-96, 6, 52, 8], [70, -14, 82, 12], [8, -18, -112, 14], [-30, -6, 104, 10]] as const)
   .map(([x, y, z, r]) => [x * ARENA_SCALE, y, z * ARENA_SCALE, r] as const); // ARENA01: positions spread with the world, sizes unchanged
+
+/** GFX01: extra far scenery islets (positions pure, see render/environment/treePlan.ts); trees on all islets come from the environment layer. */
+export const SCENERY_ISLETS: ReadonlyArray<readonly [number, number, number, number]> = sceneryIslets(ARENA_SCALE, ISLETS);
 
 /** Outward distance (m) between a rim boulder's centre and the nearest walkable footprint edge. */
 const RIM_OFFSET = 1.1;
@@ -398,7 +407,9 @@ function meadowTexture(): DataTexture {
   texture.colorSpace = SRGBColorSpace; texture.needsUpdate = true; return texture;
 }
 
-export function buildArena(colliders: readonly Collider[], ramp: DataTexture, opts: { detail: number } = { detail: 1 }): ArenaBuild {
+export function buildArena(colliders: readonly Collider[], ramp: DataTexture, opts: { detail: number; theme?: EnvTheme } = { detail: 1 }): ArenaBuild {
+  const theme = opts.theme ?? GROVE_THEME;
+  const wear = wearPointsFor(colliders, ARENA.spawnAnchors);
   const group = new Group();
   const geometries: BufferGeometry[] = [];
   const materials: Material[] = [];
@@ -421,7 +432,7 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
 
   const posts = new Batch();
   for (const c of colliders) {
-    const g = isGround(c) ? groundGeometry(c, colliders) : c.role === "bridge" ? bridgeGeometry(c, glow, posts) : c.role === "guardrail" ? railGeometry(c, glow) : obstacleGeometry(c);
+    const g = isGround(c) ? groundGeometry(c, colliders, theme, wear) : c.role === "bridge" ? bridgeGeometry(c, glow, posts) : c.role === "guardrail" ? railGeometry(c, glow) : obstacleGeometry(c);
     addMesh(c.id, g, isGround(c) ? terrain : toon, { cast: c.role === "obstacle" || c.role === "ground", receive: true });
   }
 
@@ -576,6 +587,10 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
     isletTrees.add(new ConeGeometry(1.6, 2.6, 7, 1), xf(x + r * 0.3, y + 5.6, z), 0x4f8f45);
     isletTrees.add(new OctahedronGeometry(0.9, 0), xf(x - r * 0.3, y + 1.1, z + 1, 0.7, 1.5, 0.7), lerpHex(0xf0a030, 0x5fe3d3, rnd()));
   }
+  for (const [x, y, z, r] of SCENERY_ISLETS) {
+    far.add(new CylinderGeometry(r, r * 0.95, 1.6, 14, 1), xf(x, y - 0.8, z), (_x, _y, _z, _nx, ny) => (ny > 0.5 ? lerpHex(PALETTE.grassTop, 0x5f8a55, rnd()) : PALETTE.grassSide));
+    underside(far, x, z, y - 1.6, r * 0.95, r * 0.95, r * 1.7, rnd);
+  }
   addMesh("deco.islets", far.build(), flatToon, { cast: false, receive: false });
   // Code-built trees stay as the fallback; the scene hides this mesh once the glTF dressing is in.
   addMesh("deco.isletTrees", isletTrees.build(), flatToon, { cast: false, receive: false });
@@ -594,17 +609,9 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
   const clouds = addMesh("deco.clouds", cl.build(), flatToon, { cast: false, receive: false });
 
   // Sky dome with a vertical gradient; unaffected by fog.
+  // GFX01: procedural gradient + sun disc (render/environment/sky.ts); the sun sits where the directional light points.
   const skyG = new SphereGeometry(SKY_RADIUS, 48, 24);
-  const sp = skyG.getAttribute("position");
-  const colors: number[] = [];
-  const c = new Color();
-  for (let i = 0; i < sp.count; i++) {
-    const t = sp.getY(i) / SKY_RADIUS;
-    c.setHex(skyHex(ENV_VARIANT.sky, t, Math.atan2(sp.getZ(i), sp.getX(i)), SKY.horizon, SKY.zenith, SKY.nadir));
-    colors.push(c.r, c.g, c.b);
-  }
-  skyG.setAttribute("color", new Float32BufferAttribute(colors, 3));
-  // A warm sun and distant suspended spires belong to the sky, so camera movement cannot expose a backdrop edge.
+  // Distant suspended spires belong to the sky, so camera movement cannot expose a backdrop edge.
   const horizon = new Batch();
   for (let i = 0; i < 16; i++) {
     const a = i / 16 * Math.PI * 2, r = 138 * ARENA_SCALE, x = Math.cos(a) * r, z = Math.sin(a) * r, y = -17 - rnd() * 12;
@@ -612,11 +619,10 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
     horizon.add(new DodecahedronGeometry(1, 0), xf(x, y, z, w, 2, w * 0.7, 0, a, 0), tone);
     horizon.add(new DodecahedronGeometry(1, 0), xf(x + w * 0.12, y - h * 0.6, z, w * 0.62, h, w * 0.48, 0.2, a, 0.12), tone);
   }
-  horizon.add(new SphereGeometry(5.5, 24, 16), xf(68 * ARENA_SCALE, 63, -111 * ARENA_SCALE), 0xffe6bd);
   const backdrop = addMesh("deco.horizon", horizon.build(), new MeshBasicMaterial({ vertexColors: true, fog: false, side: DoubleSide }), { cast: false, receive: false });
   materials.push(backdrop.material as Material);
   geometries.push(skyG);
-  const skyMat = new MeshBasicMaterial({ vertexColors: true, side: BackSide, fog: false, depthWrite: false });
+  const skyMat = makeSkyMaterial(theme);
   materials.push(skyMat);
   const sky = new Mesh(skyG, skyMat);
   sky.name = "deco.sky";

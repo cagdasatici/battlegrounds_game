@@ -10,8 +10,8 @@ describe("T23 sv.x2 Gale Rebuff over a real Colyseus connection (three clients)"
   test("awakened Vanguard: the wall fourth hit is sv.x2 Gale Rebuff (40 HP at +48, release +49) and contextSpent replicates to every client", async () => {
     const x = await setup(h, "sv");
     const y = x.room.movement!.position(x.aId)![1];
-    x.place(x.bId, -10, y, 0.8, Math.PI);
-    x.place(x.aId, -10, y, 2.0, 0);
+    x.place(x.bId, -16, y, 0.8, Math.PI);
+    x.place(x.aId, -16, y, 2.0, 0);
     x.place(x.cId, 30, y, 30, 0);
     const f = x.room.combat.get(x.aId)!; f.form = "Awakened"; f.awakenedUsedMask = 0; f.contextSpent = false;
     await new Promise((r) => setTimeout(r, 80));

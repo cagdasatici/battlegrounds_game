@@ -30,7 +30,7 @@ test("ring and fracture samples use pillar and island heights and skip the void"
     const spawn = vi.spyOn(pool, "spawn");
     const { playActive: _custom, ...recipe } = SV_RECIPES["sv.b4"]!; // generic fracture style (sv kit moves have custom Active cues since QV03/QV06)
     const offset = play === playWindup ? 0.05 : 0.08;
-    play(pool, recipe, { x: -10.55, y: 2.9, z: -10 }, 0, surface);
+    play(pool, recipe, { x: -18.55, y: 2.9, z: -16 }, 0, surface);
     const heights = new Set(spawn.mock.calls.map(([p]) => p.y));
     expect(heights).toEqual(new Set([offset, 2 + offset]));
     spawn.mockClear();

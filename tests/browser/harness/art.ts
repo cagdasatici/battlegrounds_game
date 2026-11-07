@@ -7,8 +7,11 @@ import { ENV_VARIANT } from "../../../apps/client/src/scene/EnvPalette.js";
 // FB08 drafting: ?sky=N&rock=N&bridge=N override the chosen look before the scene is built.
 for (const k of ["sky", "rock", "bridge"] as const) { const v = new URLSearchParams(location.search).get(k); if (v !== null) ENV_VARIANT[k] = Number(v); }
 const renderer = new WebGLRenderer({ antialias: true });
+const startQuality = new URLSearchParams(location.search).get("q"); // GFX01: ?q=low|medium|high selects the tier before the first frame
 document.body.append(renderer.domElement);
 const gs = new GameScene(renderer, buildIslandsMap().colliders, window);
+if (startQuality === "low" || startQuality === "medium" || startQuality === "high") gs.setQuality(startQuality);
+if (new URLSearchParams(location.search).get("lite") === "1") { const e = gs.scene.getObjectByName("deco.env"); if (e) e.visible = false; } // GFX01: fighter timing specs hide the environment layer
 void gs.loadEnvironment();
 const kits = ["sv", "td", "ea"] as const;
 kits.forEach((k, i) => {
@@ -32,12 +35,12 @@ if (route === "spawn" || route === "bridge" || route === "sat" || route === "wal
   const dirs = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] } as const;
   const n = (qp.get("n") ?? "east") as keyof typeof dirs;
   const i = Number(qp.get("i") ?? 0);
-  const anchors = [[-18, -14], [18, -14], [-18, 14], [18, 14], [-34, -3], [34, -3], [-34, 3], [34, 3]] as const;
+  const anchors = [[-27, -21], [27, -21], [-27, 21], [27, 21], [-64, -3], [64, -3], [-64, 3], [64, 3]] as const;
   let from: [number, number], d: [number, number];
   if (route === "spawn") { from = [anchors[i]![0], anchors[i]![1]]; const l = Math.hypot(from[0], from[1]); d = [-from[0] / l, -from[1] / l]; }
   else if (route === "bridge") { const v = dirs[n]; from = [v[0] * 25.5, v[1] * 23]; d = [v[0], v[1]]; if (n === "east" || n === "west") from = [v[0] * 25.2, 0]; else from = [0, v[1] * 21.2]; }
   else if (route === "sat") { const v = dirs[n]; from = [v[0] * 36, v[1] * 32]; if (n === "east" || n === "west") from = [v[0] * 36, 0]; else from = [0, v[1] * 32]; d = [-v[0], -v[1]]; }
-  else { const wx = i === 0 ? -10 : 10; from = [wx, -2.4]; d = [0, 1]; }
+  else { const wx = i === 0 ? -16 : 16; from = [wx, -2.4]; d = [0, 1]; }
   const yawOf = (dx: number, dz: number): number => Math.atan2(-dx, -dz);
   const defender: [number, number] = route === "wall" ? [from[0], 2.4] : [from[0] + d[0] * 2.2, from[1] + d[1] * 2.2];
   gs.viewFor("sv")?.setPose(from[0], 0.9, from[1], yawOf(d[0], d[1]));
@@ -80,4 +83,12 @@ requestAnimationFrame(loop);
   reduced: (on: boolean) => { gs.reducedMotion = on; },
   ambient: () => gs.ambientState(),
   quality: (q: "low" | "medium" | "high") => gs.setQuality(q),
+  /** GFX01: GPU-inclusive frame cost. Renders `n` frames back to back with a 1-pixel readback after each (a full pipeline sync), returns ms per frame. */
+  bench: (n: number): number[] => {
+    const gl = renderer.getContext(), px = new Uint8Array(4), out: number[] = [];
+    for (let i = 0; i < n; i++) { const t0 = performance.now(); gs.render(1 / 60); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); out.push(performance.now() - t0); }
+    return out;
+  },
+  gl: () => { const gl = renderer.getContext(); const e = gl.getExtension("WEBGL_debug_renderer_info"); return { renderer: e ? String(gl.getParameter(e.UNMASKED_RENDERER_WEBGL)) : "unknown", ratio: renderer.getPixelRatio(), size: [renderer.domElement.width, renderer.domElement.height] }; },
+  stats: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles }),
 };

@@ -1,3 +1,4 @@
+// GFX01: fighter timing checks load art.html?lite=1, which hides the environment layer (grass, trees, particles) so software-rendered frames stay fast enough for their wall-clock waits.
 // T25 visual checks: the real GameScene over the islands map with all three fighters, in real Chromium (SwiftShader WebGL).
 // Screenshot name comes from EB_ART_SHOT (default T25-after.png) so the same spec captures the before and after images.
 import { test, expect, chromium, type Browser } from "@playwright/test";
@@ -65,13 +66,14 @@ test("fighters play move, guard and ability clips in a real render, and low qual
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   try {
-    await page.goto(`${base}/art.html`);
+    await page.goto(`${base}/art.html?lite=1`);
     await page.waitForFunction(() => ((window as unknown as { __art?: ArtApi }).__art?.frames() ?? 0) > 10, undefined, { timeout: 30_000 });
     await page.evaluate(() => {
       const a = (window as unknown as { __art: ArtApi }).__art;
       a.act("sv", "Active", "sv.a2"); a.act("td", "Guard", ""); a.act("ea", "Windup", "ea.a3");
     });
-    await page.waitForTimeout(450);
+    // GFX01: wait for the clips instead of a fixed 450 ms; software rendering of the richer meadow can take longer than that per frame.
+    await page.waitForFunction(() => { const a = (window as unknown as { __art: ArtApi }).__art; return a.clip("sv") === "sv.a2" && a.clip("td") === "guard" && a.clip("ea") === "ea.a3"; }, undefined, { timeout: 30_000 }).catch(() => undefined);
     const clips = await page.evaluate(() => { const a = (window as unknown as { __art: ArtApi }).__art; return [a.clip("sv"), a.clip("td"), a.clip("ea")]; });
     expect(clips).toEqual(["sv.a2", "guard", "ea.a3"]);
     await page.screenshot({ path: path.join(outDir, "T25-after-poses.png") });
@@ -95,7 +97,7 @@ test("QF01 Stone Vanguard rear silhouette and Fault Strike phases", async () => 
   const clipOf = (kit: string) => page.evaluate((k) => (window as unknown as { __art: ArtApi }).__art.clip(k), kit);
   try {
     for (const dist of [8, 14]) {
-      await page.goto(`${base}/art.html?view=rear&dist=${dist}`);
+      await page.goto(`${base}/art.html?view=rear&dist=${dist}&lite=1`);
       await page.waitForFunction(() => ((window as unknown as { __art?: ArtApi }).__art?.frames() ?? 0) > 20, undefined, { timeout: 30_000 });
       await page.addStyleTag({ content: "canvas{filter:grayscale(1)}" });
       for (const q of ["medium", "low"]) {
@@ -145,14 +147,14 @@ test("QF02 Tide Duelist silhouette and Undertow Spiral phases", async () => {
   };
   try {
     for (const view of ["rear", "side"]) for (const dist of [8, 14]) {
-      await ready(`${base}/art.html?view=${view}&dist=${dist}`);
+      await ready(`${base}/art.html?view=${view}&dist=${dist}&lite=1`);
       for (const q of ["medium", "low"]) for (const awakened of [false, true]) {
         await page.evaluate(([qq, on]) => { const a = (window as unknown as { __art: A }).__art; a.quality(qq as string); a.awaken("td", on as boolean); }, [q, awakened]);
         await page.waitForTimeout(500);
         await page.screenshot({ path: path.join(outQ, `${view}-${dist}m-${q}${awakened ? "-awakened" : ""}.png`) });
       }
     }
-    await ready(`${base}/art.html`);
+    await ready(`${base}/art.html?lite=1`);
     await page.screenshot({ path: path.join(outQ, "front-idle.png") });
     await act("td", "Guard", "");
     await page.waitForTimeout(500);
@@ -192,14 +194,14 @@ test("QF03 Ember Artificer silhouette and Furnace Ray phases", async () => {
   };
   try {
     for (const view of ["rear", "side"]) for (const dist of [8, 14]) {
-      await ready(`${base}/art.html?view=${view}&dist=${dist}`);
+      await ready(`${base}/art.html?view=${view}&dist=${dist}&lite=1`);
       for (const q of ["medium", "low"]) for (const awakened of [false, true]) {
         await page.evaluate(([qq, on]) => { const a = (window as unknown as { __art: A }).__art; a.quality(qq as string); a.awaken("ea", on as boolean); }, [q, awakened]);
         await page.waitForTimeout(500);
         await page.screenshot({ path: path.join(outQ, `${view}-${dist}m-${q}${awakened ? "-awakened" : ""}.png`) });
       }
     }
-    await ready(`${base}/art.html`);
+    await ready(`${base}/art.html?lite=1`);
     await page.screenshot({ path: path.join(outQ, "front-idle.png") });
     // Complete anonymous lineup for QD01: all three fighters side by side, no labels, base then awakened.
     for (const k of ["sv", "td", "ea"]) await page.evaluate(([kk]) => (window as unknown as { __art: A }).__art.awaken(kk as string, true), [k]);
