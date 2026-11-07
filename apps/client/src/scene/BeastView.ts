@@ -1,3 +1,4 @@
+import type { EffectsPool } from "./EffectsPool.js";
 import { CircleGeometry, Group, Mesh, MeshBasicMaterial, type Object3D, type Scene } from "three";
 import { buildBeastModel, type BeastModel } from "./BeastModel.js";
 import { BEAST, BEAST_MOVES } from "@eb/shared/config/beast";
@@ -44,7 +45,9 @@ export class BeastView {
   private viewer: { x: number; y: number; z: number } | null = null;
   private disposed = false;
 
-  constructor(private readonly scene: Scene) {
+  private lastDefeat = 0;
+
+  constructor(private readonly scene: Scene, private readonly effects?: EffectsPool) {
     this.body.scale.setScalar(BEAST.scale);
     this.root.add(this.body);
     this.root.name = "beast"; this.root.visible = false;
@@ -134,15 +137,34 @@ export class BeastView {
       defeat = Math.min(1, Math.max(0, 1 - (b.phaseEndTick - this.tick) / BEAST.defeatedTicks));
       sink = defeat > 0.9 ? (defeat - 0.9) * 10 * 0.6 * BEAST.scale : 0; // lies still, then settles into the ground
       if (defeat >= 1) show(this.root, false);
+      if (this.effects && !inside) for (const i of beastDeathImpacts(this.lastDefeat, defeat)) this.dust(BEAST_DEATH_IMPACTS[i]!, x, ground, z, yaw);
     }
+    this.lastDefeat = defeat;
     if (!this.model) { this.model = buildBeastModel(); this.model.group.traverse((n) => { if (n.name === "") n.name = "beast.part"; }); this.body.add(this.model.group); }
     this.model.pose({ clock: this.clock, walking: b.walking, action: defeated ? "Dead" : b.action, moveId: b.moveId, prog, defeat });
     this.body.position.y = -sink;
     this.body.scale.setScalar(BEAST.scale * (0.35 + 0.65 * appear));
   }
 
+  /** Ground-impact dust for one death beat: a low ring of grit plus heavier clods, along the side the body falls to. */
+  private dust(imp: BeastDeathImpact, x: number, y: number, z: number, yaw: number): void {
+    const fx = this.effects!, k = BEAST.scale;
+    // rotation.z > 0 tips the model toward its local -X; with the root yaw that is world (-cos yaw, 0, sin yaw).
+    const dx = -Math.cos(yaw), dz = Math.sin(yaw), cx = x + dx * imp.offset * k, cz = z + dz * imp.offset * k, r = imp.spread * k;
+    for (let i = 0; i < imp.count; i++) {
+      const a = Math.random() * Math.PI * 2, d = r * (0.4 + 0.6 * Math.random()), sp = 2 + Math.random() * 4 * imp.power;
+      const clod = i % 4 === 0;
+      fx.spawn({
+        x: cx + Math.cos(a) * d, y: y + 0.2, z: cz + Math.sin(a) * d,
+        vx: Math.cos(a) * sp, vy: clod ? 3 + Math.random() * 4 * imp.power : 0.4 + Math.random() * 1.2, vz: Math.sin(a) * sp,
+        life: clod ? 0.7 + Math.random() * 0.4 : 1.2 + Math.random() * 0.8, size: clod ? 0.35 + Math.random() * 0.3 : 1.1 + Math.random() * 1.4 * imp.power,
+        color: clod ? 0x5a4636 : 0xb8a58a, gravity: clod ? 14 : -0.25,
+      });
+    }
+  }
+
   clear(): void {
-    this.rec = undefined; this.lastPhase = PHASE_NONE;
+    this.rec = undefined; this.lastPhase = PHASE_NONE; this.lastDefeat = 0;
     this.root.visible = false; this.swipeZone.visible = false; this.slamZone.visible = false; this.marker.visible = false;
   }
 
@@ -157,3 +179,20 @@ export class BeastView {
 }
 
 function easeOut(t: number): number { return 1 - (1 - t) * (1 - t); }
+
+/** One ground hit in the beast's death sequence (BeastModel defeat phases). Offset and spread are in model units (x BEAST.scale). */
+export interface BeastDeathImpact { at: number; offset: number; spread: number; count: number; power: number }
+
+/** Knees hit the ground, the body slams down on its side, it rolls onto its back. D values matching BeastModel's phase edges. */
+export const BEAST_DEATH_IMPACTS: readonly BeastDeathImpact[] = [
+  { at: 0.34, offset: 0, spread: 0.45, count: 24, power: 0.7 },
+  { at: 0.68, offset: 1.3, spread: 1.2, count: 60, power: 1.2 },
+  { at: 0.86, offset: 1.3, spread: 1.0, count: 34, power: 0.8 },
+];
+
+/** Indices of impacts crossed going from defeat progress `prev` to `cur` (each fires once; none when time goes backwards). */
+export function beastDeathImpacts(prev: number, cur: number): number[] {
+  const out: number[] = [];
+  BEAST_DEATH_IMPACTS.forEach((imp, i) => { if (prev < imp.at && cur >= imp.at) out.push(i); });
+  return out;
+}

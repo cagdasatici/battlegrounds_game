@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { Scene } from "../../apps/client/node_modules/three/build/three.module.js";
-import { BeastView, beastBanner, type LoopBeast } from "../../apps/client/src/scene/BeastView.js";
+import { BeastView, beastBanner, beastDeathImpacts, type LoopBeast } from "../../apps/client/src/scene/BeastView.js";
 import { BEAST } from "../../packages/shared/src/config/beast.js";
 import { BEAST_MODEL_HEIGHT, buildBeastModel } from "../../apps/client/src/scene/BeastModel.js";
 import { Box3, Vector3 } from "../../apps/client/node_modules/three/build/three.module.js";
@@ -127,5 +127,15 @@ describe("TransformBurst", () => {
     expect(b.active).toBe(false);
     b.dispose(); b.dispose();
     expect(g.children).toHaveLength(0);
+  });
+});
+
+describe("beast death dust", () => {
+  test("each ground impact fires exactly once as the collapse advances, never backwards", () => {
+    expect(beastDeathImpacts(0, 0.2)).toEqual([]);
+    expect(beastDeathImpacts(0.2, 0.34)).toEqual([0]);
+    expect(beastDeathImpacts(0.34, 0.5)).toEqual([]);
+    expect(beastDeathImpacts(0.3, 0.9)).toEqual([0, 1, 2]);
+    expect(beastDeathImpacts(0.9, 0.1)).toEqual([]);
   });
 });

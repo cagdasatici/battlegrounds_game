@@ -94,7 +94,7 @@ export class GameScene {
   readonly projectiles = new ProjectileViews(this.scene, this.effects);
   readonly urns = new UrnViews(this.scene);
   /** BEAST01: the sparring beast presentation. */
-  readonly beast = new BeastView(this.scene);
+  readonly beast = new BeastView(this.scene, this.effects);
   /** BEAST02: sparring craters left by transformed fighters. */
   readonly craters = new CraterViews(this.scene);
   private readonly contacts = new Map<string, Mesh<PlaneGeometry, MeshBasicMaterial>>();
