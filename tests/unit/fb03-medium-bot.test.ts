@@ -19,7 +19,7 @@ function life(selfId: number, spawnTick: number, ticks: number, z: number, attac
 describe("FB03 medium bot parameters", () => {
   test("medium lies between easy and hard", () => {
     const { easy, medium, hard } = BOT_PARAMS;
-    expect(medium).toMatchObject({ moveScale: 0.8, reactionTicks: 12, swingCooldownTicks: 45, maxChain: 2, whiffRate: 0.15, aimErrorDeg: 10, pursuitGiveUpTicks: 360 });
+    expect(medium).toMatchObject({ moveScale: 0.8, reactionTicks: 12, swingCooldownTicks: 60, maxChain: 2, whiffRate: 0.15, aimErrorDeg: 10, pursuitGiveUpTicks: 360 });
     expect(medium.moveScale).toBeGreaterThan(easy.moveScale); expect(medium.moveScale).toBeLessThan(hard.moveScale);
     expect(medium.interval).toBeLessThan(easy.interval); expect(medium.interval).toBeGreaterThan(hard.interval);
     expect(medium.blockRate).toBeGreaterThan(easy.blockRate); expect(medium.blockRate).toBeLessThan(1);

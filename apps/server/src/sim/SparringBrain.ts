@@ -9,8 +9,8 @@ export const BOT_PARAMS = {
   },
   // FB03 (D): medium sits between easy and hard; applied as a shaping layer over the GR14 policy (decideMedium).
   medium: {
-    interval: 15, moveScale: 0.8, reactionTicks: 12, swingCooldownTicks: 45, maxChain: 2, whiffRate: 0.15, blockRate: 0.25,
-    skillRate: 0.85, aimErrorDeg: 10, wanderMinTicks: 60, wanderMaxTicks: 120, wanderChance: 0.05, pursuitGiveUpTicks: 360,
+    interval: 15, moveScale: 0.8, reactionTicks: 12, swingCooldownTicks: 60, maxChain: 2, whiffRate: 0.15, blockRate: 0.25,
+    skillRate: 0.25, aimErrorDeg: 10, wanderMinTicks: 60, wanderMaxTicks: 120, wanderChance: 0.05, pursuitGiveUpTicks: 360,
   },
   hard: { interval: 6, moveScale: 1 },
 } as const;
@@ -74,7 +74,7 @@ function decideEasy(o: BotObservation, target: BotObservation["enemies"][number]
 }
 /**
  * FB03: shape the GR14 medium decision (D local design choices). Reaction delay on a new target, pursuit give-up and
- * wander, aim error, whiffs, a 45 tick swing rhythm (chains of at most 2 decisions), partial blocking and skill use.
+ * wander, aim error, whiffs, a 60 tick swing rhythm (COMBAT01: was 45; bots lost stun-lock, so medium is slowed to keep the medium/hard band) (chains of at most 2 decisions), partial blocking and skill use.
  */
 function decideMedium(o: BotObservation, target: BotObservation["enemies"][number], d2: number, k: number, previous: BotDecision, raw: BotDecision): BotDecision {
   const M = BOT_PARAMS.medium;
@@ -92,7 +92,7 @@ function decideMedium(o: BotObservation, target: BotObservation["enemies"][numbe
   if (out.blockHeld && r(1) >= M.blockRate) { out.blockHeld = false; out.approach = d2 > 4; }
   if (out.castSlot > 0 && r(2) >= M.skillRate) { out.castSlot = 0; out.holdSlot = 0; out.attackHeld = d2 <= 4; }
   if (out.attackHeld) {
-    // 45 tick rhythm: at most `maxChain` consecutive swing decisions, then one decision without a basic swing.
+    // 60 tick rhythm: at most `maxChain` consecutive swing decisions, then one decision without a basic swing.
     if (k % (M.swingCooldownTicks / M.interval) >= M.maxChain) { out.attackHeld = false; }
     else if (r(3) < M.whiffRate) out.yaw = yawTo + (r(4) < 0.5 ? -1 : 1) * (Math.PI / 3 + r(5) * (2 * Math.PI / 3));
   }

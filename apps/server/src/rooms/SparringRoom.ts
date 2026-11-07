@@ -117,6 +117,8 @@ export class SparringRoom extends BotArenaRoom {
     this.teamPlay = info.teamPlay;
     this.maxClients = info.teamPlay ? TEAM_PLAY.maxHumans : 4 - info.bots.length;
     await super.onCreate(options);
+    // COMBAT01: the beast boss is an AI attacker too; it deals damage but never stuns, ragdolls or captures humans.
+    this.combat.isBot = (id) => id === BEAST_ENTITY_ID || this.isBot(id);
     // Membership, rather than socket count, owns lifetime (including a completely disconnected host).
     this.autoDispose = false;
     this.roundTarget = info.roundTarget;

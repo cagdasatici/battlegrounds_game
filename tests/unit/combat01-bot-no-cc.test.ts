@@ -47,3 +47,17 @@ describe("COMBAT01 bot attacks never freeze humans", () => {
     expect(cs.get(2)!.action).toBe("Stunned");
   });
 });
+
+describe("COMBAT01 beast boss never freezes humans", () => {
+  test("beast ragdoll hit (as the sparring room wires isBot): damage applies, human stays free, no launch trigger", async () => {
+    const { BEAST_ENTITY_ID } = await import("../../packages/shared/src/config/beast.js");
+    const cs = new CombatSystem();
+    for (const i of [BEAST_ENTITY_ID, 2]) cs.add(i, i, 0, "ea").protectedUntilTick = 0;
+    cs.isBot = (id) => id === BEAST_ENTITY_ID; // same predicate shape SparringRoom installs
+    const poses = { x: 0, z: 0, facingYaw: 0, grounded: true };
+    const r = cs.resolve(T, [cand(BEAST_ENTITY_ID, 2, { reaction: { kind: "ragdoll", ticks: 60 }, armorBreak: true, block: "B", counterable: true })], () => poses)[0]!;
+    expect(r.outcome).toBe("hit");
+    expect(cs.get(2)!.hp100).toBe(10000 - 500);
+    expect(cs.get(2)!.action).toBe("Idle");
+  });
+});
