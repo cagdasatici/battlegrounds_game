@@ -2,7 +2,7 @@
  * Third person camera contract (spec section 9). Pure math, no Three.js: the renderer copies `pose`.
  * Camera position never affects hit detection; it is presentation only and may use render dt.
  */
-import { ARENA_SCALE, type Collider } from "@eb/shared/config/arena";
+import { ARENA, ARENA_SCALE, type Collider } from "@eb/shared/config/arena";
 
 export const CAMERA = {
   pivotHeight: 1.1,
@@ -160,8 +160,8 @@ export function framingOk(pose: CameraPose, local: V3, opp: Framed, aspect: numb
  * Orbit camera. Obstruction pulls inward immediately; clearing eases outward over 0.15 s.
  * `update` takes render dt in seconds: it never schedules gameplay.
  */
-/** BEAST05 (D): boom length multiplier for a subject of the given scale; a 5.5x beast gets about 3.2x, so it fills a similar share of the screen. */
-export const subjectDistanceScale = (scale: number): number => 1 + (Math.max(1, scale) - 1) * 0.5;
+/** BEAST05 (D): boom length multiplier for a subject of the given scale; a 5.5x beast gets about 4.6x, so it fills a similar share of the screen. */
+export const subjectDistanceScale = (scale: number): number => 1 + (Math.max(1, scale) - 1) * 0.8;
 
 /**
  * CAM01 (D): eases camera yaw toward the character's facing so the view settles behind it. Full rate when idle or moving
@@ -248,7 +248,8 @@ export class CameraRig {
    * `opponent` is the nearest living opponent, or null when the local fighter is dead, spectating or alone (QC01).
    */
   update(centre: V3, yaw: number, pitch: number, dtSeconds: number, opponent: Framed | null = null): CameraPose {
-    const basePivot = { x: centre.x, y: centre.y + CAMERA.pivotHeight * this.subject, z: centre.z };
+    // BEAST05: the whole stance scales from the feet, so the pivot sits above a big body's head as it does for a fighter.
+    const basePivot = { x: centre.x, y: centre.y + CAMERA.pivotHeight * this.subject + ARENA.capsule.centreAboveSurface * (this.subject - 1), z: centre.z };
     // Camera sits behind the facing direction: back = -forward = (sin yaw, cos yaw), raised by pitch.
     const dt = Number.isFinite(dtSeconds) && dtSeconds > 0 ? dtSeconds : 0;
     let camYaw = yaw, want: number = this.desired * subjectDistanceScale(this.subject);

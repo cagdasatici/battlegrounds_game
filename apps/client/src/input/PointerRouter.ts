@@ -48,7 +48,12 @@ export class PointerRouter {
   /** CAM01: camera swings back behind the character when not being dragged. */
   cameraFollow = true;
   /** True while a pointer is dragging the camera. */
-  get lookActive(): boolean { for (const o of this.owners.values()) if (o === "camera") return true; return false; }
+  /** True while a pointer has dragged the camera within the last 0.5 s; a finger merely resting on the screen does not count. */
+  get lookActive(): boolean {
+    for (const o of this.owners.values()) if (o === "camera") return performance.now() - this.lastLookMs < 500;
+    return false;
+  }
+  private lastLookMs = -Infinity;
   autoRun = false;
   quickUse = true;
   private readonly deferredSkills = new Set<number>();
@@ -145,6 +150,7 @@ export class PointerRouter {
       if (!prev) return;
       const k = (CAMERA_SENSITIVITY * this.sensitivity) / this.layout.s;
       this.yaw -= (p.x - prev.x) * k;
+      if (p.x !== prev.x || p.y !== prev.y) this.lastLookMs = performance.now();
       this.pitch = clamp(this.pitch - (p.y - prev.y) * k, PITCH_MIN, PITCH_MAX);
       this.last.set(p.pointerId, { x: p.x, y: p.y });
     }
