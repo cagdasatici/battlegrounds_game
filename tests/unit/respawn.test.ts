@@ -22,25 +22,25 @@ const pt = (x: number, z: number): Pt => ({ x, z });
 
 describe("A18 deterministic spawn choice (pure)", () => {
   test("picks the valid anchor farthest from the nearest living enemy; ties go to the lowest anchor id", () => {
-    // Enemy at anchor 0 (-18,-14): farthest anchor is id 7 (46,3).
-    expect(pickSpawn(anchors, [pt(-18, -14)], [], [pt(-18, -14)])).toMatchObject({ valid: true, anchor: { id: 7 } });
+    // Enemy at anchor 0 (-18,-14): farthest anchor is id 7 (64,3).
+    expect(pickSpawn(anchors, [pt(-27, -21)], [], [pt(-27, -21)])).toMatchObject({ valid: true, anchor: { id: 7 } });
     // No enemies: every distance is infinite, lowest id wins.
     expect(pickSpawn(anchors, [], [], []).anchor.id).toBe(0);
-    // Mirror symmetric enemy at the centre: all anchors on the +-18 ring tie only with equals; id 4 (-46,-3) is farthest first.
+    // Mirror symmetric enemy at the centre: all anchors on the +-18 ring tie only with equals; id 4 (-64,-3) is farthest first.
     const centre = pickSpawn(anchors, [pt(0, 0)], [], [pt(0, 0)]);
     expect(centre.anchor.id).toBe(4);
     expect(pickSpawn(anchors, [pt(0, 0)], [], [pt(0, 0)]).anchor.id).toBe(centre.anchor.id); // repeatable
   });
 
   test("rejects anchors within 2 m of an occupied capsule and inside an active hostile hit region", () => {
-    const enemy = pt(-18, -14);
-    // Occupy anchor 7 itself: the next farthest, id 5 (46,-3), wins (id 6 is 6 m farther south but nearer by rank).
-    const occ = pickSpawn(anchors, [enemy, pt(46, 3)], [], [enemy, pt(46, 3)]);
+    const enemy = pt(-27, -21);
+    // Occupy anchor 7 itself: the next farthest, id 5 (64,-3), wins (id 6 is 6 m farther south but nearer by rank).
+    const occ = pickSpawn(anchors, [enemy, pt(64, 3)], [], [enemy, pt(64, 3)]);
     expect(occ.valid).toBe(true);
     expect(occ.anchor.id).not.toBe(7);
-    expect(pickSpawn(anchors, [enemy, pt(46, 3.01)], [], [enemy]).anchor.id).not.toBe(7); // 0.01 m away: still rejected
-    expect(pickSpawn(anchors, [enemy, pt(46, 5.0)], [], [enemy]).anchor.id).toBe(7); // exactly 2 m: allowed
-    const hot = pickSpawn(anchors, [enemy], [{ x: 46, z: 3, r: 2 }], [enemy]);
+    expect(pickSpawn(anchors, [enemy, pt(64, 3.01)], [], [enemy]).anchor.id).not.toBe(7); // 0.01 m away: still rejected
+    expect(pickSpawn(anchors, [enemy, pt(64, 5.0)], [], [enemy]).anchor.id).toBe(7); // exactly 2 m: allowed
+    const hot = pickSpawn(anchors, [enemy], [{ x: 64, z: 3, r: 2 }], [enemy]);
     expect(hot.valid).toBe(true);
     expect(hot.anchor.id).not.toBe(7);
   });
@@ -50,7 +50,7 @@ describe("A18 deterministic spawn choice (pure)", () => {
     const r = pickSpawn(anchors, all, [], all);
     expect(r.valid).toBe(false);
     expect(r.anchor.id).toBe(0); // every enemy stands on an anchor: all distances 0, lowest id
-    const far = pickSpawn(anchors, all, [], [pt(-18, -14)]);
+    const far = pickSpawn(anchors, all, [], [pt(-27, -21)]);
     expect(far).toMatchObject({ valid: false, anchor: { id: 7 } });
   });
 });
@@ -186,7 +186,7 @@ const voidOut = (r: Rig, id: number, y = -30): void => { r.movement.add(id, [0, 
 describe("A13 lethal hit plus another hit in the same tick", () => {
   test("one KO, one passive reward, no negative HP", async () => {
     const r = await makeRig();
-    r.add(1, "td", -18, -14); r.add(2, "td", 18, -14); r.add(3, "sv", 0, 20);
+    r.add(1, "td", -27, -21); r.add(2, "td", 27, -21); r.add(3, "sv", 0, 20);
     r.combat.get(1)!.hp100 = 5000; r.combat.get(2)!.hp100 = 5000;
     r.combat.get(3)!.hp100 = 100;
     r.hit(1, 3, 500, "td.b1", 0.2); r.hit(2, 3, 500, "td.b2", 0.4); // both lethal; resolver order picks entity 1
@@ -208,7 +208,7 @@ describe("A13 lethal hit plus another hit in the same tick", () => {
 
   test("the passive is clamped at full HP, ignores sv, and an a4 or basic finisher pays zero", async () => {
     const r = await makeRig();
-    r.add(1, "td", -18, -14); r.add(2, "sv", 18, -14); r.add(3, "sv", 0, 20); r.add(4, "sv", 0, -20);
+    r.add(1, "td", -27, -21); r.add(2, "sv", 27, -21); r.add(3, "sv", 0, 20); r.add(4, "sv", 0, -20);
     r.combat.get(1)!.hp100 = 9900; r.combat.get(2)!.hp100 = 5000; r.combat.get(3)!.hp100 = 100; r.combat.get(4)!.hp100 = 100;
     r.hit(1, 3, 500, "td.b4"); r.step();
     expect(r.combat.get(1)!.hp100).toBe(10000);
@@ -218,7 +218,7 @@ describe("A13 lethal hit plus another hit in the same tick", () => {
 
   test("a duplicate hit is recorded once: attribution holds 19.99 HP, so no assist", async () => {
     const r = await makeRig();
-    r.add(1, "sv", -18, -14); r.add(2, "sv", 18, -14); r.add(3, "sv", 0, 20);
+    r.add(1, "sv", -27, -21); r.add(2, "sv", 27, -21); r.add(3, "sv", 0, 20);
     r.hit(1, 3, 1999);
     r.queue.push({ ...r.queue[0]!, toi: 0.6 }); // same cast counter: the ledger rejects it as a duplicate
     r.step();
@@ -231,7 +231,7 @@ describe("A13 lethal hit plus another hit in the same tick", () => {
 
   test("a hit on a protected victim deals nothing and starts no combat timer", async () => {
     const r = await makeRig();
-    r.add(1, "sv", -18, -14); r.add(3, "sv", 0, 20);
+    r.add(1, "sv", -27, -21); r.add(3, "sv", 0, 20);
     const spawn = r.tick;
     r.combat.get(3)!.protectedUntilTick = r.tick + 100;
     r.hit(1, 3, 500); r.step();
@@ -243,7 +243,7 @@ describe("A13 lethal hit plus another hit in the same tick", () => {
 describe("respawn timing and safety (T17)", () => {
   test("a KO respawns exactly 180 ticks later with full HP, a new life, protection and a respawn event", async () => {
     const r = await makeRig();
-    r.add(1, "td", -18, -14); r.add(2, "sv", 18, -14);
+    r.add(1, "td", -27, -21); r.add(2, "sv", 27, -21);
     const oldLife = r.combat.get(2)!.lifeId;
     r.combat.get(2)!.hp100 = 100;
     r.hit(1, 2, 500);
@@ -264,9 +264,9 @@ describe("respawn timing and safety (T17)", () => {
     expect(r.pl(2).hp100).toBe(COMBAT.hp100Max);
     expect(r.eventsOf("respawn")).toHaveLength(1);
     expect(r.eventsOf("respawn")[0]).toMatchObject({ actorId: "2", lifeId: f.lifeId, tick: r.tick });
-    // Chosen anchor: farthest from the living enemy at anchor 0 is id 7 (46,3).
+    // Chosen anchor: farthest from the living enemy at anchor 0 is id 7 (64,3).
     const pos = r.movement.position(2)!;
-    expect([Math.round(pos[0]), Math.round(pos[2])]).toEqual([46, 3]);
+    expect([Math.round(pos[0]), Math.round(pos[2])]).toEqual([64, 3]);
     // The first life's KO cannot be repeated.
     r.step(5);
     expect(r.eventsOf("ko")).toHaveLength(1);
@@ -274,7 +274,7 @@ describe("respawn timing and safety (T17)", () => {
 
   test("protection is cancelled by an offensive request and blocks damage until then", async () => {
     const r = await makeRig();
-    r.add(1, "td", -18, -14); r.add(2, "sv", 18, -14);
+    r.add(1, "td", -27, -21); r.add(2, "sv", 27, -21);
     r.combat.get(2)!.hp100 = 100; r.hit(1, 2, 500); r.step();
     r.at(r.tick + COMBAT.respawnTicks);
     const f = r.combat.get(2)!;
@@ -287,17 +287,17 @@ describe("respawn timing and safety (T17)", () => {
 
   test("A18 pipeline: an active hostile hit region at the best anchor moves the spawn to the next best", async () => {
     const r = await makeRig();
-    r.add(1, "td", -18, -14); r.add(2, "sv", 18, -14);
+    r.add(1, "td", -27, -21); r.add(2, "sv", 27, -21);
     r.combat.get(2)!.hp100 = 100; r.hit(1, 2, 500); r.step();
     const due = r.tick + COMBAT.respawnTicks - 1;
     r.at(due);
     // The attacker stands at anchor 7's x/z while swinging on the respawn tick.
-    r.movement.add(1, [46, 0.9 + (r.world.groundHeight(46, 3) ?? 0), 3]);
+    r.movement.add(1, [64, 0.9 + (r.world.groundHeight(64, 3) ?? 0), 3]);
     r.hit(1, 2, 500);
     r.step();
     expect(r.combat.get(2)!.action).toBe("Idle");
     const pos = r.movement.position(2)!;
-    expect(`${Math.round(pos[0])},${Math.round(pos[2])}`).not.toBe("46,3");
+    expect(`${Math.round(pos[0])},${Math.round(pos[2])}`).not.toBe("64,3");
   });
 
   test("A18 fallback: with every anchor occupied it waits 60 ticks, then spawns at the farthest anchor with protection", async () => {
@@ -315,7 +315,7 @@ describe("respawn timing and safety (T17)", () => {
     expect(f.action).toBe("Idle");
     expect(f.protectedUntilTick).toBe(due + 60 + COMBAT.spawnProtectionTicks);
     const pos = r.movement.position(1)!;
-    expect([Math.round(pos[0]), Math.round(pos[2])]).toEqual([-18, -14]); // all enemies on anchors: lowest id
+    expect([Math.round(pos[0]), Math.round(pos[2])]).toEqual([-27, -21]); // all enemies on anchors: lowest id
   });
 
   test("a valid anchor freed during the retry window is used before the 60 ticks end", async () => {
@@ -332,12 +332,12 @@ describe("respawn timing and safety (T17)", () => {
     r.step();
     expect(r.combat.get(1)!.action).toBe("Idle");
     const pos = r.movement.position(1)!;
-    expect([Math.round(pos[0]), Math.round(pos[2])]).toEqual([46, 3]);
+    expect([Math.round(pos[0]), Math.round(pos[2])]).toEqual([64, 3]);
   });
 
   test("leaving during the countdown forgets the respawn; nothing spawns later", async () => {
     const r = await makeRig();
-    r.add(1, "td", -18, -14); r.add(2, "sv", 18, -14);
+    r.add(1, "td", -27, -21); r.add(2, "sv", 27, -21);
     r.combat.get(2)!.hp100 = 100; r.hit(1, 2, 500); r.step();
     expect(r.respawn.isPending(2)).toBe(true);
     r.combat.remove(2, r.tick); r.movement.remove(2); r.respawn.forget(2); r.seats.delete("s2"); r.state.players.delete("2");
@@ -350,7 +350,7 @@ describe("respawn timing and safety (T17)", () => {
 describe("ring-outs and scoring through the pipeline (T17)", () => {
   test("void KO credits the most recent hostile attacker inside 480 ticks; assists need 20 HP", async () => {
     const r = await makeRig();
-    r.add(1, "sv", -18, -14); r.add(2, "sv", 18, -14); r.add(3, "sv", 0, 20);
+    r.add(1, "sv", -27, -21); r.add(2, "sv", 27, -21); r.add(3, "sv", 0, 20);
     r.hit(1, 3, 1999); r.step();
     r.hit(2, 3, 100); r.step();
     voidOut(r, 3);
@@ -365,7 +365,7 @@ describe("ring-outs and scoring through the pipeline (T17)", () => {
 
   test("assist at exactly 20 HP is awarded; the scorer never gets an assist", async () => {
     const r = await makeRig();
-    r.add(1, "sv", -18, -14); r.add(2, "sv", 18, -14); r.add(3, "sv", 0, 20);
+    r.add(1, "sv", -27, -21); r.add(2, "sv", 27, -21); r.add(3, "sv", 0, 20);
     r.hit(1, 3, 2000); r.step();
     r.hit(2, 3, 100000); r.step();
     expect(r.eventsOf("ko")[0]).toMatchObject({ actorId: "2" });
@@ -374,7 +374,7 @@ describe("ring-outs and scoring through the pipeline (T17)", () => {
 
   test("a ring-out after the 480 tick window credits nobody; the victim still dies once", async () => {
     const r = await makeRig();
-    r.add(1, "sv", -18, -14); r.add(3, "sv", 0, 20);
+    r.add(1, "sv", -27, -21); r.add(3, "sv", 0, 20);
     r.hit(1, 3, 500); r.step();
     r.step(COMBAT.assistWindowTicks + 1);
     voidOut(r, 3);
@@ -384,10 +384,10 @@ describe("ring-outs and scoring through the pipeline (T17)", () => {
     expect([r.pl(1).kills, r.pl(3).deaths]).toEqual([0, 1]);
   });
 
-  test("the 90 m horizontal boundary is a KO too, once per life", async () => {
+  test("the 135 m horizontal boundary is a KO too, once per life", async () => {
     const r = await makeRig();
-    r.add(1, "sv", -18, -14); r.add(3, "sv", 0, 20);
-    r.movement.add(3, [95, 5, 0]);
+    r.add(1, "sv", -27, -21); r.add(3, "sv", 0, 20);
+    r.movement.add(3, [140, 5, 0]);
     r.step();
     expect(r.eventsOf("ko")).toHaveLength(1);
     expect(r.pl(3).deaths).toBe(1);
@@ -397,7 +397,7 @@ describe("ring-outs and scoring through the pipeline (T17)", () => {
 
   test("damage KO and void in the same tick: the damage resolves first, only one KO", async () => {
     const r = await makeRig();
-    r.add(1, "sv", -18, -14); r.add(3, "sv", 0, 20);
+    r.add(1, "sv", -27, -21); r.add(3, "sv", 0, 20);
     r.combat.get(3)!.hp100 = 100;
     r.hit(1, 3, 500);
     voidOut(r, 3);
@@ -409,7 +409,7 @@ describe("ring-outs and scoring through the pipeline (T17)", () => {
 
   test("a new life starts with a clean attribution ledger", async () => {
     const r = await makeRig();
-    r.add(1, "sv", -18, -14); r.add(3, "sv", 0, 20);
+    r.add(1, "sv", -27, -21); r.add(3, "sv", 0, 20);
     r.hit(1, 3, 3000); r.step();
     voidOut(r, 3); r.step(); // KO 1 credits 1
     r.step(COMBAT.respawnTicks);
@@ -423,7 +423,7 @@ describe("ring-outs and scoring through the pipeline (T17)", () => {
 describe("kit change (T17)", () => {
   async function two() {
     const r = await makeRig();
-    r.add(1, "sv", -18, -14); r.add(2, "sv", 18, -14);
+    r.add(1, "sv", -27, -21); r.add(2, "sv", 27, -21);
     return r;
   }
   const seatOf = (r: Rig, id: number): PipelineSeat => r.seats.get(`s${id}`)!;
@@ -494,7 +494,7 @@ describe("kit change (T17)", () => {
 describe("GR02 detached projectile ownership across id reuse", () => {
   test("a replacement occupant of the owner id is a damageable target, not a self hit, and earns nothing", async () => {
     const r = await makeRig();
-    r.add(1, "td", -18, -14); r.add(2, "sv", 18, -14); r.add(3, "sv", 0, 20);
+    r.add(1, "td", -27, -21); r.add(2, "sv", 27, -21); r.add(3, "sv", 0, 20);
     const oldLife = r.combat.get(1)!.lifeId;
     r.occupants.set(1, 2); // id 1 now belongs to a second occupant; the shot was fired by occupant 1
     r.combat.get(1)!.hp100 = 5000; r.combat.get(2)!.hp100 = 100;
@@ -512,7 +512,7 @@ describe("GR02 detached projectile ownership across id reuse", () => {
 
   test("departed owner damage never enters the attribution ledger, so no later KO yields an assist to the replacement", async () => {
     const r = await makeRig();
-    r.add(1, "td", -18, -14); r.add(2, "sv", 18, -14); r.add(3, "sv", 0, 20);
+    r.add(1, "td", -27, -21); r.add(2, "sv", 27, -21); r.add(3, "sv", 0, 20);
     const oldLife = r.combat.get(1)!.lifeId;
     r.occupants.set(1, 2);
     r.projectileHit(1, 1, oldLife, 3, 3000); r.step(); // would be a 30 HP assist if credited
@@ -523,7 +523,7 @@ describe("GR02 detached projectile ownership across id reuse", () => {
 
   test("the same occupant that died and respawned still earns the posthumous KO, but no heal", async () => {
     const r = await makeRig();
-    r.add(1, "td", -18, -14); r.add(2, "sv", 18, -14);
+    r.add(1, "td", -27, -21); r.add(2, "sv", 27, -21);
     r.occupants.set(1, 1);
     const oldLife = r.combat.get(1)!.lifeId;
     r.combat.kill(1, r.tick); r.runner.reset(1);
@@ -538,7 +538,7 @@ describe("GR02 detached projectile ownership across id reuse", () => {
 
   test("owner dead and gone with no replacement: the shot still lands and nobody is credited", async () => {
     const r = await makeRig();
-    r.add(1, "td", -18, -14); r.add(2, "sv", 18, -14);
+    r.add(1, "td", -27, -21); r.add(2, "sv", 27, -21);
     const oldLife = r.combat.get(1)!.lifeId;
     r.occupants.delete(1); r.combat.remove(1, r.tick);
     r.combat.get(2)!.hp100 = 1500;

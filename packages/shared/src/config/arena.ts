@@ -11,27 +11,44 @@ import { contentHashOf } from "../math.js";
 export const MAP_ID = "islands.v1";
 export const MAP_SCHEMA_VERSION = 1;
 
+/**
+ * ARENA01 (D): every horizontal dimension of the world is 1.5x the BEAST01 layout. This is the single scale knob;
+ * the island sizes, satellite positions, boundary radius, main-island spawn anchors and beast anchors all derive
+ * from it, except the central cover cluster (pillars, walls, urns), which stays where it was so the arena gains open field around it. Vertical dimensions (thickness, capsule, void) and prop sizes are unchanged.
+ */
+export const ARENA_SCALE = 1.5;
+const S = ARENA_SCALE;
+const MAIN_WIDTH = 72 * S, MAIN_DEPTH = 60 * S;
+/** D: open gap between the main island edge and a satellite edge (the bridge length). */
+const BRIDGE_GAP = 6;
+const SAT_SIZE = 12;
+const satX = MAIN_WIDTH / 2 + BRIDGE_GAP + SAT_SIZE / 2, satZ = MAIN_DEPTH / 2 + BRIDGE_GAP + SAT_SIZE / 2;
+const sc = (v: readonly [number, number, number]): readonly [number, number, number] => [v[0] * S, v[1], v[2] * S];
+
 /** Spec section 10 and capsule row of section 12. */
 export const ARENA = {
   voidY: -25,
-  boundaryRadius: 90,
+  boundaryRadius: 90 * S,
   islandThickness: 5,
-  /** D: BEAST01 enlarged the main island 1.5x (was 48 x 40) so a 5.5x beast has room to move. */
-  main: { width: 72, depth: 60, cornerRadius: 4 /* D */ },
-  satellite: { size: 12, centres: [[-48, 0], [48, 0], [0, -42], [0, 42]] as const },
+  /** D: BEAST01 enlarged the main island 1.5x (was 48 x 40); ARENA01 enlarged it by another 1.5x. */
+  main: { width: MAIN_WIDTH, depth: MAIN_DEPTH, cornerRadius: 4 /* D */ },
+  satellite: { size: SAT_SIZE, centres: [[-satX, 0], [satX, 0], [0, -satZ], [0, satZ]] as ReadonlyArray<readonly [number, number]> },
   bridge: { width: 4, thickness: 0.5 /* D */ },
-  pillar: { size: [3, 2, 2] as const, centres: [[-12, 1, -10], [12, 1, -10], [-12, 1, 10], [12, 1, 10]] as const },
-  wall: { size: [4, 1.2, 0.6] as const, centres: [[-10, 0.6, 0], [10, 0.6, 0]] as const },
+  pillar: { size: [3, 2, 2] as const, centres: [[-12, 1, -10], [12, 1, -10], [-12, 1, 10], [12, 1, 10]] as ReadonlyArray<readonly [number, number, number]> },
+  wall: { size: [4, 1.2, 0.6] as const, centres: [[-10, 0.6, 0], [10, 0.6, 0]] as ReadonlyArray<readonly [number, number, number]> },
   clearCentreDiameter: 12,
   /** D: guardrails only on the outer edge of the east and west spawn decks. */
   guardrail: { height: 1, thickness: 0.2 },
-  spawnAnchors: [[-18, 0, -14], [18, 0, -14], [-18, 0, 14], [18, 0, 14], [-46, 0, -3], [46, 0, -3], [-46, 0, 3], [46, 0, 3]] as const,
-  urnAnchors: [[-9, 0.25, -10], [9, 0.25, -10], [-9, 0.25, 10], [9, 0.25, 10], [-15, 0.25, -10], [15, 0.25, -10], [-15, 0.25, 10], [15, 0.25, 10]] as const,
+  spawnAnchors: [
+    ...([[-18, 0, -14], [18, 0, -14], [-18, 0, 14], [18, 0, 14]] as const).map(sc),
+    [-(satX - 2), 0, -3], [satX - 2, 0, -3], [-(satX - 2), 0, 3], [satX - 2, 0, 3],
+  ] as ReadonlyArray<readonly [number, number, number]>,
+  urnAnchors: [[-9, 0.25, -10], [9, 0.25, -10], [-9, 0.25, 10], [9, 0.25, 10], [-15, 0.25, -10], [15, 0.25, -10], [-15, 0.25, 10], [15, 0.25, 10]] as ReadonlyArray<readonly [number, number, number]>,
   urnRadius: 0.25,
   capsule: { radius: 0.35, halfHeight: 0.55, centreAboveSurface: 0.9 },
   /** D: max top height difference treated as a seamless walkable join. */
   joinTolerance: 0.01,
-} as const;
+};
 
 const vec3 = z.tuple([z.number().finite(), z.number().finite(), z.number().finite()]);
 export type MapVec3 = [number, number, number];

@@ -152,7 +152,7 @@ describe("server MovementSystem against the islands collision world", () => {
   });
 
   test("walking off the island edge falls under gravity", () => {
-    sys.add(1, [8, 0.92, 19]); // x=8 avoids the south bridge (width 4 at x=0)
+    sys.add(1, [8, 0.92, 38]); // x=8 avoids the south bridge (width 4 at x=0); the island edge is at z=45 (ARENA01)
     run(120, () => mv({ moveZ: 1 }));
     const b = sys.get(1)!;
     expect(b.state.grounded).toBe(false);

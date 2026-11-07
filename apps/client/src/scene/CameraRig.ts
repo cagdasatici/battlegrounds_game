@@ -2,7 +2,7 @@
  * Third person camera contract (spec section 9). Pure math, no Three.js: the renderer copies `pose`.
  * Camera position never affects hit detection; it is presentation only and may use render dt.
  */
-import type { Collider } from "@eb/shared/config/arena";
+import { ARENA_SCALE, type Collider } from "@eb/shared/config/arena";
 
 export const CAMERA = {
   pivotHeight: 1.1,
@@ -11,7 +11,7 @@ export const CAMERA = {
   maxDistance: 10,
   fovDeg: 60,
   near: 0.1,
-  far: 180,
+  far: 180 * ARENA_SCALE, // ARENA01: scales with the world so the sky dome and distant islets stay in range
   castRadius: 0.18,
   clearance: 0.1,
   easeOutSeconds: 0.15,

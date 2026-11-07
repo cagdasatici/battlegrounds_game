@@ -168,9 +168,9 @@ test("real colliders stop voluntary approach at an edge and obstacle; bot life r
   room.setSimulationInterval(() => undefined, 1000);
   let tick = room.sim.tick;
   // At the unguarded north lip; target is on disconnected ground, so no path is attempted.
-  place(room, bot, 10, -19.5); place(room, human, 10, -35);
+  place(room, bot, 10, -43.5); place(room, human, 10, -55); // ARENA01: north edge is z=-45
   for (let i = 0; i < 180; i++) room.stepTick(++tick);
-  expect(room.movement!.position(bot)![2]).toBeGreaterThan(-19.7);
+  expect(room.movement!.position(bot)![2]).toBeGreaterThan(-43.7);
   expect(room.combat.get(bot)!.action).not.toBe("Dead");
   // Pillar blocks the direct route. GR13 routes around it in later ticks; within 120 ticks the bot has only begun to sidestep, and it never teleports.
   place(room, bot, 12, -7.5); place(room, human, 12, -13);

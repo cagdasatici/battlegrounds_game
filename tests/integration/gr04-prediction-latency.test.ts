@@ -40,6 +40,8 @@ async function login(wsPort: number | null, name: string): Promise<RoomClient> {
   return c;
 }
 
+const RUN_TICKS = 203;
+
 async function scenario(rttMs: number): Promise<void> {
   const px = new LatencyProxy(h.port, { rttMs, jitterMs: 0, seed: 4 + rttMs });
   await px.start();
@@ -57,8 +59,10 @@ async function scenario(rttMs: number): Promise<void> {
     const aId = view().entityId as number;
     await waitFor(() => room.sim.tick > room.combat.get(aId)!.protectedUntilTick + 2 && room.movement!.get(aId)!.state.grounded, 8000, "settled");
     await sleep(150);
-    // BEAST01: the spawn deck moved out; start where the old run began (34, 3), now on the enlarged main island.
-    room.movement!.add(aId, [34, 0.9 + (room.world!.groundHeight(34, 3) ?? 0), 3]);
+    // ARENA01: the arena is 1.5x larger, so the run starts at (51, 11.6) and lasts RUN_TICKS. It crosses the main.z/main.x overlap at x=50 during the
+    // first ramp (the server capsule then hovers at y 0.92, the level the client rebuilds from cm quantised snapshots), and grazes the pillar.1 corner (z -9, x ~10.5) about 4 ticks before the run ends, as the original run did (a face-on stop lets the later double jump land on top of the pillar),
+    // after the snapshot sampling window: replaying a snapshot across a contact is chaotic at cm precision.
+    room.movement!.add(aId, [51, 0.9 + (room.world!.groundHeight(51, 11.6) ?? 0), 11.6]);
     await waitFor(() => room.movement!.get(aId)!.state.grounded, 8000, "replaced");
     await sleep(150);
     const seat = [...(room as unknown as { seats: Map<string, SeatLike> }).seats.values()].find((s) => s.entityId === aId)!;
@@ -90,7 +94,7 @@ async function scenario(rttMs: number): Promise<void> {
     })();
 
     const epoch = a.welcome!.epoch;
-    const start = room.sim.tick, end = start + 120;
+    const start = room.sim.tick, end = start + RUN_TICKS;
     let seq = 0;
     const applied: { from: number; sample: number; intent: MoveIntent }[] = [];
     const sendIntent = async (m: { moveX: number; moveZ: number; runHeld: boolean }, intent: MoveIntent): Promise<void> => {
@@ -125,7 +129,7 @@ async function scenario(rttMs: number): Promise<void> {
     expect(worst).toBeLessThan(TOL);
 
     // Delayed ack: reconcile from a replicated snapshot at serverTick S while the client is k ticks ahead.
-    const moving = snaps.filter((s) => s.serverTick > applied[0]!.from + 10 && s.serverTick < end - 20 && clientAt.has(s.serverTick + 6));
+    const moving = snaps.filter((s) => s.serverTick > applied[0]!.from + 30 && s.serverTick < end - 20 && clientAt.has(s.serverTick + 6));
     expect(moving.length).toBeGreaterThan(10);
     for (const s of moving.filter((_, i) => i % 7 === 0)) {
       const truth = serverAt.get(s.serverTick)!;

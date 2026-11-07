@@ -26,8 +26,8 @@ describe("T06 authoritative movement over a real Colyseus connection", () => {
     const meFromB = () => [...players(rb).values()].find((p) => p.displayName === "Arel");
     await waitFor(() => me()?.ready === true && Math.abs(me()!.y - 92) <= 3, 3000, "spawned and settled");
     const start = { x: me()!.x, z: me()!.z };
-    // Spawn anchors are (+-18, 0, +-14) or (+-34, 0, +-3); capsule centre 0.9 m above surface.
-    expect([1800, 3400]).toContain(Math.abs(start.x));
+    // Spawn anchors are (+-27, 0, +-21) or (+-64, 0, +-3); capsule centre 0.9 m above surface.
+    expect([2700, 6400]).toContain(Math.abs(start.x));
     const epoch = a.welcome!.epoch;
     let seq = 0;
     const dir = start.x > 0 ? -1 : 1; // walk toward the centre

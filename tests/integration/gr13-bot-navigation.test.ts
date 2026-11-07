@@ -85,10 +85,10 @@ test("a target behind a pillar is reached instead of stopping on its front face"
 
 test("an unreachable target (void) stops the bot safely and keeps it alive", async () => {
   const s = await setup();
-  s.place(s.botId, 10, -19.5); s.place(s.humanId, 10, -35);
+  s.place(s.botId, 10, -43.5); s.place(s.humanId, 10, -55); // ARENA01: main island north edge is z=-45; x=10 is off the bridge
   s.step(300);
   const p = s.live.movement!.position(s.botId)!;
-  expect(p[2]).toBeGreaterThan(-19.7);
+  expect(p[2]).toBeGreaterThan(-43.7);
   expect(s.live.combat.get(s.botId)!.action).not.toBe("Dead");
   await s.end();
 }, 60_000);

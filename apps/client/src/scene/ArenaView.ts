@@ -11,7 +11,7 @@ import {
   Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshToonMaterial, OctahedronGeometry, Quaternion, RingGeometry, SphereGeometry, Vector3,
   type Material, type Texture,
 } from "three";
-import type { Collider } from "@eb/shared/config/arena";
+import { ARENA, ARENA_SCALE, type Collider } from "@eb/shared/config/arena";
 import { ENV_VARIANT, RIM_HEX, cloudAlpha, moteBob, motePlacements, mixHex, mulberry32, plankHex, skyHex, strataHex } from "./EnvPalette.js";
 import { instancePlacements, type EnvKit, type EnvModelId, type EnvPlacement } from "./EnvAssets.js";
 
@@ -228,8 +228,12 @@ function nearObstacle(colliders: readonly Collider[], x: number, z: number, marg
   return colliders.some((c) => c.role !== "ground" && c.shape === "cuboid" && Math.abs(x - c.centre[0]) <= c.halfExtents[0] + margin && Math.abs(z - c.centre[2]) <= c.halfExtents[2] + margin);
 }
 
+/** ARENA01: sky dome radius (m), scaled with the world so distant islets stay inside it; the camera far plane is larger. */
+const SKY_RADIUS = 165 * ARENA_SCALE;
+
 /** Distant islets as [x, topY, z, radius]. Shared by the code-built islets and the glTF dressing plan. */
-export const ISLETS: ReadonlyArray<readonly [number, number, number, number]> = [[-78, -12, -62, 9], [86, -4, -48, 11], [-96, 6, 52, 8], [70, -14, 82, 12], [8, -18, -112, 14], [-30, -6, 104, 10]];
+export const ISLETS: ReadonlyArray<readonly [number, number, number, number]> = ([[-78, -12, -62, 9], [86, -4, -48, 11], [-96, 6, 52, 8], [70, -14, 82, 12], [8, -18, -112, 14], [-30, -6, 104, 10]] as const)
+  .map(([x, y, z, r]) => [x * ARENA_SCALE, y, z * ARENA_SCALE, r] as const); // ARENA01: positions spread with the world, sizes unchanged
 
 /** Outward distance (m) between a rim boulder's centre and the nearest walkable footprint edge. */
 const RIM_OFFSET = 1.1;
@@ -295,8 +299,9 @@ function planApproaches(): EnvPlacement[] {
     add({ model: "Grass_Common_Short", x: -32.5, y: 0.005, z: side * 4.4, yaw: side * 0.7, scale: 0.08, region: "w" });
     add({ model: "Fern_1", x: side * 3.2, y: 0.005, z: -28, yaw: side, scale: 0.05, region: "n" });
   }
-  // BEAST01: the main island grew by 12 m (x) and 10 m (z) per side; each approach moves out with its satellite.
-  const shift: Record<string, readonly [number, number]> = { e: [12, 0], w: [-12, 0], n: [0, -10], s: [0, 10] };
+  // The plan above was authored for the original 48 x 40 main island; each approach moves out with its satellite (BEAST01, ARENA01).
+  const dx = (ARENA.main.width - 48) / 2, dz = (ARENA.main.depth - 40) / 2;
+  const shift: Record<string, readonly [number, number]> = { e: [dx, 0], w: [-dx, 0], n: [0, -dz], s: [0, dz] };
   return out.map((p) => { const d = shift[p.region ?? ""]; return d ? { ...p, x: p.x + d[0], z: p.z + d[1] } : p; });
 }
 
@@ -458,7 +463,7 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
   let placed = 0, tries = 0;
   while (placed < tufts && tries < tufts * 12) {
     tries++;
-    const x = (rnd() - 0.5) * 100, z = (rnd() - 0.5) * 80;
+    const x = (rnd() - 0.5) * 100 * ARENA_SCALE, z = (rnd() - 0.5) * 80 * ARENA_SCALE;
     if (!insideIsland(colliders, x, z, 0.5) || nearObstacle(colliders, x, z, 0.4)) continue;
     if (colliders.some((c) => c.role === "bridge" && c.shape === "cuboid" && Math.abs(x - c.centre[0]) < c.halfExtents[0] + 0.3 && Math.abs(z - c.centre[2]) < c.halfExtents[2] + 0.3)) continue;
     if (x > 16 && Math.abs(z) < 6) continue;
@@ -579,7 +584,7 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
   const cl = new Batch();
   const puffShade: Shader = (_x, y, _z, _nx, ny) => lerpHex(PALETTE.cloudShade, PALETTE.cloud, Math.min(1, 0.45 + ny * 0.5 + (y > -20 ? 0.1 : 0)));
   for (let i = 0; i < 26; i++) {
-    const ang = rnd() * Math.PI * 2, rad = 70 + rnd() * 90, y = -75 + rnd() * 40;
+    const ang = rnd() * Math.PI * 2, rad = (70 + rnd() * 90) * ARENA_SCALE, y = -75 + rnd() * 40;
     const cx = Math.cos(ang) * rad, cz = Math.sin(ang) * rad;
     for (let k = 0; k < 4; k++) {
       const s = 7 + rnd() * 9;
@@ -589,12 +594,12 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
   const clouds = addMesh("deco.clouds", cl.build(), flatToon, { cast: false, receive: false });
 
   // Sky dome with a vertical gradient; unaffected by fog.
-  const skyG = new SphereGeometry(165, 48, 24);
+  const skyG = new SphereGeometry(SKY_RADIUS, 48, 24);
   const sp = skyG.getAttribute("position");
   const colors: number[] = [];
   const c = new Color();
   for (let i = 0; i < sp.count; i++) {
-    const t = sp.getY(i) / 165;
+    const t = sp.getY(i) / SKY_RADIUS;
     c.setHex(skyHex(ENV_VARIANT.sky, t, Math.atan2(sp.getZ(i), sp.getX(i)), SKY.horizon, SKY.zenith, SKY.nadir));
     colors.push(c.r, c.g, c.b);
   }
@@ -602,12 +607,12 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
   // A warm sun and distant suspended spires belong to the sky, so camera movement cannot expose a backdrop edge.
   const horizon = new Batch();
   for (let i = 0; i < 16; i++) {
-    const a = i / 16 * Math.PI * 2, r = 138, x = Math.cos(a) * r, z = Math.sin(a) * r, y = -17 - rnd() * 12;
+    const a = i / 16 * Math.PI * 2, r = 138 * ARENA_SCALE, x = Math.cos(a) * r, z = Math.sin(a) * r, y = -17 - rnd() * 12;
     const w = 3.5 + rnd() * 5, h = 4 + rnd() * 6, tone = lerpHex(0x85a9b6, 0xb5c9d0, rnd());
     horizon.add(new DodecahedronGeometry(1, 0), xf(x, y, z, w, 2, w * 0.7, 0, a, 0), tone);
     horizon.add(new DodecahedronGeometry(1, 0), xf(x + w * 0.12, y - h * 0.6, z, w * 0.62, h, w * 0.48, 0.2, a, 0.12), tone);
   }
-  horizon.add(new SphereGeometry(5.5, 24, 16), xf(68, 63, -111), 0xffe6bd);
+  horizon.add(new SphereGeometry(5.5, 24, 16), xf(68 * ARENA_SCALE, 63, -111 * ARENA_SCALE), 0xffe6bd);
   const backdrop = addMesh("deco.horizon", horizon.build(), new MeshBasicMaterial({ vertexColors: true, fog: false, side: DoubleSide }), { cast: false, receive: false });
   materials.push(backdrop.material as Material);
   geometries.push(skyG);
@@ -626,7 +631,7 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
   for (let i = 0; i < mask.length; i++) { px[i * 4] = 255; px[i * 4 + 1] = 255; px[i * 4 + 2] = 255; px[i * 4 + 3] = mask[i]!; }
   const cloudTex = new DataTexture(px, maskW, maskH, RGBAFormat);
   cloudTex.wrapS = RepeatWrapping; cloudTex.colorSpace = SRGBColorSpace; cloudTex.magFilter = LinearFilter; cloudTex.minFilter = LinearFilter; cloudTex.flipY = true; cloudTex.needsUpdate = true;
-  const shellG = new SphereGeometry(160, 32, 16);
+  const shellG = new SphereGeometry(SKY_RADIUS - 5, 32, 16);
   const shellMat = new MeshBasicMaterial({ map: cloudTex, transparent: true, side: BackSide, fog: false, depthWrite: false, opacity: 0.9 });
   geometries.push(shellG); materials.push(shellMat);
   const cloudShell = new Mesh(shellG, shellMat);

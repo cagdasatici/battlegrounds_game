@@ -4,6 +4,7 @@
  * original-game fact. All timers are integer ticks at 60 Hz. Tuned to be fun rather than hard: slow, telegraphed attacks,
  * long recovery, a stagger window, and (while `lethal` is false) it never takes a human below 1 HP.
  */
+import { ARENA_SCALE } from "./arena.js";
 import { safeTravelDistance, type GroundProbe } from "../dashSafety.js";
 
 export const BEAST_ENTITY_ID = 254;
@@ -34,7 +35,7 @@ export const BEAST = {
   defeatedTicks: 240,
   spawnProtectionTicks: 60,
   /** Where it can appear (main island, clear of pillars and walls), the farthest from the humans is used. */
-  anchors: [[-24, 0, -18], [24, 0, -18], [-24, 0, 18], [24, 0, 18]] as const,
+  anchors: ([[-24, 0, -18], [24, 0, -18], [-24, 0, 18], [24, 0, 18]] as const).map(([x, y, z]) => [x * ARENA_SCALE, y, z * ARENA_SCALE] as const),
   /** Sample ring (m) that must be walkable around the beast's next position, so its body never overhangs an edge. */
   footprintRadius: 2.4,
   /** Damage accumulated within `staggerWindowTicks` that interrupts it for `staggerTicks`. */

@@ -61,7 +61,7 @@ describe("build validator negatives", () => {
   });
   test("obstacle over a spawn breaks headroom", () => {
     const m = clone(buildIslandsMap());
-    m.colliders.push({ id: "beam", role: "obstacle", shape: "cuboid", centre: [18, 1.7, 14], halfExtents: [1, 0.1, 1] });
+    m.colliders.push({ id: "beam", role: "obstacle", shape: "cuboid", centre: [ARENA.spawnAnchors[3]![0], 1.7, ARENA.spawnAnchors[3]![2]], halfExtents: [1, 0.1, 1] });
     expect(codes(rehash(m))).toContain("HEADROOM");
   });
   test("spawn off the edge or over the void fails containment and void checks", () => {
@@ -103,9 +103,9 @@ describe("server Rapier world", () => {
     }
   });
   test("bridges are walkable mid span and the gap beside them is void", () => {
-    expect(w.groundHeight(39, 0)).toBeCloseTo(0, 4);
-    expect(w.groundHeight(0, -33)).toBeCloseTo(0, 4);
-    expect(w.groundHeight(39, 3)).toBeNull();
+    expect(w.groundHeight(57, 0)).toBeCloseTo(0, 4); // ARENA01: east bridge spans x 54..60
+    expect(w.groundHeight(0, -48)).toBeCloseTo(0, 4); // north bridge spans z -51..-45
+    expect(w.groundHeight(57, 3)).toBeNull();
   });
   test("pillar blocks a capsule; step is fixed 1/60 s; dispose is idempotent", async () => {
     expect(w.capsuleOverlaps([12, 0.9, 10], 0.35, 0.55)).toContain("pillar.3");

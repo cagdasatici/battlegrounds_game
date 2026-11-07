@@ -1,9 +1,13 @@
 import { ARENA } from "@eb/shared/config/arena";
+import { GROVE_MAP } from "@eb/shared/config/maps";
 import { COMBAT } from "@eb/shared/config/combat";
 
-/** GR13 fixed grid: 1 m cells over x=[-56,56], z=[-50,50], both ends included (113 x 101 = 11,413 candidates; BEAST01 enlarged the arena). */
+/** ARENA01: grid half extents come from the map definition (walkable reach plus a 2 m margin), 1 m cells, both ends included. */
+const NAV_MARGIN = 2;
+const NAV_HALF_X = Math.ceil(GROVE_MAP.bounds.maxX) + NAV_MARGIN, NAV_HALF_Z = Math.ceil(GROVE_MAP.bounds.maxZ) + NAV_MARGIN;
+/** GR13 fixed grid: 1 m cells over the map bounds. */
 export const NAV = {
-  minX: -56, minZ: -50, cols: 113, rows: 101,
+  minX: -NAV_HALF_X, minZ: -NAV_HALF_Z, cols: 2 * NAV_HALF_X + 1, rows: 2 * NAV_HALF_Z + 1,
   maxExpansions: 4096, snapRadius: 2, waypointRadius: 0.35,
   replanTicks: 30, retargetDistance: 2, progressTicks: 120, progressMin: 0.25,
 } as const;

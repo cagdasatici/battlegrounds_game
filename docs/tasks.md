@@ -258,6 +258,7 @@ Owner request: a very large character (5.5x height and width) that appears in sp
 | Task | Title | Depends on | Status | Commit | Test report |
 |---|---|---|---|---|---|
 | BEAST01 | Larger arena and the sparring beast | GR15c | IMPLEMENTED, DEVICE CHECK PENDING | see git log; iPad NOT RUN | docs/test-results/BEAST01.md |
+| ARENA01 | World 1.5x larger per horizontal dimension via ARENA_SCALE; map definition registry (grove) in packages/shared/src/config/maps.ts | BEAST01 | IMPLEMENTED, DEVICE CHECK PENDING: central cover (pillars, walls, urns) deliberately not scaled; iPad NOT RUN; browser screenshots of the larger scenery NOT RUN | see git log | tests/unit/maps.test.ts |
 
 | Task | Title | Depends on | Status | Commit | Test report |
 |---|---|---|---|---|---|

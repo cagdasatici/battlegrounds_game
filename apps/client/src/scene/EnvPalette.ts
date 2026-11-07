@@ -4,6 +4,8 @@
  * Variants (0 = original look) were drafted and screenshotted for the FB08 decision record; `ENV_VARIANT` holds the
  * chosen ones and the browser harness can override it before a scene is built.
  */
+import { ARENA_SCALE } from "@eb/shared/config/arena";
+
 export const ENV_VARIANT = { sky: 1, rock: 1, bridge: 1 };
 
 type Rgb = readonly [number, number, number];
@@ -98,7 +100,7 @@ export function cloudAlpha(w: number, h: number, seed: number): Uint8Array {
 export function motePlacements(count: number, seed: number): { x: number; y: number; z: number; phase: number; size: number }[] {
   const r = mulberry32(seed), out = [];
   for (let i = 0; i < count; i++) {
-    const a = r() * Math.PI * 2, rad = 30 + r() * 70;
+    const a = r() * Math.PI * 2, rad = (30 + r() * 70) * ARENA_SCALE;
     out.push({ x: Math.cos(a) * rad, y: -6 - r() * 28, z: Math.sin(a) * rad, phase: r() * Math.PI * 2, size: 0.35 + r() * 0.9 });
   }
   return out;

@@ -24,12 +24,12 @@ const length = (nodes: number[]) => nodes.slice(1).reduce((s, n, i) => {
   const [ax, az] = grid.xz(nodes[i]!), [bx, bz] = grid.xz(n); return s + Math.hypot(bx - ax, bz - az);
 }, 0);
 
-test("grid covers 113 x 101 candidates and rejects void, rails and obstacle cells", () => {
-  expect(grid.size).toBe(11413);
+test("grid covers the map bounds plus a 2 m margin (149 x 131 candidates) and rejects void, rails and obstacle cells", () => {
+  expect(grid.size).toBe(149 * 131);
   expect(grid.validCount()).toBeGreaterThan(2000);
   const at = (x: number, z: number) => grid.valid(grid.index(x - NAV.minX, z - NAV.minZ));
-  for (const [x, z] of [[-12, -10], [12, 10], [-10, 0], [10, 0], [54, 0], [-54, 0], [50, 30]] as const) expect(at(x, z), `${x},${z}`).toBe(false);
-  for (const [x, z] of [[0, 0], [0, -26], [-27, 0], [53, 0], [-48, 5]] as const) expect(at(x, z), `${x},${z}`).toBe(true);
+  for (const [x, z] of [[-12, -10], [12, 10], [-10, 0], [10, 0], [72, 0], [-72, 0], [66, 30]] as const) expect(at(x, z), `${x},${z}`).toBe(false);
+  for (const [x, z] of [[0, 0], [0, -26], [-27, 0], [71, 0], [-48, 5]] as const) expect(at(x, z), `${x},${z}`).toBe(true);
 });
 
 const blocked: Array<[string, [number, number], [number, number], number]> = [
@@ -72,8 +72,8 @@ test("expansion cap is enforced and reported as budget", () => {
 });
 
 test("goal over the void with no cell within 2 m yields no route", () => {
-  expect(grid.plan(0, 0, 10, -35).status).toBe("none");
-  expect(grid.snap(10, -35)).toBe(-1);
+  expect(grid.plan(0, 0, 10, -75).status).toBe("none");
+  expect(grid.snap(10, -75)).toBe(-1);
   const snapped = grid.snap(0.4, 0.4);
   expect(grid.xz(snapped)).toEqual([0, 0]);
 });

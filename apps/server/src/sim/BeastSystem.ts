@@ -98,7 +98,7 @@ export class BeastSystem {
 
   // ---- lifecycle ----
   private startWarning(tick: number, humans: readonly BeastHuman[]): void {
-    let best: readonly number[] = BEAST.anchors[0], bestD = -1;
+    let best: readonly number[] = BEAST.anchors[0]!, bestD = -1;
     for (const a of BEAST.anchors) {
       const d = Math.min(...humans.map((h) => Math.hypot(h.x - a[0], h.z - a[2])));
       if (d > bestD) { bestD = d; best = a; }

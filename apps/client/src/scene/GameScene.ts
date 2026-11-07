@@ -7,7 +7,7 @@ import {
   Color, DirectionalLight, Group, type InstancedMesh, Fog, HemisphereLight, PCFSoftShadowMap, PerspectiveCamera, PointLight, Scene,
   type BufferGeometry, type Material,
 } from "three";
-import { surfaceBelow, type Collider } from "@eb/shared/config/arena";
+import { ARENA_SCALE, surfaceBelow, type Collider } from "@eb/shared/config/arena";
 import type { KitId } from "@eb/shared/protocol";
 import { buildArena, buildDressing, SKY } from "./ArenaView.js";
 import { loadEnvKit, type EnvKit } from "./EnvAssets.js";
@@ -115,7 +115,7 @@ export class GameScene {
     this.colliders = colliders;
     try { this.reducedMotion = win.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true; } catch { this.reducedMotion = false; }
     this.scene.background = new Color(SKY.horizon);
-    this.scene.fog = new Fog(SKY.fog, 75, 180);
+    this.scene.fog = new Fog(SKY.fog, 75 * ARENA_SCALE, CAMERA.far);
     this.scene.add(new HemisphereLight(0xb9d9f2, 0x44483a, 0.95));
     this.sun.position.set(28, 50, 18);
     this.sun.shadow.mapSize.set(1024, 1024);
