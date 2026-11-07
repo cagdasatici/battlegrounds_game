@@ -6,7 +6,7 @@ export const TEAM_PLAY = {
   regenIntervalTicks: 30,
   regenAmount100: 250,
   startBots: 2,
-  maxBots: 4,
+  maxBots: 5,
   startDifficulty: "easy",
   /** One extra bot every 60 s at 60 Hz until maxBots (full strength about 2 minutes in). */
   rampIntervalTicks: 3600,

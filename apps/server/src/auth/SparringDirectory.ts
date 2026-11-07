@@ -85,13 +85,13 @@ export class SparringDirectory {
   }
 
   /** Listed matches only, with counts and no names or credentials. The host must be connected. */
-  listed(): { roomCode: string; humans: number; bots: number }[] {
-    const out: { roomCode: string; humans: number; bots: number }[] = [];
+  listed(): { roomCode: string; humans: number; bots: number; teamPlay: boolean }[] {
+    const out: { roomCode: string; humans: number; bots: number; teamPlay: boolean }[] = [];
     for (const match of this.matches.values()) {
       if (!match.listed || !this.live(match)) continue;
       if (!match.seats.get(key({ kind: "host", id: match.hostId }))?.connectionId) continue;
       this.pruneGuests(match);
-      out.push({ roomCode: match.roomCode, humans: match.seats.size, bots: match.bots.length });
+      out.push({ roomCode: match.roomCode, humans: match.seats.size, bots: match.bots.length, teamPlay: match.teamPlay });
     }
     return out;
   }

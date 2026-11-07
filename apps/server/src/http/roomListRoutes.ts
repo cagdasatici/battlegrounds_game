@@ -1,3 +1,4 @@
+import { TEAM_PLAY } from "@eb/shared/config/teamPlay";
 import type { IncomingMessage } from "node:http";
 import { ARENA_ROOM_NAME } from "@eb/shared/protocol";
 import type { RoomListResponse, RoomSummary } from "@eb/shared/rooms";
@@ -21,7 +22,8 @@ export function listRooms(svc: AuthServices): RoomSummary[] {
   let n = 0;
   for (const m of svc.sparring.listed()) {
     n++;
-    rooms.push({ roomCode: m.roomCode, name: `Sparring ${n}`, kind: "sparring", players: m.humans, capacity: 4, bots: m.bots });
+    // Team play: bots ramp and never take human seats, so capacity is the human cap and bots are not counted against it.
+    rooms.push({ roomCode: m.roomCode, name: m.teamPlay ? `Team play ${n}` : `Sparring ${n}`, kind: "sparring", players: m.humans, capacity: m.teamPlay ? TEAM_PLAY.maxHumans : 4, bots: m.teamPlay ? 0 : m.bots });
   }
   return rooms;
 }
