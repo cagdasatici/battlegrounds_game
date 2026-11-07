@@ -179,8 +179,8 @@ export const beastFormTaken100 = (damage100: number): number => Math.floor((dama
 
 /**
  * BEAST02 craters (sparring only). D values. A crater is a replicated, server timed scar: it is placed when a beast-form
- * fighter casts an awakened special (and when it transforms) and heals away by itself. It is presentation plus timing; it
- * does not change collision, so prediction, bots and edge safety are unaffected.
+ * fighter casts an awakened special (and when it transforms) and heals away by itself. CRATER01: it is also a real
+ * depression (`groundHeightAt` in craterGround.ts); Rapier collision stays flat and the height is a shear on top of it.
  */
 export const CRATER = {
   /** 20 s to heal completely. */
@@ -192,6 +192,13 @@ export const CRATER = {
   stompRadius: 6,
   /** The special's crater lands this far in front of the caster (m). */
   forward: 3.5,
+  /** CRATER01 (D): pit depth (m) is 0.3 x radius clamped to this band, at full strength; it heals linearly with `craterDepth`. */
+  depthPerRadius: 0.3,
+  depthMin: 1.2,
+  depthMax: 1.8,
+  /** CRATER01 (D): climbing a slope s (rise/run) multiplies horizontal travel by max(climbMinScale, 1 - climbSlow * s). */
+  climbSlow: 0.6,
+  climbMinScale: 0.55,
 } as const;
 
 /** Crater radius (m) for an awakened special id ("sv.a3" -> slot 3), or 0 when the move is not an awakened special. */

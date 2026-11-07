@@ -131,6 +131,7 @@ export class GameScene {
     for (const g of this.arena.geometries) this.geometries.add(g);
     for (const m of this.arena.materials) this.materials.add(m);
     this.scene.add(this.arena.group);
+    this.craters.cutGround(this.arena.terrain);
     if (renderer.shadowMap) renderer.shadowMap.type = PCFSoftShadowMap;
     this.setQuality("medium");
     win.addEventListener("resize", this.onResize);

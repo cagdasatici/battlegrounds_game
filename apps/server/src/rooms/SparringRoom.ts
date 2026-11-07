@@ -90,6 +90,7 @@ export class SparringRoom extends BotArenaRoom {
     this.regenStep(tick);
     if (this.craters) {
       this.craters.update(tick);
+      this.movement?.setGround(this.craters.groundAt); // CRATER01: sunken craters (idempotent)
       // The transformation itself stomps a crater under the new beast.
       for (const f of this.combat.all()) {
         if (f.beast && !this.wasBeast.has(f.entityId)) { this.wasBeast.add(f.entityId); const p = this.movement?.position(f.entityId); if (p) this.craters.add(p[0], p[2], CRATER.stompRadius, tick); }

@@ -180,7 +180,7 @@ export class BeastSystem {
     if (w.walkableTop(pos[0], pos[2]) !== null) this.lastSafe = [pos[0], pos[1], pos[2]];
     else if (this.lastSafe && pos[1] > -5) { // pushed off by something unexpected: put it back on its last safe spot
       const p = { x: this.lastSafe[0], y: this.lastSafe[1], z: this.lastSafe[2] };
-      body.rb.setTranslation(p, true); body.rb.setNextKinematicTranslation(p); body.state.vy = 0;
+      mv.setPosition(BEAST_ENTITY_ID, [p.x, p.y, p.z]); body.state.vy = 0;
     }
 
     // Stagger: enough damage inside the window interrupts whatever it is doing.

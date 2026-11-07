@@ -2,6 +2,7 @@ import { CRATER } from "@eb/shared/config/beast";
 import { quantizeCm } from "@eb/shared/schema";
 import type { CraterSchema } from "../state/ArenaSchema.js";
 import { CraterSchema as Crater } from "../state/ArenaSchema.js";
+import { craterOffset, groundCraterFromRecord } from "@eb/shared/craterGround";
 import type { ArraySchema } from "@colyseus/schema";
 
 /**
@@ -25,6 +26,13 @@ export class CraterSystem {
   update(tick: number): void {
     for (let i = this.out.length - 1; i >= 0; i--) if (tick - this.out[i]!.startTick >= CRATER.healTicks) this.out.splice(i, 1);
   }
+
+  /** CRATER01: ground offset (m, <= 0) from the live list, deepest overlapping crater wins; healing follows `tick`. Allocation free. */
+  groundAt = (x: number, z: number, tick: number): number => {
+    let h = 0;
+    for (const r of this.out) h = Math.min(h, craterOffset(x, z, groundCraterFromRecord(r), tick));
+    return h;
+  };
 
   clear(): void { this.out.clear(); }
   get size(): number { return this.out.length; }

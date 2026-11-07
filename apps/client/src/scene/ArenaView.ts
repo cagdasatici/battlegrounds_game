@@ -75,6 +75,8 @@ export interface ArenaBuild {
   setMotes(timeSec: number): void;
   readonly geometries: BufferGeometry[];
   readonly materials: Material[];
+  /** CRATER01: the ground material, patched so craters cut through it. */
+  readonly terrain: Material;
   readonly textures: Texture[];
 }
 
@@ -645,7 +647,7 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
   };
   setMotes(0);
 
-  return { group, sky, clouds, cloudShell, motes, setMotes, geometries, materials, textures: [grassMap, cloudTex] };
+  return { group, sky, clouds, cloudShell, motes, setMotes, geometries, materials, textures: [grassMap, cloudTex], terrain };
 }
 
 /** One grass blade cone merged into a batch, leaning by `lean` radians around `yaw`. */

@@ -2,6 +2,7 @@ import RAPIER from "@dimforge/rapier3d-compat";
 import { COMBAT } from "@eb/shared/config/combat";
 import { MOVE_DT, applyCorrection, initialMoveState, integrateMovement, type MoveIntent, type MoveState } from "@eb/shared/movement";
 import type { MapVec3 } from "@eb/shared/config/arena";
+import { climbScale } from "@eb/shared/craterGround";
 import type { World } from "./World.js";
 
 /** D: lift (m) applied to the capsule for straight sweeps so floor contact never blocks a horizontal move. */
@@ -32,6 +33,9 @@ export class MovementSystem {
   private readonly controller: RAPIER.KinematicCharacterController;
   private readonly sweepShape = new RAPIER.Capsule(COMBAT.capsule.halfHeight, COMBAT.capsule.radius);
   private disposed = false;
+  /** CRATER01: ground offset (<= 0) at (x, z, tick). Rapier bodies live in flat "physical" space; world y = physical y + this. */
+  private groundFn: ((x: number, z: number, tick: number) => number) | null = null;
+  private tick = 0;
 
   constructor(private readonly world: World) {
     const c = COMBAT.controller;
@@ -45,8 +49,13 @@ export class MovementSystem {
     this.controller.setApplyImpulsesToDynamicBodies(false);
   }
 
+  /** CRATER01: installs (or clears with null) the sunken-ground function; sparring only. */
+  setGround(fn: ((x: number, z: number, tick: number) => number) | null): void { this.groundFn = fn; }
+  private groundAt(x: number, z: number): number { return this.groundFn ? this.groundFn(x, z, this.tick) : 0; }
+
   add(entityId: number, centre: MapVec3, facingYaw = 0): Body {
     this.remove(entityId);
+    centre = [centre[0], centre[1] - this.groundAt(centre[0], centre[2]), centre[2]];
     const cap = COMBAT.capsule;
     const rb = this.world.rapier.createRigidBody(
       RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(centre[0], centre[1], centre[2]));
@@ -70,7 +79,15 @@ export class MovementSystem {
     const b = this.bodies.get(entityId);
     if (!b) return null;
     const t = b.rb.nextTranslation();
-    return [t.x, t.y, t.z];
+    return [t.x, t.y + this.groundAt(t.x, t.z), t.z];
+  }
+
+  /** Places a body at a world position (teleport); the vertical speed is untouched. */
+  setPosition(entityId: number, world: MapVec3): void {
+    const b = this.bodies.get(entityId);
+    if (!b || !Number.isFinite(world[0] + world[1] + world[2])) return;
+    const p = { x: world[0], y: world[1] - this.groundAt(world[0], world[2]), z: world[2] };
+    b.rb.setTranslation(p, true); b.rb.setNextKinematicTranslation(p);
   }
 
   /**
@@ -81,6 +98,7 @@ export class MovementSystem {
   step(tick: number, intentOf: (entityId: number) => MoveIntent, overrideOf?: (entityId: number) => HorizontalOverride | null,
     facingOverrideOf?: (entityId: number) => number | null, holdVertical?: (entityId: number) => boolean): void {
     if (this.disposed) throw new Error("movement disposed");
+    this.tick = tick;
     const ids = [...this.bodies.keys()].sort((a, b) => a - b);
     for (const id of ids) {
       const b = this.bodies.get(id)!;
@@ -93,6 +111,12 @@ export class MovementSystem {
       if (o && Number.isFinite(o.vx) && Number.isFinite(o.vz)) {
         b.state.vx = o.vx; b.state.vz = o.vz;
         desired.dx = o.vx * MOVE_DT; desired.dz = o.vz * MOVE_DT;
+      }
+      // CRATER01: climbing out of a bowl is slower; the same multiplier runs in client prediction (groundCollide).
+      if (this.groundFn) {
+        const p0 = b.rb.translation();
+        const sc = climbScale((x, z) => this.groundAt(x, z), p0.x, p0.z, desired.dx, desired.dz);
+        desired.dx *= sc; desired.dz *= sc;
       }
       // No snap while rising (spec section 11).
       if (b.state.vy > 0) this.controller.disableSnapToGround();

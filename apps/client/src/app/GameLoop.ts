@@ -21,6 +21,7 @@ import type { LoopProjectile } from "../scene/ProjectileViews.js";
 import type { LoopUrn } from "../scene/UrnViews.js";
 import type { LoopBeast } from "../scene/BeastView.js";
 import type { LoopCrater } from "../scene/CraterViews.js";
+import { groundCollide, groundCraterFromRecord, groundHeightAt, type GroundCrater } from "@eb/shared/craterGround";
 import type { GameScene } from "../scene/GameScene.js";
 
 /** Replicated public record, as read from room.state.players (centimetres, quantized yaw). */
@@ -148,6 +149,7 @@ export class GameLoop {
     this.d.scene.urns.clear();
     this.d.scene.beast.clear();
     this.d.scene.craters.clear();
+    this.groundCraters = [];
     this.prediction = null;
   }
 
@@ -223,6 +225,8 @@ export class GameLoop {
     this.d.scene.projectiles.sync(st.projectiles ?? [], st.serverTick, est ?? st.serverTick);
     this.d.scene.beast.sync(st.beast, st.serverTick);
     this.d.scene.craters.sync(st.craters ?? [], st.serverTick);
+    this.groundCraters = [...(st.craters ?? [])].map(groundCraterFromRecord); // CRATER01: same function the server uses
+    this.groundTick = st.serverTick;
     // `st.players` may be a one-shot iterator: materialize it once and reuse below.
     const players = [...st.players];
     st = { ...st, players };
@@ -263,13 +267,19 @@ export class GameLoop {
     this.lastSeenServerTick = st.serverTick;
   }
 
+  /** CRATER01: latest replicated craters (metres) so prediction follows the same sunken ground as the server. */
+  private groundCraters: GroundCrater[] = [];
+  private groundTick = 0;
+  private readonly predictCollide: Collide = (pos, desired) =>
+    groundCollide((x, z) => groundHeightAt(x, z, this.groundCraters, this.groundTick), pos, desired, this.d.collide);
+
   private syncLocal(key: string, p: LoopPlayer, serverTick: number, est: number | null): void {
     this.localEntityId = p.entityId;
     const pos = { x: fromCm(p.x), y: fromCm(p.y), z: fromCm(p.z) };
     this.authPose = { ...pos, yaw: fromYaw(p.facingYaw) };
     if (this.prediction === null) {
       if (!this.gateOpen) return; // no prediction while input is gated; the authoritative pose is presented
-      this.prediction = new Prediction(this.d.collide, pos, fromYaw(p.facingYaw));
+      this.prediction = new Prediction(this.predictCollide, pos, fromYaw(p.facingYaw));
       if (p.owner) {
         this.prediction.state = {
           vx: fromCm(p.vx), vy: fromCm(p.vy), vz: fromCm(p.vz), facingYaw: fromYaw(p.facingYaw), ...locoOf(p.owner),
