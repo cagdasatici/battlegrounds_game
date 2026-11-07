@@ -2,6 +2,8 @@ import { describe, expect, test } from "vitest";
 import { Scene } from "../../apps/client/node_modules/three/build/three.module.js";
 import { BeastView, beastBanner, type LoopBeast } from "../../apps/client/src/scene/BeastView.js";
 import { BEAST } from "../../packages/shared/src/config/beast.js";
+import { BEAST_MODEL_HEIGHT, buildBeastModel } from "../../apps/client/src/scene/BeastModel.js";
+import { Box3, Vector3 } from "../../apps/client/node_modules/three/build/three.module.js";
 
 const rec = (o: Partial<LoopBeast> = {}): LoopBeast => ({
   phase: "alive", x: 2400, y: 90, z: -1800, facingYaw: 0, hp100: 30000, hpMax100: 60000, action: "Idle", moveId: "",
@@ -73,5 +75,21 @@ describe("BeastView", () => {
     v.clear(); v.clear();
     v.dispose(); v.dispose();
     expect(scene.children).toHaveLength(0);
+  });
+});
+
+describe("BeastModel", () => {
+  test("stays inside a draw-call budget, is normalised to its rest height, and animates every pose without error", () => {
+    const m = buildBeastModel();
+    let meshes = 0, instanced = 0;
+    m.group.traverse((o) => { if ((o as { isMesh?: boolean }).isMesh) { meshes++; if ((o as { isInstancedMesh?: boolean }).isInstancedMesh) instanced++; } });
+    expect(meshes).toBeLessThanOrEqual(70); // BEAST02: merged per joint; one beast costs well under a hundred draws
+    expect(instanced).toBeGreaterThan(0);   // fur tufts are instanced
+    const h = new Box3().setFromObject(m.group).getSize(new Vector3()).y;
+    expect(h).toBeCloseTo(BEAST_MODEL_HEIGHT, 1);
+    for (const [action, moveId] of [["Idle", ""], ["Windup", "beast.swipe"], ["Windup", "beast.slam"], ["Active", "beast.swipe"], ["Active", "beast.slam"], ["Recovery", ""], ["Stunned", ""], ["Dead", ""]] as const) {
+      for (const prog of [0, 0.5, 1]) expect(() => m.pose({ clock: 1.3, walking: action === "Idle", action, moveId, prog, defeat: action === "Dead" ? prog : 0 })).not.toThrow();
+    }
+    m.dispose();
   });
 });

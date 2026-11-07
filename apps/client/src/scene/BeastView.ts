@@ -1,7 +1,5 @@
-import {
-  BoxGeometry, CircleGeometry, ConeGeometry, CylinderGeometry, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, SphereGeometry,
-  type Object3D, type Scene,
-} from "three";
+import { CircleGeometry, Group, Mesh, MeshBasicMaterial, type Object3D, type Scene } from "three";
+import { buildBeastModel, type BeastModel } from "./BeastModel.js";
 import { BEAST, BEAST_MOVES } from "@eb/shared/config/beast";
 import { fromCm, fromYaw } from "@eb/shared/schema";
 
@@ -30,16 +28,14 @@ const PHASE_NONE = "none";
 export class BeastView {
   private readonly root = new Group();
   private readonly body = new Group();
+  /** Built the first time a beast is on screen (about 50 draw calls; nothing is built for rooms that never see one). */
+  private model: BeastModel | null = null;
   private readonly marker: Mesh;
+  private readonly shadow: Mesh;
   private readonly swipeZone: Mesh;
   private readonly slamZone: Mesh;
   private readonly geos: Array<{ dispose(): void }> = [];
   private readonly mats: Array<{ dispose(): void }> = [];
-  private readonly armL = new Group();
-  private readonly armR = new Group();
-  private readonly legL = new Group();
-  private readonly legR = new Group();
-  private readonly head = new Group();
   private rec: LoopBeast | undefined;
   private tick = 0;
   private clock = 0;
@@ -49,40 +45,6 @@ export class BeastView {
   private disposed = false;
 
   constructor(private readonly scene: Scene) {
-    const fur = this.mat(new MeshStandardMaterial({ color: 0x5b2a2a, roughness: 0.95, flatShading: true }));
-    const dark = this.mat(new MeshStandardMaterial({ color: 0x2e1717, roughness: 0.9, flatShading: true }));
-    const bone = this.mat(new MeshStandardMaterial({ color: 0xe8dcc0, roughness: 0.6, flatShading: true }));
-    const eye = this.mat(new MeshBasicMaterial({ color: 0xffd34a }));
-    const add = <G extends BoxGeometry | CylinderGeometry | SphereGeometry | ConeGeometry>(g: G): G => { this.geos.push(g); return g; };
-
-    // Everything below is in normal-fighter metres; the root scales it by BEAST.scale. Faces -Z.
-    const torso = new Mesh(add(new SphereGeometry(0.62, 12, 9)), fur); torso.scale.set(1.25, 1.1, 0.95); torso.position.y = 1.15;
-    const belly = new Mesh(add(new SphereGeometry(0.5, 10, 8)), dark); belly.scale.set(1.05, 0.9, 0.7); belly.position.set(0, 0.95, -0.28);
-    const shoulders = new Mesh(add(new BoxGeometry(1.9, 0.5, 0.8)), fur); shoulders.position.y = 1.62;
-    this.head.position.set(0, 1.95, -0.2);
-    const skull = new Mesh(add(new SphereGeometry(0.34, 10, 8)), fur); skull.scale.set(1.15, 0.95, 1);
-    const jaw = new Mesh(add(new BoxGeometry(0.42, 0.16, 0.34)), dark); jaw.position.set(0, -0.2, -0.16);
-    for (const s of [-1, 1]) {
-      const horn = new Mesh(add(new ConeGeometry(0.1, 0.55, 8)), bone); horn.position.set(s * 0.3, 0.3, 0); horn.rotation.z = -s * 0.7;
-      const e = new Mesh(add(new SphereGeometry(0.06, 6, 5)), eye); e.position.set(s * 0.14, 0.04, -0.3);
-      const tusk = new Mesh(add(new ConeGeometry(0.05, 0.22, 6)), bone); tusk.position.set(s * 0.14, -0.22, -0.3); tusk.rotation.x = Math.PI;
-      this.head.add(horn, e, tusk);
-    }
-    this.head.add(skull, jaw);
-
-    for (const [arm, s] of [[this.armL, -1], [this.armR, 1]] as const) {
-      arm.position.set(s * 1.05, 1.6, 0);
-      const upper = new Mesh(add(new CylinderGeometry(0.2, 0.17, 0.9, 8)), fur); upper.position.y = -0.45;
-      const fist = new Mesh(add(new SphereGeometry(0.27, 8, 7)), dark); fist.position.y = -1.0;
-      arm.add(upper, fist);
-    }
-    for (const [leg, s] of [[this.legL, -1], [this.legR, 1]] as const) {
-      leg.position.set(s * 0.42, 0.75, 0);
-      const thigh = new Mesh(add(new CylinderGeometry(0.24, 0.2, 0.75, 8)), fur); thigh.position.y = -0.35;
-      const foot = new Mesh(add(new BoxGeometry(0.4, 0.18, 0.55)), dark); foot.position.set(0, -0.72, -0.08);
-      leg.add(thigh, foot);
-    }
-    this.body.add(torso, belly, shoulders, this.head, this.armL, this.armR, this.legL, this.legR);
     this.body.scale.setScalar(BEAST.scale);
     this.root.add(this.body);
     this.root.name = "beast"; this.root.visible = false;
@@ -97,6 +59,10 @@ export class BeastView {
     const ring = new CircleGeometry(1, 36); this.geos.push(ring);
     this.marker = new Mesh(ring, this.mat(new MeshBasicMaterial({ color: 0xffa23a, transparent: true, opacity: 0.4, depthWrite: false })));
     this.marker.rotation.x = -Math.PI / 2; this.marker.visible = false; this.marker.renderOrder = 2;
+    // Soft contact shadow so the huge body sits on the ground.
+    this.shadow = new Mesh(ring, this.mat(new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.32, depthWrite: false })));
+    this.shadow.rotation.x = -Math.PI / 2; this.shadow.scale.setScalar(BEAST.scale * 0.8); this.shadow.position.y = 0.04; this.shadow.renderOrder = 1;
+    this.root.add(this.shadow);
     for (const o of [this.root, this.swipeZone, this.slamZone, this.marker]) o.traverse((n) => { if (n.name === "") n.name = "beast.part"; });
     scene.add(this.root, this.swipeZone, this.slamZone, this.marker);
   }
@@ -163,31 +129,15 @@ export class BeastView {
       (zone.material as MeshBasicMaterial).opacity = 0.18 + 0.45 * prog;
       show(zone, true);
     }
-    // Pose.
-    let armL = 0, armR = 0, lean = 0, headX = 0, sink = 0, tilt = 0;
-    const walk = b.walking && b.action === "Idle" ? Math.sin(this.clock * 4.5) : 0;
+    let sink = 0, defeat = 0;
     if (defeated) {
-      const t = Math.min(1, Math.max(0, 1 - (b.phaseEndTick - this.tick) / BEAST.defeatedTicks));
-      tilt = -1.45 * easeOut(Math.min(1, t * 2)); sink = t > 0.6 ? (t - 0.6) * 2.5 * BEAST.scale : 0; armL = armR = 0.5; headX = 0.6;
-      if (t >= 1) show(this.root, false);
-    } else if (b.action === "Windup") {
-      if (b.moveId === "beast.slam") { armL = armR = -2.6 * prog; lean = -0.15 * prog; }
-      else { armR = -2.2 * prog; lean = 0.2 * prog; }
-    } else if (b.action === "Active") {
-      if (b.moveId === "beast.slam") { armL = armR = 0.5; lean = 0.35; headX = 0.3; }
-      else { armR = 1.0; lean = -0.25; }
-    } else if (b.action === "Recovery") {
-      armL = armR = 0.25; lean = 0.1;
-    } else if (b.action === "Stunned") {
-      headX = 0.5 + 0.1 * Math.sin(this.clock * 12); lean = 0.25; armL = armR = 0.4;
-    } else {
-      armL = walk * 0.5; armR = -walk * 0.5;
+      defeat = Math.min(1, Math.max(0, 1 - (b.phaseEndTick - this.tick) / BEAST.defeatedTicks));
+      sink = defeat > 0.6 ? (defeat - 0.6) * 2.5 * BEAST.scale : 0;
+      if (defeat >= 1) show(this.root, false);
     }
-    this.armL.rotation.x = armL; this.armR.rotation.x = armR;
-    this.legL.rotation.x = -walk * 0.5; this.legR.rotation.x = walk * 0.5;
-    this.head.rotation.x = headX;
-    this.body.rotation.x = lean; this.root.rotation.x = tilt;
-    this.body.position.y = Math.abs(walk) * 0.06 - sink / BEAST.scale;
+    if (!this.model) { this.model = buildBeastModel(); this.model.group.traverse((n) => { if (n.name === "") n.name = "beast.part"; }); this.body.add(this.model.group); }
+    this.model.pose({ clock: this.clock, walking: b.walking, action: defeated ? "Dead" : b.action, moveId: b.moveId, prog, defeat });
+    this.body.position.y = -sink;
     this.body.scale.setScalar(BEAST.scale * (0.35 + 0.65 * appear));
   }
 
@@ -200,6 +150,7 @@ export class BeastView {
     if (this.disposed) return;
     this.disposed = true;
     this.root.removeFromParent(); this.swipeZone.removeFromParent(); this.slamZone.removeFromParent(); this.marker.removeFromParent();
+    this.model?.dispose();
     for (const g of this.geos) g.dispose();
     for (const m of this.mats) m.dispose();
   }
