@@ -132,7 +132,7 @@ export class BeastView {
     let sink = 0, defeat = 0;
     if (defeated) {
       defeat = Math.min(1, Math.max(0, 1 - (b.phaseEndTick - this.tick) / BEAST.defeatedTicks));
-      sink = defeat > 0.6 ? (defeat - 0.6) * 2.5 * BEAST.scale : 0;
+      sink = defeat > 0.9 ? (defeat - 0.9) * 10 * 0.6 * BEAST.scale : 0; // lies still, then settles into the ground
       if (defeat >= 1) show(this.root, false);
     }
     if (!this.model) { this.model = buildBeastModel(); this.model.group.traverse((n) => { if (n.name === "") n.name = "beast.part"; }); this.body.add(this.model.group); }

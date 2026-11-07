@@ -139,14 +139,14 @@ describe("FX01 pooling and cleanup", () => {
   };
   const P = (o: Record<string, unknown> = {}) => ({ x: 0, y: 90, z: 0, facingYaw: 0, action: "Idle", moveId: "", actionStartTick: 0, kitId: "ea", ...o });
 
-  test("a beast special hit through the real attach path spawns layers, a decal, freezes both fighters and shakes; dispose cleans up", () => {
+  test("a beast special hit through the real attach path spawns layers, a decal and shake but never freezes fighters (decision 0049); dispose cleans up", () => {
     const players = new Map<string, unknown>([["1", P({ beast: true })], ["2", P({ x: 300 })]]);
     const t = setup("medium", players);
     t.emit({ moveId: "ea.a3", damage100: 3600, hitClass: "heavy", position: { x: 3, y: 1.2, z: 0 } });
     expect(t.effects.activeCount).toBeGreaterThan(0);
     expect(t.effects.glow.activeCount).toBeGreaterThan(0);
     expect(t.scene.children.filter((c) => c.name === "fx.decal").length).toBe(FX_TIER.medium.decals * 2);
-    expect(t.fighter.freeze).toHaveBeenCalledTimes(2);
+    expect(t.fighter.freeze).not.toHaveBeenCalled();
     expect(t.shake).toHaveBeenCalledTimes(1);
     expect(t.shake.mock.calls[0]![0]).toBeGreaterThan(0.3);
     const during = t.scene.children.length;

@@ -32,7 +32,7 @@ export const BEAST = {
   /** The beast leaves on its own after this long if nobody beats it (3 minutes). */
   lifetimeTicks: 10800,
   /** Collapse animation window after defeat before the state clears. */
-  defeatedTicks: 240,
+  defeatedTicks: 330,
   spawnProtectionTicks: 60,
   /** Where it can appear (main island, clear of pillars and walls), the farthest from the humans is used. */
   anchors: ([[-24, 0, -18], [24, 0, -18], [-24, 0, 18], [24, 0, 18]] as const).map(([x, y, z]) => [x * ARENA_SCALE, y, z * ARENA_SCALE] as const),

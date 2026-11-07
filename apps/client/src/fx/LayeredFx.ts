@@ -350,8 +350,8 @@ export const LayeredFx = {
       playHitLayers(spec, { fx: effects, decals: getDecals(), pulse, at, groundY: gy ?? at.y - ARENA.capsule.centreAboveSurface, hasGround: gy !== null });
       const target = deps.fighters?.(victim);
       if (spec.rim) target?.flash(spec.rim.color, spec.rim.ms, flashLevel() * (reduced() ? 0.5 : 1));
-      // Hit-stop: ability, beast and KO hits only (decision 0055). Presentation: pauses the two animations, never the simulation.
-      if (spec.freezeFrames > 0 && !HIT_STUN.enabled) { target?.freeze(spec.freezeFrames); deps.fighters?.(e.actorId)?.freeze(spec.freezeFrames); }
+      // No hit-stop while the generic freeze switch is off (decision 0049, owner: fighters must never visibly freeze on hits).
+      if (spec.freezeFrames > 0 && HIT_STUN.enabled) { target?.freeze(spec.freezeFrames); deps.fighters?.(e.actorId)?.freeze(spec.freezeFrames); }
       const me = deps.localId();
       if (!reduced() && me !== undefined && (e.actorId === me || e.targetId === me)) deps.shake?.(spec.shake.amplitude, spec.shake.ms);
     });

@@ -307,9 +307,36 @@ export function buildBeastModel(): BeastModel {
     let armLx = 0, armRx = 0, armLz = 0.12, armRz = -0.12, elbL = -0.25, elbR = -0.25, lean = 0.12, twist = 0, headX = 0, headY = 0, jawOpen = 0.05;
     let hipDrop = 0, legL = 0, legR = 0, kneeBendL = 0.1, kneeBendR = 0.1, rootRx = 0;
     const walk = p.walking && p.action === "Idle" ? Math.sin(t * 4.2) : 0, walk2 = p.walking && p.action === "Idle" ? Math.cos(t * 4.2) : 0;
+    let rootRz = 0, rootLift = 0;
     if (p.defeat > 0) {
+      // Death sequence over `defeat` 0..1: a last roar, drop to the knees, slump onto one fist, topple onto the left side,
+      // roll over onto the back with the limbs going slack, one final twitch. Phase edges are local design choices.
       const d = Math.min(1, p.defeat);
-      rootRx = -1.45 * (1 - (1 - Math.min(1, d * 2)) ** 2); armLx = armRx = 0.6; headX = 0.5; jawOpen = 0.5; lean = 0.1; kneeBendL = kneeBendR = 0.4;
+      const seg = (a: number, b: number): number => Math.max(0, Math.min(1, (d - a) / (b - a)));
+      const ease = (x: number): number => x * x * (3 - 2 * x);
+      const roar = seg(0, 0.14), kneel = ease(seg(0.12, 0.34)), slump = ease(seg(0.34, 0.48)), fall = seg(0.48, 0.68), roll = ease(seg(0.7, 0.86)), twitch = seg(0.88, 0.96);
+      const roarUp = Math.sin(roar * Math.PI); // arms rise and drop back over the roar
+      armLx = armRx = -2.4 * roarUp + 0.35 * kneel; armLz = 0.12 + 0.5 * roarUp; armRz = -armLz;
+      headX = -0.6 * roarUp + 0.55 * kneel; jawOpen = 0.15 + 0.95 * roarUp + 0.3 * kneel;
+      lean = 0.12 - 0.3 * roarUp + 0.45 * kneel + 0.35 * slump;
+      // Kneel: thighs drop straight, shins fold back flat, hips lower until the stone kneecaps meet the ground.
+      kneeBendL = kneeBendR = 0.1 + 1.45 * kneel; hipDrop = -0.4 * kneel;
+      // Slump: the right fist plants, the left arm hangs, the whole frame trembles.
+      armRx += 0.6 * slump; elbR = -0.25 - 0.5 * slump; armLx += 0.25 * slump;
+      const tremble = (kneel > 0 && fall === 0 ? 0.03 : 0) * Math.sin(t * 31);
+      // Topple: accelerating fall onto the left side with a small bounce, then the roll onto the back (Rx about the
+      // now-horizontal spine; the XYZ Euler applies Rz first).
+      const fallE = fall * fall, bounce = fall >= 1 ? 0.06 * Math.max(0, 1 - (d - 0.68) / 0.06) * Math.sin(((d - 0.68) / 0.06) * Math.PI) : 0;
+      rootRz = 1.5 * fallE - bounce + tremble;
+      rootRx = 1.45 * roll;
+      rootLift = 0.75 * Math.max(fallE, roll); // the pivot is the feet: lying down, the barrel body rests on the ground, not in it
+      // Slack limbs once down; a last kick of the legs and one arm.
+      const slack = Math.max(fall, roll);
+      armLz = armLz * (1 - slack) + 1.1 * slack; armRz = armRz * (1 - slack) - 0.9 * slack;
+      armLx = armLx * (1 - roll) - 0.4 * roll; armRx = armRx * (1 - roll) - 0.2 * roll;
+      kneeBendL = kneeBendL * (1 - roll) + 0.7 * roll + 0.5 * Math.sin(twitch * Math.PI); kneeBendR = kneeBendR * (1 - roll) + 0.9 * roll;
+      legL = 0.5 * roll; legR = 0.3 * roll;
+      headY = 0.5 * roll; jawOpen = jawOpen * (1 - roll) + 0.6 * roll;
     } else if (p.action === "Windup" && p.moveId === "beast.slam" || p.action === "Windup" && p.moveId.endsWith(".slam")) {
       const k = p.prog; armLx = armRx = -2.9 * k; elbL = elbR = -0.3 - 0.4 * k; lean = 0.12 - 0.5 * k; headX = -0.25 * k; jawOpen = 0.7 * k; kneeBendL = kneeBendR = 0.1 + 0.35 * k; hipDrop = -0.08 * k;
     } else if (p.action === "Windup") {
@@ -340,8 +367,8 @@ export function buildBeastModel(): BeastModel {
     hips.position.y = 1.5 + hipDrop;
     hipL.rotation.x = legL - 0.0; hipR.rotation.x = legR;
     kneeL.rotation.x = kneeBendL; kneeR.rotation.x = kneeBendR;
-    group.rotation.x = rootRx;
-    core.scale.setScalar(1 + 0.15 * Math.sin(t * 3));
+    group.rotation.set(rootRx, 0, rootRz); group.position.y = rootLift;
+    core.scale.setScalar(p.defeat > 0 ? Math.max(0.05, 1 - p.defeat) : 1 + 0.15 * Math.sin(t * 3)); // the ember core gutters out on death
   }
 
   // Draw-call budget: bake every joint's static meshes (and their outlines) into one mesh per material. The ember core is
