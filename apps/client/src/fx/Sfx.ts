@@ -121,6 +121,9 @@ export const Sfx = {
       raf = requestAnimationFrame(frame);
       if (audio.isUnlocked && !audio.isSuspended) {
         audio.setEffectsVolume(effects());
+        // MUS01: the local player's Beast form gets its own music rotation.
+        const meNow = deps.players().get(deps.localId() ?? "") as { beast?: boolean } | undefined;
+        audio.setMusicMode(meNow?.beast === true ? "beast" : "normal");
         audio.setMusicVolume((deps.settings.get() as { musicVolume?: number }).musicVolume ?? 0);
         scanSustainAudio(audio, deps.players(), deps.serverTick?.(), deps.localId(), live);
         const players = deps.players();

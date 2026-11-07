@@ -1,3 +1,4 @@
+import { nextTrackIndex, playlistFor, trackRenderer, trackSeconds, type MusicMode, type TrackRenderer } from "./music.js";
 import { attenuation, LOOPS, MAX_VOICES, RECIPES, type LoopKind, type Priority, type Recipe, type SoundKind } from "./synth.js";
 
 /** Structural subset of the WebAudio API used here, so tests can pass a fake context. */
@@ -46,14 +47,18 @@ export class AudioBus {
   private master: GainLike | null = null;
   private mix: NodeLike | null = null;
   private music: GainLike | null = null;
-  private musicBuffer: BufferLike | null = null;
+  private readonly trackBuffers = new Map<string, BufferLike>();
+  private musicMode: MusicMode = "normal";
+  private readonly lastTrack: Record<MusicMode, number> = { normal: -1, beast: -1 };
+  private currentTrack: string | null = null;
+  private nextTrack: { mode: MusicMode; idx: number; buf: BufferLike; renderer: TrackRenderer | null } | null = null;
   private noise: BufferLike | null = null;
   private voices: Voice[] = [];
   private unlocked = false;
   private suspended = false;
   private effects = 1;
 
-  constructor(private readonly make: () => AudioContextLike) {}
+  constructor(private readonly make: () => AudioContextLike, private readonly random: () => number = Math.random) {}
 
   get isUnlocked(): boolean { return this.unlocked; }
   get activeVoices(): number { this.prune(); return this.voices.length; }
@@ -87,31 +92,59 @@ export class AudioBus {
     if (this.master) this.master.gain.value = this.effects;
   }
 
-  /** Original eight-second ambient melody, one low-priority voice independent of effects volume. */
+  /**
+   * MUS01: background music, one low-priority voice independent of effects volume. Tracks of the current playlist play
+   * once each and hand over to a different one (never the same twice in a row); Beast form switches to its own rotation.
+   * Called every frame; it only acts when nothing is playing, the mode changed, or the volume changed.
+   */
   setMusicVolume(value: number): void {
     const v = Math.min(1, Math.max(0, value)), ctx = this.ctx;
     if (v === 0) { this.stopLoop("__music"); return; }
     if (!ctx || !this.mix || this.isSuspended) return;
     if (this.music) this.music.gain.value = v;
     this.prune();
-    if (this.hasLoop("__music") || this.voices.length >= MAX_VOICES) return;
-    if (!this.musicBuffer) {
-      const rate = 16000, duration = 8;
-      this.musicBuffer = ctx.createBuffer(1, rate * duration, rate);
-      const samples = this.musicBuffer.getChannelData(0);
-      const notes = [220, 261.625565, 329.627557, 391.995436, 329.627557, 261.625565, 293.664768, 246.941651];
-      for (let i = 0; i < samples.length; i++) {
-        const t = i / rate, local = t % 1, f = notes[Math.floor(t)]!;
-        const envelope = Math.sin(Math.PI * local) ** 2;
-        const pad = (Math.sin(2 * Math.PI * 110 * t) + Math.sin(2 * Math.PI * 165 * t)) * Math.sin(Math.PI * t / duration) ** 2;
-        samples[i] = 0.035 * envelope * Math.sin(2 * Math.PI * f * t) + 0.012 * pad;
-      }
+    const list = playlistFor(this.musicMode);
+    if (this.hasLoop("__music")) {
+      // Pick and pre-render the next track a slice per frame (about 2 ms), so a hand-over never stalls a frame.
+      if (!this.nextTrack || this.nextTrack.mode !== this.musicMode) this.nextTrack = this.prepare(ctx, this.musicMode, nextTrackIndex(list.length, this.lastTrack[this.musicMode], this.random()));
+      if (this.nextTrack.renderer && this.nextTrack.renderer.step(2)) this.finished(this.nextTrack);
+      return;
     }
+    if (this.voices.length >= MAX_VOICES) return;
+    const ready = this.nextTrack && this.nextTrack.mode === this.musicMode ? this.nextTrack : this.prepare(ctx, this.musicMode, nextTrackIndex(list.length, this.lastTrack[this.musicMode], this.random()));
+    this.nextTrack = null;
+    if (ready.renderer) { ready.renderer.step(Infinity); this.finished(ready); } // first track, or a mode switch: render the rest now
+    const idx = ready.idx, buf = ready.buf, spec = list[idx]!;
+    this.lastTrack[this.musicMode] = idx;
+    this.currentTrack = spec.id;
     const out = ctx.createGain(); out.gain.value = v; out.connect(this.mix); this.music = out;
-    const source = ctx.createBufferSource(); source.buffer = this.musicBuffer; source.loop = true; source.connect(out); source.start();
-    this.voices.push({ priority: 2, start: ctx.currentTime, end: Infinity, loopKey: "__music", out,
+    const source = ctx.createBufferSource(); source.buffer = buf; source.loop = false; source.connect(out); source.start();
+    this.voices.push({ priority: 2, start: ctx.currentTime, end: ctx.currentTime + trackSeconds(spec), loopKey: "__music", out,
       stop: () => { try { source.stop(); } catch { /* already stopped */ } source.disconnect(); out.disconnect(); if (this.music === out) this.music = null; } });
   }
+
+  /** Caches a completely rendered buffer (a half-rendered one is never cached, so an abandoned prefetch cannot play). */
+  private finished(t: { mode: MusicMode; idx: number; buf: BufferLike; renderer: TrackRenderer | null }): void {
+    t.renderer = null;
+    this.trackBuffers.set(playlistFor(t.mode)[t.idx]!.id, t.buf);
+  }
+
+  /** A track buffer for `idx` in `mode`'s list: cached when already rendered, otherwise with a resumable renderer. */
+  private prepare(ctx: AudioContextLike, mode: MusicMode, idx: number): { mode: MusicMode; idx: number; buf: BufferLike; renderer: TrackRenderer | null } {
+    const spec = playlistFor(mode)[idx]!;
+    const cached = this.trackBuffers.get(spec.id);
+    if (cached) return { mode, idx, buf: cached, renderer: null };
+    const rate = 16000, buf = ctx.createBuffer(1, Math.ceil(rate * trackSeconds(spec)), rate);
+    return { mode, idx, buf, renderer: trackRenderer(spec, rate, buf.getChannelData(0)) };
+  }
+
+  /** MUS01: picks the playlist. A change cuts to the other rotation on the next frame (beast tracks open on a boom). */
+  setMusicMode(mode: MusicMode): void {
+    if (mode === this.musicMode) return;
+    this.musicMode = mode;
+    this.stopLoop("__music");
+  }
+  get musicTrack(): string | null { return this.hasLoop("__music") ? this.currentTrack : null; }
 
   get musicPlaying(): boolean { return this.hasLoop("__music"); }
 
@@ -259,7 +292,7 @@ export class AudioBus {
     for (const v of this.voices) v.stop();
     this.voices = [];
     this.master?.disconnect(); this.mix?.disconnect();
-    this.mix = null; this.music = null; this.musicBuffer = null;
+    this.mix = null; this.music = null; this.trackBuffers.clear(); this.nextTrack = null;
     const c = this.ctx;
     if (c) c.onstatechange = null;
     this.ctx = null; this.master = null; this.unlocked = false;

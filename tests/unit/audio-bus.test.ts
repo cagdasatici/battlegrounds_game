@@ -263,3 +263,13 @@ test("music: independent voice, mute stops it, suspension and disposal clean it 
   expect(t.bus.activeVoices).toBe(16);
   t.bus.dispose(); expect(t.bus.musicPlaying).toBe(false); expect(t.state.closed).toBe(true);
 });
+
+test("MUS01: music hands over to a different track when one ends, and Beast form switches playlist", () => {
+  const t = mk(); t.bus.unlock(); t.bus.setMusicVolume(.5);
+  const first = t.bus.musicTrack; expect(first).not.toBeNull();
+  t.state.time += 120; t.bus.setMusicVolume(.5);
+  const second = t.bus.musicTrack; expect(second).not.toBeNull(); expect(second).not.toBe(first);
+  t.bus.setMusicMode("beast"); expect(t.bus.musicPlaying).toBe(false);
+  t.bus.setMusicVolume(.5); expect(t.bus.musicTrack).toMatch(/^beast-/);
+  t.bus.setMusicMode("normal"); t.bus.setMusicVolume(.5); expect(t.bus.musicTrack).not.toMatch(/^beast-/);
+});
