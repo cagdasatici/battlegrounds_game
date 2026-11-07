@@ -145,7 +145,7 @@ function norm(x: number, z: number): [number, number] | null {
  * specials, their cooldowns and the once-per-form rule are unchanged); `beast` is an extra flag on the fighter.
  */
 export const BEAST_FORM = {
-  /** 10 s at 60 Hz. */
+  /** BEAST03: unused for duration; the form now lasts until its HP is depleted (then Base form at full HP). */
   ticks: 600,
   scale: 5.5,
   /** Full bars needed to transform (a normal awaken still needs one). */

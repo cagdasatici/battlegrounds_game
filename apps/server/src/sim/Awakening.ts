@@ -138,8 +138,8 @@ export class AwakeningSystem {
         f.contextSpent = false;
         f.formEndTick = cfg.formTicks > 0 ? tick + cfg.formTicks : 0;
         if (act.beast) {
-          // Beast Awaken: a fixed 10 s whatever the kit, armoured, back to full health.
-          f.beast = true; f.armored = true; f.formEndTick = tick + BEAST_FORM.ticks;
+          // Beast Awaken: untimed (lasts until its HP is depleted, see HitResolver.applyDamage), armoured, full health.
+          f.beast = true; f.armored = true; f.formEndTick = 0;
           this.host.combat.heal(f, COMBAT.hp100Max, `${f.kitId}.beast`, tick);
         }
         if (cfg.healAtCompletion100 > 0) this.host.combat.heal(f, cfg.healAtCompletion100, `${f.kitId}.activate`, tick);

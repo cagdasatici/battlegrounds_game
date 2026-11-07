@@ -10,6 +10,7 @@ import { AbilityRunner, MELEE_HANDLER, type AbilityHost, type AbilityPose } from
 import { AwakeningSystem } from "../../apps/server/src/sim/Awakening.js";
 import { kill, respawn } from "../../apps/server/src/sim/ActionMachine.js";
 import type { HitCandidate } from "../../apps/server/src/sim/HitResolver.js";
+import { applyDamage } from "../../apps/server/src/sim/HitResolver.js";
 
 const T0 = 1000;
 const spec = (id: string, o: Partial<AbilitySpec> = {}): AbilitySpec => ({
@@ -78,7 +79,7 @@ describe("Beast Awaken", () => {
     expect(f.beast).toBe(false);
   });
 
-  test("two bars transform: Awakened underneath, beast flag, full HP, armour, a fixed 10 s, meter spent", () => {
+  test("two bars transform: Awakened underneath, beast flag, full HP, armour, untimed, meter spent", () => {
     const r = rig();
     const f = r.cs.get(1)!;
     f.hp100 = 3000;
@@ -89,16 +90,28 @@ describe("Beast Awaken", () => {
     expect(f.hp100).toBe(COMBAT.hp100Max);
     expect(f.armored).toBe(true);
     expect(f.meter100).toBe(0);
-    const end = f.formEndTick;
-    expect(end).toBeGreaterThan(0);
-    // The activation took 30 ticks; the form lasts exactly BEAST_FORM.ticks from completion.
-    expect(end - (T0 + 30)).toBe(BEAST_FORM.ticks);
-    r.step(end - 1);
+    expect(f.formEndTick).toBe(0);
+    // BEAST03: no timer, still a beast long after the old 10 s.
+    r.step(T0 + 30 + BEAST_FORM.ticks * 3);
     expect(f.beast).toBe(true);
-    r.step(end);
+    expect(f.form).toBe("Awakened");
+  });
+
+  test("depleting beast HP reverts to Base form at full HP instead of dying", () => {
+    const r = rig();
+    const f = r.cs.get(1)!;
+    f.meter100 = meterCap100("sv");
+    r.awaken();
+    expect(applyDamage(f, 1000)).toBe(500); // half damage taken while a beast
+    expect(f.beast).toBe(true);
+    applyDamage(f, COMBAT.hp100Max * 4);
     expect(f.beast).toBe(false);
     expect(f.form).toBe("Base");
     expect(f.armored).toBe(false);
+    expect(f.hp100).toBe(COMBAT.hp100Max);
+    // A normal-form fighter then takes full damage and can die.
+    applyDamage(f, COMBAT.hp100Max);
+    expect(f.hp100).toBe(0);
   });
 
   test("beast awaken can be disabled per room: the meter then caps at one bar and two bars never exist", () => {

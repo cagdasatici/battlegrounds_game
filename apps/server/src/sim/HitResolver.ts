@@ -184,9 +184,17 @@ export function resolveHits(tick: number, candidates: readonly HitCandidate[], c
   return out;
 }
 
-/** Integer hundredths; clamped to remaining HP. Returns HP actually removed. */
-function applyDamage(f: Fighter, damage100: number): number {
+/**
+ * Integer hundredths; clamped to remaining HP. Returns HP actually removed.
+ * BEAST03: depleting a beast-form fighter's HP does not kill it: it reverts to its normal (Base) form at full HP.
+ */
+export function applyDamage(f: Fighter, damage100: number): number {
   const d = Math.max(0, Math.min(f.hp100, Math.trunc(f.beast ? beastFormTaken100(damage100) : damage100)));
+  if (f.beast && d >= f.hp100) {
+    f.beast = false; f.armored = false; f.form = "Base"; f.formEndTick = 0; f.awakenedUsedMask = 0; f.contextSpent = false;
+    f.hp100 = COMBAT.hp100Max;
+    return d;
+  }
   f.hp100 -= d;
   return d;
 }

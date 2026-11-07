@@ -2,7 +2,7 @@
  * GFX01: the themed environment layer. Owns the instanced ground cover, procedural trees and ambient particles for one map, applies a quality
  * profile to all of them and tears everything down. A map picks its look with `getEnvTheme(map.themeId)`; the scene never needs to know which pieces exist.
  */
-import { Group, type DataTexture, type PerspectiveCamera, type Scene } from "three";
+import { Group, type DataTexture, type PerspectiveCamera, type Scene, type Vector4 } from "three";
 import type { Collider } from "@eb/shared/config/arena";
 import { AmbientParticles } from "./AmbientParticles.js";
 import { SnowFall, type Sprites } from "./SnowFall.js";
@@ -30,9 +30,9 @@ export class EnvironmentLayer {
   private readonly flowers: boolean;
   private disposed = false;
 
-  constructor(scene: Scene, colliders: readonly Collider[], ramp: DataTexture, theme: EnvTheme, islets: readonly Islet[], wear: readonly WearPoint[]) {
+  constructor(scene: Scene, colliders: readonly Collider[], ramp: DataTexture, theme: EnvTheme, islets: readonly Islet[], wear: readonly WearPoint[], craters?: { value: Vector4[] }) {
     this.group.name = "deco.env";
-    this.cover = new GroundCover(colliders, theme, wear, QUALITY_PROFILES.high);
+    this.cover = new GroundCover(colliders, theme, wear, QUALITY_PROFILES.high, craters);
     this.coverScale = theme.features?.coverScale ?? 1;
     this.flowers = theme.features?.flowers !== false;
     this.trees = new TreeLayer({ theme, ramp, placements: theme.features?.trees === false ? [] : planTrees(theme, colliders, islets) });

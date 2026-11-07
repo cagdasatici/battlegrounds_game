@@ -1,4 +1,4 @@
-import { BufferGeometry, CircleGeometry, DodecahedronGeometry, DoubleSide, Float32BufferAttribute, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, TorusGeometry, Vector4, type Material, type Scene } from "three";
+import { BufferGeometry, CircleGeometry, DodecahedronGeometry, DoubleSide, Float32BufferAttribute, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, TorusGeometry, Vector4, type Material, type ShaderMaterial, type Scene } from "three";
 import { CRATER, craterDepth } from "@eb/shared/config/beast";
 import { craterPitDepth } from "@eb/shared/craterGround";
 import { fromCm } from "@eb/shared/schema";
@@ -18,11 +18,17 @@ const RING = 14, SEG = 48;
 function bowlGeometry(): BufferGeometry {
   const pos: number[] = [0, -1, 0], col: number[] = [0.07, 0.05, 0.04], idx: number[] = [];
   for (let r = 1; r <= RING; r++) {
-    const u = r / RING, w = 1 - u * u, y = -w * w, t = Math.min(1, u * 1.1);
+    const u = r / RING, w = 1 - u * u, y = -w * w;
     for (let s = 0; s < SEG; s++) {
       const a = (s / SEG) * Math.PI * 2;
+      // Depth cue: light dusty lip -> dark scorched floor (baked occlusion by depth), strata bands and radial gouges so the
+      // curved walls read in perspective instead of as a flat disc.
+      const lit = 0.5 + 0.5 * (1 + y);
+      const band = 0.86 + 0.14 * Math.sin(y * 26 + Math.sin(a * 5) * 0.8);
+      const gouge = 0.8 + 0.2 * (0.5 + 0.5 * Math.sin(a * 23 + Math.sin(a * 7) * 2));
+      const k = lit * band * (u > 0.25 && u < 0.95 ? gouge : 1);
       pos.push(Math.cos(a) * u, y, Math.sin(a) * u);
-      col.push(0.07 + 0.28 * t, 0.05 + 0.2 * t, 0.04 + 0.15 * t);
+      col.push(0.5 * k, 0.4 * k, 0.31 * k);
     }
   }
   for (let s = 0; s < SEG; s++) idx.push(0, 1 + ((s + 1) % SEG), 1 + s);
@@ -52,7 +58,7 @@ export class CraterViews {
   private readonly cut: { value: Vector4[] } = { value: Array.from({ length: CRATER.maxLive }, () => new Vector4(0, 0, 0, 0)) };
   private readonly patched = new Set<Material>();
   private readonly bowlMat = new MeshStandardMaterial({ vertexColors: true, roughness: 1, side: DoubleSide });
-  private readonly rimGeo = this.keep(new TorusGeometry(1, 0.07, 6, 40));
+  private readonly rimGeo = this.keep(new TorusGeometry(1, 0.11, 6, 40));
   private readonly rockGeo = this.keep(new DodecahedronGeometry(1, 0));
   private readonly emberMat = new MeshBasicMaterial({ color: 0xff7a1a, transparent: true, opacity: 0.5, depthWrite: false });
   private readonly rimMat = new MeshStandardMaterial({ color: 0x5a4636, roughness: 1, flatShading: true });
@@ -61,15 +67,32 @@ export class CraterViews {
 
   constructor(private readonly scene: Scene) {}
 
+  /** Shared crater list (x, z, radius, active) for other ground layers, e.g. the grass pool hides blades over a pit. */
+  get cutUniform(): { value: Vector4[] } { return this.cut; }
+
   private keep<G extends BufferGeometry>(g: G): G { this.geos.push(g); return g; }
 
   /**
-   * Makes the ground material discard fragments inside live craters so the bowl shows instead of the flat floor.
+   * Makes the ground material discard fragments inside live craters so the bowl shows instead of the flat floor. The cut spans
+   * the full pit depth: ground meshes carry sub-surface layers (soil faces below the grass top) that would otherwise cap the bowl.
    * Call before the material first renders. Safe to call once per material; `dispose` leaves the material to its owner.
    */
   cutGround(mat: Material): void {
     if (this.patched.has(mat)) return;
     this.patched.add(mat);
+    const cutIf = (pos: string): string =>
+      `for (int i = 0; i < ${CRATER.maxLive}; i++) { vec4 c = uCraters[i]; if (c.w > 0.5 && distance(${pos}.xz, c.xy) < c.z && ${pos}.y < 0.3 && ${pos}.y > ${(-CRATER.depthMax - 0.3).toFixed(2)}) discard; }`;
+    if ((mat as ShaderMaterial).isShaderMaterial) {
+      // Custom shaders (the coast sea under the sand) have no chunk includes; they must expose a world-space `vWorld` varying.
+      const sm = mat as ShaderMaterial;
+      if (!sm.fragmentShader.includes("varying vec3 vWorld;")) return;
+      sm.uniforms["uCraters"] = this.cut;
+      sm.fragmentShader = sm.fragmentShader
+        .replace("varying vec3 vWorld;", `varying vec3 vWorld;\nuniform vec4 uCraters[${CRATER.maxLive}];`)
+        .replace("void main() {", `void main() {\n  ${cutIf("vWorld")}`);
+      sm.needsUpdate = true;
+      return;
+    }
     const prev = mat.onBeforeCompile;
     mat.onBeforeCompile = (shader, renderer) => {
       prev?.call(mat, shader, renderer);
@@ -79,7 +102,7 @@ export class CraterViews {
         .replace("#include <begin_vertex>", "#include <begin_vertex>\nvCraterWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;");
       shader.fragmentShader = shader.fragmentShader
         .replace("#include <common>", `#include <common>\nvarying vec3 vCraterWorld;\nuniform vec4 uCraters[${CRATER.maxLive}];`)
-        .replace("void main() {", `void main() {\n  for (int i = 0; i < ${CRATER.maxLive}; i++) { vec4 c = uCraters[i]; if (c.w > 0.5 && distance(vCraterWorld.xz, c.xy) < c.z && abs(vCraterWorld.y) < 0.3) discard; }`);
+        .replace("void main() {", `void main() {\n  ${cutIf("vCraterWorld")}`);
     };
     mat.customProgramCacheKey = () => "craterCut";
     mat.needsUpdate = true;
@@ -114,14 +137,14 @@ export class CraterViews {
     const group = new Group(); group.name = "beast.crater";
     const pit = craterPitDepth(radius);
     group.position.set(fromCm(c.x), 0, fromCm(c.z));
-    const bowl = new Mesh(this.bowlGeo, this.bowlMat); bowl.scale.set(radius, pit, radius); bowl.position.y = 0.01; bowl.name = "beast.crater";
+    const bowl = new Mesh(this.bowlGeo, this.bowlMat); bowl.scale.set(radius, pit, radius); bowl.position.y = 0.01; bowl.receiveShadow = true; bowl.name = "beast.crater";
     const ember = new Mesh(this.scarGeo, this.emberMat); ember.rotation.x = -Math.PI / 2; ember.scale.setScalar(radius * 0.25); ember.position.y = -pit * 0.84; ember.name = "beast.crater";
-    const rim = new Mesh(this.rimGeo, this.rimMat); rim.rotation.x = -Math.PI / 2; rim.scale.setScalar(radius); rim.position.y = 0.04; rim.name = "beast.crater";
+    const rim = new Mesh(this.rimGeo, this.rimMat); rim.rotation.x = -Math.PI / 2; rim.scale.setScalar(radius); rim.position.y = 0.08; rim.castShadow = true; rim.receiveShadow = true; rim.name = "beast.crater";
     const rocks: Mesh[] = [];
     for (let i = 0; i < ROCKS; i++) {
       const a = ((i + 0.4 * Math.sin(c.id * 3 + i * 7)) / ROCKS) * Math.PI * 2, rr = radius * (0.95 + 0.12 * Math.sin(i * 5 + c.id));
       const m = new Mesh(this.rockGeo, this.rockMat);
-      m.position.set(Math.cos(a) * rr, 0.1, Math.sin(a) * rr); m.rotation.set(i, i * 2.1, i * 0.7); m.name = "beast.crater";
+      m.position.set(Math.cos(a) * rr, 0.1, Math.sin(a) * rr); m.rotation.set(i, i * 2.1, i * 0.7); m.castShadow = true; m.name = "beast.crater";
       (m.userData as { base: number }).base = 0.18 + 0.2 * (0.5 + 0.5 * Math.sin(i * 12.9 + c.id));
       rocks.push(m); group.add(m);
     }
@@ -137,7 +160,7 @@ export class CraterViews {
     v.ember.position.y = -v.pit * d * 0.84 + 0.01;
     v.ember.visible = d > 0.35;
     v.rim.scale.set(v.radius, v.radius, Math.max(0.05, d));
-    v.rim.position.y = 0.04 * d;
+    v.rim.position.y = 0.08 * d;
     for (const r of v.rocks) { const b = (r.userData as { base: number }).base; r.scale.setScalar(Math.max(0.001, b * d)); r.position.y = 0.1 * d; }
     v.group.visible = d > 0.01;
   }

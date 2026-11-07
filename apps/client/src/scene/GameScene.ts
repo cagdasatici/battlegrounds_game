@@ -151,7 +151,7 @@ export class GameScene {
     this.craters.cutGround(this.arena.terrain);
     for (const m of this.arena.groundMaterials ?? []) this.craters.cutGround(m);
     const grove = map.themeId === "grove";
-    this.envLayer = new EnvironmentLayer(this.scene, colliders, this.ramp, this.theme, grove ? SCENERY_ISLETS : [], wearPointsFor(colliders, map.spawnPoints));
+    this.envLayer = new EnvironmentLayer(this.scene, colliders, this.ramp, this.theme, grove ? SCENERY_ISLETS : [], wearPointsFor(colliders, map.spawnPoints), this.craters.cutUniform);
     if (this.env) this.env.group.visible = grove;
   }
 

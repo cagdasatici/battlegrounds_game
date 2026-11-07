@@ -152,6 +152,7 @@ export function buildCoastWorld(colliders: readonly Collider[], ramp: DataTextur
 
   return {
     group, sky, clouds, cloudShell, motes, setMotes, geometries: A.geometries, materials: A.materials, textures: A.textures, terrain,
+    groundMaterials: [water.mesh.material], // CRATER01: the sea plane runs under the sand and must be cut inside a pit too
     animate: (dt) => { water.update(dt); },
   };
 }

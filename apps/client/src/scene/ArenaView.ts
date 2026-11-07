@@ -662,7 +662,7 @@ export function buildArena(colliders: readonly Collider[], ramp: DataTexture, op
   };
   setMotes(0);
 
-  return { group, sky, clouds, cloudShell, motes, setMotes, geometries, materials, textures: [grassMap, cloudTex], terrain };
+  return { group, sky, clouds, cloudShell, motes, setMotes, geometries, materials, textures: [grassMap, cloudTex], terrain, groundMaterials: [glyphMat] };
 }
 
 /** One grass blade cone merged into a batch, leaning by `lean` radians around `yaw`. */

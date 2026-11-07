@@ -757,7 +757,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
         dash: me ? dashStatus(me.action, me.actionStartTick ?? 0, me.owner?.evasiveEndTick ?? 0, now) : null,
         cooldownFracs: skillDefinitions(me?.kitId ?? opts.kitId, me?.form ?? "Base").map((d, i) => cooldownFraction(me?.cooldownEndTicks?.[i] ?? 0, now, d.cooldown)),
         reducedMotion: settings.get().reducedMotion,
-        formText: me ? formTimerText(me.form, me.formEndTick, now, me.kitId) : "",
+        formText: me ? ((me as { beast?: boolean }).beast ? "Beast · until HP runs out" : formTimerText(me.form, me.formEndTick, now, me.kitId)) : "",
         stillpointText: stillpointText(me?.owner?.lethalCounterRemaining ?? 0),
         rejection: rejections.current(performance.now()),
         respawn: dead && ko ? koCard(ko, now) : null,

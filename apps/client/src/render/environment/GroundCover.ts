@@ -7,9 +7,10 @@
 import {
   BufferGeometry, Color, DataTexture, DoubleSide, DodecahedronGeometry, Float32BufferAttribute, Group, InstancedBufferAttribute,
   InstancedBufferGeometry, InstancedMesh, LinearFilter, Matrix4, Mesh, MeshLambertMaterial, MeshToonMaterial, Quaternion, RedFormat,
-  Vector2, Vector3, type Material, type Texture,
+  Vector2, Vector3, Vector4, type Material, type Texture,
 } from "three";
 import type { Collider } from "@eb/shared/config/arena";
+import { CRATER } from "@eb/shared/config/beast";
 import { mulberry32, mixHex } from "../../scene/EnvPalette.js";
 import { buildCoverMask, sampleMask, type CoverMask } from "./coverMask.js";
 import type { WearPoint } from "./groundShading.js";
@@ -70,13 +71,14 @@ export function flowerGeometry(): BufferGeometry {
 interface CoverUniforms {
   uTime: { value: number }; uCenter: { value: Vector2 }; uWindow: { value: number }; uMask: { value: Texture };
   uMaskMin: { value: number }; uMaskSpan: { value: number }; uSway: { value: number }; uScale: { value: number };
-  uPalette: { value: Color[] };
+  uPalette: { value: Color[] }; uCraters: { value: Vector4[] };
 }
 
 const VERT_HEAD = /* glsl */ `
 attribute vec4 aSeed;
 uniform float uTime; uniform vec2 uCenter; uniform float uWindow; uniform sampler2D uMask; uniform float uMaskMin; uniform float uMaskSpan;
 uniform float uSway; uniform float uScale; uniform vec3 uPalette[6];
+uniform vec4 uCraters[${CRATER.maxLive}];
 #ifdef COVER_FLOWER
 attribute float aHead;
 #endif
@@ -88,14 +90,20 @@ vec3 coverTint = vec3(1.0);
 {
   float T = uWindow;
   vec2 w = aSeed.xy + T * floor((uCenter - aSeed.xy) / T + 0.5);
-  float edge = 1.0 - smoothstep(0.36 * T, 0.5 * T, length(w - uCenter));
+  float dist = length(w - uCenter);
+  // Distance LOD: blades grow in over a wide band at the window edge instead of popping, and far blades are drawn larger so the
+  // same pool still reads as cover at a distance where each blade is only a few pixels.
+  float edge = 1.0 - smoothstep(0.28 * T, 0.5 * T, dist);
+  float farScale = mix(1.0, 1.9, smoothstep(0.12 * T, 0.45 * T, dist));
   float dens = texture2D(uMask, (w - vec2(uMaskMin)) / uMaskSpan).r;
   float keep = step(aSeed.z, dens) * edge;
+  // No floating cover over a sunken crater pit (CraterViews cut list).
+  for (int i = 0; i < ${CRATER.maxLive}; i++) { vec4 c = uCraters[i]; if (c.w > 0.5 && distance(w, c.xy) < c.z * 1.08) keep = 0.0; }
   #ifdef COVER_FLOWER
   keep *= step(0.42, 0.5 + 0.5 * sin(w.x * 0.23 + 1.3) * sin(w.y * 0.19 + 0.7) + 0.3 * aSeed.z);
   #endif
   float ang = aSeed.w * 6.2831853, ca = cos(ang), sa = sin(ang);
-  float size = (0.75 + 0.55 * fract(aSeed.z * 17.13 + aSeed.w * 5.1)) * uScale * keep;
+  float size = (0.75 + 0.55 * fract(aSeed.z * 17.13 + aSeed.w * 5.1)) * uScale * keep * farScale;
   vec3 p = position;
   p.xz = vec2(ca * p.x - sa * p.z, sa * p.x + ca * p.z);
   p *= size;
@@ -147,7 +155,7 @@ export class GroundCover {
   private animate = true;
   private sway = 1;
 
-  constructor(colliders: readonly Collider[], theme: EnvTheme, wear: readonly WearPoint[], maxProfile: EnvQualityProfile) {
+  constructor(colliders: readonly Collider[], theme: EnvTheme, wear: readonly WearPoint[], maxProfile: EnvQualityProfile, craters: { value: Vector4[] } = { value: Array.from({ length: CRATER.maxLive }, () => new Vector4()) }) {
     this.group.name = "deco.cover.field";
     const mask = coverMaskFor(colliders, wear);
     this.maskTexture = new DataTexture(mask.data, mask.size, mask.size, RedFormat);
@@ -156,6 +164,7 @@ export class GroundCover {
       uTime: { value: 0 }, uCenter: { value: new Vector2(0, 0) }, uWindow: { value: maxProfile.coverWindow }, uMask: { value: this.maskTexture },
       uMaskMin: { value: mask.min }, uMaskSpan: { value: mask.span }, uSway: { value: 0.09 }, uScale: { value: 1 },
       uPalette: { value: Array.from({ length: 6 }, (_, i) => new Color(theme.cover.flowers[i % theme.cover.flowers.length] ?? 0xffffff)) },
+      uCraters: craters,
     };
     const make = (flower: boolean, n: number, seed: number): Mesh<InstancedBufferGeometry> => {
       const src = flower ? flowerGeometry() : clumpGeometry(theme, seed);
