@@ -458,7 +458,7 @@ export class AbilityRunner {
     this.casts.set(f.entityId, cast);
     if (def.oncePerForm) f.awakenedUsedMask |= bit;
     // consumesForm: the awakening is spent at commit; the current ability still resolves from `cast`.
-    if (def.consumesForm) { f.form = "Base"; f.formEndTick = 0; }
+    if (def.consumesForm && !f.beast) { f.form = "Base"; f.formEndTick = 0; } // Beast Awaken keeps the form for its full 10 s
     handler.onCommit?.({ tick, fighter: f, cast, host: this.host, runner: this });
     this.syncArmor(f, cast, tick);
     return { kind: "started", castCounter: f.castCounter, moveId: def.id };

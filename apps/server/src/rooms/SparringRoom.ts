@@ -5,7 +5,8 @@ import { COMBAT } from "@eb/shared/config/combat";
 import { BotArenaRoom } from "./BotArenaRoom.js";
 import { sparringAuthId, sparringPrincipal } from "../http/sparringRoutes.js";
 import { originOk } from "../http/securityHeaders.js";
-import { BEAST, BEAST_ENTITY_ID } from "@eb/shared/config/beast";
+import { BEAST, BEAST_ENTITY_ID, CRATER, craterRadius } from "@eb/shared/config/beast";
+import { CraterSystem } from "../sim/Craters.js";
 import { BeastSystem, type BeastHuman } from "../sim/BeastSystem.js";
 import { botRandom } from "../sim/SparringBrain.js";
 import { isAlive } from "../sim/ActionMachine.js";
@@ -22,6 +23,14 @@ export class SparringRoom extends BotArenaRoom {
   private isBot(id: number): boolean { return [...this.bots.values()].some((b) => b.entityId === id); }
   /** BEAST01: the sparring beast. Created in onCreate; spawns on its own schedule. */
   beast!: BeastSystem;
+  /** BEAST02: craters left by transformed humans; sparring only. */
+  craters!: CraterSystem;
+  private readonly wasBeast = new Set<number>();
+  protected override onBeastSpecial(tick: number, id: number, moveId: string): void {
+    const r = craterRadius(moveId), pos = this.movement?.position(id), body = this.movement?.get(id);
+    if (!r || !pos || !body) return;
+    this.craters.add(pos[0] - Math.sin(body.state.facingYaw) * CRATER.forward, pos[2] - Math.cos(body.state.facingYaw) * CRATER.forward, r, tick);
+  }
   private beastRound = 1;
   /** Test seam: false keeps the beast away entirely. */
   beastEnabled = true;
@@ -31,7 +40,7 @@ export class SparringRoom extends BotArenaRoom {
     for (const p of this.state.players.values()) {
       if (this.isBot(p.entityId) || !p.connected) continue;
       const f = this.combat.get(p.entityId), pos = mv?.position(p.entityId);
-      if (!f || !pos || !isAlive(f)) continue;
+      if (!f || !pos || !isAlive(f) || f.beast) continue; // a transformed human is a beast too: the wild one leaves it alone
       out.push({ id: p.entityId, x: pos[0], y: pos[1], z: pos[2], grounded: mv!.get(p.entityId)?.state.grounded ?? false });
     }
     return out;
@@ -45,7 +54,7 @@ export class SparringRoom extends BotArenaRoom {
   protected override extraLaunches(tick: number, results: readonly HitResult[]) { return this.beast?.launches(tick, results) ?? []; }
   protected override discardCandidate(c: HitCandidate): boolean { return BeastSystem.capturesBeast(c); }
   protected override hurtboxOf(id: number) {
-    return id === BEAST_ENTITY_ID && this.beast?.active ? { hurtRadius: BEAST.hurtRadius, hurtHalfHeight: BEAST.hurtHalfHeight } : null;
+    return id === BEAST_ENTITY_ID && this.beast?.active ? { hurtRadius: BEAST.hurtRadius, hurtHalfHeight: BEAST.hurtHalfHeight } : super.hurtboxOf(id);
   }
   /** Hosted sparring: humans never damage each other; in team play bots do not damage bots either. The beast fights humans only. */
   protected override isFriendly(a: number, t: number): boolean {
@@ -79,6 +88,14 @@ export class SparringRoom extends BotArenaRoom {
       else if (this.beastEnabled) this.beast.update(tick);
     }
     this.regenStep(tick);
+    if (this.craters) {
+      this.craters.update(tick);
+      // The transformation itself stomps a crater under the new beast.
+      for (const f of this.combat.all()) {
+        if (f.beast && !this.wasBeast.has(f.entityId)) { this.wasBeast.add(f.entityId); const p = this.movement?.position(f.entityId); if (p) this.craters.add(p[0], p[2], CRATER.stompRadius, tick); }
+        else if (!f.beast) this.wasBeast.delete(f.entityId);
+      }
+    }
     if (this.teamPlay) {
       const want = teamBotCount(tick - this.teamStartTick);
       if (tick - this.tierWindowStart >= TIER_WINDOW_TICKS) {
@@ -104,6 +121,7 @@ export class SparringRoom extends BotArenaRoom {
     this.autoDispose = false;
     this.roundTarget = info.roundTarget;
     this.teamStartTick = this.sim.tick; this.tierWindowStart = this.sim.tick;
+    this.craters = new CraterSystem(this.state.craters, (x, z) => this.world?.walkableTop(x, z) != null);
     const seed = this.roomEpoch & 0x7fffffff;
     this.beast = new BeastSystem({
       state: this.state.beast, combat: this.combat, respawns: this.respawns, movement: () => this.movement, world: () => this.world,

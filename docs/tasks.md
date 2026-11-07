@@ -258,3 +258,8 @@ Owner request: a very large character (5.5x height and width) that appears in sp
 | Task | Title | Depends on | Status | Commit | Test report |
 |---|---|---|---|---|---|
 | BEAST01 | Larger arena and the sparring beast | GR15c | IMPLEMENTED, DEVICE CHECK PENDING | see git log; iPad NOT RUN | docs/test-results/BEAST01.md |
+
+| Task | Title | Depends on | Status | Commit | Test report |
+|---|---|---|---|---|---|
+| BEAST01a | Beast character rebuilt as a rigged model (horns, tusks, fur, armour, ember cracks, outlines, joint animation) | BEAST01 | IMPLEMENTED, DEVICE CHECK PENDING | see git log; iPad NOT RUN | tests/unit/beast-view.test.ts; previewed with a temporary harness (not committed) |
+| BEAST02 | Beast Awaken: stacked meter, 10 s beast form, 2x specials, craters | BEAST01 | IN PROGRESS: server rules, doubled damage and crater registry done and tested; client transformation effects, stacked-bar HUD and crater rendering not started | see git log | tests/unit/beast-form.test.ts |

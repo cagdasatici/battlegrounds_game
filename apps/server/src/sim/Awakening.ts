@@ -1,4 +1,5 @@
-import { meterRequired100 } from "@eb/shared/awakening";
+import { meterCap100, meterRequired100 } from "@eb/shared/awakening";
+import { BEAST_FORM } from "@eb/shared/config/beast";
 import { COMBAT } from "@eb/shared/config/combat";
 import type { RejectReason } from "@eb/shared/protocol";
 import { beginAwakening, isAlive, isProtected, type Fighter } from "./ActionMachine.js";
@@ -53,7 +54,7 @@ export const ACTIVATIONS: Readonly<Record<string, ActivationConfig>> = {
 /** Slotted awakened move ids (sv.a1 to ea.a4). Their damage resolves after the form returned to Base. */
 const AWAKENED_MOVE_RE = /^(sv|td|ea)\.a[1-4]$/;
 
-interface Activation { kit: string; startTick: number; endTick: number; generation: number; castCounter: number }
+interface Activation { kit: string; startTick: number; endTick: number; generation: number; castCounter: number; beast: boolean }
 
 export type AwakenOutcome =
   | { kind: "started"; castCounter: number; moveId: string }
@@ -70,6 +71,8 @@ export class AwakeningSystem {
   private readonly active = new Map<number, Activation>();
   /** Practice rooms turn meter off (spec 7: practice damage never builds meter). */
   meterEnabled = true;
+  /** BEAST02: when false the meter caps at one bar and Beast Awaken is unavailable. */
+  beastEnabled = true;
 
   constructor(private readonly host: AwakeningHost) {}
 
@@ -86,7 +89,9 @@ export class AwakeningSystem {
     if (!pose?.grounded || isProtected(f, tick)) return { kind: "rejected", reason: "STATE" };
     const r = beginAwakening(f, tick, cfg.ticks, `${kit}.activate`);
     if (!r.ok) return { kind: "rejected", reason: r.reason };
-    this.active.set(f.entityId, { kit, startTick: tick, endTick: tick + cfg.ticks, generation: f.generation, castCounter: f.castCounter });
+    // Two banked bars turn this same activation into Beast Awaken; otherwise it is the ordinary awaken.
+    const beast = this.beastEnabled && f.meter100 >= meterRequired100(kit) * BEAST_FORM.stacks;
+    this.active.set(f.entityId, { kit, startTick: tick, endTick: tick + cfg.ticks, generation: f.generation, castCounter: f.castCounter, beast });
     f.armored = true; // armor, no damage reduction (spec 15)
     return { kind: "started", castCounter: f.castCounter, moveId: `${kit}.activate` };
   }
@@ -102,7 +107,7 @@ export class AwakeningSystem {
       const a = this.host.combat.get(c.attackerId);
       if (!a || !isAlive(a) || a.form !== "Base" || a.action === "Awakening") continue;
       if (c.projectile && a.lifeId !== c.projectile.ownerLifeId) continue; // a detached shot of a past life builds nothing (spec 15)
-      a.meter100 = Math.min(meterRequired100(a.kitId), a.meter100 + Math.floor((r.damage100 * COMBAT.meter.gainNum) / COMBAT.meter.gainDen));
+      a.meter100 = Math.min(this.beastEnabled ? meterCap100(a.kitId) : meterRequired100(a.kitId), a.meter100 + Math.floor((r.damage100 * COMBAT.meter.gainNum) / COMBAT.meter.gainDen));
     }
   }
 
@@ -132,6 +137,11 @@ export class AwakeningSystem {
         f.awakenedUsedMask = 0;
         f.contextSpent = false;
         f.formEndTick = cfg.formTicks > 0 ? tick + cfg.formTicks : 0;
+        if (act.beast) {
+          // Beast Awaken: a fixed 10 s whatever the kit, armoured, back to full health.
+          f.beast = true; f.armored = true; f.formEndTick = tick + BEAST_FORM.ticks;
+          this.host.combat.heal(f, COMBAT.hp100Max, `${f.kitId}.beast`, tick);
+        }
         if (cfg.healAtCompletion100 > 0) this.host.combat.heal(f, cfg.healAtCompletion100, `${f.kitId}.activate`, tick);
       }
     }
@@ -140,6 +150,8 @@ export class AwakeningSystem {
         f.form = "Base";
         f.formEndTick = 0;
       }
+      if (f.beast && (f.form !== "Awakened" || !isAlive(f))) { f.beast = false; if (!this.active.has(f.entityId)) f.armored = false; }
+      else if (f.beast) f.armored = true; // armour holds for the whole transformation
     }
   }
 

@@ -56,6 +56,8 @@ export interface Fighter {
   meter100: number;
   /** R10: the single owner of the fighter kit; abilities, awakening and the replicated kit all read it. */
   kitId: KitId;
+  /** BEAST02: Beast Awaken is active (form stays Awakened). Cleared on expiry, death and respawn. */
+  beast: boolean;
 }
 
 const OPEN = Number.MAX_SAFE_INTEGER;
@@ -71,7 +73,7 @@ export function createFighter(entityId: number, lifeId: number, tick: number, ki
     generation: 0, castCounter: 0, cast: null, dash: null, ragdollStartTick: -1, landingBonus: false,
     cooldowns: new Map(), blockstunUntil: 0, protectedUntilTick: tick + COMBAT.spawnProtectionTicks,
     invulnerableUntil: 0, counterOpenUntil: 0, lethalCounterUntil: 0, armored: false, koCount: 0,
-    form: "Base", formEndTick: 0, awakenedUsedMask: 0, contextSpent: false, meter100: 0, kitId,
+    form: "Base", formEndTick: 0, awakenedUsedMask: 0, contextSpent: false, meter100: 0, kitId, beast: false,
   };
 }
 
@@ -234,7 +236,7 @@ export function kill(f: Fighter, tick: number): boolean {
   f.counterOpenUntil = 0;
   f.lethalCounterUntil = 0;
   // Death ends any awakening but keeps the meter (FB04, owner request overrides spec 11/15 reset).
-  f.form = "Base"; f.formEndTick = 0; f.awakenedUsedMask = 0; f.contextSpent = false;
+  f.form = "Base"; f.formEndTick = 0; f.awakenedUsedMask = 0; f.contextSpent = false; f.beast = false;
   f.armored = false;
   setAction(f, "Dead", tick, OPEN);
   return true;
@@ -254,7 +256,7 @@ export function respawn(f: Fighter, tick: number, lifeId: number): void {
   f.armored = false;
   f.counterOpenUntil = 0;
   f.lethalCounterUntil = 0;
-  f.form = "Base"; f.formEndTick = 0; f.awakenedUsedMask = 0; f.contextSpent = false; // meter kept (FB04)
+  f.form = "Base"; f.formEndTick = 0; f.awakenedUsedMask = 0; f.contextSpent = false; f.beast = false; // meter kept (FB04)
   f.protectedUntilTick = tick + COMBAT.spawnProtectionTicks;
   setAction(f, "Idle", tick, OPEN);
 }

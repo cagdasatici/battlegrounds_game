@@ -137,3 +137,70 @@ function norm(x: number, z: number): [number, number] | null {
   const l = Math.hypot(x, z);
   return l > 1e-6 ? [x / l, z / l] : null;
 }
+
+/**
+ * BEAST02: Beast Awaken, the human transformation. All D values. A fighter who saves two full awaken bars and then presses
+ * Awaken becomes a 5.5x brute for exactly `ticks` ticks. Underneath it is the ordinary Awakened form (so the four awakened
+ * specials, their cooldowns and the once-per-form rule are unchanged); `beast` is an extra flag on the fighter.
+ */
+export const BEAST_FORM = {
+  /** 10 s at 60 Hz. */
+  ticks: 600,
+  scale: 5.5,
+  /** Full bars needed to transform (a normal awaken still needs one). */
+  stacks: 2,
+  /** Walk intent is scaled by this and running is off: slow. */
+  moveScale: 0.5,
+  /** Damage taken is multiplied by num/den: sturdy. */
+  takenNum: 1,
+  takenDen: 2,
+  /** M1 and dash damage num/den, and reach multiplier of the M1 box. */
+  basicNum: 3,
+  basicDen: 2,
+  reachScale: 2.5,
+  /** Damage multiplier for the four awakened specials ("double damage"). */
+  specialMultiplier: 2,
+  /** Hurtbox is the wild beast's. */
+  hurtRadius: BEAST.hurtRadius,
+  hurtHalfHeight: BEAST.hurtHalfHeight,
+} as const;
+
+const AWAKENED_SPECIAL = /^(sv|td|ea)\.a[1-4]$/;
+
+/** Damage (hundredths) a beast-form attacker deals with `moveId`. Pure; non-beast attackers use the raw value. */
+export function beastFormDamage100(moveId: string, damage100: number): number {
+  if (AWAKENED_SPECIAL.test(moveId)) return damage100 * BEAST_FORM.specialMultiplier;
+  if (moveId.startsWith("m1.") || moveId === "dash.forward") return Math.floor((damage100 * BEAST_FORM.basicNum) / BEAST_FORM.basicDen);
+  return damage100;
+}
+
+/** Damage a beast-form target actually takes. */
+export const beastFormTaken100 = (damage100: number): number => Math.floor((damage100 * BEAST_FORM.takenNum) / BEAST_FORM.takenDen);
+
+/**
+ * BEAST02 craters (sparring only). D values. A crater is a replicated, server timed scar: it is placed when a beast-form
+ * fighter casts an awakened special (and when it transforms) and heals away by itself. It is presentation plus timing; it
+ * does not change collision, so prediction, bots and edge safety are unaffected.
+ */
+export const CRATER = {
+  /** 20 s to heal completely. */
+  healTicks: 1200,
+  maxLive: 12,
+  /** Radius for awakened slot n is base + perSlot * n (m); the transformation stomp uses `stompRadius`. */
+  baseRadius: 3,
+  perSlot: 0.75,
+  stompRadius: 6,
+  /** The special's crater lands this far in front of the caster (m). */
+  forward: 3.5,
+} as const;
+
+/** Crater radius (m) for an awakened special id ("sv.a3" -> slot 3), or 0 when the move is not an awakened special. */
+export function craterRadius(moveId: string): number {
+  const m = /^(?:sv|td|ea)\.a([1-4])$/.exec(moveId);
+  return m ? CRATER.baseRadius + CRATER.perSlot * Number(m[1]) : 0;
+}
+
+/** 1 = fresh scar, 0 = healed. Pure; the client fades with it and the server prunes at 0. */
+export function craterDepth(tick: number, startTick: number): number {
+  return Math.max(0, Math.min(1, 1 - (tick - startTick) / CRATER.healTicks));
+}

@@ -41,6 +41,16 @@ defineTypes(BeastSchema, {
   scale100: "uint16", walking: "boolean",
 });
 
+/** BEAST02: one live crater (sparring). Centimetres; startTick is an absolute server tick. */
+export class CraterSchema extends Schema {
+  id = 0;
+  x = 0;
+  z = 0;
+  radius100 = 0;
+  startTick = 0;
+}
+defineTypes(CraterSchema, { id: "uint16", x: "int32", z: "int32", radius100: "uint16", startTick: "uint32" });
+
 export class ArenaState extends Schema {
   protocolVersion = 1;
   contentHash = "";
@@ -51,6 +61,7 @@ export class ArenaState extends Schema {
   projectiles = new MapSchema<ProjectileSchema>();
   urns = new MapSchema<UrnSchema>();
   beast = new BeastSchema();
+  craters = new ArraySchema<CraterSchema>();
   /** GR08 durable round state: 0 = endless, else first to N. */
   roundTarget = 0;
   roundNumber = 1;
@@ -64,6 +75,7 @@ defineTypes(ArenaState, {
   projectiles: { map: ProjectileSchema },
   urns: { map: UrnSchema },
   beast: BeastSchema,
+  craters: [CraterSchema],
   roundTarget: "uint8", roundNumber: "uint32", roundEndsAtTick: "uint32",
   roundStandings: [RoundStandingSchema],
 });

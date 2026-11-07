@@ -6,6 +6,7 @@ import {
   type RoundOverMessage, type RoundTarget, type ActionResult, type CombatEvent, type KitId, type WelcomeMessage,
 } from "@eb/shared/protocol";
 import { COMBAT } from "@eb/shared/config/combat";
+import { BEAST_FORM } from "@eb/shared/config/beast";
 import { computeContentHash } from "@eb/shared/config/content";
 import { ArenaState, RoundStandingSchema } from "../state/ArenaSchema.js";
 import { PlayerSchema } from "../state/PlayerSchema.js";
@@ -109,7 +110,7 @@ export class ArenaRoom extends Room {
   protected readonly pipeline: TickPipeline = new TickPipeline({
     state: this.state, combat: this.combat, m1: this.m1, abilities: this.abilities, awakening: this.awakening,
     projectiles: this.projectiles, urns: this.urns, movement: () => this.movement, world: () => this.world, seats: () => this.pipelineSeats(), beforeDrain: (tick) => this.beforeDrain(tick), extraBodies: () => this.extraBodyIds(), friendly: (a, t) => this.isFriendly(a, t),
-    extraCandidates: (tick) => this.extraCandidates(tick), extraLaunches: (tick, r) => this.extraLaunches(tick, r), discard: (c) => this.discardCandidate(c),
+    extraCandidates: (tick) => this.extraCandidates(tick), extraLaunches: (tick, r) => this.extraLaunches(tick, r), discard: (c) => this.discardCandidate(c), onBeastSpecial: (tick, id, move) => this.onBeastSpecial(tick, id, move),
     poseOf: (id) => this.poseOf(id), occupantOf: (id) => this.occupantOf(id), respawn: this.respawns, nextLifeId: () => ++this.lifeSeq,
     sendActionResult: (sid, seat, edgeId, seq, tick, ok, reason, castId) => this.sendActionResult(sid, seat, edgeId, seq, tick, ok, reason, castId),
     broadcastEvent: (tick, kind, actor, target, lifeId, moveId, dmg, extra) => this.broadcastEvent(tick, kind, actor, target, lifeId, moveId, dmg, extra),
@@ -421,7 +422,10 @@ export class ArenaRoom extends Room {
   protected extraCandidates(_tick: number): readonly HitCandidate[] { return []; }
   protected extraLaunches(_tick: number, _results: readonly HitResult[]): readonly { targetId: number; vx: number; vy: number; vz: number }[] { return []; }
   protected discardCandidate(_c: HitCandidate): boolean { return false; }
-  protected hurtboxOf(_id: number): { hurtRadius: number; hurtHalfHeight: number } | null { return null; }
+  protected onBeastSpecial(_tick: number, _fighterId: number, _moveId: string): void {}
+  protected hurtboxOf(id: number): { hurtRadius: number; hurtHalfHeight: number } | null {
+    return this.combat.get(id)?.beast ? { hurtRadius: BEAST_FORM.hurtRadius, hurtHalfHeight: BEAST_FORM.hurtHalfHeight } : null;
+  }
 
   private abilityHost(): AbilityHost {
     // Lazy: the projectile system is built from this very host, so its members are resolved on first use.
@@ -452,7 +456,8 @@ export class ArenaRoom extends Room {
     const b = this.movement?.get(id);
     const p = this.movement?.position(id);
     const hb = this.hurtboxOf(id);
-    return b && p ? { x: p[0], y: p[1], z: p[2], facingYaw: b.state.facingYaw, grounded: b.state.grounded, ...(hb ?? {}) } : undefined;
+    const reach = this.combat.get(id)?.beast ? { reachScale: BEAST_FORM.reachScale } : {};
+    return b && p ? { x: p[0], y: p[1], z: p[2], facingYaw: b.state.facingYaw, grounded: b.state.grounded, ...(hb ?? {}), ...reach } : undefined;
   }
 
   private broadcastEvent(tick: number, kind: CombatEvent["kind"], actor: number, target: number | undefined,

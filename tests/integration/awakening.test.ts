@@ -77,7 +77,7 @@ describe("T14 awakening over a real Colyseus connection", () => {
 
     tapControl("skill3", 32); // sv.b3 Rift Palm: 7 HP = 700
     await waitFor(() => events.some((e) => e.kind === "hit" && e.moveId === "sv.b3"), 2000, "b3 hit");
-    await waitFor(() => byName("Arel").meter100 === 20000, 1000, "meter replicated at 20000");
+    await waitFor(() => byName("Arel").meter100 >= 20000, 1000, "meter replicated at or above one bar (BEAST02: it banks up to two)");
     await waitFor(() => room.combat.get(aId)!.action === "Idle", 3000, "recovered");
 
     const before = results.length;

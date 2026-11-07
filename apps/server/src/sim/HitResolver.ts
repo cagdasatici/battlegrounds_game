@@ -1,4 +1,5 @@
 import { COMBAT } from "@eb/shared/config/combat";
+import { beastFormTaken100 } from "@eb/shared/config/beast";
 import {
   applyBlockstun, applyReaction, enterCaptured, isAlive, isGuarding, isInvulnerable, isProtected,
   type Fighter, type Reaction,
@@ -181,7 +182,7 @@ export function resolveHits(tick: number, candidates: readonly HitCandidate[], c
 
 /** Integer hundredths; clamped to remaining HP. Returns HP actually removed. */
 function applyDamage(f: Fighter, damage100: number): number {
-  const d = Math.max(0, Math.min(f.hp100, Math.trunc(damage100)));
+  const d = Math.max(0, Math.min(f.hp100, Math.trunc(f.beast ? beastFormTaken100(damage100) : damage100)));
   f.hp100 -= d;
   return d;
 }

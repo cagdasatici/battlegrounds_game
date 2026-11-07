@@ -1,4 +1,5 @@
 import { COMBAT } from "@eb/shared/config/combat";
+import { beastFormDamage100 } from "@eb/shared/config/beast";
 import type { KitId } from "@eb/shared/protocol";
 import {
   CAPTOR_RELEASE_RECOVERY, createFighter, enterRecovery, expire, isAlive, kill, leaveCaptured, requestDash,
@@ -94,7 +95,13 @@ export class CombatSystem {
 
   resolve(tick: number, candidates: readonly HitCandidate[], poseOf: (id: number) => Pose | undefined,
     occupantOf?: (id: number) => number | undefined): HitResult[] {
-    const out = resolveHits(tick, candidates, {
+    // BEAST02: a beast-form attacker's specials deal double and its basics 1.5x (decided here, once, for every source).
+    const scaled = candidates.map((c) => {
+      if (!this.fighters.get(c.attackerId)?.beast || c.damage100 <= 0) return c;
+      const damage100 = beastFormDamage100(c.moveId, c.damage100);
+      return damage100 === c.damage100 ? c : { ...c, damage100, ...(c.chip100 ? { chip100: beastFormDamage100(c.moveId, c.chip100) } : {}) };
+    });
+    const out = resolveHits(tick, scaled, {
       fighter: (id) => this.fighters.get(id), pose: poseOf, ...(occupantOf ? { occupantOf } : {}), captures: this.captures, ledger: this.ledger,
       onLethal: (id, t) => { this.kill(id, t); },
     });

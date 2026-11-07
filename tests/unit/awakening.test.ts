@@ -102,6 +102,7 @@ describe("damage based meter", () => {
 
   test("meter caps at the threshold and is not gained while Awakened", () => {
     const r = rig();
+    r.aw.beastEnabled = false; // BEAST02: with stacking on the cap is two bars (tests/unit/beast-form.test.ts)
     const f = r.cs.get(1)!;
     f.meter100 = 19500;
     r.step(T0, [strike(1, 2, 3000, {}, f.generation)]);

@@ -67,6 +67,8 @@ export class PlayerSchema extends Schema {
   meter100 = 0;
   awakenedUsedMask = 0;
   contextSpent = false;
+  /** BEAST02: Beast Awaken active; formEndTick is when it ends. */
+  beast = false;
   /** DJ01: the air jump of the current airtime is spent (cleared on landing). Drives client flip and ring effects. */
   airJumpUsed = false;
   connected = true;
@@ -83,7 +85,7 @@ defineTypes(PlayerSchema, {
   entityId: "uint8", lifeId: "uint16", kitId: "string", displayName: "string",
   x: "int32", y: "int32", z: "int32", vx: "int16", vy: "int16", vz: "int16", facingYaw: "uint16",
   hp100: "uint16", action: "string", actionStartTick: "uint32", actionEndTick: "uint32", moveId: "string",
-  form: "string", formEndTick: "uint32", meter100: "uint16", awakenedUsedMask: "uint8", contextSpent: "boolean", airJumpUsed: "boolean",
+  form: "string", formEndTick: "uint32", meter100: "uint16", awakenedUsedMask: "uint8", contextSpent: "boolean", beast: "boolean", airJumpUsed: "boolean",
   connected: "boolean", ready: "boolean", protectedUntilTick: "uint32",
   kills: "uint16", deaths: "uint16", assists: "uint16",
   cooldownEndTicks: { array: "uint32" },

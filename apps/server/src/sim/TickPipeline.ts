@@ -22,6 +22,7 @@ import type { ResolvedHitSummary } from "./PracticeDrills.js";
 import { creditedAttacker, type HitCandidate, type HitResult } from "./HitResolver.js";
 import { dashCandidates } from "./DashAttack.js";
 import { killRewardFor } from "@eb/shared/config/passives";
+import { BEAST_FORM } from "@eb/shared/config/beast";
 import { locomotionLocked, intentsSuppressed, isAlive, type Fighter } from "./ActionMachine.js";
 import {
   HOSTILE_REGION_RADIUS_M, pickSpawn, type RespawnSystem, type Pt, type Region,
@@ -55,6 +56,8 @@ export interface TickPipelineDeps {
   extraCandidates?: (tick: number) => readonly HitCandidate[];
   /** BEAST01: launches for the extra candidates' results, applied with the kit launches. */
   extraLaunches?: (tick: number, results: readonly HitResult[]) => readonly { targetId: number; vx: number; vy: number; vz: number }[];
+  /** BEAST02: a beast-form fighter started an awakened special (crater hook, sparring only). */
+  onBeastSpecial?: (tick: number, fighterId: number, moveId: string) => void;
   /** BEAST01: true discards a candidate before resolution (captures cannot target the beast). */
   discard?: (c: HitCandidate) => boolean;
   /** Team play: hits between teammates are discarded before resolution. */
@@ -220,13 +223,14 @@ export class TickPipeline {
       const h = seat.input.held;
       const f = combat.get(seat.entityId);
       const castScale = abilities.moveScaleOf(seat.entityId);
+      const beastSlow = f?.beast ? BEAST_FORM.moveScale : 1; // BEAST02: the transformed fighter is slow
       const locked = !!f && (locomotionLocked(f) || f.action === "Dash" || (castScale === 0 && f.action !== "Idle"));
       // moveScale (spec 14): during an ability cast with 0 < scale < 1 the player's movement intent is scaled and
       // running is suppressed (T12, sv.b2 moveScale 0.15). turnRate is enforced in AbilityRunner.collect (R07).
       const scaled = castScale !== null && castScale > 0 && castScale < 1 && f !== undefined && f.action !== "Idle";
-      const mScale = scaled ? castScale : 1;
+      const mScale = (scaled ? castScale : 1) * beastSlow;
       this.intents.set(seat.entityId, locked ? NEUTRAL_MOVE
-        : { moveX: h.moveX * mScale, moveZ: h.moveZ * mScale, run: scaled ? false : h.runHeld, guard: f?.action === "Guard" || h.blockHeld, jumpPressed: sc.jumpPressed, ...(f && f.action !== "Idle" ? { airJumpBlocked: true } : {}), ...(h.facingLock ? { aimYaw: h.yaw } : {}) });
+        : { moveX: h.moveX * mScale, moveZ: h.moveZ * mScale, run: scaled || beastSlow < 1 ? false : h.runHeld, guard: f?.action === "Guard" || h.blockHeld, jumpPressed: sc.jumpPressed, ...(f && f.action !== "Idle" ? { airJumpBlocked: true } : {}), ...(h.facingLock ? { aimYaw: h.yaw } : {}) });
     }
     this.d.movement()?.step(tick, (id) => this.intents.get(id) ?? NEUTRAL_MOVE, (id) => this.dashOverride(id, tick),
       (id) => this.d.abilities.facingOverrideOf(id), (id) => this.d.abilities.freezesVertical(id, tick));
@@ -510,6 +514,7 @@ export class TickPipeline {
     if (o.kind === "started") {
       this.d.sendActionResult(sessionId, seat, edgeId, seq, tick, true, undefined, `${f.entityId}.${o.castCounter}`);
       this.d.broadcastEvent(tick, "cast", f.entityId, undefined, f.lifeId, o.moveId);
+      if (this.d.combat.get(f.entityId)?.beast) this.d.onBeastSpecial?.(tick, f.entityId, o.moveId);
     } else this.d.sendActionResult(sessionId, seat, edgeId, seq, tick, false, o.reason);
   }
 
@@ -552,6 +557,7 @@ export class TickPipeline {
     p.meter100 = f.meter100;
     p.awakenedUsedMask = f.awakenedUsedMask;
     p.contextSpent = f.contextSpent;
+    p.beast = f.beast;
     const kit = this.d.abilities.kitOf(entityId);
     for (let i = 0; i < 4; i++) {
       const def = kit ? this.d.abilities.registry.slotted(kit, f.form, (i + 1) as 1 | 2 | 3 | 4) : undefined;

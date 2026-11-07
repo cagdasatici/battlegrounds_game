@@ -64,7 +64,7 @@ describe("T15 Stone Vanguard awakened move over a real Colyseus connection", () 
     room.combat.get(aId)!.meter100 = 19300;
     tapControl("skill3", 41); // sv.b3 Rift Palm: 7 HP = 700
     await waitFor(() => events.some((e) => e.kind === "hit" && e.moveId === "sv.b3"), 2000, "b3 hit");
-    await waitFor(() => byName("Arel").meter100 === 20000, 1000, "meter replicated at 20000");
+    await waitFor(() => byName("Arel").meter100 >= 20000, 1000, "meter replicated at or above one bar (BEAST02: it banks up to two)");
     await waitFor(() => room.combat.get(aId)!.action === "Idle" && room.combat.get(bId)!.action === "Idle", 3000, "recovered");
 
     const mark = results.length;

@@ -17,7 +17,7 @@ import type { HitCandidate, HitResult } from "./HitResolver.js";
 export type FourthVariant = "finisher" | "uppercut" | "downslam";
 
 /** `hurtRadius` / `hurtHalfHeight` override the normal capsule for a target (BEAST01: the 5.5x beast). */
-export interface M1Pose { x: number; y: number; z: number; facingYaw: number; grounded: boolean; hurtRadius?: number; hurtHalfHeight?: number }
+export interface M1Pose { x: number; y: number; z: number; facingYaw: number; grounded: boolean; hurtRadius?: number; hurtHalfHeight?: number; /** BEAST02: multiplies the attacker's M1 box. */ reachScale?: number }
 export interface M1Held { attackHeld: boolean; blockHeld: boolean; jumpHeld: boolean; moveX?: number; moveZ?: number }
 /** T23: a context move that replaces the M1 about to start. `advance` also resets the chain (fourth hit replacements). */
 export interface ContextStart { accept: Accept; advance: boolean }
@@ -81,6 +81,7 @@ const CAP_HALF = COMBAT.capsule.halfHeight;
  * "radial landing radius"; one hit per target, so there is no second damage).
  */
 export function m1Overlaps(a: M1Pose, t: M1Pose, variant: FourthVariant | null): boolean {
+  const rs = a.reachScale ?? 1;
   const dx = t.x - a.x, dz = t.z - a.z;
   const fx = -Math.sin(a.facingYaw), fz = -Math.cos(a.facingYaw);
   const rx = Math.cos(a.facingYaw), rz = -Math.sin(a.facingYaw);
@@ -88,14 +89,14 @@ export function m1Overlaps(a: M1Pose, t: M1Pose, variant: FourthVariant | null):
   // Vertical gap between the capsule segment and the box slab.
   const capR = t.hurtRadius ?? CAP_R, capHalf = t.hurtHalfHeight ?? CAP_HALF;
   const segLo = t.y - capHalf, segHi = t.y + capHalf;
-  const boxLo = a.y - M.box.height / 2, boxHi = a.y + M.box.height / 2;
+  const boxLo = a.y - (M.box.height * rs) / 2, boxHi = a.y + (M.box.height * rs) / 2;
   const dv = Math.max(0, boxLo - segHi, segLo - boxHi);
-  const cx = Math.max(-M.box.width / 2, Math.min(M.box.width / 2, right));
-  const cf = Math.max(BOX_NEAR, Math.min(M.box.frontFace, fwd));
+  const cx = Math.max((-M.box.width * rs) / 2, Math.min((M.box.width * rs) / 2, right));
+  const cf = Math.max(BOX_NEAR, Math.min(M.box.frontFace * rs, fwd));
   const dh = Math.hypot(right - cx, fwd - cf);
   if (Math.hypot(dh, dv) <= capR) return true;
   if (variant === "downslam") {
-    const radial = Math.max(0, Math.hypot(dx, dz) - M.downslam.landingRadius);
+    const radial = Math.max(0, Math.hypot(dx, dz) - M.downslam.landingRadius * rs);
     return Math.hypot(radial, dv) <= capR;
   }
   return false;
