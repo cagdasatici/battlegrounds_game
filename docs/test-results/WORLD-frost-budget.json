@@ -1,0 +1,50 @@
+{
+ "overview-low": {
+  "calls": 24,
+  "triangles": 97372
+ },
+ "overview-medium": {
+  "calls": 32,
+  "triangles": 194919
+ },
+ "overview-high": {
+  "calls": 32,
+  "triangles": 245579
+ },
+ "sea-low": {
+  "calls": 24,
+  "triangles": 97372
+ },
+ "sea-medium": {
+  "calls": 32,
+  "triangles": 194919
+ },
+ "sea-high": {
+  "calls": 32,
+  "triangles": 245579
+ },
+ "shore-low": {
+  "calls": 21,
+  "triangles": 97366
+ },
+ "shore-medium": {
+  "calls": 29,
+  "triangles": 194913
+ },
+ "shore-high": {
+  "calls": 29,
+  "triangles": 245573
+ },
+ "north-low": {
+  "calls": 24,
+  "triangles": 97372
+ },
+ "north-medium": {
+  "calls": 32,
+  "triangles": 194919
+ },
+ "north-high": {
+  "calls": 32,
+  "triangles": 245579
+ }
+}

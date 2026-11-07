@@ -22,6 +22,8 @@ const block = (id: string, x: number, z: number, hx: number, h: number, hz: numb
 
 export interface WorldLayout {
   readonly collisionMapId: CollisionMapId;
+  /** Id prefix of the four boundary walls ("shore" at the sea, "tree" at the tree line): `<prefix>.n|s|w|e`. */
+  readonly wall: string;
   /** Half extents of the walkable slab, metres. The bounds of the registry entry are exactly the slab. */
   readonly halfX: number;
   readonly halfZ: number;
@@ -36,6 +38,7 @@ export interface WorldLayout {
 /** Sunreach Coast: a sand beach with the sea on the south, east and west; palms and dunes at its back. */
 export const COAST: WorldLayout = {
   collisionMapId: "coast.v1",
+  wall: "shore",
   halfX: 54,
   halfZ: 44,
   voidY: -25,
@@ -55,16 +58,46 @@ export const COAST: WorldLayout = {
   beastAnchors: [[-30, 0, -20], [30, 0, -20], [-30, 0, 20], [30, 0, 20]],
 };
 
+/**
+ * Frostpeak: a snowy clearing ringed by a tree line, with a mountain ring beyond (visual backdrop, see render/worlds/frostWorld.ts).
+ * Pines are collided trunks (the crowns are drawn), boulders and snow drifts give cover. Ice patches are decoration only: footing is
+ * unchanged on them (a slippery surface would need a movement rule and its own test).
+ */
+export const FROST: WorldLayout = {
+  collisionMapId: "frost.v1",
+  wall: "tree",
+  halfX: 50,
+  halfZ: 46,
+  voidY: -25,
+  boundaryRadius: 85,
+  obstacles: [
+    pole("pine.0", -38, -28, 0.55, 8), pole("pine.1", -18, -36, 0.55, 8), pole("pine.2", 20, -34, 0.55, 8), pole("pine.3", 38, -26, 0.55, 8),
+    pole("pine.4", -40, 16, 0.55, 8), pole("pine.5", 40, 18, 0.55, 8), pole("pine.6", -20, 30, 0.55, 8), pole("pine.7", 24, 32, 0.55, 8),
+    block("rock.0", -14, -8, 1.8, 2.2, 1.5), block("rock.1", 15, -10, 1.6, 2, 1.8), block("rock.2", 0, 18, 2.2, 1.8, 1.4),
+    block("rock.3", -26, 6, 1.5, 2, 1.5), block("rock.4", 28, 8, 1.7, 2.2, 1.4), block("rock.5", 0, -24, 2, 2.4, 1.5),
+    // Snow drifts: knee high (0.7 m) cover.
+    block("drift.0", -6, 10, 2.2, 0.7, 1), block("drift.1", 8, 12, 1, 0.7, 2.2), block("drift.2", -30, -10, 2, 0.7, 1), block("drift.3", 36, -2, 1, 0.7, 2),
+  ],
+  spawns: [[-32, 0, -14], [32, 0, -14], [-32, 0, 14], [32, 0, 14], [-12, 0, -30], [12, 0, -30], [-12, 0, 26], [12, 0, 26]],
+  urns: [[-22, 0.25, -6], [22, 0.25, -6], [-22, 0.25, 10], [22, 0.25, 10], [-4, 0.25, -30], [4, 0.25, -30], [-4, 0.25, 12], [4, 0.25, 26]],
+  beastAnchors: [[-28, 0, -20], [28, 0, -20], [-28, 0, 20], [28, 0, 20]],
+};
+
+/** Decorative ice patches [x, z, half width, half depth] (flat, flush with the snow). Always inside the slab; they change nothing in the simulation. */
+export const FROST_ICE_PATCHES: ReadonlyArray<readonly [number, number, number, number]> = [
+  [-6, -4, 5, 3.5], [10, 6, 4.5, 6], [-20, 16, 6, 4], [22, -18, 5, 4], [0, 28, 7, 3.5], [-30, -20, 4, 5], [34, 22, 4, 3],
+];
+
 /** Walkable slab plus four inner boundary walls plus the layout's obstacles. */
 export function layoutColliders(l: WorldLayout): Collider[] {
   const { halfX: hx, halfZ: hz } = l;
   const wy = (WALL_Y0 + WALL_Y1) / 2, wh = (WALL_Y1 - WALL_Y0) / 2;
   return [
     box("ground.main", "ground", [0, -SLAB_T / 2, 0], [hx, SLAB_T / 2, hz]),
-    box("shore.n", "guardrail", [0, wy, -hz + WALL_T], [hx, wh, WALL_T]),
-    box("shore.s", "guardrail", [0, wy, hz - WALL_T], [hx, wh, WALL_T]),
-    box("shore.w", "guardrail", [-hx + WALL_T, wy, 0], [WALL_T, wh, hz - 2 * WALL_T]),
-    box("shore.e", "guardrail", [hx - WALL_T, wy, 0], [WALL_T, wh, hz - 2 * WALL_T]),
+    box(`${l.wall}.n`, "guardrail", [0, wy, -hz + WALL_T], [hx, wh, WALL_T]),
+    box(`${l.wall}.s`, "guardrail", [0, wy, hz - WALL_T], [hx, wh, WALL_T]),
+    box(`${l.wall}.w`, "guardrail", [-hx + WALL_T, wy, 0], [WALL_T, wh, hz - 2 * WALL_T]),
+    box(`${l.wall}.e`, "guardrail", [hx - WALL_T, wy, 0], [WALL_T, wh, hz - 2 * WALL_T]),
     ...l.obstacles,
   ];
 }
@@ -80,6 +113,7 @@ export function buildLayoutMap(l: WorldLayout): ArenaMap {
 }
 
 export const buildCoastMap = (): ArenaMap => buildLayoutMap(COAST);
+export const buildFrostMap = (): ArenaMap => buildLayoutMap(FROST);
 
 /** The non-grove layouts by collision id (the grove builds from config/arena.ts). */
-export const WORLD_LAYOUTS: Readonly<Record<string, WorldLayout>> = { [COAST.collisionMapId]: COAST };
+export const WORLD_LAYOUTS: Readonly<Record<string, WorldLayout>> = { [COAST.collisionMapId]: COAST, [FROST.collisionMapId]: FROST };

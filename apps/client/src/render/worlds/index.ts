@@ -8,11 +8,13 @@ import type { MapDefinition } from "@eb/shared/config/maps";
 import { buildArena, type ArenaBuild } from "../../scene/ArenaView.js";
 import { getEnvTheme } from "../environment/theme.js";
 import { buildCoastWorld } from "./coastWorld.js";
+import { buildFrostWorld } from "./frostWorld.js";
 
 export function buildWorldView(map: MapDefinition, colliders: readonly Collider[], ramp: DataTexture): ArenaBuild {
   const theme = getEnvTheme(map.themeId);
   switch (map.themeId) {
     case "coast": return buildCoastWorld(colliders, ramp, { theme, map });
+    case "frost": return buildFrostWorld(colliders, ramp, { theme, map });
     default: return buildArena(colliders, ramp, { detail: 1, theme });
   }
 }

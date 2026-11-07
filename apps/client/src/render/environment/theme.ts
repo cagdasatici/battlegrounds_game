@@ -24,7 +24,7 @@ export interface EnvTheme {
   };
   readonly particles: { readonly pollen: number; readonly firefly: number; readonly fireflyShare: number };
   /** WORLD01: absent on the grove (everything on). `trees: false` skips the procedural island trees; `coverScale` thins the instanced grass and flowers. */
-  readonly features?: { readonly trees?: boolean; readonly coverScale?: number };
+  readonly features?: { readonly trees?: boolean; readonly coverScale?: number; readonly flowers?: boolean; /** WORLD02: falling snow instead of pollen and fireflies. */ readonly snow?: boolean };
   readonly trees: {
     readonly trunk: number; readonly birchTrunk: number;
     /** Leaf colours for round, pine and light canopies. */
@@ -82,7 +82,31 @@ export const COAST_THEME: EnvTheme = {
   },
 };
 
-export const THEMES: Readonly<Record<string, EnvTheme>> = { [GROVE_THEME.id]: GROVE_THEME, [COAST_THEME.id]: COAST_THEME };
+/** WORLD02: Frostpeak. Cold blue light and fog, a low pale sun, snow white ground, frosted tufts and dark rock for the pebble layer. */
+export const FROST_THEME: EnvTheme = {
+  id: "frost",
+  sky: { zenith: 0x4d79b4, mid: 0x93b4d8, horizon: 0xd3e1ee, nadir: 0x8ea5be, fog: 0xbcd0e4, sunGlow: 0xfff0d6 },
+  sunDir: [-0.46, 0.4, 0.56],
+  sun: { color: 0xfff1dc, intensity: 1.95 },
+  hemi: { sky: 0xb8d2f0, ground: 0x8da5c6, intensity: 1.15 },
+  rim: { color: 0x7fb2ff, intensity: 0.6, pos: [-25, 18, -30] },
+  ground: { grassA: 0xe9f1f8, grassB: 0xf6fafd, grassDry: 0xd5e2ee, patchDark: 0xbfd0e2, dirt: 0xc3d3e3, meadow: 0xeef5fb },
+  cover: {
+    bladeBase: 0x7f98a2, bladeTip: 0xf2f8fc, bladeDry: 0xdbe7ef,
+    flowers: [0xe8f4ff, 0xcfe6fb, 0xffffff, 0xd9ecff, 0xbfdcf5, 0xffffff],
+    pebbles: [0x5f6a7a, 0x98a3b3],
+  },
+  particles: { pollen: 0xf2f8ff, firefly: 0xf2f8ff, fireflyShare: 0 },
+  features: { trees: false, coverScale: 0.05, flowers: false, snow: true },
+  trees: {
+    trunk: 0x5b4129, birchTrunk: 0xe6e0d0,
+    oak: [0x2f6b3a, 0x6fa84a], pine: [0x1f5a47, 0x3f8a5c], birch: [0x7fb04a, 0xc4d870],
+    tints: [[1, 1, 1]],
+    mix: [0.45, 0.35, 0.2],
+  },
+};
+
+export const THEMES: Readonly<Record<string, EnvTheme>> = { [GROVE_THEME.id]: GROVE_THEME, [COAST_THEME.id]: COAST_THEME, [FROST_THEME.id]: FROST_THEME };
 
 /** Unknown theme ids fall back to the grove so a new map never renders black. */
 export function getEnvTheme(id: string): EnvTheme { return THEMES[id] ?? GROVE_THEME; }

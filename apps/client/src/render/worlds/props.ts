@@ -146,3 +146,23 @@ export function tuft(b: Batch, x: number, y: number, z: number, h: number, rnd: 
     b.add(new ConeGeometry(0.05, h * (0.75 + rnd() * 0.5), 4, 1), xf(x + Math.cos(a) * 0.07, y + h * 0.4, z + Math.sin(a) * 0.07, 1, 1, 1, Math.sin(a) * lean, a, Math.cos(a) * lean), mixHex(base, tip, rnd()));
   }
 }
+
+/** One bird: a body triangle and two swept wings (a shallow V seen from above). Used for gulls and ravens (instanced, scaled to flap). */
+export function birdGeometry(): BufferGeometry {
+  const g = new BufferGeometry();
+  const v = [
+    0, 0, -0.5, -0.12, 0, 0.35, 0.12, 0, 0.35, // body
+    -0.1, 0, 0, -1.5, 0.28, 0.25, -0.3, 0, 0.45, // left wing
+    0.1, 0, 0, 1.5, 0.28, 0.25, 0.3, 0, 0.45, // right wing
+  ];
+  g.setAttribute("position", new Float32BufferAttribute(v, 3));
+  g.computeVertexNormals();
+  return g;
+}
+
+/** Wind-packed snow drift filling a footprint of half extents (hx, hz) and height h at (cx, cz): a long squashed mound with a sharp crest. */
+export function drift(b: Batch, cx: number, cz: number, hx: number, h: number, hz: number, rnd: () => number): void {
+  const shade: Shader = (_x, vy, _z, _nx, ny) => mixHex(0xcfe0ee, 0xffffff, Math.min(1, Math.max(0, vy / Math.max(0.1, h)) * 0.8 + ny * 0.2));
+  b.add(new SphereGeometry(1, 10, 6), xf(cx, 0, cz, hx * 1.05, h * 1.05, hz * 1.05, 0, rnd() * 0.3, 0), shade);
+  b.add(new SphereGeometry(1, 8, 5), xf(cx + (rnd() - 0.5) * hx, 0, cz + (rnd() - 0.5) * hz, hx * 0.6, h * 0.8, hz * 0.6), shade);
+}

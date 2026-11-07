@@ -7,7 +7,7 @@
 import { z } from "zod";
 import { ARENA, MAP_ID, buildIslandsMap, type ArenaMap } from "./arena.js";
 import { BEAST } from "./beast.js";
-import { COAST, buildLayoutMap } from "./worlds.js";
+import { COAST, FROST, buildLayoutMap } from "./worlds.js";
 
 export type MapSpawnPoint = readonly [number, number, number];
 
@@ -53,7 +53,18 @@ export const COAST_MAP: MapDefinition = {
   themeId: "coast",
 };
 
-export const MAP_REGISTRY: Readonly<Record<string, MapDefinition>> = { [GROVE_MAP.id]: GROVE_MAP, [COAST_MAP.id]: COAST_MAP };
+/** WORLD02: a snowy clearing ringed by pines and mountains. Bounds are the walkable slab (the tree-line walls stand inside it). */
+export const FROST_MAP: MapDefinition = {
+  id: "frost",
+  name: "Frostpeak",
+  collisionMapId: FROST.collisionMapId,
+  bounds: { minX: -FROST.halfX, maxX: FROST.halfX, minZ: -FROST.halfZ, maxZ: FROST.halfZ },
+  spawnPoints: FROST.spawns,
+  beastAnchors: FROST.beastAnchors,
+  themeId: "frost",
+};
+
+export const MAP_REGISTRY: Readonly<Record<string, MapDefinition>> = { [GROVE_MAP.id]: GROVE_MAP, [COAST_MAP.id]: COAST_MAP, [FROST_MAP.id]: FROST_MAP };
 export const DEFAULT_MAP_ID = GROVE_MAP.id;
 /** Registry ids in display order. */
 export const MAP_IDS: readonly string[] = Object.keys(MAP_REGISTRY);
@@ -75,6 +86,7 @@ export const mapIdOrDefault = (id: string | undefined): string => id ?? DEFAULT_
 export function buildMapCollision(m: MapDefinition): ArenaMap {
   if (m.collisionMapId === MAP_ID) return buildIslandsMap();
   if (m.id === COAST_MAP.id) return buildLayoutMap(COAST);
+  if (m.id === FROST_MAP.id) return buildLayoutMap(FROST);
   throw new Error(`no collision builder for ${m.id}`);
 }
 

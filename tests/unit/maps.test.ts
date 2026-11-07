@@ -6,6 +6,7 @@ import {
   validateMapRegistry, type MapDefinition,
 } from "../../packages/shared/src/config/maps.js";
 import { BEAST } from "../../packages/shared/src/config/beast.js";
+import { WORLD_LAYOUTS, FROST_ICE_PATCHES } from "../../packages/shared/src/config/worlds.js";
 import { AdminRoomCreateSchema } from "../../packages/shared/src/admin.js";
 import { SparringConfigSchema, SparringCreateRequestSchema } from "../../packages/shared/src/sparring.js";
 import { canonicalJson } from "../../packages/shared/src/math.js";
@@ -113,7 +114,7 @@ describe.each(Object.values(MAP_REGISTRY).map((m) => [m.id, m] as const))("map %
     }
   });
   // The grove ends in a void (falling is a KO); the walled maps clamp the fighter at the shore / tree line.
-  const walled = collision.colliders.some((c) => c.id.startsWith("shore."));
+  const walled = Object.hasOwn(WORLD_LAYOUTS, def.collisionMapId);
   test.runIf(walled)("a fighter pushing against the edge stays on the map (server authoritative collision)", async () => {
     const w = await World.create(loadMapFile(mapFileUrl(def.collisionMapId)));
     const mvs = new MovementSystem(w);
@@ -166,5 +167,25 @@ describe("WORLD01 map option schema (strict, against the registry)", () => {
     expect(AdminRoomCreateSchema.safeParse({ name: "x", mapId: "coast" }).success).toBe(true);
     expect(AdminRoomCreateSchema.safeParse({ name: "x", mapId: "atlantis" }).success).toBe(false);
     expect(AdminRoomCreateSchema.safeParse({ name: "x" }).success).toBe(true);
+  });
+});
+
+describe("WORLD02 Frostpeak layout", () => {
+  const frost = MAP_REGISTRY["frost"]!;
+  test("ice patches lie inside the slab and are decoration only (no collider carries their id)", () => {
+    expect(FROST_ICE_PATCHES.length).toBeGreaterThanOrEqual(5);
+    for (const [x, z, rx, rz] of FROST_ICE_PATCHES) {
+      expect(x - rx).toBeGreaterThanOrEqual(frost.bounds.minX); expect(x + rx).toBeLessThanOrEqual(frost.bounds.maxX);
+      expect(z - rz).toBeGreaterThanOrEqual(frost.bounds.minZ); expect(z + rz).toBeLessThanOrEqual(frost.bounds.maxZ);
+    }
+    expect(buildMapCollision(frost).colliders.some((c) => c.id.startsWith("ice"))).toBe(false);
+  });
+  test("the tree line walls are guardrails inside the slab and the clearing is flat at y = 0", () => {
+    const walls = buildMapCollision(frost).colliders.filter((c) => c.id.startsWith("tree."));
+    expect(walls.map((w) => w.id).sort()).toEqual(["tree.e", "tree.n", "tree.s", "tree.w"]);
+    expect(walls.every((w) => w.role === "guardrail")).toBe(true);
+    const ground = buildMapCollision(frost).colliders.filter((c) => c.role === "ground");
+    expect(ground).toHaveLength(1);
+    expect(colliderAabb(ground[0]!).max[1]).toBe(0);
   });
 });

@@ -17,7 +17,7 @@ import type { EnvTheme } from "../environment/theme.js";
 import { Allocations, cloudPuffs, grainTexture, heightfield, makeSkyParts, outsideRect, smoothstep } from "./common.js";
 import { COAST_WATER_Y, coastHeight } from "./coastShape.js";
 import { Water } from "./Water.js";
-import { boulder, log, palm, shell, starfish, tuft } from "./props.js";
+import { birdGeometry, boulder, log, palm, shell, starfish, tuft } from "./props.js";
 
 /** Sand colour at a ground point: pale dry sand with warm patches and wind streaks, darker where wet, olive on the dunes. */
 export function sandHex(x: number, z: number, h: number): number {
@@ -129,7 +129,7 @@ export function buildCoastWorld(colliders: readonly Collider[], ramp: DataTextur
   sky.add(backdrop);
 
   // Gulls: instanced V shapes circling over the sea. `setMotes` is the per-frame hook the scene already calls.
-  const gullG = A.geo(gullGeometry());
+  const gullG = A.geo(birdGeometry());
   const gullMat = A.mat(new MeshBasicMaterial({ color: 0xf6f6f2, side: DoubleSide }));
   const gulls: ReadonlyArray<{ cx: number; cz: number; r: number; w: number; y: number; ph: number }> = Array.from({ length: 7 }, (_, i) => ({
     cx: (i % 2 ? -1 : 1) * (20 + rnd() * 30), cz: hz + 10 + rnd() * 30, r: 18 + rnd() * 40, w: (0.12 + rnd() * 0.12) * (i % 2 ? 1 : -1), y: 14 + rnd() * 14, ph: rnd() * 6.28,
@@ -154,18 +154,5 @@ export function buildCoastWorld(colliders: readonly Collider[], ramp: DataTextur
     group, sky, clouds, cloudShell, motes, setMotes, geometries: A.geometries, materials: A.materials, textures: A.textures, terrain,
     animate: (dt) => { water.update(dt); },
   };
-}
-
-/** One gull: a body triangle and two swept wings (a shallow V seen from above). */
-function gullGeometry(): BufferGeometry {
-  const g = new BufferGeometry();
-  const v = [
-    0, 0, -0.5, -0.12, 0, 0.35, 0.12, 0, 0.35, // body
-    -0.1, 0, 0, -1.5, 0.28, 0.25, -0.3, 0, 0.45, // left wing
-    0.1, 0, 0, 1.5, 0.28, 0.25, 0.3, 0, 0.45, // right wing
-  ];
-  g.setAttribute("position", new Float32BufferAttribute(v, 3));
-  g.computeVertexNormals();
-  return g;
 }
 

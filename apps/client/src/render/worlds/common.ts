@@ -100,6 +100,44 @@ export function heightfield(o: HeightfieldOptions): BufferGeometry {
   return g;
 }
 
+export interface PolarFieldOptions {
+  /** Inner and outer radius (m) and the ring/segment counts. */
+  r0: number; r1: number; rings: number; segments: number;
+  height(x: number, z: number): number;
+  color(x: number, z: number, h: number, ny: number): number;
+  uvMetres: number;
+}
+
+/** Annulus grid (rings x segments) with analytic-difference normals; the seam column is duplicated so colours and normals match. */
+export function polarField(o: PolarFieldOptions): BufferGeometry {
+  const cols = o.segments + 1, rows = o.rings + 1, n = cols * rows;
+  const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3), uv = new Float32Array(n * 2);
+  const c = new Color();
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+    const r = o.r0 + (j / o.rings) * (o.r1 - o.r0), a = (i / o.segments) * Math.PI * 2, x = Math.cos(a) * r, z = Math.sin(a) * r, h = o.height(x, z), k = j * cols + i;
+    pos[k * 3] = x; pos[k * 3 + 1] = h; pos[k * 3 + 2] = z;
+    const e = 2.5, dx = o.height(x + e, z) - o.height(x - e, z), dz = o.height(x, z + e) - o.height(x, z - e), inv = 1 / Math.hypot(dx, 2 * e, dz);
+    nor[k * 3] = -dx * inv; nor[k * 3 + 1] = 2 * e * inv; nor[k * 3 + 2] = -dz * inv;
+    c.setHex(o.color(x, z, h, nor[k * 3 + 1]!));
+    col[k * 3] = c.r; col[k * 3 + 1] = c.g; col[k * 3 + 2] = c.b;
+    uv[k * 2] = x / o.uvMetres; uv[k * 2 + 1] = z / o.uvMetres;
+  }
+  const idx = new Uint32Array(o.rings * o.segments * 6);
+  let q = 0;
+  for (let j = 0; j < o.rings; j++) for (let i = 0; i < o.segments; i++) {
+    const a = j * cols + i, b = a + 1, d = a + cols, f = d + 1;
+    idx[q++] = a; idx[q++] = b; idx[q++] = d; idx[q++] = b; idx[q++] = f; idx[q++] = d;
+  }
+  const g = new BufferGeometry();
+  g.setAttribute("position", new Float32BufferAttribute(pos, 3));
+  g.setAttribute("normal", new Float32BufferAttribute(nor, 3));
+  g.setAttribute("color", new Float32BufferAttribute(col, 3));
+  g.setAttribute("uv", new Float32BufferAttribute(uv, 2));
+  g.setIndex(new Uint32BufferAttribute(idx, 1));
+  g.computeBoundingSphere();
+  return g;
+}
+
 /**
  * Small tileable grayscale grain (multiplies the vertex colour): fine speckle plus faint directional ripples.
  * `ripple` > 0 draws sand wind ripples; `sparkle` > 0 adds bright snow glints.

@@ -27,6 +27,8 @@ export interface EnvQualityProfile {
   readonly sway: boolean;
   /** Ambient pollen and fireflies. */
   readonly particles: number;
+  /** WORLD02: falling snow flakes drawn on snow maps (themes with `features.snow`). */
+  readonly snow: number;
   /** Fog start as a share of the camera far plane and the share of trees kept (draw distance and scenery density). */
   readonly fogNear: number;
   readonly fogFar: number;
@@ -41,21 +43,21 @@ export const QUALITY_PROFILES: Readonly<Record<Quality, EnvQualityProfile>> = {
     tier: "low", pixelBudget: 700_000, pixelRatioMin: 0.6, pixelRatioMax: 1,
     shadowMapSize: 0, shadowHalf: 24, shadowRadius: 1,
     toneMapping: false, exposure: 1,
-    grass: 700, flowers: 0, pebbles: 30, coverWindow: 22, sway: false, particles: 0,
+    grass: 700, flowers: 0, pebbles: 30, coverWindow: 22, sway: false, particles: 0, snow: 160,
     fogNear: 0.3, fogFar: 0.6, treeShare: 0.35, cloudShell: false, motes: false, extraProps: false,
   },
   medium: {
     tier: "medium", pixelBudget: 1_500_000, pixelRatioMin: 0.6, pixelRatioMax: 1.5,
     shadowMapSize: 1024, shadowHalf: 24, shadowRadius: 1.5,
     toneMapping: true, exposure: 1,
-    grass: 2100, flowers: 300, pebbles: 100, coverWindow: 32, sway: true, particles: 140,
+    grass: 2100, flowers: 300, pebbles: 100, coverWindow: 32, sway: true, particles: 140, snow: 700,
     fogNear: 0.42, fogFar: 0.85, treeShare: 0.4, cloudShell: true, motes: true, extraProps: true,
   },
   high: {
     tier: "high", pixelBudget: 4_000_000, pixelRatioMin: 0.6, pixelRatioMax: 2,
     shadowMapSize: 2048, shadowHalf: 30, shadowRadius: 3,
     toneMapping: true, exposure: 1.05,
-    grass: 14000, flowers: 2200, pebbles: 420, coverWindow: 58, sway: true, particles: 420,
+    grass: 14000, flowers: 2200, pebbles: 420, coverWindow: 58, sway: true, particles: 420, snow: 2200,
     fogNear: 0.55, fogFar: 1, treeShare: 1, cloudShell: true, motes: true, extraProps: true,
   },
 };
