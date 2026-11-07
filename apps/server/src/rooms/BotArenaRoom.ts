@@ -43,6 +43,7 @@ export class BotArenaRoom extends ArenaRoom {
     this.roundTarget = difficulties.length > 0 ? meta?.roundTarget ?? 0 : 0;
     this.maxClients = 4 - difficulties.length;
     await super.onCreate(options);
+    this.combat.isBot = (id) => [...this.bots.values()].some((b) => b.entityId === id);
     this.addBots(difficulties);
   }
   protected botTargetAllowed(_id: number): boolean { return true; }

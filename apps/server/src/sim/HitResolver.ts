@@ -59,6 +59,8 @@ export interface HitContext {
   ledger: HitLedger;
   /** GR02: current occupant generation of an entity id; absent in fixtures that never reuse ids. */
   occupantOf?(id: number): number | undefined;
+  /** COMBAT01: true for server bot fighters. A bot never applies crowd control (stun, ragdoll, capture) to a non-bot. */
+  isBot?(id: number): boolean;
   /** Called once when a hit reduces HP to zero; must kill the fighter and clean up its captures. */
   onLethal(victimId: number, tick: number): void;
 }
@@ -155,7 +157,9 @@ export function resolveHits(tick: number, candidates: readonly HitCandidate[], c
       res(c, "blocked", chip);
       continue;
     }
-    if (c.capture) {
+    // COMBAT01: bot attacks keep their damage but never lock a human (no reaction, no capture).
+    const noCc = !!ctx.isBot?.(c.attackerId) && !ctx.isBot(c.targetId);
+    if (c.capture && !noCc) {
       const won = ctx.captures.tryCapture({
         victimId: c.targetId, captorId: c.attackerId, captorGeneration: atk!.generation, castCounter: c.castCounter,
         moveId: c.moveId, cinematic: c.capture.cinematic, startTick: tick, endTick: tick + c.capture.maxTicks,
@@ -174,7 +178,7 @@ export function resolveHits(tick: number, candidates: readonly HitCandidate[], c
     if (tgt.hp100 === 0) { ctx.onLethal(c.targetId, tick); res(c, "hit", dmg, true); continue; }
     // Armor ignores stun/ragdoll from attacks without armorBreak but still takes damage.
     // A captured victim stays captured; third-party damage does not apply a reaction.
-    if ((!tgt.armored || c.armorBreak) && tgt.action !== "Captured") applyReaction(tgt, tick, c.reaction, !(tp?.grounded ?? true));
+    if (!noCc && (!tgt.armored || c.armorBreak) && tgt.action !== "Captured") applyReaction(tgt, tick, c.reaction, !(tp?.grounded ?? true));
     res(c, "hit", dmg, false);
   }
   return out;

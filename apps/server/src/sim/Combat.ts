@@ -17,6 +17,8 @@ export class CombatSystem {
   private readonly fighters = new Map<number, Fighter>();
   readonly captures = new CaptureRegistry();
   readonly ledger = new HitLedger();
+  /** COMBAT01: set by bot rooms; bot-on-human hits deal damage but apply no crowd control. */
+  isBot: ((id: number) => boolean) | null = null;
   /** Optional observer of every capture release (the room publishes CombatEvent "release"). */
   onRelease: ((rel: Release, tick: number) => void) | null = null;
 
@@ -102,7 +104,7 @@ export class CombatSystem {
       return damage100 === c.damage100 ? c : { ...c, damage100, ...(c.chip100 ? { chip100: beastFormDamage100(c.moveId, c.chip100) } : {}) };
     });
     const out = resolveHits(tick, scaled, {
-      fighter: (id) => this.fighters.get(id), pose: poseOf, ...(occupantOf ? { occupantOf } : {}), captures: this.captures, ledger: this.ledger,
+      fighter: (id) => this.fighters.get(id), pose: poseOf, ...(occupantOf ? { occupantOf } : {}), ...(this.isBot ? { isBot: this.isBot } : {}), captures: this.captures, ledger: this.ledger,
       onLethal: (id, t) => { this.kill(id, t); },
     });
     this.releaseStale(tick); // captors interrupted this tick lose their victim immediately
