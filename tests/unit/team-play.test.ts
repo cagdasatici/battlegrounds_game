@@ -30,3 +30,15 @@ describe("team play bots never wander", () => {
     }
   });
 });
+
+import { nextTier } from "../../packages/shared/src/config/teamPlay.js";
+describe("team play adaptive tier", () => {
+  it("steps up when dominating, down when struggling, holds when balanced, stays in range", () => {
+    expect(nextTier(0, 0, 3)).toBe(1);
+    expect(nextTier(2, 0, 5)).toBe(2);
+    expect(nextTier(1, 3, 1)).toBe(0);
+    expect(nextTier(0, 4, 0)).toBe(0);
+    expect(nextTier(1, 1, 1)).toBe(1);
+    expect(nextTier(1, 2, 2)).toBe(1);
+  });
+});

@@ -21,7 +21,7 @@ describe("WEB3 directory listing and guest admission", () => {
     const a = dir(["easy"], true), b = dir(["easy"], false);
     expect(a.d.listed()).toEqual([]);
     a.d.connected(a.host, a.roomCode, "c1");
-    expect(a.d.listed()).toEqual([{ roomCode: a.roomCode, humans: 1, bots: 1 }]);
+    expect(a.d.listed()).toEqual([{ roomCode: a.roomCode, humans: 1, bots: 1, teamPlay: false }]);
     b.d.connected(b.host, b.roomCode, "c1");
     expect(b.d.listed()).toEqual([]);
   });

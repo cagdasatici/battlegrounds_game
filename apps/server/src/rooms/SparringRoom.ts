@@ -1,6 +1,6 @@
 import type { Client } from "colyseus";
 import { JoinOptionsSchema } from "@eb/shared/protocol";
-import { TEAM_PLAY, teamBotCount } from "@eb/shared/config/teamPlay";
+import { TEAM_PLAY, teamBotCount, nextTier, TEAM_TIERS, TIER_WINDOW_TICKS } from "@eb/shared/config/teamPlay";
 import { COMBAT } from "@eb/shared/config/combat";
 import { BotArenaRoom } from "./BotArenaRoom.js";
 import { sparringAuthId, sparringPrincipal } from "../http/sparringRoutes.js";
@@ -12,6 +12,7 @@ export class SparringRoom extends BotArenaRoom {
   /** Humans cannot damage each other in hosted sparring. Test seam only. */
   humansProtected = true;
   private teamStartTick = 0;
+  private tierIdx = 0; private tierWindowStart = 0; private lastHumanDeaths = 0; private lastBotDeaths = 0;
   private isBot(id: number): boolean { return [...this.bots.values()].some((b) => b.entityId === id); }
   /** Hosted sparring: humans never damage each other; in team play bots do not damage bots either. */
   protected override isFriendly(a: number, t: number): boolean { return (this.isBot(a) ? this.teamPlay && this.isBot(t) : this.humansProtected && !this.isBot(t)); }
@@ -39,7 +40,15 @@ export class SparringRoom extends BotArenaRoom {
     this.regenStep(tick);
     if (this.teamPlay) {
       const want = teamBotCount(tick - this.teamStartTick);
-      if (this.bots.size < want) this.addBots(Array(want - this.bots.size).fill(TEAM_PLAY.startDifficulty), this.bots.size);
+      if (tick - this.tierWindowStart >= TIER_WINDOW_TICKS) {
+        let hd = 0, bd = 0;
+        for (const p of this.state.players.values()) if (this.isBot(p.entityId)) bd += p.deaths; else hd += p.deaths;
+        this.tierIdx = nextTier(this.tierIdx, hd - this.lastHumanDeaths, bd - this.lastBotDeaths);
+        this.lastHumanDeaths = hd; this.lastBotDeaths = bd; this.tierWindowStart = tick;
+      }
+      const tier = TEAM_TIERS[this.tierIdx]!;
+      if (this.bots.size < want) this.addBots(Array(want - this.bots.size).fill(tier), this.bots.size);
+      for (const b of this.bots.values()) if (b.difficulty !== tier) b.difficulty = tier;
     }
     super.beforeDrain(tick);
   }
@@ -53,7 +62,7 @@ export class SparringRoom extends BotArenaRoom {
     // Membership, rather than socket count, owns lifetime (including a completely disconnected host).
     this.autoDispose = false;
     this.roundTarget = info.roundTarget;
-    this.teamStartTick = this.sim.tick;
+    this.teamStartTick = this.sim.tick; this.tierWindowStart = this.sim.tick;
     this.addBots(info.bots);
     this.maxClients = info.teamPlay ? TEAM_PLAY.maxHumans : 4 - info.bots.length;
   }

@@ -12,6 +12,16 @@ export const TEAM_PLAY = {
   rampIntervalTicks: 3600,
 } as const;
 
+/** Adaptive tier (D value): every window the room compares human deaths with bot deaths and moves one step. */
+export const TEAM_TIERS = ["easy", "medium", "hard"] as const;
+export const TIER_WINDOW_TICKS = 1800;
+/** Dominating (no human death, 2+ bot deaths) steps up; struggling (2+ human deaths and more than the bots) steps down; else hold. */
+export function nextTier(tier: number, humanDeaths: number, botDeaths: number): number {
+  if (humanDeaths === 0 && botDeaths >= 2) return Math.min(TEAM_TIERS.length - 1, tier + 1);
+  if (humanDeaths >= 2 && humanDeaths > botDeaths) return Math.max(0, tier - 1);
+  return tier;
+}
+
 /** Bots present after `ticksElapsed` ticks of team play; never above maxBots. */
 export function teamBotCount(ticksElapsed: number): number {
   const extra = Math.floor(Math.max(0, ticksElapsed) / TEAM_PLAY.rampIntervalTicks);
