@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DisplayNameSchema, RoundTargetSchema, type KitId } from "./protocol.js";
+import { MapIdSchema } from "./config/maps.js";
 
 /** Hosted sparring contracts (local design, docs/sparring-plan.md). */
 export const SPARRING_ROOM_NAME = "sparring" as const;
@@ -11,10 +12,10 @@ export const SparringRoomCodeSchema = z.string().regex(/^sp-[0-9a-f]{32}$/);
 export const SparringTokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 const expiresAt = z.number().finite().int().nonnegative();
 
-export const SparringConfigSchema = z.strictObject({ bots: z.array(DifficultySchema).max(3), roundTarget: RoundTargetSchema.optional(), teamPlay: z.boolean().optional() });
+export const SparringConfigSchema = z.strictObject({ bots: z.array(DifficultySchema).max(3), roundTarget: RoundTargetSchema.optional(), teamPlay: z.boolean().optional(), mapId: MapIdSchema.optional() });
 export type SparringConfig = z.infer<typeof SparringConfigSchema>;
 /** `listed` (default false) publishes the match in GET /api/rooms. It is not part of the frozen bot roster. */
-export const SparringCreateRequestSchema = z.strictObject({ bots: z.array(DifficultySchema).max(3), listed: z.boolean().optional(), roundTarget: RoundTargetSchema.optional(), teamPlay: z.boolean().optional() });
+export const SparringCreateRequestSchema = z.strictObject({ bots: z.array(DifficultySchema).max(3), listed: z.boolean().optional(), roundTarget: RoundTargetSchema.optional(), teamPlay: z.boolean().optional(), mapId: MapIdSchema.optional() });
 export const SparringCreateResponseSchema = z.strictObject({ roomCode: SparringRoomCodeSchema });
 export const SparringLinkRequestSchema = z.strictObject({ roomCode: SparringRoomCodeSchema });
 export const SparringLinkResponseSchema = z.strictObject({ token: SparringTokenSchema, expiresAt });

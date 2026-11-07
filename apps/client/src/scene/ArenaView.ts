@@ -26,10 +26,10 @@ const PALETTE = {
   wood: 0xa87a48, woodDark: 0x6b4a2c, stone: 0x9a968f, stoneDark: 0x6c6a70, amber: 0xc79b58, cloud: 0xffffff, cloudShade: 0xb9cde4,
 } as const;
 
-type Shader = (x: number, y: number, z: number, nx: number, ny: number, nz: number) => number;
+export type Shader = (x: number, y: number, z: number, nx: number, ny: number, nz: number) => number;
 
 /** Accumulates transformed, vertex coloured geometry into one BufferGeometry. */
-class Batch {
+export class Batch {
   private pos: number[] = []; private nor: number[] = []; private col: number[] = []; private uv: number[] = []; private idx: number[] = [];
   private readonly c = new Color();
   add(g: BufferGeometry, m: Matrix4, color: number | Shader): void {
@@ -60,12 +60,12 @@ class Batch {
 }
 
 const tmpE = new Euler(), tmpQ = new Quaternion(), tmpS = new Vector3(1, 1, 1), tmpV = new Vector3();
-const xf = (x: number, y: number, z: number, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0): Matrix4 => {
+export const xf = (x: number, y: number, z: number, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0): Matrix4 => {
   tmpQ.setFromEuler(tmpE.set(rx, ry, rz));
   return new Matrix4().compose(tmpV.set(x, y, z), tmpQ, tmpS.set(sx, sy, sz));
 };
 const lerpHex = mixHex;
-const box = (w: number, h: number, d: number): BoxGeometry => new BoxGeometry(w, h, d);
+export const box = (w: number, h: number, d: number): BoxGeometry => new BoxGeometry(w, h, d);
 /** Drops one face group of a BoxGeometry (0 +x, 1 -x, 2 +y, 3 -y, 4 +z, 5 -z): the finely tessellated meadow lip never shows its underside. */
 function withoutFace(g: BoxGeometry, face: number): BoxGeometry {
   const idx = g.getIndex()!, keep: number[] = [];
@@ -89,6 +89,10 @@ export interface ArenaBuild {
   /** CRATER01: the ground material, patched so craters cut through it. */
   readonly terrain: Material;
   readonly textures: Texture[];
+  /** WORLD01: other ground-hugging materials the crater cut must also open (decals lying on the floor). */
+  readonly groundMaterials?: Material[];
+  /** WORLD01: per-frame world animation (water, wind); skipped under Reduced Motion. */
+  animate?(dtSec: number): void;
 }
 
 const RIM_W = 0.32;

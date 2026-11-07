@@ -6,6 +6,7 @@ import type { Room } from "@colyseus/sdk";
 import { meterFraction } from "@eb/shared/awakening";
 import { COMBAT } from "@eb/shared/config/combat";
 import { surfaceBelow, parseArenaMap, type ArenaMap } from "@eb/shared/config/arena";
+import { DEFAULT_MAP_ID, MAP_REGISTRY, buildMapCollision } from "@eb/shared/config/maps";
 import {
   MAX_CLIENTS, P0_KITS, PRACTICE_ROOM_CODE, ServerMessage,
   type ActionResult, type CombatEvent, type KitId, type PongMessage, type WelcomeMessage,
@@ -96,6 +97,9 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
 
   let rt: Runtime | null = null; // QP01: Three/Rapier runtime, loaded on first arena use
   let map: ArenaMap | null = null;
+  /** WORLD01: the fetched grove artifact (kept so the grove can be shown again) and the registry id of the world on screen. */
+  let groveMap: ArenaMap | null = null;
+  let worldId = DEFAULT_MAP_ID;
   let gs: GameScene | null = null;
   let graphics: GraphicsLifecycle | null = null; // GR09: context loss/restore for the one active canvas
   let glRenderer: WebGLRenderer | undefined; // read only by the opt-in ?debug=1 probe
@@ -125,6 +129,18 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
 
   const players = (): Map<string, HudPlayer> => (room?.state as { players?: Map<string, HudPlayer> } | undefined)?.players ?? new Map();
   const localOf = (): HudPlayer | undefined => { for (const p of players().values()) if (p.owner !== undefined) return p; return undefined; };
+  /**
+   * WORLD01: shows the map the joined room plays (welcome.mapId, else the replicated state). The grove collision is the fetched artifact; other
+   * maps are built from the shared definition, which content:validate keeps equal to the server's artifact. An unknown id keeps the current world.
+   */
+  const settleWorld = (): void => {
+    const id = rc.welcome?.mapId ?? (room?.state as { mapId?: string } | undefined)?.mapId ?? DEFAULT_MAP_ID;
+    const def = Object.hasOwn(MAP_REGISTRY, id) ? MAP_REGISTRY[id] : undefined;
+    if (!def || def.id === worldId || !gs || !groveMap) return;
+    const m = def.id === DEFAULT_MAP_ID ? groveMap : buildMapCollision(def);
+    gs.setWorld(def, m.colliders);
+    map = m; worldId = def.id;
+  };
   const leaveRoom = async (): Promise<void> => {
     runAll(matchCleanups);
     const r = room;
@@ -301,7 +317,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       }
       gs = scene; glRenderer = renderer; softwareGl = sw; graphics = lc;
       cleanups.push(() => { graphics?.dispose(); graphics = null; });
-      map = m;
+      map = m; groveMap = m;
       lobby.preview.attach(scene);
       // GR12: the lobby fighter preview is drawn by this same renderer from this same loop (no second renderer or scheduler).
       // The lobby screen holds a joined room (matchCleanups is not empty there), so it is chosen by flow screen, not by cleanups.
@@ -352,6 +368,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       const code = mode === "sparring" ? sparRoom! : mode === "practice" ? PRACTICE_ROOM_CODE : picked ?? opts.roomCode;
       room = await rc.joinWithRetry(code, opts.auto ? 4 : 1);
       await waitFor(() => rc.welcome, 5000, "welcome");
+      settleWorld();
       clock = new ClockSync();
       watchRoom(room, mode, code);
     },
@@ -363,6 +380,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       if (!resumed) return null;
       room = resumed;
       try { await waitFor(() => rc.welcome, 5000, "welcome"); } catch { await leaveRoom(); return null; }
+      settleWorld();
       clock = new ClockSync();
       if (meta.mode === "sparring") { sparRoom = meta.roomCode; if (meta.host) hostRoom = meta.roomCode; }
       watchRoom(resumed, meta.mode, meta.roomCode);

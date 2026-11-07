@@ -12,7 +12,7 @@ import { QUALITY_PROFILES, type EnvQualityProfile } from "./quality.js";
 import type { WearPoint } from "./groundShading.js";
 import type { EnvTheme } from "./theme.js";
 
-export { getEnvTheme, GROVE_THEME, type EnvTheme } from "./theme.js";
+export { getEnvTheme, GROVE_THEME, COAST_THEME, type EnvTheme } from "./theme.js";
 export { profileFor, QUALITY_PROFILES, pixelRatioForProfile, type EnvQualityProfile, type Quality } from "./quality.js";
 export { createLights, aimSun, applyAtmosphere, applyShadowProfile } from "./atmosphere.js";
 export { makeSkyMaterial } from "./sky.js";
@@ -24,19 +24,22 @@ export class EnvironmentLayer {
   private readonly cover: GroundCover;
   private readonly trees: TreeLayer;
   private readonly particles: AmbientParticles;
+  private readonly coverScale: number;
   private disposed = false;
 
   constructor(scene: Scene, colliders: readonly Collider[], ramp: DataTexture, theme: EnvTheme, islets: readonly Islet[], wear: readonly WearPoint[]) {
     this.group.name = "deco.env";
     this.cover = new GroundCover(colliders, theme, wear, QUALITY_PROFILES.high);
-    this.trees = new TreeLayer({ theme, ramp, placements: planTrees(theme, colliders, islets) });
+    this.coverScale = theme.features?.coverScale ?? 1;
+    this.trees = new TreeLayer({ theme, ramp, placements: theme.features?.trees === false ? [] : planTrees(theme, colliders, islets) });
     this.particles = new AmbientParticles(theme, QUALITY_PROFILES.high.particles);
     this.group.add(this.cover.group, this.trees.group, this.particles.points);
     scene.add(this.group);
   }
 
   setProfile(p: EnvQualityProfile): void {
-    this.cover.setProfile(p);
+    // WORLD01: a sparse-cover theme (beach, snow) scales the instanced grass and flower pools down.
+    this.cover.setProfile(this.coverScale === 1 ? p : { ...p, grass: Math.round(p.grass * this.coverScale), flowers: Math.round(p.flowers * this.coverScale) });
     this.trees.setProfile(p.treeShare, p.sway);
     this.particles.setCount(p.particles);
   }

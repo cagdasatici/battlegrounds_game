@@ -434,12 +434,14 @@ export class TickPipeline {
 
   /** Spec 10: y below the void plane or horizontal radius beyond the boundary is one KO per life. */
   private voidKos(tick: number): void {
-    const mv = this.d.movement();
+    const mv = this.d.movement(), map = this.d.world()?.map;
     if (!mv) return;
+    // WORLD01: the kill plane and boundary come from the loaded map (the grove values equal ARENA's).
+    const voidY = map?.voidY ?? ARENA.voidY, boundary = map?.boundaryRadius ?? ARENA.boundaryRadius;
     for (const f of this.d.combat.all()) {
       if (!isAlive(f)) continue;
       const pos = mv.position(f.entityId);
-      if (!pos || (pos[1] >= ARENA.voidY && Math.hypot(pos[0], pos[2]) <= ARENA.boundaryRadius)) continue;
+      if (!pos || (pos[1] >= voidY && Math.hypot(pos[0], pos[2]) <= boundary)) continue;
       if (this.d.combat.kill(f.entityId, tick)) this.knockOut(tick, f, undefined);
     }
   }

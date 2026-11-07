@@ -55,7 +55,8 @@ export class ArenaState extends Schema {
   protocolVersion = 1;
   contentHash = "";
   serverTick = 0;
-  mapId = "islands.v1";
+  /** WORLD01: registry id of the map in play (config/maps.ts), e.g. "grove". Set once at room creation. */
+  mapId = "grove";
   phase = "lobby";
   players = new MapSchema<PlayerSchema>();
   projectiles = new MapSchema<ProjectileSchema>();

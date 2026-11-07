@@ -12,6 +12,9 @@ export function initPhysics(): Promise<void> {
   return ready;
 }
 
+/** WORLD01: artifact path of a collision map id (assets/maps/<id>.json). */
+export function mapFileUrl(collisionMapId: string): URL { return new URL(`../../../../assets/maps/${collisionMapId}.json`, import.meta.url); }
+
 export function loadMapFile(url: URL = DEFAULT_MAP_URL): ArenaMap {
   return parseArenaMap(JSON.parse(readFileSync(url, "utf8")) as unknown);
 }

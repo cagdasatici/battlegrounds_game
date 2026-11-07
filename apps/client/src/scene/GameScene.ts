@@ -7,9 +7,11 @@ import {
   Color, DirectionalLight, Group, type InstancedMesh, HemisphereLight, PCFSoftShadowMap, PerspectiveCamera, PointLight, Scene,
   type BufferGeometry, type Material,
 } from "three";
-import { ARENA, surfaceBelow, type Collider } from "@eb/shared/config/arena";
+import { surfaceBelow, type Collider } from "@eb/shared/config/arena";
+import { GROVE_MAP, MAP_REGISTRY, type MapDefinition } from "@eb/shared/config/maps";
 import type { KitId } from "@eb/shared/protocol";
-import { buildArena, buildDressing, SCENERY_ISLETS } from "./ArenaView.js";
+import { buildDressing, SCENERY_ISLETS, type ArenaBuild } from "./ArenaView.js";
+import { buildWorldView } from "../render/worlds/index.js";
 import {
   EnvironmentLayer, QUALITY_PROFILES, aimSun, applyAtmosphere, applyShadowProfile, createLights, getEnvTheme, pixelRatioForProfile, profileFor,
   type EnvTheme,
@@ -106,38 +108,78 @@ export class GameScene {
   /** GR09: called after each frame that was actually drawn (never while paused). */
   onFrameRendered: (() => void) | null = null;
   private quality: Quality = "medium";
-  private readonly theme: EnvTheme;
-  private readonly lights: ReturnType<typeof createLights>;
-  private readonly sun: DirectionalLight;
+  private theme!: EnvTheme;
+  private lights!: ReturnType<typeof createLights>;
+  private sun!: DirectionalLight;
   /** GFX01: instanced ground cover, procedural trees and ambient particles for the map theme. */
-  private readonly envLayer: EnvironmentLayer;
+  private envLayer!: EnvironmentLayer;
   private focus = { x: 0, z: 0 };
   private readonly ramp: DataTexture = makeToonRamp();
-  private readonly arena: ReturnType<typeof buildArena>;
-  private env: { kit: EnvKit; meshes: InstancedMesh[] } | null = null;
+  private arena!: ArenaBuild;
+  private env: { kit: EnvKit; meshes: InstancedMesh[]; group: Group } | null = null;
   private envState: "none" | "loading" | "ready" | "failed" = "none";
-  private readonly colliders: readonly Collider[];
+  private colliders!: readonly Collider[];
+  /** WORLD01: the collider set the glTF grove dressing was planned from, kept so it can be shown again when the grove returns. */
+  private readonly groveColliders: readonly Collider[];
+  private map: MapDefinition = GROVE_MAP;
   /** GR12: the one lobby fighter preview. It lives in its own small scene and is drawn by the shared renderer. */
   private preview: { scene: Scene; camera: PerspectiveCamera; pivot: Group; rim: PointLight; view: FighterView; kit: KitId } | null = null;
 
   constructor(private readonly renderer: RendererLike, colliders: readonly Collider[], private readonly win: WindowLike, themeId = "grove") {
-    this.theme = getEnvTheme(themeId);
-    this.lights = createLights(this.theme);
-    this.sun = this.lights.sun;
-    this.colliders = colliders;
+    this.groveColliders = colliders;
     try { this.reducedMotion = win.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true; } catch { this.reducedMotion = false; }
-    applyAtmosphere(this.scene, renderer, this.theme, profileFor("medium"), CAMERA.far);
-    this.scene.add(this.lights.hemi, this.sun, this.sun.target, this.lights.rim);
-    this.arena = buildArena(colliders, this.ramp, { detail: 1, theme: this.theme });
-    for (const g of this.arena.geometries) this.geometries.add(g);
-    for (const m of this.arena.materials) this.materials.add(m);
-    this.scene.add(this.arena.group);
-    this.craters.cutGround(this.arena.terrain);
-    this.envLayer = new EnvironmentLayer(this.scene, colliders, this.ramp, this.theme, SCENERY_ISLETS, wearPointsFor(colliders, ARENA.spawnAnchors));
+    this.mountWorld(Object.values(MAP_REGISTRY).find((m) => m.themeId === themeId) ?? GROVE_MAP, colliders);
     if (renderer.shadowMap) renderer.shadowMap.type = PCFSoftShadowMap;
     this.setQuality("medium");
     win.addEventListener("resize", this.onResize);
     this.resize();
+  }
+
+  /** Builds the lights, ground, props and environment layer of one map. */
+  private mountWorld(map: MapDefinition, colliders: readonly Collider[]): void {
+    this.map = map;
+    this.theme = getEnvTheme(map.themeId);
+    this.lights = createLights(this.theme);
+    this.sun = this.lights.sun;
+    this.colliders = colliders;
+    applyAtmosphere(this.scene, this.renderer, this.theme, profileFor(this.quality), CAMERA.far);
+    this.scene.add(this.lights.hemi, this.sun, this.sun.target, this.lights.rim);
+    this.arena = buildWorldView(map, colliders, this.ramp);
+    for (const g of this.arena.geometries) this.geometries.add(g);
+    for (const m of this.arena.materials) this.materials.add(m);
+    this.scene.add(this.arena.group);
+    this.craters.cutGround(this.arena.terrain);
+    for (const m of this.arena.groundMaterials ?? []) this.craters.cutGround(m);
+    const grove = map.themeId === "grove";
+    this.envLayer = new EnvironmentLayer(this.scene, colliders, this.ramp, this.theme, grove ? SCENERY_ISLETS : [], wearPointsFor(colliders, map.spawnPoints));
+    if (this.env) this.env.group.visible = grove;
+  }
+
+  /** Releases everything `mountWorld` made (lights, shadow map, ground, props, environment layer). Fighters, craters and effects stay. */
+  private unmountWorld(): void {
+    this.scene.remove(this.lights.hemi, this.sun, this.sun.target, this.lights.rim);
+    this.sun.shadow.map?.dispose();
+    this.envLayer.dispose();
+    this.arena.group.removeFromParent();
+    for (const g of this.geometries) g.dispose();
+    for (const m of this.materials) m.dispose();
+    for (const t of this.arena.textures) t.dispose();
+    this.geometries.clear(); this.materials.clear();
+  }
+
+  /** Registry id of the map on screen. */
+  get mapId(): string { return this.map.id; }
+
+  /**
+   * WORLD01: swaps the shown world (the room's map, known after joining). Same id is a no-op. Quality, fighters and effects carry over;
+   * the colliders drive contact shadows and the environment layer. Presentation only: collision and spawns are the server's.
+   */
+  setWorld(map: MapDefinition, colliders: readonly Collider[]): void {
+    if (this.disposed || map.id === this.map.id) return;
+    this.unmountWorld();
+    this.mountWorld(map, colliders);
+    this.setQuality(this.quality);
+    aimSun(this.sun, this.theme, this.focus.x, this.focus.z); // the new sun follows the camera focus from the next frame on
   }
 
   get qualityLevel(): Quality { return this.quality; }
@@ -161,8 +203,9 @@ export class GameScene {
     try {
       const kit = await loadEnvKit(this.ramp);
       if (this.disposed) { for (const g of kit.geometries) g.dispose(); for (const m of kit.materials) m.dispose(); for (const t of kit.textures) t.dispose(); return; }
-      const { group, meshes, extra } = buildDressing(this.colliders, kit);
-      this.env = { kit, meshes };
+      const { group, meshes, extra } = buildDressing(this.groveColliders, kit);
+      this.env = { kit, meshes, group };
+      group.visible = this.map.themeId === "grove";
       this.scene.add(group);
       extra.visible = profileFor(this.quality).extraProps;
       const trees = this.arena.group.getObjectByName("deco.isletTrees");
@@ -370,6 +413,7 @@ export class GameScene {
         this.arena.setMotes(this.ambientTime);
       }
     }
+    if (!this.reducedMotion) this.arena.animate?.(dtSec);
     this.envLayer.setAnimated(!this.reducedMotion);
     this.envLayer.update(dtSec, this.focus.x, this.focus.z, this.camera, this.win.innerHeight * pixelRatioFor(this.quality, this.win.innerWidth, this.win.innerHeight, this.win.devicePixelRatio ?? 1));
     this.renderer.render(this.scene, this.camera);

@@ -39,6 +39,7 @@ export class BotArenaRoom extends ArenaRoom {
   override async onCreate(options: { roomCode?: string }): Promise<void> {
     const meta = this.authServices()?.roomMeta.get(options.roomCode ?? "");
     const difficulties = meta?.bots ?? [];
+    if (meta?.mapId) this.mapId = meta.mapId; // WORLD01: schema-validated against the registry when the room was created
     // Decision 0054: rounds only for rooms that contain bots; a botless open FFA room stays endless.
     this.roundTarget = difficulties.length > 0 ? meta?.roundTarget ?? 0 : 0;
     this.maxClients = 4 - difficulties.length;

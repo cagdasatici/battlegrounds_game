@@ -27,6 +27,8 @@ export interface BeastHost {
   releaseOccupant: (id: number) => void;
   /** Connected, living human fighters (never bots) with their server poses. */
   humans: () => readonly BeastHuman[];
+  /** WORLD01: spawn anchors of the room's map (MapDefinition.beastAnchors); the grove anchors when absent. */
+  anchors?: readonly (readonly number[])[];
   /** Deterministic uniform [0,1) for (index, salt); the room seeds it per room. */
   rand: (index: number, salt: number) => number;
   /** Optional observer for banners and logs. */
@@ -98,9 +100,10 @@ export class BeastSystem {
 
   // ---- lifecycle ----
   private startWarning(tick: number, humans: readonly BeastHuman[]): void {
-    let best: readonly number[] = BEAST.anchors[0]!, bestD = -1;
-    for (const a of BEAST.anchors) {
-      const d = Math.min(...humans.map((h) => Math.hypot(h.x - a[0], h.z - a[2])));
+    const anchors = this.host.anchors ?? BEAST.anchors;
+    let best: readonly number[] = anchors[0]!, bestD = -1;
+    for (const a of anchors) {
+      const d = Math.min(...humans.map((h) => Math.hypot(h.x - a[0]!, h.z - a[2]!)));
       if (d > bestD) { bestD = d; best = a; }
     }
     this.anchor = [best[0]!, best[1]!, best[2]!];

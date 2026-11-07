@@ -11,7 +11,8 @@ import { computeContentHash } from "@eb/shared/config/content";
 import { ArenaState, RoundStandingSchema } from "../state/ArenaSchema.js";
 import { PlayerSchema } from "../state/PlayerSchema.js";
 import { FixedClock } from "../sim/FixedClock.js";
-import { World } from "../sim/World.js";
+import { World, loadMapFile, mapFileUrl } from "../sim/World.js";
+import { DEFAULT_MAP_ID, getMapDefinition, type MapDefinition } from "@eb/shared/config/maps";
 import { safeTravelDistance } from "@eb/shared/dashSafety";
 import { MovementSystem, type HorizontalOverride } from "../sim/Movement.js";
 import { CombatSystem } from "../sim/Combat.js";
@@ -69,6 +70,10 @@ export class ArenaRoom extends Room {
   override maxMessagesPerSecond = 90;
 
   faulted = false;
+  /** WORLD01: registry id of this room's map. Subclasses set it (validated against the registry) before `super.onCreate`; the default is the grove. */
+  protected mapId: string = DEFAULT_MAP_ID;
+  /** The registry entry of the map in play. */
+  get mapDef(): MapDefinition { return getMapDefinition(this.mapId); }
   /** Decision 0054: first-to-N KOs; 0 = endless. Only hosted sparring and bot rooms ever set it. */
   private target: RoundTarget = 0;
   get roundTarget(): RoundTarget { return this.target; }
@@ -131,7 +136,10 @@ export class ArenaRoom extends Room {
     };
     this.contexts.enabled = true; // P1 context moves (spec 13: P0 disables the wall branch)
     this.m1.contextHook = (f, tick, req) => this.contexts.decide(f, tick, req);
-    this.world = await World.create();
+    const def = this.mapDef; // throws on an unknown id: a room never starts on a map it cannot load
+    this.world = await World.create(loadMapFile(mapFileUrl(def.collisionMapId)));
+    this.state.mapId = def.id;
+    this.urns.setAnchors(this.world.map.urnAnchors.map((a) => [a.position[0], a.position[1], a.position[2]] as MapVec3));
     this.movement = new MovementSystem(this.world);
     this.lastTickMs = performance.now();
     this.setSimulationInterval(() => this.onSchedulerTick(), 1000 / TICK_RATE);
@@ -330,7 +338,7 @@ export class ArenaRoom extends Room {
     const seat = this.seats.get(client.sessionId);
     if (!seat) return;
     const msg: WelcomeMessage = {
-      epoch: seat.input.epoch, serverTick: this.sim.tick, tickRate: TICK_RATE, contentHash: this.contentHash,
+      epoch: seat.input.epoch, serverTick: this.sim.tick, tickRate: TICK_RATE, contentHash: this.contentHash, mapId: this.mapId,
     };
     client.send(ServerMessage.welcome, msg);
   }

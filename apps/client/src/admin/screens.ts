@@ -1,3 +1,4 @@
+import { DEFAULT_MAP_ID, MAP_REGISTRY } from "@eb/shared/config/maps";
 import { AdminHttpError, type AdminApi } from "./api.js";
 
 /** WEB5 admin screens: plain DOM. Each mount returns a dispose that removes listeners, timers and nodes. */
@@ -179,6 +180,12 @@ export const mountRooms: Mount = (root, api) => {
   const target = el(f.doc, "select"); target.name = "roundTarget"; target.setAttribute("aria-label", "Rounds");
   for (const [value, text] of [["0", "Endless"], ["5", "First to 5"], ["10", "First to 10"]] as const) { const o = el(f.doc, "option", text); o.value = value; target.append(o); }
   targetLabel.append(target);
+  // WORLD01: map for the new room (the grove is the default and is sent as "no choice").
+  const mapLabel = el(f.doc, "label", "Map ");
+  const mapSelect = el(f.doc, "select"); mapSelect.name = "mapId"; mapSelect.setAttribute("aria-label", "Map");
+  for (const def of Object.values(MAP_REGISTRY)) { const o = el(f.doc, "option", def.name); o.value = def.id; mapSelect.append(o); }
+  mapSelect.value = DEFAULT_MAP_ID;
+  mapLabel.append(mapSelect);
   // Rounds need at least one bot (server also enforces this); nonzero choices are disabled and reset to endless without bots.
   const syncTarget = (): void => {
     const none = Number(count.value) === 0;
@@ -187,7 +194,7 @@ export const mountRooms: Mount = (root, api) => {
   };
   count.addEventListener("change", syncTarget, { signal: f.events.signal });
   syncTarget();
-  form.append(l, botLabel, difficultyLabel, targetLabel, el(f.doc, "p", "Four fighters maximum, including bots. Close a room to change its opponents."), create); f.body.append(form, list);
+  form.append(l, botLabel, difficultyLabel, targetLabel, mapLabel, el(f.doc, "p", "Four fighters maximum, including bots. Close a room to change its opponents."), create); f.body.append(form, list);
   const load = (): void => f.busy("load", async () => {
     try {
       const rows = await api.rooms();
@@ -205,7 +212,7 @@ export const mountRooms: Mount = (root, api) => {
     e.preventDefault();
     f.busy("create", async () => {
       create.disabled = true;
-      try { await api.createRoom(name.value.trim(), Array.from({ length: Number(count.value) }, () => difficulty.value as "easy" | "medium" | "hard"), Number(count.value) === 0 ? 0 : Number(target.value) as 0 | 5 | 10); name.value = ""; load(); } catch { fail(f, "Creating the room"); }
+      try { await api.createRoom(name.value.trim(), Array.from({ length: Number(count.value) }, () => difficulty.value as "easy" | "medium" | "hard"), Number(count.value) === 0 ? 0 : Number(target.value) as 0 | 5 | 10, mapSelect.value === DEFAULT_MAP_ID ? undefined : mapSelect.value); name.value = ""; load(); } catch { fail(f, "Creating the room"); }
       if (f.alive()) create.disabled = false;
     });
   }, { signal: f.events.signal });

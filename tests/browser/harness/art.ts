@@ -2,6 +2,7 @@
 import { WebGLRenderer } from "three";
 import { buildIslandsMap } from "../../../packages/shared/src/config/arena.js";
 import { GameScene } from "../../../apps/client/src/scene/GameScene.js";
+import { MAP_REGISTRY, buildMapCollision } from "../../../packages/shared/src/config/maps.js";
 
 import { ENV_VARIANT } from "../../../apps/client/src/scene/EnvPalette.js";
 // FB08 drafting: ?sky=N&rock=N&bridge=N override the chosen look before the scene is built.
@@ -10,6 +11,9 @@ const renderer = new WebGLRenderer({ antialias: true });
 const startQuality = new URLSearchParams(location.search).get("q"); // GFX01: ?q=low|medium|high selects the tier before the first frame
 document.body.append(renderer.domElement);
 const gs = new GameScene(renderer, buildIslandsMap().colliders, window);
+// WORLD01: ?map=<registry id> shows that world (the grove loads first, exactly like the game, then the scene swaps).
+const mapParam = new URLSearchParams(location.search).get("map") ?? "grove";
+if (mapParam !== "grove" && Object.hasOwn(MAP_REGISTRY, mapParam)) { const def = MAP_REGISTRY[mapParam]!; gs.setWorld(def, buildMapCollision(def).colliders); }
 if (startQuality === "low" || startQuality === "medium" || startQuality === "high") gs.setQuality(startQuality);
 if (new URLSearchParams(location.search).get("lite") === "1") { const e = gs.scene.getObjectByName("deco.env"); if (e) e.visible = false; } // GFX01: fighter timing specs hide the environment layer
 void gs.loadEnvironment();
@@ -54,6 +58,9 @@ else gs.setCamera(route === "side"
   ? { position: { x: rearDist, y: 1.9, z: 0 }, pivot: { x: 0, y: 0.9, z: 0 }, yaw: Math.PI / 2, pitch: 0, distance: rearDist }
   : route === "rear"
   ? { position: { x: 0, y: 1.9, z: rearDist }, pivot: { x: 0, y: 0.9, z: 0 }, yaw: 0, pitch: 0, distance: rearDist }
+  : route === "sea" ? { position: { x: 0, y: 7, z: -6 }, pivot: { x: 0, y: 0, z: 40 }, yaw: 0, pitch: 0, distance: 46 } // WORLD01: looking south over the beach to the sea
+  : route === "shore" ? { position: { x: 30, y: 3.2, z: 30 }, pivot: { x: 40, y: 0, z: 46 }, yaw: 0, pitch: 0, distance: 18 }
+  : route === "north" ? { position: { x: 0, y: 9, z: 24 }, pivot: { x: 0, y: 2, z: -40 }, yaw: 0, pitch: 0, distance: 66 }
   : route === "route"
   ? { position: { x: 40, y: 4, z: -4 }, pivot: { x: 25, y: 1, z: 0 }, yaw: 0, pitch: 0, distance: 15 }
   : route === "reverse" ? { position: { x: 24, y: 3, z: 2 }, pivot: { x: 34, y: 1, z: 0 }, yaw: 0, pitch: 0, distance: 10 }

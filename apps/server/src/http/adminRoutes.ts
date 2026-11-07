@@ -136,7 +136,7 @@ export function registerAdminRoutes(app: HttpApp, svc: AuthServices, contentHash
     if (!p.success) return bad(res);
     const roomCode = `a-${randomBytes(4).toString("hex")}`;
     config.roomCodes[roomCode] = ARENA_ROOM_NAME;
-    svc.roomMeta.set(roomCode, { name: p.data.name, listed: true, bots: p.data.bots, roundTarget: p.data.roundTarget });
+    svc.roomMeta.set(roomCode, { name: p.data.name, listed: true, bots: p.data.bots, roundTarget: p.data.roundTarget, ...(p.data.mapId ? { mapId: p.data.mapId } : {}) });
     send(res, 201, { roomCode, name: p.data.name, kind: "arena", players: 0, bots: p.data.bots.length, listed: true } satisfies AdminRoomRow);
   });
   app.delete(`${PREFIX}/rooms/:code`, async (req, res) => {

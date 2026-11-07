@@ -43,7 +43,7 @@ export interface AuthServices {
   admin: AdminAuth | null;
   startedAt: number;
   /** Admin overrides for arena rooms (display name, listed). TODO: persist when rooms must survive a restart. */
-  roomMeta: Map<string, { name: string; listed: boolean; bots?: Difficulty[]; roundTarget?: RoundTarget }>;
+  roomMeta: Map<string, { name: string; listed: boolean; bots?: Difficulty[]; roundTarget?: RoundTarget; mapId?: string }>;
   announcement: { get(): Announcement | null; set(a: Announcement | null): void };
   /** Set by createGameServer: live seated humans and capacity of the room for a code (0 seated when no room is live). */
   occupancy: (roomName: string, roomCode: string) => { players: number; capacity: number };

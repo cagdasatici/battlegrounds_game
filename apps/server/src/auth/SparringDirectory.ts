@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { SparringConfigSchema, SparringRedeemRequestSchema, type Difficulty, type SparringConfig } from "@eb/shared/sparring";
 import type { RoundTarget } from "@eb/shared/protocol";
 import { TEAM_PLAY } from "@eb/shared/config/teamPlay";
+import { mapIdOrDefault } from "@eb/shared/config/maps";
 import { newToken, sha256 } from "./tokens.js";
 
 export const SPARRING_LINK_MS = 600_000;
@@ -24,6 +25,7 @@ interface Match {
   bots: Difficulty[];
   roundTarget: RoundTarget;
   teamPlay: boolean;
+  mapId: string;
   listed: boolean;
   seats: Map<string, Seat>;
   link: { hash: string; expiresAt: number } | null;
@@ -56,7 +58,7 @@ export class SparringDirectory {
     if ([...this.matches.values()].some((m) => m.hostId === host.id)) throw new SparringError(409, "Already hosting");
     const roomCode = `sp-${randomBytes(16).toString("hex")}`;
     this.matches.set(roomCode, {
-      roomCode, hostId: host.id, bots: parsed.data.teamPlay ? Array(TEAM_PLAY.startBots).fill(TEAM_PLAY.startDifficulty) : [...parsed.data.bots], teamPlay: parsed.data.teamPlay === true, roundTarget: parsed.data.roundTarget ?? 0, listed: listed === true, link: null,
+      roomCode, hostId: host.id, bots: parsed.data.teamPlay ? Array(TEAM_PLAY.startBots).fill(TEAM_PLAY.startDifficulty) : [...parsed.data.bots], teamPlay: parsed.data.teamPlay === true, roundTarget: parsed.data.roundTarget ?? 0, mapId: mapIdOrDefault(parsed.data.mapId), listed: listed === true, link: null,
       seats: new Map([[key(host), { principal: { ...host }, displayName: "", csrfToken: "", connectionId: null, deadline: this.now() + SPARRING_RESERVATION_MS }]]),
     });
     return { roomCode };
@@ -214,9 +216,9 @@ export class SparringDirectory {
   }
 
   /** Internal server lookup; returns no bearer credentials. */
-  describe(code: string): { hostId: string; bots: Difficulty[]; roundTarget: RoundTarget; teamPlay: boolean } | null {
+  describe(code: string): { hostId: string; bots: Difficulty[]; roundTarget: RoundTarget; teamPlay: boolean; mapId: string } | null {
     const match = this.matches.get(code);
-    return match && this.live(match) ? { hostId: match.hostId, bots: [...match.bots], roundTarget: match.roundTarget, teamPlay: match.teamPlay } : null;
+    return match && this.live(match) ? { hostId: match.hostId, bots: [...match.bots], roundTarget: match.roundTarget, teamPlay: match.teamPlay, mapId: match.mapId } : null;
   }
 
   private live(match: Match): boolean {

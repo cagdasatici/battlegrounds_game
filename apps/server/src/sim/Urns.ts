@@ -32,6 +32,12 @@ export class UrnSystem {
     this.urns = anchors.map((a, id) => ({ id, anchor: a, state: "anchored", holderId: 0, holderLife: 0, returnTick: 0 }));
   }
 
+  /** WORLD01: re-seats the urns on another map's anchors. Only valid before play starts (room creation): every urn is reset to anchored. */
+  setAnchors(anchors: readonly MapVec3[]): void {
+    this.urns.length = 0;
+    anchors.forEach((a, id) => this.urns.push({ id, anchor: a, state: "anchored", holderId: 0, holderLife: 0, returnTick: 0 }));
+  }
+
   list(): readonly Urn[] { return this.urns; }
   get(id: number): Urn | undefined { return this.urns[id]; }
 

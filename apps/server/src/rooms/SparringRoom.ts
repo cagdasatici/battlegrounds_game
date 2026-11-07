@@ -116,6 +116,7 @@ export class SparringRoom extends BotArenaRoom {
     const info = this.authServices()?.sparring.describe(options.roomCode ?? "");
     if (!info) throw new Error("MATCH_CLOSED");
     this.teamPlay = info.teamPlay;
+    this.mapId = info.mapId; // WORLD01: chosen by the host, validated against the registry at creation
     this.maxClients = info.teamPlay ? TEAM_PLAY.maxHumans : 4 - info.bots.length;
     await super.onCreate(options);
     // COMBAT01: the beast boss is an AI attacker too; it deals damage but never stuns, ragdolls or captures humans.
@@ -129,7 +130,7 @@ export class SparringRoom extends BotArenaRoom {
     this.beast = new BeastSystem({
       state: this.state.beast, combat: this.combat, respawns: this.respawns, movement: () => this.movement, world: () => this.world,
       nextLifeId: () => ++this.lifeSeq, registerOccupant: (id) => this.registerOccupant(id), releaseOccupant: (id) => this.releaseOccupant(id),
-      humans: () => this.humanList(), rand: (index, salt) => botRandom(seed, 0, index, salt),
+      humans: () => this.humanList(), anchors: this.mapDef.beastAnchors, rand: (index, salt) => botRandom(seed, 0, index, salt),
     }, this.sim.tick);
     this.addBots(info.bots);
     this.maxClients = info.teamPlay ? TEAM_PLAY.maxHumans : 4 - info.bots.length;

@@ -1,6 +1,7 @@
 import { P0_KITS, type KitId } from "@eb/shared/protocol";
 import { KIT_LABEL } from "./Lobby.js";
 import { adoptCss } from "./adoptCss.js";
+import { DEFAULT_MAP_ID, MAP_REGISTRY } from "@eb/shared/config/maps";
 import type { Difficulty, SparringSetupActions } from "@eb/shared/sparring";
 
 /** Standalone host controls. Callbacks own authentication, capacity and transport. */
@@ -38,6 +39,14 @@ export function mountSparringSetup(root: HTMLElement, actions: SparringSetupActi
     const option = doc.createElement("option"); option.value = value; option.textContent = text; roundSelect.append(option);
   }
   roundLabel.append(roundSelect); controls.append(roundLabel);
+  // WORLD01: map picker, one option per registry entry. The host's choice travels in the create request (validated server side).
+  const mapLabel = doc.createElement("label"); mapLabel.append("Map");
+  const mapSelect = doc.createElement("select"); mapSelect.dataset["mapId"] = "1";
+  for (const def of Object.values(MAP_REGISTRY)) {
+    const option = doc.createElement("option"); option.value = def.id; option.textContent = def.name; mapSelect.append(option);
+  }
+  mapSelect.value = DEFAULT_MAP_ID;
+  mapLabel.append(mapSelect); controls.append(mapLabel);
   const rows = doc.createElement("div"); controls.append(rows);
   const button = (text: string, parent: HTMLElement): HTMLButtonElement => {
     const b = doc.createElement("button"); b.type = "button"; b.textContent = text; parent.append(b); return b;
@@ -105,7 +114,7 @@ export function mountSparringSetup(root: HTMLElement, actions: SparringSetupActi
     pending = true; status.textContent = "Working…"; fallback.value = ""; fallbackLabel.hidden = true; refresh();
     try {
       if (kind === "start") {
-        await actions.start({ bots: [...bots], ...(teamBox.checked ? { teamPlay: true } : {}), ...(roundSelect.value === "5" ? { roundTarget: 5 as const } : roundSelect.value === "10" ? { roundTarget: 10 as const } : {}) }, P0_KITS.includes(fighter.value as KitId) ? fighter.value as KitId : "sv", listedBox.checked);
+        await actions.start({ bots: [...bots], ...(teamBox.checked ? { teamPlay: true } : {}), ...(mapSelect.value !== DEFAULT_MAP_ID && Object.hasOwn(MAP_REGISTRY, mapSelect.value) ? { mapId: mapSelect.value } : {}), ...(roundSelect.value === "5" ? { roundTarget: 5 as const } : roundSelect.value === "10" ? { roundTarget: 10 as const } : {}) }, P0_KITS.includes(fighter.value as KitId) ? fighter.value as KitId : "sv", listedBox.checked);
         if (disposed) return;
         active = true; status.textContent = "Match started. Invite friends if a space remains.";
       } else if (kind === "end") {

@@ -108,6 +108,8 @@ export interface WelcomeMessage {
   serverTick: number;
   tickRate: number;
   contentHash: string;
+  /** WORLD01: registry id of the map this room plays (config/maps.ts). Absent from older servers; clients then assume the grove. */
+  mapId?: string;
 }
 /** Decision 0054: opt-in first-to-N KO rounds for hosted sparring and bot rooms. 0 = endless (default). */
 export const RoundTargetSchema = z.union([z.literal(0), z.literal(5), z.literal(10)]);

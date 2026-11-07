@@ -9,6 +9,9 @@ import { z } from "zod";
 import { contentHashOf } from "../math.js";
 
 export const MAP_ID = "islands.v1";
+/** WORLD01: every collision artifact id a room may load (one per registry map, see config/maps.ts and config/worlds.ts). */
+export const COLLISION_MAP_IDS = ["islands.v1", "coast.v1"] as const;
+export type CollisionMapId = (typeof COLLISION_MAP_IDS)[number];
 export const MAP_SCHEMA_VERSION = 1;
 
 /**
@@ -68,7 +71,7 @@ export type Anchor = z.infer<typeof AnchorSchema>;
 
 export const ArenaMapSchema = z.strictObject({
   schemaVersion: z.literal(MAP_SCHEMA_VERSION),
-  mapId: z.literal(MAP_ID),
+  mapId: z.enum(COLLISION_MAP_IDS),
   voidY: z.number(),
   boundaryRadius: z.number().positive(),
   colliders: z.array(ColliderSchema).min(1),

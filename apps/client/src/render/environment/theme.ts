@@ -1,7 +1,8 @@
 /**
  * GFX01: environment theme config. Pure data (no Three.js, no DOM): a map's `themeId` (see MapDefinition in
- * packages/shared/src/config/maps.ts) selects one of these. A later beach or snow map adds an entry to THEMES and gets the
- * sky, lighting, ground colours, ground cover, ambient particles and tree set from the shared environment modules with no new renderer code.
+ * packages/shared/src/config/maps.ts) selects one of these. A new map adds an entry to THEMES and gets the
+ * sky, lighting, ground colours, ground cover, ambient particles and tree set from the shared environment modules.
+ * WORLD01: maps that build their own terrain and props (render/worlds/) also set `features` to switch off the grove-specific pieces.
  * All colours are 0xRRGGBB sRGB; all numbers are D (local design choices).
  */
 export interface EnvTheme {
@@ -22,6 +23,8 @@ export interface EnvTheme {
     readonly flowers: readonly number[]; readonly pebbles: readonly [number, number];
   };
   readonly particles: { readonly pollen: number; readonly firefly: number; readonly fireflyShare: number };
+  /** WORLD01: absent on the grove (everything on). `trees: false` skips the procedural island trees; `coverScale` thins the instanced grass and flowers. */
+  readonly features?: { readonly trees?: boolean; readonly coverScale?: number };
   readonly trees: {
     readonly trunk: number; readonly birchTrunk: number;
     /** Leaf colours for round, pine and light canopies. */
@@ -55,7 +58,31 @@ export const GROVE_THEME: EnvTheme = {
   },
 };
 
-export const THEMES: Readonly<Record<string, EnvTheme>> = { [GROVE_THEME.id]: GROVE_THEME };
+/** WORLD01: Sunreach Coast. Warm bright light, a hazy blue-white sky, pale sand, dry dune grass and shells for the pebble layer. */
+export const COAST_THEME: EnvTheme = {
+  id: "coast",
+  sky: { zenith: 0x2a86dc, mid: 0x73c3f0, horizon: 0xf4eedb, nadir: 0xa9d3de, fog: 0xe9e8d6, sunGlow: 0xffd98f },
+  sunDir: [0.36, 0.74, 0.5],
+  sun: { color: 0xffe9bf, intensity: 2.35 },
+  hemi: { sky: 0xd2ecff, ground: 0xe4c98f, intensity: 0.95 },
+  rim: { color: 0xffd7a3, intensity: 0.4, pos: [-25, 18, -30] },
+  ground: { grassA: 0xe9d6a6, grassB: 0xf2e3b9, grassDry: 0xdcc08a, patchDark: 0xc9ac75, dirt: 0xb99e6d, meadow: 0xefdca8 },
+  cover: {
+    bladeBase: 0x7d8c47, bladeTip: 0xd9d589, bladeDry: 0xeadda2,
+    flowers: [0xff8fb3, 0xffffff, 0xffd24d, 0xffa07a, 0xc7a4ff, 0xffffff],
+    pebbles: [0xf4e7d3, 0xe6b6a6],
+  },
+  particles: { pollen: 0xfff4d8, firefly: 0xfff4d8, fireflyShare: 0 },
+  features: { trees: false, coverScale: 0.12 },
+  trees: {
+    trunk: 0x8f7048, birchTrunk: 0xe6e0d0,
+    oak: [0x2f6b3a, 0x6fa84a], pine: [0x1f5a47, 0x3f8a5c], birch: [0x7fb04a, 0xc4d870],
+    tints: [[1, 1, 1]],
+    mix: [0.45, 0.35, 0.2],
+  },
+};
+
+export const THEMES: Readonly<Record<string, EnvTheme>> = { [GROVE_THEME.id]: GROVE_THEME, [COAST_THEME.id]: COAST_THEME };
 
 /** Unknown theme ids fall back to the grove so a new map never renders black. */
 export function getEnvTheme(id: string): EnvTheme { return THEMES[id] ?? GROVE_THEME; }
