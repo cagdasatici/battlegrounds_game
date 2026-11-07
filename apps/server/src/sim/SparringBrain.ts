@@ -30,6 +30,7 @@ interface WanderParams { wanderMinTicks: number; wanderMaxTicks: number; wanderC
 
 /** Stateless engage/wander schedule from spawn: segments of 60-120 ticks; a pursuit is dropped after 180 ticks. */
 function easyWandering(o: BotObservation, age: number, E: WanderParams = BOT_PARAMS.easy): { wandering: boolean; segment: number } {
+  if (o.noWander) return { wandering: false, segment: 0 };
   let t = 0, run = 0;
   for (let segment = 0; ; segment++) {
     const steps = (E.wanderMaxTicks - E.wanderMinTicks) / 30 + 1;

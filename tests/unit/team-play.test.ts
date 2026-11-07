@@ -17,3 +17,15 @@ describe("team play", () => {
     expect(d.describe(roomCode)).toMatchObject({ teamPlay: true, bots: ["easy", "easy"] });
   });
 });
+
+import { decideBot } from "../../apps/server/src/sim/SparringBrain.js";
+describe("team play bots never wander", () => {
+  it("easy bot with noWander always keeps its target and never takes a random-heading walk", () => {
+    const enemy = { id: 9, x: 10, y: 0, z: 0, yaw: 0, alive: true, connected: true, ready: true, attacking: false, los: true, facingSelf: false };
+    let prev = decideBot("easy", { tick: 0, spawnTick: 0, selfId: 1, self: { x: 0, z: 0 }, slotsReady: [false, false, false, false], meterFull: false, enemies: [enemy] }, undefined as never);
+    for (let t = 30; t < 30 * 200; t += 30) {
+      prev = decideBot("easy", { noWander: true, tick: t, spawnTick: 0, selfId: 1, self: { x: 0, z: 0 }, slotsReady: [false, false, false, false], meterFull: false, enemies: [enemy] }, prev);
+      expect(prev.targetId).toBe(9);
+    }
+  });
+});

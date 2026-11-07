@@ -61,6 +61,8 @@ export interface BotTacticsObservation {
   supported(enemyId: number): boolean;
 }
 export interface BotObservation {
+  /** Team play: bots keep pursuing instead of wandering off on random headings. */
+  noWander?: boolean;
   tick: number;
   spawnTick: number;
   selfId: number;

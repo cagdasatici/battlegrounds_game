@@ -46,6 +46,7 @@ export class BotArenaRoom extends ArenaRoom {
     this.addBots(difficulties);
   }
   protected botTargetAllowed(_id: number): boolean { return true; }
+  protected botsNeverWander(): boolean { return false; }
   protected addBots(difficulties: readonly Difficulty[], firstIndex = 0): void {
     difficulties.forEach((difficulty, i) => {
       const index = firstIndex + i;
@@ -143,7 +144,7 @@ export class BotArenaRoom extends ArenaRoom {
         ...e, los: !world.segmentBlocked([pos[0], pos[1] + 0.5, pos[2]], [e.x, e.y + 0.5, e.z]),
         facingSelf: facesWithin60(e.yaw, e, { x: pos[0], z: pos[2] }),
       }));
-      bot.decision = decideBot(bot.difficulty, { tick, spawnTick: bot.spawnTick, selfId: bot.entityId,
+      bot.decision = decideBot(bot.difficulty, { ...(this.botsNeverWander() ? { noWander: true } : {}), tick, spawnTick: bot.spawnTick, selfId: bot.entityId,
         self: { x: pos[0], z: pos[2] }, enemies: visible,
         slotsReady: [readyMoves[0] !== "", readyMoves[1] !== "", readyMoves[2] !== "", readyMoves[3] !== ""],
         meterFull: f.meter100 >= meterRequired100(f.kitId),

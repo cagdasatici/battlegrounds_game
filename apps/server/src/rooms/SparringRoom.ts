@@ -11,6 +11,7 @@ export class SparringRoom extends BotArenaRoom {
   private teamStartTick = 0;
   private isBot(id: number): boolean { return [...this.bots.values()].some((b) => b.entityId === id); }
   protected override isFriendly(a: number, t: number): boolean { return this.teamPlay && this.isBot(a) === this.isBot(t); }
+  protected override botsNeverWander(): boolean { return this.teamPlay; }
   protected override botTargetAllowed(id: number): boolean { return !this.teamPlay || !this.isBot(id); }
   protected override beforeDrain(tick: number): void {
     if (this.teamPlay) {
