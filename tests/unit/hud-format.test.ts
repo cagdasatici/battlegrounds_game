@@ -63,10 +63,17 @@ describe("respawn countdown and scoreboard", () => {
 
 describe("meter, form and Stillpoint labels", () => {
   test("meter percent is threshold normalized; Ready at full", () => {
-    expect(meterLabel("sv", 10000)).toEqual({ fraction: 0.5, text: "50%" });
-    expect(meterLabel("td", 17500)).toEqual({ fraction: 0.5, text: "50%" });
-    expect(meterLabel("sv", 20000)).toEqual({ fraction: 1, text: "Ready" });
-    expect(meterLabel("td", 99999)).toEqual({ fraction: 1, text: "Ready" });
+    expect(meterLabel("sv", 10000)).toMatchObject({ fraction: 0.5, text: "50%", beastReady: false });
+    expect(meterLabel("td", 17500)).toMatchObject({ fraction: 0.5, text: "50%" });
+    expect(meterLabel("sv", 20000)).toMatchObject({ fraction: 1, text: "Ready", second: 0, beastReady: false });
+  });
+  test("second bar: saving shows Ready +NN%, two bars shows BEAST!", () => {
+    const saving = meterLabel("sv", 30000);
+    expect(saving.text).toMatch(/^Ready \+\d+%$/);
+    expect(saving.second).toBeGreaterThan(0);
+    expect(saving.beastReady).toBe(false);
+    const full = meterLabel("sv", 99999);
+    expect(full).toMatchObject({ text: "BEAST!", second: 1, beastReady: true });
   });
   test("form timer only while awakened, Stillpoint only with remaining ticks", () => {
     expect(formTimerText("Base", 900, 100)).toBe("");

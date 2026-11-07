@@ -156,3 +156,10 @@ html[data-modal-open] [data-ui=nameplates],html[data-modal-open] [data-ui=combat
 .eb-lobby-body button[data-act=kit] .eb-card-tip{font-size:12px;font-weight:500;color:var(--eb-muted);line-height:1.35}
 .eb-lobby-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
 .eb-lobby-body{padding:4px 0}
+
+/* BEAST02: the awaken button banks a second bar (a strip along its bottom edge); both full means Beast Awaken. */
+.eb-hud [data-control=awaken]{position:relative;overflow:hidden}
+.eb-hud [data-control=awaken]::after{content:"";position:absolute;left:0;bottom:0;height:7px;width:var(--fill2,0%);background:linear-gradient(90deg,#b64cff,#ff4c6a);box-shadow:0 0 8px #d04cff99;transition:width .15s linear;pointer-events:none}
+.eb-hud [data-control=awaken][data-beast="saving"]{border-color:#c98aff!important}
+.eb-hud [data-control=awaken][data-beast="1"]{background:linear-gradient(90deg,#a63cff,#ff3c5c)!important;color:#fff;border-color:#ffd0ff!important;animation:eb-beast 0.9s ease-in-out infinite}
+@keyframes eb-beast{0%,100%{box-shadow:0 0 12px #c04cff99,0 8px 26px #0006}50%{box-shadow:0 0 30px #ff4cd0dd,0 8px 26px #0006;transform:scale(1.06)}}

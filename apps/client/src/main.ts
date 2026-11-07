@@ -673,7 +673,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     const loop = new R.GameLoop({
       scene: g, camera: cam, collide: kitHandle.collide, router, sampler, clock,
       inputEnabled: () => (lifecycle?.inputEnabled ?? false) && !gate.closed,
-      readState: (): LoopState => ({ serverTick: (r.state as { serverTick?: number }).serverTick ?? 0, players: players().entries(), projectiles: (r.state as LoopState).projectiles ?? [], urns: (r.state as LoopState).urns ?? [], ...((r.state as LoopState).beast ? { beast: (r.state as LoopState).beast! } : {}) }),
+      readState: (): LoopState => ({ serverTick: (r.state as { serverTick?: number }).serverTick ?? 0, players: players().entries(), projectiles: (r.state as LoopState).projectiles ?? [], urns: (r.state as LoopState).urns ?? [], ...((r.state as LoopState).beast ? { beast: (r.state as LoopState).beast! } : {}), craters: (r.state as LoopState).craters ?? [] }),
       sendInput: (p) => { if (lifecycle?.phase === "active") rc.send("input", p); },
       sendPing: (p) => { if (lifecycle?.phase === "active" || lifecycle?.phase === "connecting") rc.send("ping", p); },
       onFrameTime: (ms) => { const q = adaptive.push(ms); if (q) { g.setQuality(q); settingsRef?.panel.refreshRuntime(); } },
@@ -724,7 +724,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       const dead = me?.action === "Dead" && ko !== null && !roundOver;
       const pending = me?.owner?.pendingKit ?? "";
       const st = {
-        name: me?.displayName ?? lobby.displayName, hp: (me?.hp100 ?? 10000) / 100, maxHp: 100, meter: ml.fraction, meterText: ml.text,
+        name: me?.displayName ?? lobby.displayName, hp: (me?.hp100 ?? 10000) / 100, maxHp: 100, meter: ml.fraction, meterText: ml.text, meter2: ml.second, beastReady: ml.beastReady,
         facingLock: router.facingLock, portrait: window.innerHeight > window.innerWidth,
         objective,
         castText: castDescription(me?.moveId ?? "", me?.action ?? ""),

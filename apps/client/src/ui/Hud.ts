@@ -16,6 +16,9 @@ export interface HudState {
   portrait: boolean;
   /** "Ready" or "NN%"; defaults to the integer percent of `meter`. */
   meterText?: string;
+  /** BEAST02: second banked awaken bar, 0..1, and whether both bars are full (Awaken will transform). */
+  meter2?: number;
+  beastReady?: boolean;
   /** Four slot texts from cooldownEndTicks (empty string = ready). */
   cooldowns?: readonly string[];
   /** Four equipped short skill names for the current form. When given, skill buttons show name and readiness. */
@@ -49,7 +52,7 @@ export interface HudState {
 }
 
 export interface HudBox { id: ControlId; left: number; top: number; width: number; height: number; round: boolean; label: string; sub?: string; ready?: boolean; hint?: string; slot?: number; name?: string }
-export interface HudModel { boxes: HudBox[]; panel: null | "rotate" | "enlarge"; hpText: string; meterPct: number; awakenReady: boolean; meterText: string }
+export interface HudModel { boxes: HudBox[]; panel: null | "rotate" | "enlarge"; hpText: string; meterPct: number; awakenReady: boolean; meterText: string; meter2Pct: number; beastReady: boolean }
 
 const LABELS: Record<ControlId, string> = {
   joystick: "", attack: "Strike", jump: "Jump", dash: "Dash", block: "Guard", facing: "Aim",
@@ -92,6 +95,8 @@ export function hudModel(layout: Layout, st: HudState): HudModel {
     hpText: `${Math.max(0, Math.round(st.hp))} / ${st.maxHp}`,
     meterPct: Math.round(meter * 100),
     awakenReady: meter >= 1,
+    meter2Pct: Math.round(Math.min(1, Math.max(0, st.meter2 ?? 0)) * 100),
+    beastReady: st.beastReady === true,
   };
 }
 
@@ -380,7 +385,7 @@ export class Hud {
       if (b.id.startsWith("skill")) el.style.opacity = String(b.ready === true || b.label.length === 1 ? o : o * 0.6);
       if (b.id.startsWith("skill")) this.ring(el, Number(b.id.slice(5)) - 1, st);
       if (b.id === "facing") el.style.background = st.facingLock ? "#3a7bd5cc" : "#1d2b3acc";
-      if (b.id === "awaken") { el.style.opacity = String(m.awakenReady ? o : o * 0.65); el.style.setProperty?.("--fill", `${Math.max(0, Math.min(100, m.meterPct))}%`); el.dataset["ready"] = m.awakenReady ? "1" : "0"; }
+      if (b.id === "awaken") { el.style.opacity = String(m.awakenReady ? o : o * 0.65); el.style.setProperty?.("--fill", `${Math.max(0, Math.min(100, m.meterPct))}%`); el.style.setProperty?.("--fill2", `${m.meter2Pct}%`); el.dataset["ready"] = m.awakenReady ? "1" : "0"; el.dataset["beast"] = m.beastReady ? "1" : m.meter2Pct > 0 ? "saving" : "0"; }
       if (b.id === "health") this.fill(el, st.maxHp > 0 ? st.hp / st.maxHp : 0);
     }
     this.renderExtras(st);

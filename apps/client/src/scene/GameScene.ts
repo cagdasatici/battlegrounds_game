@@ -18,6 +18,7 @@ import { FighterView } from "./FighterView.js";
 import { ProjectileViews } from "./ProjectileViews.js";
 import { UrnViews } from "./UrnViews.js";
 import { BeastView } from "./BeastView.js";
+import { CraterViews } from "./CraterViews.js";
 import { SnapshotBuffer } from "../net/SnapshotBuffer.js";
 
 export type Quality = "low" | "medium" | "high";
@@ -88,6 +89,8 @@ export class GameScene {
   readonly urns = new UrnViews(this.scene);
   /** BEAST01: the sparring beast presentation. */
   readonly beast = new BeastView(this.scene);
+  /** BEAST02: sparring craters left by transformed fighters. */
+  readonly craters = new CraterViews(this.scene);
   private readonly contacts = new Map<string, Mesh<PlaneGeometry, MeshBasicMaterial>>();
   private readonly contactTexture = makeContactTexture();
   private geometries = new Set<BufferGeometry>();
@@ -323,6 +326,7 @@ export class GameScene {
     this.projectiles.clear();
     this.urns.clear();
     this.beast.clear();
+    this.craters.clear();
     this.clearRemoteBuffers();
   }
 
@@ -369,6 +373,7 @@ export class GameScene {
     this.projectiles.dispose();
     this.urns.dispose();
     this.beast.dispose();
+    this.craters.dispose();
     for (const g of this.geometries) g.dispose();
     for (const m of this.materials) m.dispose();
     if (this.env) {

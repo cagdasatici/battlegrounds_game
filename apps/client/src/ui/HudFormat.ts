@@ -2,7 +2,7 @@
  * Pure HUD text rules (spec sections 6, 9, 15, 22). No DOM; every input is a replicated server value or an
  * estimated server tick. Display only: the server settles every discrepancy.
  */
-import { meterFraction } from "@eb/shared/awakening";
+import { meterFraction, meterStackFraction } from "@eb/shared/awakening";
 import { EA_DEFS, SV_DEFS, TD_DEFS } from "@eb/shared/config/kits/index";
 import { COMBAT } from "@eb/shared/config/combat";
 import type { AbilityDef } from "@eb/shared/abilities";
@@ -64,9 +64,14 @@ export function scoreboardRows(players: readonly ScoreInput[]): ScoreRow[] {
 }
 
 /** Meter as a threshold normalized fraction plus the integer percent, or "Ready" at full. */
-export function meterLabel(kitId: string, meter100: number): { fraction: number; text: string } {
+export function meterLabel(kitId: string, meter100: number): { fraction: number; text: string; second: number; beastReady: boolean } {
   const fraction = meterFraction(kitId, meter100);
-  return { fraction, text: fraction >= 1 ? "Ready" : `${Math.floor(fraction * 100)}%` };
+  // BEAST02: the meter banks a second bar; saving it up (instead of spending the first) turns Awaken into Beast Awaken.
+  const stacks = meterStackFraction(kitId, meter100);
+  const second = Math.max(0, Math.min(1, stacks - 1));
+  const beastReady = stacks >= 2;
+  const text = beastReady ? "BEAST!" : fraction >= 1 ? (second > 0 ? `Ready +${Math.floor(second * 100)}%` : "Ready") : `${Math.floor(fraction * 100)}%`;
+  return { fraction, text, second, beastReady };
 }
 
 export function formTimerText(form: string, formEndTick: number, nowTick: number, kitId?: string): string {

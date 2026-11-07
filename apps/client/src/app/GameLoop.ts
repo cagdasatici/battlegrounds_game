@@ -20,6 +20,7 @@ import type { CameraRig, Framed } from "../scene/CameraRig.js";
 import type { LoopProjectile } from "../scene/ProjectileViews.js";
 import type { LoopUrn } from "../scene/UrnViews.js";
 import type { LoopBeast } from "../scene/BeastView.js";
+import type { LoopCrater } from "../scene/CraterViews.js";
 import type { GameScene } from "../scene/GameScene.js";
 
 /** Replicated public record, as read from room.state.players (centimetres, quantized yaw). */
@@ -34,6 +35,8 @@ export interface LoopPlayer {
   hp100: number;
   meter100?: number;
   form?: string;
+  /** BEAST02: Beast Awaken active. */
+  beast?: boolean;
   moveId?: string;
   actionStartTick?: number;
   actionEndTick?: number;
@@ -42,7 +45,7 @@ export interface LoopPlayer {
   /** Present only on the local player (owner-only view, decision 0007). */
   owner?: ({ ackInputTick: number; epoch: number } & Partial<OwnerLoco>) | undefined;
 }
-export interface LoopState { serverTick: number; players: Iterable<[string, LoopPlayer]>; projectiles?: Iterable<[string, LoopProjectile]>; urns?: Iterable<[string, LoopUrn]>; beast?: LoopBeast }
+export interface LoopState { serverTick: number; players: Iterable<[string, LoopPlayer]>; projectiles?: Iterable<[string, LoopProjectile]>; urns?: Iterable<[string, LoopUrn]>; beast?: LoopBeast; craters?: Iterable<LoopCrater> }
 
 export interface LoopDeps {
   scene: GameScene;
@@ -144,6 +147,7 @@ export class GameLoop {
     this.d.scene.projectiles.clear();
     this.d.scene.urns.clear();
     this.d.scene.beast.clear();
+    this.d.scene.craters.clear();
     this.prediction = null;
   }
 
@@ -218,6 +222,7 @@ export class GameLoop {
   private syncState(st: LoopState, est: number | null): void {
     this.d.scene.projectiles.sync(st.projectiles ?? [], st.serverTick, est ?? st.serverTick);
     this.d.scene.beast.sync(st.beast, st.serverTick);
+    this.d.scene.craters.sync(st.craters ?? [], st.serverTick);
     // `st.players` may be a one-shot iterator: materialize it once and reuse below.
     const players = [...st.players];
     st = { ...st, players };
@@ -246,6 +251,7 @@ export class GameLoop {
       const view = this.d.scene.viewFor(key);
       view?.setAction(p.action, p.moveId ?? "", Math.max(0, (p.actionEndTick ?? 0) - (p.actionStartTick ?? 0)), Math.max(0, st.serverTick - (p.actionStartTick ?? st.serverTick)));
       view?.setAwakened(p.form === "Awakened");
+      view?.setBeast(p.beast === true);
     }
     for (const key of [...this.known.keys()]) {
       if (seen.has(key)) continue;

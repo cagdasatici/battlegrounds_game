@@ -93,3 +93,39 @@ describe("BeastModel", () => {
     m.dispose();
   });
 });
+
+import { CraterViews } from "../../apps/client/src/scene/CraterViews.js";
+import { TransformBurst } from "../../apps/client/src/scene/TransformBurst.js";
+import { Group } from "../../apps/client/node_modules/three/build/three.module.js";
+import { CRATER } from "../../packages/shared/src/config/beast.js";
+
+describe("CraterViews", () => {
+  test("creates a view per replicated crater, shrinks as it heals, removes it when the server drops it", () => {
+    const scene = new Scene();
+    const c = new CraterViews(scene);
+    const rec = { id: 1, x: 1000, z: -500, radius100: 450, startTick: 0 };
+    c.sync([rec], 0);
+    expect(c.snapshot()).toEqual([{ id: 1, x: 10, z: -5, radius: 4.5, visible: true }]);
+    c.sync([rec], CRATER.healTicks);
+    expect(c.snapshot()[0]!.visible).toBe(false);
+    c.sync([], CRATER.healTicks);
+    expect(c.snapshot()).toHaveLength(0);
+    c.sync([rec], 0); c.clear(); c.clear();
+    c.dispose(); c.dispose();
+    expect(scene.children).toHaveLength(0);
+  });
+});
+
+describe("TransformBurst", () => {
+  test("plays about a second then goes inactive; dispose is idempotent", () => {
+    const g = new Group();
+    const b = new TransformBurst(g);
+    expect(b.active).toBe(false);
+    b.trigger(8, 3);
+    expect(b.active).toBe(true);
+    for (let i = 0; i < 70; i++) b.update(1 / 60);
+    expect(b.active).toBe(false);
+    b.dispose(); b.dispose();
+    expect(g.children).toHaveLength(0);
+  });
+});
