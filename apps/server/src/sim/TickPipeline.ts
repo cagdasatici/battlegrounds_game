@@ -51,6 +51,8 @@ export interface TickPipelineDeps {
   beforeDrain?: (tick: number) => void;
   /** Seatless simulated entities (practice dummy): body and action are published, no owner record. */
   extraBodies?: () => readonly number[];
+  /** Team play: hits between teammates are discarded before resolution. */
+  friendly?: (attackerId: number, targetId: number) => boolean;
   poseOf: (id: number) => M1Pose | undefined;
   /** GR02: server-only occupant generation per entity id; absent in fixtures that never reuse ids. */
   occupantOf?: (id: number) => number | undefined;
@@ -259,7 +261,9 @@ export class TickPipeline {
   }
 
   private resolve(tick: number): void {
-    this.results = this.d.combat.resolve(tick, this.candidates, (id) => {
+    const friendly = this.d.friendly;
+    const live = friendly ? this.candidates.filter((c) => c.attackerId === c.targetId || !friendly(c.attackerId, c.targetId)) : this.candidates;
+    this.results = this.d.combat.resolve(tick, live, (id) => {
       const q = this.d.poseOf(id);
       return q && { x: q.x, z: q.z, facingYaw: q.facingYaw, grounded: q.grounded };
     }, this.d.occupantOf);

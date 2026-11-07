@@ -1,22 +1,37 @@
 import type { Client } from "colyseus";
 import { JoinOptionsSchema } from "@eb/shared/protocol";
+import { TEAM_PLAY, teamBotCount } from "@eb/shared/config/teamPlay";
 import { BotArenaRoom } from "./BotArenaRoom.js";
 import { sparringAuthId, sparringPrincipal } from "../http/sparringRoutes.js";
 import { originOk } from "../http/securityHeaders.js";
 
 /** Private hosted FFA. Humans retain ordinary transport seats; bots never have synthetic clients. */
 export class SparringRoom extends BotArenaRoom {
+  private teamPlay = false;
+  private teamStartTick = 0;
+  private isBot(id: number): boolean { return [...this.bots.values()].some((b) => b.entityId === id); }
+  protected override isFriendly(a: number, t: number): boolean { return this.teamPlay && this.isBot(a) === this.isBot(t); }
+  protected override botTargetAllowed(id: number): boolean { return !this.teamPlay || !this.isBot(id); }
+  protected override beforeDrain(tick: number): void {
+    if (this.teamPlay) {
+      const want = teamBotCount(tick - this.teamStartTick);
+      if (this.bots.size < want) this.addBots(Array(want - this.bots.size).fill(TEAM_PLAY.startDifficulty), this.bots.size);
+    }
+    super.beforeDrain(tick);
+  }
 
   override async onCreate(options: { roomCode?: string }): Promise<void> {
     const info = this.authServices()?.sparring.describe(options.roomCode ?? "");
     if (!info) throw new Error("MATCH_CLOSED");
-    this.maxClients = 4 - info.bots.length;
+    this.teamPlay = info.teamPlay;
+    this.maxClients = info.teamPlay ? TEAM_PLAY.maxHumans : 4 - info.bots.length;
     await super.onCreate(options);
     // Membership, rather than socket count, owns lifetime (including a completely disconnected host).
     this.autoDispose = false;
     this.roundTarget = info.roundTarget;
+    this.teamStartTick = this.sim.tick;
     this.addBots(info.bots);
-    this.maxClients = 4 - info.bots.length;
+    this.maxClients = info.teamPlay ? TEAM_PLAY.maxHumans : 4 - info.bots.length;
   }
 
   override async onAuth(client: Client, options: unknown, context?: { headers?: Headers }): Promise<{ authId: string; displayName: string }> {

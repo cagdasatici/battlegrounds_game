@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { SparringConfigSchema, SparringRedeemRequestSchema, type Difficulty, type SparringConfig } from "@eb/shared/sparring";
 import type { RoundTarget } from "@eb/shared/protocol";
+import { TEAM_PLAY } from "@eb/shared/config/teamPlay";
 import { newToken, sha256 } from "./tokens.js";
 
 export const SPARRING_LINK_MS = 600_000;
@@ -22,6 +23,7 @@ interface Match {
   hostId: string;
   bots: Difficulty[];
   roundTarget: RoundTarget;
+  teamPlay: boolean;
   listed: boolean;
   seats: Map<string, Seat>;
   link: { hash: string; expiresAt: number } | null;
@@ -32,6 +34,8 @@ export interface SparringMembership {
   displayName: string;
   csrfToken: string;
 }
+/** Team play caps humans at two; ramping bots never consume human seats. */
+const matchFull = (m: Pick<Match, "bots" | "seats" | "teamPlay">): boolean => m.teamPlay ? m.seats.size >= TEAM_PLAY.maxHumans : m.bots.length + m.seats.size >= 4;
 const key = (p: SparringPrincipal): string => `${p.kind}:${p.id}`;
 
 /** In-memory authority only. HTTP validates origin/CSRF and binds authenticated
@@ -52,7 +56,7 @@ export class SparringDirectory {
     if ([...this.matches.values()].some((m) => m.hostId === host.id)) throw new SparringError(409, "Already hosting");
     const roomCode = `sp-${randomBytes(16).toString("hex")}`;
     this.matches.set(roomCode, {
-      roomCode, hostId: host.id, bots: [...parsed.data.bots], roundTarget: parsed.data.roundTarget ?? 0, listed: listed === true, link: null,
+      roomCode, hostId: host.id, bots: parsed.data.teamPlay ? Array(TEAM_PLAY.startBots).fill(TEAM_PLAY.startDifficulty) : [...parsed.data.bots], teamPlay: parsed.data.teamPlay === true, roundTarget: parsed.data.roundTarget ?? 0, listed: listed === true, link: null,
       seats: new Map([[key(host), { principal: { ...host }, displayName: "", csrfToken: "", connectionId: null, deadline: this.now() + SPARRING_RESERVATION_MS }]]),
     });
     return { roomCode };
@@ -62,7 +66,7 @@ export class SparringDirectory {
     const match = this.owned(host, roomCode);
     // Sharing is available after the host has joined, and only for free seats.
     if (!match.seats.get(key(host))?.connectionId) throw new SparringError(409, "Host has not joined");
-    if (match.bots.length + match.seats.size >= 4) throw new SparringError(409, "Match full");
+    if (matchFull(match)) throw new SparringError(409, "Match full");
     const token = newToken(32);
     const expiresAt = this.now() + SPARRING_LINK_MS;
     match.link = { hash: sha256(token), expiresAt };
@@ -76,7 +80,7 @@ export class SparringDirectory {
     const match = [...this.matches.values()].find((m) => m.link?.hash === hash);
     if (!match || !this.live(match) || !match.link || match.link.expiresAt <= this.now()) throw new SparringError(401, "Invalid link");
     this.pruneGuests(match);
-    if (match.bots.length + match.seats.size >= 4) throw new SparringError(409, "Match full");
+    if (matchFull(match)) throw new SparringError(409, "Match full");
     return this.admit(match, parsed.data.displayName, true);
   }
 
@@ -124,7 +128,7 @@ export class SparringDirectory {
     if (!match.seats.get(key({ kind: "host", id: match.hostId }))?.connectionId) throw new SparringError(409, "Match closed");
     if (match.hostId === sessionId) throw new SparringError(409, "Already hosting");
     this.pruneGuests(match);
-    if (match.bots.length + match.seats.size >= 4) throw new SparringError(409, "Match full");
+    if (matchFull(match)) throw new SparringError(409, "Match full");
     return this.admit(match, displayName, false);
   }
 
@@ -210,9 +214,9 @@ export class SparringDirectory {
   }
 
   /** Internal server lookup; returns no bearer credentials. */
-  describe(code: string): { hostId: string; bots: Difficulty[]; roundTarget: RoundTarget } | null {
+  describe(code: string): { hostId: string; bots: Difficulty[]; roundTarget: RoundTarget; teamPlay: boolean } | null {
     const match = this.matches.get(code);
-    return match && this.live(match) ? { hostId: match.hostId, bots: [...match.bots], roundTarget: match.roundTarget } : null;
+    return match && this.live(match) ? { hostId: match.hostId, bots: [...match.bots], roundTarget: match.roundTarget, teamPlay: match.teamPlay } : null;
   }
 
   private live(match: Match): boolean {

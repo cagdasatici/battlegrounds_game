@@ -108,7 +108,7 @@ export class ArenaRoom extends Room {
   wallNow: () => number = () => performance.now();
   protected readonly pipeline: TickPipeline = new TickPipeline({
     state: this.state, combat: this.combat, m1: this.m1, abilities: this.abilities, awakening: this.awakening,
-    projectiles: this.projectiles, urns: this.urns, movement: () => this.movement, world: () => this.world, seats: () => this.pipelineSeats(), beforeDrain: (tick) => this.beforeDrain(tick), extraBodies: () => this.extraBodyIds(),
+    projectiles: this.projectiles, urns: this.urns, movement: () => this.movement, world: () => this.world, seats: () => this.pipelineSeats(), beforeDrain: (tick) => this.beforeDrain(tick), extraBodies: () => this.extraBodyIds(), friendly: (a, t) => this.isFriendly(a, t),
     poseOf: (id) => this.poseOf(id), occupantOf: (id) => this.occupantOf(id), respawn: this.respawns, nextLifeId: () => ++this.lifeSeq,
     sendActionResult: (sid, seat, edgeId, seq, tick, ok, reason, castId) => this.sendActionResult(sid, seat, edgeId, seq, tick, ok, reason, castId),
     broadcastEvent: (tick, kind, actor, target, lifeId, moveId, dmg, extra) => this.broadcastEvent(tick, kind, actor, target, lifeId, moveId, dmg, extra),
@@ -415,6 +415,7 @@ export class ArenaRoom extends Room {
 
   /** Entities simulated without a seat (the practice dummy) whose bodies are still published each tick. */
   protected extraBodyIds(): readonly number[] { return []; }
+  protected isFriendly(_attackerId: number, _targetId: number): boolean { return false; }
 
   private abilityHost(): AbilityHost {
     // Lazy: the projectile system is built from this very host, so its members are resolved on first use.

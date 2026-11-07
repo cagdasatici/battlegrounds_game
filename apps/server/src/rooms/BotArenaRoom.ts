@@ -46,8 +46,9 @@ export class BotArenaRoom extends ArenaRoom {
     this.addBots(difficulties);
   }
   protected botTargetAllowed(_id: number): boolean { return true; }
-  protected addBots(difficulties: readonly Difficulty[]): void {
-    difficulties.forEach((difficulty, index) => {
+  protected addBots(difficulties: readonly Difficulty[], firstIndex = 0): void {
+    difficulties.forEach((difficulty, i) => {
+      const index = firstIndex + i;
       const id = this.allocEntityId();
       this.registerOccupant(id);
       const p = new PlayerSchema();

@@ -28,6 +28,10 @@ export function mountSparringSetup(root: HTMLElement, actions: SparringSetupActi
   const listedBox = doc.createElement("input"); listedBox.type = "checkbox"; listedBox.style.minHeight = "24px";
   listedLabel.append(listedBox, "List this match for other players");
   controls.append(listedLabel);
+  const teamLabel = doc.createElement("label");
+  const teamBox = doc.createElement("input"); teamBox.type = "checkbox"; teamBox.style.minHeight = "24px"; teamBox.dataset["teamPlay"] = "1";
+  teamLabel.append(teamBox, "Team play: up to 2 friends vs bots (2 easy bots, growing to 4)");
+  controls.append(teamLabel);
   const roundLabel = doc.createElement("label"); roundLabel.append("Round length");
   const roundSelect = doc.createElement("select"); roundSelect.dataset["roundTarget"] = "1";
   for (const [value, text] of [["0", "Endless"], ["5", "First to 5 KOs"], ["10", "First to 10 KOs"]] as const) {
@@ -101,7 +105,7 @@ export function mountSparringSetup(root: HTMLElement, actions: SparringSetupActi
     pending = true; status.textContent = "Working…"; fallback.value = ""; fallbackLabel.hidden = true; refresh();
     try {
       if (kind === "start") {
-        await actions.start({ bots: [...bots], ...(roundSelect.value === "5" ? { roundTarget: 5 as const } : roundSelect.value === "10" ? { roundTarget: 10 as const } : {}) }, P0_KITS.includes(fighter.value as KitId) ? fighter.value as KitId : "sv", listedBox.checked);
+        await actions.start({ bots: [...bots], ...(teamBox.checked ? { teamPlay: true } : {}), ...(roundSelect.value === "5" ? { roundTarget: 5 as const } : roundSelect.value === "10" ? { roundTarget: 10 as const } : {}) }, P0_KITS.includes(fighter.value as KitId) ? fighter.value as KitId : "sv", listedBox.checked);
         if (disposed) return;
         active = true; status.textContent = "Match started. Invite friends if a space remains.";
       } else if (kind === "end") {
