@@ -160,6 +160,26 @@ export function framingOk(pose: CameraPose, local: V3, opp: Framed, aspect: numb
  * Orbit camera. Obstruction pulls inward immediately; clearing eases outward over 0.15 s.
  * `update` takes render dt in seconds: it never schedules gameplay.
  */
+/** BEAST05 (D): boom length multiplier for a subject of the given scale; a 5.5x beast gets about 3.2x, so it fills a similar share of the screen. */
+export const subjectDistanceScale = (scale: number): number => 1 + (Math.max(1, scale) - 1) * 0.5;
+
+/**
+ * CAM01 (D): eases camera yaw toward the character's facing so the view settles behind it. Full rate when idle or moving
+ * forward; damped while strafing (else a sideways stick would circle) and off while backing up (facing flips 180 degrees).
+ * `moveX`/`moveZ` are the camera-relative stick (z forward). Pure; presentation only.
+ */
+export function followYaw(camYaw: number, facingYaw: number, dtSeconds: number, moveX = 0, moveZ = 0, rate = 2.6): number {
+  const dt = Number.isFinite(dtSeconds) && dtSeconds > 0 ? Math.min(dtSeconds, 0.1) : 0;
+  const mag = Math.hypot(moveX, moveZ);
+  let w = 1;
+  if (mag > 0.15) {
+    if (moveZ < -0.3 * mag) return camYaw;
+    w = 1 - 0.85 * (Math.abs(moveX) / (Math.abs(moveX) + Math.max(0, moveZ) + 1e-6));
+  }
+  const diff = Math.atan2(Math.sin(facingYaw - camYaw), Math.cos(facingYaw - camYaw));
+  return camYaw + diff * (1 - Math.exp(-dt * rate * w));
+}
+
 export class CameraRig {
   private desired: number = CAMERA.defaultDistance;
   private current: number = CAMERA.defaultDistance;
@@ -177,6 +197,8 @@ export class CameraRig {
   private latched = false;
   private track: CameraTrack | null = null;
   private trackT = 0;
+  /** BEAST05: eased subject scale (1 = normal fighter). Raises the pivot and pushes the boom out for a bigger body. */
+  private subject = 1;
   pose: CameraPose = { position: { x: 0, y: 0, z: 0 }, pivot: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0, distance: CAMERA.defaultDistance, shoulderOffset: 0 };
 
   constructor(private colliders: readonly Collider[]) {}
@@ -204,6 +226,15 @@ export class CameraRig {
   get heightAssist(): number { return this.lift; }
   get shaking(): boolean { return this.shakeLeft > 0; }
 
+  /** Eases toward `scale` (about 0.6 s); a beast transformation glides the view up and back instead of snapping. */
+  setSubjectScale(scale: number, dtSeconds: number): void {
+    const want = Number.isFinite(scale) && scale > 0 ? scale : 1;
+    const dt = Number.isFinite(dtSeconds) && dtSeconds > 0 ? dtSeconds : 0;
+    this.subject += (want - this.subject) * (1 - Math.exp(-dt * 5));
+    if (Math.abs(want - this.subject) < 1e-3) this.subject = want;
+  }
+  get subjectScale(): number { return this.subject; }
+
   setColliders(colliders: readonly Collider[]): void { this.colliders = colliders; }
 
   /** Settings slider; clamped to 3.5 to 10 m. */
@@ -217,10 +248,10 @@ export class CameraRig {
    * `opponent` is the nearest living opponent, or null when the local fighter is dead, spectating or alone (QC01).
    */
   update(centre: V3, yaw: number, pitch: number, dtSeconds: number, opponent: Framed | null = null): CameraPose {
-    const basePivot = { x: centre.x, y: centre.y + CAMERA.pivotHeight, z: centre.z };
+    const basePivot = { x: centre.x, y: centre.y + CAMERA.pivotHeight * this.subject, z: centre.z };
     // Camera sits behind the facing direction: back = -forward = (sin yaw, cos yaw), raised by pitch.
     const dt = Number.isFinite(dtSeconds) && dtSeconds > 0 ? dtSeconds : 0;
-    let camYaw = yaw, want: number = this.desired;
+    let camYaw = yaw, want: number = this.desired * subjectDistanceScale(this.subject);
     if (this.reducedMotion) this.cancelTrack();
     if (this.track) {
       this.trackT += dt * 1000;
@@ -229,7 +260,7 @@ export class CameraRig {
       else {
         const bell = Math.sin(Math.PI * p); // 0 at both ends, so start and finish never snap
         camYaw = yaw + this.track.orbitRad * bell;
-        want = this.desired + (this.track.distance - this.desired) * bell;
+        want = this.desired * subjectDistanceScale(this.subject) + (this.track.distance - this.desired) * bell;
       }
     }
     const cp = Math.cos(pitch);

@@ -168,6 +168,18 @@ export const BEAST_FORM = {
 
 const AWAKENED_SPECIAL = /^(sv|td|ea)\.a[1-4]$/;
 
+/**
+ * BEAST04 (D, owner request): in Beast form the four awakened specials are not once-per-form; they reload like normal
+ * skills. Reload after the cast ends, in ticks, by slot 1..4 (4..7 s).
+ */
+export const BEAST_SPECIAL_REST_TICKS: readonly number[] = [240, 300, 360, 420];
+
+/** Cooldown (ticks from commit, as `beginCast` stores it) for a skill; Beast form gives once-per-form specials a reload. */
+export function skillCooldownTicks(def: { slot?: number | null; oncePerForm?: boolean; cooldown: number; startup: number; active: number; recovery: number }, beast: boolean): number {
+  if (!beast || !def.oncePerForm || !def.slot) return def.cooldown;
+  return def.startup + def.active + def.recovery + (BEAST_SPECIAL_REST_TICKS[def.slot - 1] ?? 300);
+}
+
 /** Damage (hundredths) a beast-form attacker deals with `moveId`. Pure; non-beast attackers use the raw value. */
 export function beastFormDamage100(moveId: string, damage100: number): number {
   if (AWAKENED_SPECIAL.test(moveId)) return damage100 * BEAST_FORM.specialMultiplier;

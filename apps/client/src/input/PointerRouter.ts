@@ -45,6 +45,10 @@ export class PointerRouter {
   yaw = 0;
   pitch = 0;
   facingLock = false;
+  /** CAM01: camera swings back behind the character when not being dragged. */
+  cameraFollow = true;
+  /** True while a pointer is dragging the camera. */
+  get lookActive(): boolean { for (const o of this.owners.values()) if (o === "camera") return true; return false; }
   autoRun = false;
   quickUse = true;
   private readonly deferredSkills = new Set<number>();

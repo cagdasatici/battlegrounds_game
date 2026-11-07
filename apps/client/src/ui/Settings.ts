@@ -31,8 +31,9 @@ const SLIDERS: readonly { k: "sensitivity" | "cameraDistance" | "effectsVolume" 
   { k: "musicVolume", label: "Music volume", step: 0.05 },
   { k: "flashLevel", label: "Flash level", step: 0.05 },
 ];
-const TOGGLES: readonly { k: "facingLock" | "quickUse" | "autoRun" | "reducedMotion" | "damageNumbers"; label: string }[] = [
+const TOGGLES: readonly { k: "facingLock" | "cameraFollow" | "quickUse" | "autoRun" | "reducedMotion" | "damageNumbers"; label: string }[] = [
   { k: "facingLock", label: "Camera facing lock" },
+  { k: "cameraFollow", label: "Camera follows behind" },
   { k: "quickUse", label: "Quick Use" },
   { k: "autoRun", label: "Auto run" },
   { k: "reducedMotion", label: "Reduced motion" },
@@ -198,7 +199,7 @@ export class SettingsPanel {
       this.el("input", "", { type: "range", min: String(lo), max: String(hi), step: String(s.step), "data-k": s.k, "aria-label": s.label }, row);
     }
     for (const t of TOGGLES) {
-      const parent = t.k === "reducedMotion" ? visuals : t.k === "facingLock" || t.k === "autoRun" ? camera : controls;
+      const parent = t.k === "reducedMotion" ? visuals : t.k === "facingLock" || t.k === "cameraFollow" || t.k === "autoRun" ? camera : controls;
       this.el("button", t.label, { "data-toggle": t.k, "aria-pressed": "false", class: "eb-setting-toggle" }, parent);
     }
     this.el("button", "Left hand layout", { "data-toggle": "hand", "aria-pressed": "false", class: "eb-setting-toggle" }, controls);

@@ -16,7 +16,8 @@ import type { IntentSampler } from "../input/IntentSampler.js";
 import type { PointerRouter } from "../input/PointerRouter.js";
 import { Prediction, type Collide, type Correction, type OwnerLoco, type OwnerSnapshot } from "../net/Prediction.js";
 import type { ClockSync } from "../net/ClockSync.js";
-import type { CameraRig, Framed } from "../scene/CameraRig.js";
+import { followYaw, type CameraRig, type Framed } from "../scene/CameraRig.js";
+import { BEAST_FORM } from "@eb/shared/config/beast";
 import type { LoopProjectile } from "../scene/ProjectileViews.js";
 import type { LoopUrn } from "../scene/UrnViews.js";
 import type { LoopBeast } from "../scene/BeastView.js";
@@ -107,6 +108,7 @@ export class GameLoop {
   private lastAck = 0;
   private lastLife = -1;
   private lastAction: Action = "Idle";
+  private localBeast = false;
   private gateOpen = true;
   /** Latest authoritative local pose, used to present the local fighter while prediction is suspended. */
   private authPose: { x: number; y: number; z: number; yaw: number } | null = null;
@@ -256,6 +258,7 @@ export class GameLoop {
       view?.setAction(p.action, p.moveId ?? "", Math.max(0, (p.actionEndTick ?? 0) - (p.actionStartTick ?? 0)), Math.max(0, st.serverTick - (p.actionStartTick ?? st.serverTick)));
       view?.setAwakened(p.form === "Awakened");
       view?.setBeast(p.beast === true);
+      if (Number(key) === this.localEntityId) this.localBeast = p.beast === true;
     }
     for (const key of [...this.known.keys()]) {
       if (seen.has(key)) continue;
@@ -372,6 +375,9 @@ export class GameLoop {
     const r = this.d.router;
     const opponent = this.lastAction === "Dead" ? null : this.nearestOpponent(mesh);
     this.framing = { local: { x: mesh.x, y: mesh.y, z: mesh.z }, opponent };
+    // CAM01: with no camera drag, swing back behind the character (default on; Settings toggle).
+    if (r.cameraFollow && !r.facingLock && !r.lookActive && this.lastAction !== "Dead") r.yaw = followYaw(r.yaw, yaw, dtSec, r.moveX, r.moveZ);
+    this.d.camera.setSubjectScale(this.localBeast ? BEAST_FORM.scale : 1, dtSec); // BEAST05: frame the 5.5x body like a normal fighter
     this.d.scene.setCamera(this.d.camera.update(mesh, r.yaw, r.pitch, dtSec, opponent));
   }
 

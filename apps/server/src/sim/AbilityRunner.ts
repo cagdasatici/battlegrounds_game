@@ -1,4 +1,5 @@
 import { COMBAT } from "@eb/shared/config/combat";
+import { skillCooldownTicks } from "@eb/shared/config/beast";
 import type { AbilityDef, AbilityRegistry, Shape, TargetState } from "@eb/shared/abilities";
 import type { RejectReason } from "@eb/shared/protocol";
 import { forwardOf, rotateToward } from "@eb/shared/math";
@@ -442,11 +443,11 @@ export class AbilityRunner {
     if (!pose) return { kind: "rejected", reason: "STATE" };
     if (def.input !== "context" && def.form !== f.form) return { kind: "rejected", reason: "FORM" };
     const bit = def.slot ? 1 << (def.slot - 1) : 0;
-    if (def.oncePerForm && (f.awakenedUsedMask & bit) !== 0) return { kind: "rejected", reason: "FORM" };
+    if (def.oncePerForm && !f.beast && (f.awakenedUsedMask & bit) !== 0) return { kind: "rejected", reason: "FORM" };
     if (handler.requiresGrounded && !pose.grounded) return { kind: "rejected", reason: "STATE" };
     const extra = handler.canStart?.({ tick, fighter: f, def, pose, host: this.host });
     if (extra) return { kind: "rejected", reason: extra };
-    const r = beginCast(f, tick, def.id, def.startup, def.active, def.recovery, def.cooldown);
+    const r = beginCast(f, tick, def.id, def.startup, def.active, def.recovery, skillCooldownTicks(def, f.beast)); // BEAST04: beast specials reload
     if (!r.ok) return { kind: "rejected", reason: r.reason };
     const cc = f.cast!;
     const cast: ActiveCast = {
@@ -456,7 +457,7 @@ export class AbilityRunner {
     };
     this.endCast(f.entityId, "cancelled"); // defensive: a stale cast can never survive a new commit
     this.casts.set(f.entityId, cast);
-    if (def.oncePerForm) f.awakenedUsedMask |= bit;
+    if (def.oncePerForm && !f.beast) f.awakenedUsedMask |= bit;
     // consumesForm: the awakening is spent at commit; the current ability still resolves from `cast`.
     if (def.consumesForm && !f.beast) { f.form = "Base"; f.formEndTick = 0; } // Beast Awaken keeps the form for its full 10 s
     handler.onCommit?.({ tick, fighter: f, cast, host: this.host, runner: this });

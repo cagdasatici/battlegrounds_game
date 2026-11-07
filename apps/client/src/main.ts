@@ -38,7 +38,7 @@ import { Hud, readSafeRect } from "./ui/Hud.js";
 import { Nameplates, plateLayout } from "./ui/Nameplates.js";
 import { DamageCues, cueAngle } from "./ui/DamageCues.js";
 import { BeastBar } from "./ui/BeastBar.js";
-import { BEAST_ENTITY_ID } from "@eb/shared/config/beast";
+import { BEAST_ENTITY_ID, skillCooldownTicks } from "@eb/shared/config/beast";
 import type { LoopBeast } from "./scene/BeastView.js";
 import { RoundResults, objectiveText } from "./ui/RoundResults.js";
 import {
@@ -601,6 +601,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     let lastLayout = currentLayout();
     router.setLayout(lastLayout);
     router.facingLock = settings.get().facingLock;
+    router.cameraFollow = settings.get().cameraFollow;
     router.autoRun = settings.get().autoRun; router.quickUse = settings.get().quickUse;
     router.sensitivity = settings.get().sensitivity;
     // Repaint now rather than on the next HUD interval tick, so the visible HUD never lags the hit-test layout.
@@ -634,6 +635,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       const nextSettings = settings.get();
       const layoutChanged = nextSettings.handedness !== lastSettings.handedness || JSON.stringify(nextSettings.layouts) !== JSON.stringify(lastSettings.layouts);
       if (nextSettings.facingLock !== lastSettings.facingLock) router.facingLock = nextSettings.facingLock;
+      if (nextSettings.cameraFollow !== lastSettings.cameraFollow) router.cameraFollow = nextSettings.cameraFollow;
       router.autoRun = nextSettings.autoRun; router.quickUse = nextSettings.quickUse;
       router.sensitivity = settings.get().sensitivity;
       cam.setDistance(settings.get().cameraDistance);
@@ -751,11 +753,11 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
         blocked: blockNotice.active(performance.now()),
         cooldowns: [0, 1, 2, 3].map((i) => cooldownLabel(me?.cooldownEndTicks?.[i] ?? 0, now)),
         skillStates: skillDefinitions(me?.kitId ?? opts.kitId, me?.form ?? "Base").map((d, i) => skillAvailability(d, {
-          usedMask: me?.awakenedUsedMask ?? 0, cooldownEndTick: me?.cooldownEndTicks?.[i] ?? 0, activeMove: me?.moveId ?? "", chargeStartTick: me?.owner?.chargeStartTick ?? 0,
+          usedMask: (me as { beast?: boolean } | undefined)?.beast ? 0 : me?.awakenedUsedMask ?? 0, cooldownEndTick: me?.cooldownEndTicks?.[i] ?? 0, activeMove: me?.moveId ?? "", chargeStartTick: me?.owner?.chargeStartTick ?? 0,
         }, now)),
         skillKeys: skillDefinitions(me?.kitId ?? opts.kitId, me?.form ?? "Base").map((d) => d.id),
         dash: me ? dashStatus(me.action, me.actionStartTick ?? 0, me.owner?.evasiveEndTick ?? 0, now) : null,
-        cooldownFracs: skillDefinitions(me?.kitId ?? opts.kitId, me?.form ?? "Base").map((d, i) => cooldownFraction(me?.cooldownEndTicks?.[i] ?? 0, now, d.cooldown)),
+        cooldownFracs: skillDefinitions(me?.kitId ?? opts.kitId, me?.form ?? "Base").map((d, i) => cooldownFraction(me?.cooldownEndTicks?.[i] ?? 0, now, skillCooldownTicks(d, (me as { beast?: boolean } | undefined)?.beast === true))),
         reducedMotion: settings.get().reducedMotion,
         formText: me ? ((me as { beast?: boolean }).beast ? "Beast · until HP runs out" : formTimerText(me.form, me.formEndTick, now, me.kitId)) : "",
         stillpointText: stillpointText(me?.owner?.lethalCounterRemaining ?? 0),
@@ -785,7 +787,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     if (opts.debug) {
       (window as unknown as { __eb: unknown }).__eb = {
         /** Test-only: sets the player-controlled camera yaw so both fighters can face each other. */
-        setCameraYaw: (y: number) => { router.yaw = y; },
+        setCameraYaw: (y: number) => { router.yaw = y; router.cameraFollow = false; }, // debug: an explicitly placed camera stays put
         /** Test-only: saturates the pooled particle buffer so telegraph retention can be checked. */
         floodFx: (n: number) => { for (let i = 0; i < n; i++) g.effects.spawn({ x: 0, y: 3, z: 0, vx: 0, vy: 0, vz: 0, life: 30, size: 0.1, color: 0xffffff, essential: true }); },
         snapshot: () => ({

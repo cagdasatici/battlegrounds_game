@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import type { KitId } from "../../packages/shared/src/protocol.js";
 import { buildAbilityRegistry, defineAbility, type AbilitySpec } from "../../packages/shared/src/abilities.js";
 import { meterCap100, meterRequired100, meterStackFraction } from "../../packages/shared/src/awakening.js";
-import { BEAST_FORM, beastFormDamage100, beastFormTaken100 } from "../../packages/shared/src/config/beast.js";
+import { BEAST_FORM, beastFormDamage100, beastFormTaken100 , skillCooldownTicks, BEAST_SPECIAL_REST_TICKS } from "../../packages/shared/src/config/beast.js";
 import { COMBAT } from "../../packages/shared/src/config/combat.js";
 import { m1Overlaps } from "../../apps/server/src/sim/M1.js";
 import { CombatSystem } from "../../apps/server/src/sim/Combat.js";
@@ -195,5 +195,31 @@ describe("beast form combat numbers", () => {
     const far = { x: 0, y: 0.9, z: -4, facingYaw: 0, grounded: true };
     expect(m1Overlaps(a, far, null)).toBe(false);
     expect(m1Overlaps({ ...a, reachScale: BEAST_FORM.reachScale }, far, null)).toBe(true);
+  });
+});
+
+describe("BEAST04 beast specials reload", () => {
+  test("once-per-form specials get a cast-plus-rest cooldown only in beast form", () => {
+    const def = { slot: 2, oncePerForm: true, cooldown: 0, startup: 90, active: 6, recovery: 45 };
+    expect(skillCooldownTicks(def, false)).toBe(0);
+    expect(skillCooldownTicks(def, true)).toBe(90 + 6 + 45 + BEAST_SPECIAL_REST_TICKS[1]!);
+    expect(skillCooldownTicks({ ...def, oncePerForm: false, cooldown: 120 }, true)).toBe(120);
+  });
+
+  test("a beast commits the same awakened special again after its reload, never marking it Used", () => {
+    const r = rig();
+    const f = r.cs.get(1)!;
+    f.meter100 = meterCap100("sv");
+    r.awaken();
+    const run = r.runner as unknown as { commit(f: unknown, tick: number, def: unknown): { kind: string; reason?: string } };
+    const reg = (r.runner as unknown as { registry: { slotted(k: string, form: string, s: number): { startup: number; active: number; recovery: number } } }).registry;
+    const def = reg.slotted("sv", "Awakened", 1);
+    const t1 = T0 + 200;
+    expect(run.commit(f, t1, def).kind).toBe("started");
+    expect(f.awakenedUsedMask).toBe(0);
+    expect(f.form).toBe("Awakened");
+    const cd = skillCooldownTicks({ ...def, slot: 1, oncePerForm: true, cooldown: 0 }, true);
+    for (let t = t1; t < t1 + cd + 2; t++) r.step(t);
+    expect(run.commit(f, t1 + cd + 2, def).kind).toBe("started");
   });
 });

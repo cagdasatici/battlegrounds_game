@@ -30,6 +30,8 @@ export interface Settings {
   /** Camera distance in metres (spec section 9: 3.5..10). */
   cameraDistance: number;
   facingLock: boolean;
+  /** CAM01 (owner request, default on): with no camera drag, the camera swings back behind the character's facing. */
+  cameraFollow: boolean;
   quickUse: boolean;
   autoRun: boolean;
   handedness: Handedness;
@@ -55,7 +57,7 @@ export const defaultProfile = (): LayoutProfile => ({ opacity: 0.9, controls: {}
 
 export function defaultSettings(): Settings {
   return {
-    v: 2, sensitivity: 1, cameraDistance: 6.5, facingLock: false, quickUse: true, autoRun: false, handedness: "right",
+    v: 2, sensitivity: 1, cameraDistance: 6.5, facingLock: false, cameraFollow: true, quickUse: true, autoRun: false, handedness: "right",
     effectsVolume: 0.8, musicVolume: 0.5, quality: "medium", reducedMotion: false, flashLevel: 0.3,
     damageNumbers: true, combatText: "all",
     layouts: { wide: defaultProfile(), compact: defaultProfile() },
@@ -91,7 +93,9 @@ export function parseSettings(x: unknown): Settings | null {
   if (!isObj(x)) return null;
   const keys = ["v", "sensitivity", "cameraDistance", "facingLock", "quickUse", "autoRun", "handedness", "effectsVolume",
     "musicVolume", "quality", "reducedMotion", "flashLevel", "damageNumbers", "combatText", "layouts"];
-  if (!onlyKeys(x, keys) || keys.some((k) => !(k in x))) return null;
+  // CAM01: `cameraFollow` is optional so saves from before it existed keep their other settings (missing = on).
+  if (!onlyKeys(x, [...keys, "cameraFollow"]) || keys.some((k) => !(k in x))) return null;
+  if ("cameraFollow" in x && typeof x["cameraFollow"] !== "boolean") return null;
   if (x["v"] !== SETTINGS_VERSION) return null;
   if (!num(x["sensitivity"], RANGES.sensitivity) || !num(x["cameraDistance"], RANGES.cameraDistance)) return null;
   if (!num(x["effectsVolume"], RANGES.effectsVolume) || !num(x["musicVolume"], RANGES.musicVolume) || !num(x["flashLevel"], RANGES.flashLevel)) return null;
@@ -104,7 +108,7 @@ export function parseSettings(x: unknown): Settings | null {
   const wide = parseProfile(l["wide"]), compact = parseProfile(l["compact"]);
   if (!wide || !compact) return null;
   return {
-    v: 2, sensitivity: x["sensitivity"], cameraDistance: x["cameraDistance"], facingLock: x["facingLock"] as boolean,
+    v: 2, sensitivity: x["sensitivity"], cameraDistance: x["cameraDistance"], facingLock: x["facingLock"] as boolean, cameraFollow: x["cameraFollow"] !== false,
     quickUse: x["quickUse"] as boolean, autoRun: x["autoRun"] as boolean, handedness: x["handedness"],
     effectsVolume: x["effectsVolume"], musicVolume: x["musicVolume"], quality: x["quality"],
     reducedMotion: x["reducedMotion"] as boolean, flashLevel: x["flashLevel"],
