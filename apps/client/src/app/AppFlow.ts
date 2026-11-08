@@ -324,6 +324,10 @@ export class AppFlow {
         try { await this.deps.sparring.end(); } catch { /* retain ownership so a retry can recover */ }
         try { await this.deps.leave(); } catch { /* transport may already be closed */ }
       }
+      if (revision === this.revision) {
+        this.mode = "play";
+        if (this.state.screen !== "welcome") this.set("welcome");
+      }
       throw e;
     } finally { this.busy = false; if (revision === this.revision) this.setBusy(null); }
   }

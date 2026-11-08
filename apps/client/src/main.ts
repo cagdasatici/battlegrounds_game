@@ -14,6 +14,7 @@ import {
 import islandsUrl from "../../../assets/maps/islands.v1.json?url";
 import { mountRoomList } from "./ui/RoomList.js";
 import { mountSparringSetup } from "./ui/SparringSetup.js";
+import { FighterPreview } from "./ui/FighterPreview.js";
 import { swRegistration } from "./app/registerSw.js";
 import { UpdateWatcher, browserUpdateDeps } from "./app/UpdateWatcher.js";
 import { AppFlow } from "./app/AppFlow.js";
@@ -33,7 +34,7 @@ import { PointerRouter, attachPointerRouter } from "./input/PointerRouter.js";
 import { ClockSync } from "./net/ClockSync.js";
 import { RoomClient } from "./net/RoomClient.js";
 import { hasWebGL2 } from "./scene/webgl.js";
-import type { GameScene, Quality } from "./scene/GameScene.js";
+import type { GameScene, PreviewRect, Quality } from "./scene/GameScene.js";
 import { Hud, readSafeRect } from "./ui/Hud.js";
 import { Nameplates, plateLayout } from "./ui/Nameplates.js";
 import { DamageCues, cueAngle } from "./ui/DamageCues.js";
@@ -168,6 +169,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     settings: () => { openSettings(); },
   }, { kit: opts.kitId, name: opts.displayName });
   cleanups.push(() => lobby.dispose());
+  const sparPreview = new FighterPreview(document);
 
   // HELP2: the guide is a local overlay with no network or stored state; Try practice reuses the normal Practice flow.
   let closeGuideView: (() => void) | null = null;
@@ -195,7 +197,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   const closeOtherOverlays = (keep: "settings" | "moves" | "sparring"): void => {
     if (keep !== "moves") closeMoves();
     if (keep !== "settings") settingsRef?.panel.close();
-    if (keep !== "sparring") sparControls.style.display = "none";
+    if (keep !== "sparring") hideSparring();
     closeMatchPanels();
   };
   const openMoves = (): void => {
@@ -220,7 +222,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     qualityStatus: () => gs ? `Rendering: ${gs.qualityLevel}${softwareGl ? " · software rendering limits this device to Low" : " · adapts to keep combat smooth"}` : "Your choice applies when you enter the arena.",
   };
   // GR12: the lobby preview holds still under the OS preference or the saved reduced-motion setting of the current profile.
-  lobby.preview.reducedMotion = () => {
+  lobby.preview.reducedMotion = sparPreview.reducedMotion = () => {
     let os = false;
     try { os = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { os = false; }
     return os || activeSettings().get().reducedMotion === true;
@@ -319,10 +321,12 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       cleanups.push(() => { graphics?.dispose(); graphics = null; });
       map = m; groveMap = m;
       lobby.preview.attach(scene);
+      sparPreview.attach(scene);
       // GR12: the lobby fighter preview is drawn by this same renderer from this same loop (no second renderer or scheduler).
       // The lobby screen holds a joined room (matchCleanups is not empty there), so it is chosen by flow screen, not by cleanups.
       const idle = (t: number): void => {
-        if (flowRef.current?.state.screen === "lobby") lobby.preview.tick(t);
+        if (canvasHost.parentElement === sparControls) sparPreview.tick(t, positionSparPreview);
+        else if (flowRef.current?.state.screen === "lobby") lobby.preview.tick(t);
         else if (matchCleanups.length === 0) gs?.render();
         rafId = requestAnimationFrame(idle);
       };
@@ -338,7 +342,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
         // Cookie-only adult reload is authenticated by the CSRF endpoint when creating/joining.
         else authenticated = true;
       }
-      // Open join: the server session carries the display name, so a changed Arel/Nora pick needs a fresh session.
+      // Open join: the server session carries the display name, so a changed preset needs a fresh session.
       if (!sparRoom && sparToken === null && !opts.invite && openName !== lobby.displayName) {
         openAvailable = await rc.openLogin(lobby.displayName);
         if (openAvailable) openName = lobby.displayName;
@@ -397,13 +401,29 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     ({ updateVisible: updater.state.visible, seated: players().size, capacity: MAX_CLIENTS, connection: room ? "online" : "offline", mode: flow.mode === "practice" ? "practice" : "play", hostTools: sparToken === null && !sparRoom });
   let setupPending = false;
   const sparControls = document.createElement("div");
-  sparControls.className = "eb-overlay";
+  sparControls.className = "eb-overlay eb-sparring-overlay";
   sparControls.style.cssText = `position:fixed;inset:0;z-index:${LAYER.modalBackdrop};overflow:auto;background:#0b1118;display:none;padding:16px;box-sizing:border-box`;
   const closeSetup = document.createElement("button");
   closeSetup.className = "eb-overlay-close";
   closeSetup.textContent = "Back to game";
   closeSetup.style.cssText = "min-height:48px;font:inherit";
-  closeSetup.onclick = () => { sparControls.style.display = "none"; lobby.releasePressed(); syncGate(); };
+  const positionSparPreview = ({ left, top, width, height }: PreviewRect): boolean => {
+    const right = window.innerWidth - left - width, bottom = window.innerHeight - top - height;
+    const visible = left + width > 0 && top + height > 0 && right + width > 0 && bottom + height > 0;
+    const clip = visible ? `inset(${Math.max(0, top)}px ${Math.max(0, right)}px ${Math.max(0, bottom)}px ${Math.max(0, left)}px round 18px)` : "inset(50%)";
+    if (canvasHost.style.clipPath !== clip) canvasHost.style.clipPath = clip;
+    return visible;
+  };
+  const hideSparring = (): void => {
+    sparControls.style.display = "none";
+    sparPreview.hide();
+    if (canvasHost.parentElement === sparControls) {
+      canvasHost.classList.remove("eb-sparring-preview-canvas");
+      canvasHost.style.clipPath = "";
+      app.prepend(canvasHost);
+    }
+  };
+  closeSetup.onclick = () => { hideSparring(); lobby.releasePressed(); syncGate(); };
   sparControls.append(closeSetup);
   const sparButton = document.createElement("button");
   sparButton.className = "eb-launcher";
@@ -411,7 +431,13 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   sparButton.style.cssText = `position:fixed;right:16px;top:16px;z-index:${LAYER.modalContent};min-height:48px;font:600 17px Inter,system-ui,sans-serif`;
   const openBots = (): void => {
     if (setupPending || flowRef.current?.state.busy) return;
-    if (!hostRoom) { disposeSetup(); disposeSetup = mountSparringSetup(sparControls, setupActions); }
+    if (!hostRoom) {
+      disposeSetup?.();
+      disposeSetup = mountSparringSetup(sparControls, setupActions, sparPreview);
+      canvasHost.classList.add("eb-sparring-preview-canvas");
+      canvasHost.style.clipPath = "inset(50%)";
+      sparControls.prepend(canvasHost);
+    } else if (!disposeSetup) disposeSetup = mountSparringSetup(sparControls, setupActions, undefined, true);
     flowRef.current?.warm(); // FB05: load renderer, physics and map while the person fills in the setup
     closeOtherOverlays("sparring");
     sparControls.style.display = "block";
@@ -452,20 +478,26 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
   const setupActions: import("@eb/shared/sparring").SparringSetupActions = {
     start: async (config, kit, listed) => {
       setupPending = true;
+      closeSetup.disabled = true;
       try {
         await flow.hostSparring(config, kit, listed === true);
-        sparControls.style.display = "none";
+        if (flow.state.screen !== "match") throw new Error("Match did not start");
+        hideSparring();
         syncGate();
-      } finally { setupPending = false; if (flowRef.current?.state.screen === "welcome") lobby.releasePressed(); }
+      } finally {
+        closeSetup.disabled = false;
+        setupPending = false;
+        if (flow.state.screen === "welcome") lobby.releasePressed();
+      }
     },
     copyLink: async () => {
       if (!hostRoom) throw new Error("No hosted match");
       return rc.copySparringLink(hostRoom, location.origin);
     },
-    end: async () => { await flow.back(); sparControls.style.display = "none"; syncGate(); },
+    end: async () => { await flow.back(); hideSparring(); syncGate(); },
   };
-  let disposeSetup = mountSparringSetup(sparControls, setupActions);
-  cleanups.push(() => { disposeSetup(); sparControls.remove(); sparButton.remove(); sparToken = null; });
+  let disposeSetup: (() => void) | undefined;
+  cleanups.push(() => { disposeSetup?.(); sparPreview.dispose(); sparControls.remove(); sparButton.remove(); sparToken = null; });
   let lobbyKey = "";
   const paintLobby = (force = false): void => {
     const v = lobbyView();
@@ -527,7 +559,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
         // Escape closes the top overlay first; only with none open does it toggle the pause menu.
         if (disposeMoves) closeMoves();
         else if (settingsRef?.panel.isVisible) settingsRef.panel.close();
-        else if (sparControls.style.display !== "none") sparControls.style.display = "none";
+        else if (sparControls.style.display !== "none") hideSparring();
         else if (kitMenu) kitMenu = false;
         else menuOpen = !menuOpen;
         syncGate();
@@ -813,6 +845,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
         floodFx: (n: number) => { for (let i = 0; i < n; i++) g.effects.spawn({ x: 0, y: 3, z: 0, vx: 0, vy: 0, vz: 0, life: 30, size: 0.1, color: 0xffffff, essential: true }); },
         snapshot: () => ({
           localEntityId: loop.localEntityId,
+          mapId: g.mapId,
           serverTick: (r.state as { serverTick?: number }).serverTick ?? 0,
           projectiles: g.projectiles.snapshot(),
           urns: g.urns.snapshot(),

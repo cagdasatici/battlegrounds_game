@@ -122,7 +122,7 @@ test("QC01: opponent head and a shoulder stay visible in close combat at centre,
     await host.page.goto(`${base}/?debug=1&name=Arel#invite=${invite}`);
     await button(host.page, "Fight bots").click();
     await button(host.page, "Remove Bot 1").click(); // a bot would join the fight and spoil the two-fighter fixture
-    await host.page.getByLabel("Your fighter").selectOption("td");
+    await host.page.getByRole("button", { name: "Tide Duelist", exact: true }).click();
     const created = host.page.waitForResponse((r) => new URL(r.url()).pathname === "/api/sparring" && r.request().method() === "POST");
     await button(host.page, "Start match").click();
     const code = (await (await created).json() as { roomCode: string }).roomCode;

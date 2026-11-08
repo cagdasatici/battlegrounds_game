@@ -92,6 +92,15 @@ describe("BOT4C transport and journey", () => {
     await flow.hostSparring({ bots: [] }, "sv");
     expect(flow.state.screen).toBe("match");
   });
+  test("Play still joins the ordinary arena after host startup fails", async () => {
+    const join = vi.fn(async (mode: string) => { if (mode === "sparring") throw new ClientError("SERVER_OFFLINE", true); });
+    const { flow } = flowFixture({ join });
+    await flow.start();
+    await expect(flow.hostSparring({ bots: [] }, "sv")).rejects.toThrow("SERVER_OFFLINE");
+    await flow.play();
+    expect(join.mock.calls).toEqual([["sparring"], ["play", undefined]]);
+    expect(flow.state.screen).toBe("lobby");
+  });
   test("fresh guest uses redemption/login, chosen Ready, leave; reload recovers before joining", async () => {
     const end = vi.fn(async () => {});
     const { flow, log } = flowFixture({ hasInvite: false, sparring: {

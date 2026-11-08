@@ -64,7 +64,7 @@ async function host(bots: Difficulty[]) {
   if (bots.length === 0) await button(h.page, "Remove Bot 1").click();
   for (let i = 1; i < bots.length; i++) await button(h.page, "Add opponent").click();
   for (let i = 0; i < bots.length; i++) await h.page.getByLabel(`Bot ${i + 1} difficulty`).selectOption(bots[i]!);
-  await h.page.getByLabel("Your fighter").selectOption("td");
+  await h.page.getByRole("button", { name: "Tide Duelist", exact: true }).click();
   const created = h.page.waitForResponse(r => new URL(r.url()).pathname === "/api/sparring" && r.request().method() === "POST");
   await button(h.page, "Start match").click();
   const code = (await (await created).json() as { roomCode: string }).roomCode;

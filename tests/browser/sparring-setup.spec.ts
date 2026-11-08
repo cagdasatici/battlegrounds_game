@@ -58,12 +58,12 @@ test("default Medium, roster bounds, all difficulties, fighter and frozen setup"
     await expect(b(p, "Add opponent")).toBeDisabled();
     await p.getByLabel("Bot 1 difficulty").selectOption("easy");
     await p.getByLabel("Bot 3 difficulty").selectOption("hard");
-    await p.getByLabel("Your fighter").selectOption("td");
+    await p.getByRole("button", { name: "Tide Duelist", exact: true }).click();
     mkdirSync(evidenceDir(root), { recursive: true });
     await p.screenshot({ path: path.join(evidenceDir(root), "BOT3-setup.png") });
     await start(p);
     expect(await calls(p)).toEqual([{ kind: "start", config: { bots: ["easy", "medium", "hard"] }, kitId: "td" }]);
-    await expect(p.getByLabel("Your fighter")).toBeDisabled();
+    await expect(b(p, "Tide Duelist")).toBeHidden();
     await expect(b(p, "Copy guest link")).toBeDisabled();
     await b(p, "End match").click(); await expect(b(p, "Start match")).toBeEnabled();
     await b(p, "Remove Bot 2").click(); await expect(p.getByLabel("Bot 2 difficulty")).toHaveValue("hard");
@@ -91,7 +91,7 @@ test("pending start suppresses duplicates, failure permits retry, end failure re
     await set(p, { pending: "", fail: "" }); await start(p);
     await set(p, { fail: "end" }); await b(p, "End match").click();
     await expect(p.getByRole("status")).toContainText("Could not end");
-    await expect(b(p, "End match")).toBeEnabled(); await expect(b(p, "Start match")).toBeDisabled();
+    await expect(b(p, "End match")).toBeEnabled(); await expect(b(p, "Start match")).toBeHidden();
     await set(p, { fail: "", pending: "end" }); await b(p, "End match").click();
     await expect(b(p, "Copy guest link")).toBeDisabled();
     await b(p, "End match").evaluate(e => (e as HTMLButtonElement).click());

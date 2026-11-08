@@ -14,6 +14,7 @@ This index lists the rules in force today and which document owns each. It does 
 | Visual budget (300,000 triangles) | `docs/decisions/0048-triangle-budget-300k.md`, `0052-visual-overhaul.md` | see decisions | see decisions |
 | Optional first-to-N rounds | `docs/decisions/0054-optional-first-to-n-rounds.md` | see decision | see decision |
 | Compact HUD and portrait input gate | `docs/decisions/rp-RP01.md` | `apps/client/src/ui/Hud.ts`, `apps/client/src/ui/BeastBar.ts`, `apps/client/src/main.ts` | `docs/test-results/RP01.md` |
+| Host setup and open-join presets | `docs/decisions/hs-HS01.md` | `apps/client/src/ui/SparringSetup.ts`, `apps/client/src/main.ts`, `packages/shared/src/protocol.ts` | `docs/test-results/HS01.md` |
 
 ## GR decisions
 

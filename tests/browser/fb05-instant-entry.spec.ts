@@ -109,7 +109,7 @@ async function measure(page: Page, route: "practice" | "bots"): Promise<Timing> 
     await page.waitForSelector(".eb-fighter-cards button", { state: "visible", timeout: 30_000 });
     await page.locator("[data-act=ready]").click();
   } else {
-    await page.getByLabel("Your fighter").selectOption("td");
+    await page.getByRole("button", { name: "Tide Duelist", exact: true }).click();
     await page.getByRole("button", { name: "Start match" }).click();
   }
   await page.waitForFunction(() => (window as unknown as { __fb05: { match: number | null } }).__fb05.match !== null, undefined, { timeout: 60_000 });

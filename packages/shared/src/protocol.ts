@@ -177,8 +177,8 @@ export const SessionRequestSchema = z.strictObject({
   invite: z.string().min(8).max(128),
   displayName: DisplayNameSchema,
 });
-/** Open join: only the two local profiles may be chosen. */
-export const OPEN_PLAYER_NAMES = ["Arel", "Nora"] as const;
+/** Open join and the Welcome screen use the same local display-name presets. */
+export const OPEN_PLAYER_NAMES = ["Arel", "Nora", "Cagdas"] as const;
 export const OpenSessionRequestSchema = z.strictObject({ displayName: z.enum(OPEN_PLAYER_NAMES) });
 export const JoinTicketRequestSchema = z.strictObject({
   roomCode: z.string().min(1).max(64),

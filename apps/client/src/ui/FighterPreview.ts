@@ -41,22 +41,23 @@ export class FighterPreview {
 
   /** Leaving the lobby or entering a match: release the preview fighter. */
   hide(): void {
+    if (this.applied !== null) this.target?.setPreviewKit(null);
     this.kit = null; this.applied = null;
     delete this.el.dataset["modelKit"];
-    this.target?.setPreviewKit(null);
+    delete this.el.dataset["animating"];
   }
 
   /** One frame. Returns true when the preview drew (the caller then skips the arena draw). */
-  tick(nowMs: number): boolean {
+  tick(nowMs: number, showRect?: (rect: PreviewRect) => boolean): boolean {
     const t = this.target, kit = this.kit;
     if (!t || !kit || !this.el.isConnected) { this.lastMs = 0; return false; }
+    const r = this.el.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0 || showRect?.(r) === false) { this.lastMs = 0; return false; }
     if (this.applied !== kit) { t.setPreviewKit(kit); this.applied = kit; this.el.dataset["modelKit"] = kit; }
     const dt = this.lastMs ? Math.min(0.1, (nowMs - this.lastMs) / 1000) : 0;
     this.lastMs = nowMs;
     const animate = !this.reducedMotion();
     this.el.dataset["animating"] = String(animate);
-    const r = this.el.getBoundingClientRect();
-    if (r.width <= 0 || r.height <= 0) return false;
     t.renderPreview({ left: r.left, top: r.top, width: r.width, height: r.height }, dt, animate);
     return true;
   }

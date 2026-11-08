@@ -3,7 +3,7 @@
  * traces. One delegated click listener on the root, removed in dispose(). Display and intent only.
  */
 import "./experience.css";
-import { P0_KITS, type KitId } from "@eb/shared/protocol";
+import { OPEN_PLAYER_NAMES, P0_KITS, type KitId } from "@eb/shared/protocol";
 import { EA_DEFS, SV_DEFS, TD_DEFS } from "@eb/shared/config/kits/index";
 import { FighterPreview } from "./FighterPreview.js";
 import type { FlowBusy, FlowError, FlowState } from "../app/AppFlow.js";
@@ -161,7 +161,7 @@ export class Lobby {
       this.add("p", st.busy ? BUSY_TEXT[st.busy] : "Practice, bot sparring and private matches.", { "data-ui": "status", role: "status" });
       const names = this.doc.createElement("div");
       names.className = "eb-name-row";
-      for (const n of ["Arel", "Nora", "Cagdas"]) {
+      for (const n of OPEN_PLAYER_NAMES) {
         const b = this.doc.createElement("button");
         b.dataset["act"] = "name"; b.dataset["name"] = n; b.textContent = n;
         b.setAttribute("aria-pressed", String(n === this.name));

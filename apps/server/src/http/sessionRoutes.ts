@@ -131,7 +131,7 @@ export function registerSessionRoutes(app: HttpApp, svc: AuthServices, now: () =
   const authed = (req: IncomingMessage) =>
     svc.sessions.get(parseCookies(hdr(req, "cookie"))[COOKIE_NAME]);
 
-  // Open join (OPEN_JOIN=1): the player picks Arel or Nora and the server mints a session for this source address plus
+  // Open join (OPEN_JOIN=1): the player picks a preset and the server mints a session for this source address plus
   // browser cookie. Access control is the Cloudflare Access gate in front of the hostname, not an invitation.
   app.post("/api/open-session", async (req, res) => {
     if (!config.openJoin) return send(res, 404, { error: "NOT_FOUND" });

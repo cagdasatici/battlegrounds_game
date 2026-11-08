@@ -301,16 +301,19 @@ export class GameScene {
   renderPreview(rect: PreviewRect, dtSec: number, animate: boolean): void {
     const p = this.preview, r = this.renderer;
     if (!p || this.renderPaused || this.disposed || !r.setViewport || !r.setScissor || !r.setScissorTest) return;
-    if (animate) { p.pivot.rotation.y += dtSec * PREVIEW_TURN_RAD_PER_S; p.view.update(dtSec); }
     const w = this.win.innerWidth, h = this.win.innerHeight;
+    const left = Math.max(0, rect.left), top = Math.max(0, rect.top);
+    const right = Math.min(w, rect.left + rect.width), bottom = Math.min(h, rect.top + rect.height);
+    if (right <= left || bottom <= top) return;
+    if (animate) { p.pivot.rotation.y += dtSec * PREVIEW_TURN_RAD_PER_S; p.view.update(dtSec); }
     r.setScissorTest(false);
     r.setViewport(0, 0, w, h);
     r.setClearColor?.(PREVIEW_BG, 1);
     r.clear?.();
-    const x = Math.max(0, rect.left), width = Math.max(1, Math.min(rect.width, w - x));
-    const height = Math.max(1, rect.height), y = Math.max(0, h - rect.top - height);
-    p.camera.aspect = width / height; p.camera.updateProjectionMatrix();
-    r.setScissorTest(true); r.setScissor(x, y, width, height); r.setViewport(x, y, width, height);
+    p.camera.aspect = rect.width / rect.height; p.camera.updateProjectionMatrix();
+    r.setScissorTest(true);
+    r.setScissor(left, h - bottom, right - left, bottom - top);
+    r.setViewport(rect.left, h - rect.top - rect.height, rect.width, rect.height);
     r.render(p.scene, p.camera);
     r.setScissorTest(false); r.setViewport(0, 0, w, h);
     this.onFrameRendered?.();

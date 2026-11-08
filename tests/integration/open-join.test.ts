@@ -1,4 +1,4 @@
-// Open join: Arel and Nora get sessions without invitations and meet in the one shared room, with real clients.
+// Open join: all three presets get sessions without invitations and meet in the shared room, with real clients.
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { Client } from "@colyseus/sdk";
 import { RoomClient } from "../../apps/client/src/net/RoomClient.js";
@@ -10,17 +10,20 @@ beforeAll(async () => {
 });
 afterAll(async () => { await h.stop(); });
 
-test("Arel and Nora join the same room and each sees their own name", async () => {
-  const a = newClient(h), n = newClient(h);
+test("Arel, Nora and Cagdas join the same room and each sees their own name", async () => {
+  const a = newClient(h), n = newClient(h), c = newClient(h);
   expect(await a.openLogin("Arel")).toBe(true);
   expect(await n.openLogin("Nora")).toBe(true);
+  expect(await c.openLogin("Cagdas")).toBe(true);
   const ra = await a.join("r5");
   const rn = await n.join("r5");
-  await waitFor(() => players(ra).size === 2 && players(rn).size === 2, 3000, "both seated");
+  const rc = await c.join("r5");
+  await waitFor(() => [ra, rn, rc].every(r => players(r).size === 3), 3000, "all three seated");
   expect(ra.roomId).toBe(rn.roomId);
+  expect(ra.roomId).toBe(rc.roomId);
   const names = [...players(ra).values()].map((p) => p.displayName).sort();
-  expect(names).toEqual(["Arel", "Nora"]);
-  await a.leave(); await n.leave();
+  expect(names).toEqual(["Arel", "Cagdas", "Nora"]);
+  await a.leave(); await n.leave(); await c.leave();
 });
 
 test("picking Nora after Arel in the same browser replaces the session (name bug)", async () => {

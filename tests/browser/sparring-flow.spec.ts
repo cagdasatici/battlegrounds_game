@@ -21,7 +21,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const req = createRequire(path.join(root, "apps/client/package.json"));
 interface Dev { close(): Promise<void>; listen(): Promise<unknown> }
 interface Snap {
-  localEntityId: number | null; serverTick: number;
+  localEntityId: number | null; serverTick: number; mapId: string;
   players: { entityId: number; name: string; action: string; moveId: string; hp100: number; ready: boolean; kills: number; deaths: number; kitId: string }[];
 }
 let game: Server, svc: AuthServices, vite: Dev, browser: Browser, base: string;
@@ -50,6 +50,86 @@ test.afterAll(async () => { await browser?.close(); await vite?.close(); await g
 const snap = (p: Page): Promise<Snap> => p.evaluate(() => (window as unknown as { __eb: { snapshot(): Snap } }).__eb.snapshot());
 const button = (p: Page, name: string) => p.getByRole("button", { name, exact: true });
 const roomOf = (code: string): SparringRoom => matchMaker.getLocalRoomById(roomDirectory.get(code)!) as unknown as SparringRoom;
+
+test("HS01 opens Frostpeak team sparring as Cagdas with Tide Duelist", async () => {
+  const h = await open();
+  svc.config.openJoin = true;
+  try {
+    await h.page.goto(`${base}/?debug=1&name=Arel`);
+    await button(h.page, "Cagdas").click({ timeout: 10_000 });
+    await button(h.page, "Fight bots").click({ timeout: 10_000 });
+    await button(h.page, "Tide Duelist").click();
+    await button(h.page, "Frostpeak").click();
+    await h.page.getByRole("checkbox", { name: "Team play" }).check();
+    await expect(h.page.getByLabel("Bot 1 difficulty")).toBeHidden();
+    const preview = h.page.locator(".eb-sparring-stage [data-ui=fighter-preview]");
+    await expect(preview).toHaveAttribute("data-model-kit", "td", { timeout: 20_000 });
+    await expect(preview).toHaveAttribute("data-animating", "true");
+    await expect(h.page.locator("canvas")).toHaveCount(1);
+    await h.page.screenshot({ path: path.join(evidenceDir(root), "HS01-desktop-1024x768.png") });
+
+    await h.page.setViewportSize({ width: 390, height: 844 });
+    const panel = h.page.locator("[data-ui=sparring-setup]");
+    expect(await panel.evaluate(e => e.scrollWidth <= e.clientWidth)).toBe(true);
+    await expect(button(h.page, "Start match")).toBeInViewport();
+    await h.page.screenshot({ path: path.join(evidenceDir(root), "HS01-phone-390x844.png") });
+    const team = h.page.getByRole("checkbox", { name: "Team play" });
+    await team.uncheck();
+    await expect(h.page.getByLabel("Bot 1 difficulty")).toBeVisible();
+    await team.check();
+    const round = h.page.getByLabel("Round length");
+    await round.tap();
+    await round.selectOption("5");
+    await expect(round).toHaveValue("5");
+    await round.selectOption("0");
+    await h.page.screenshot({ path: path.join(evidenceDir(root), "HS01-phone-rules-390x844.png") });
+    await h.page.setViewportSize({ width: 1024, height: 768 });
+
+    const login = h.page.waitForResponse(r => new URL(r.url()).pathname === "/api/open-session" && r.request().method() === "POST");
+    const created = h.page.waitForResponse(r => new URL(r.url()).pathname === "/api/sparring" && r.request().method() === "POST");
+    await button(h.page, "Start match").click();
+    expect((await login).status()).toBe(201);
+    const response = await created;
+    expect(response.status()).toBe(201);
+    expect(response.request().postDataJSON()).toEqual({ bots: ["easy", "easy"], teamPlay: true, mapId: "frost" });
+    const { roomCode } = await response.json() as { roomCode: string };
+    await expect(h.page.locator("[data-control=health]")).toContainText("Cagdas", { timeout: 20_000 });
+    await expect(preview).not.toHaveAttribute("data-model-kit");
+    await expect(h.page.locator(".eb-sparring-preview-canvas")).toHaveCount(0);
+    expect(svc.sparring.describe(roomCode)).toMatchObject({ bots: ["easy", "easy"], teamPlay: true, mapId: "frost" });
+    await expect.poll(async () => (await snap(h.page)).players.filter(p => p.ready)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "Cagdas", kitId: "td" }),
+      expect.objectContaining({ name: "Bot 1" }),
+      expect.objectContaining({ name: "Bot 2" }),
+    ]));
+    expect((await snap(h.page)).mapId).toBe("frost");
+    expect(roomOf(roomCode).mapDef.id).toBe("frost");
+    await end(h.page);
+    expect(h.errors).toEqual([]);
+  } finally { svc.config.openJoin = false; await h.ctx.close(); }
+});
+
+test("HS01 reduced-motion preview releases the shared canvas on Back", async () => {
+  const h = await open();
+  try {
+    await h.page.emulateMedia({ reducedMotion: "reduce" });
+    const invite = svc.invites.create({ ttlMs: 120_000, maxUses: 1 }).token;
+    await h.page.goto(`${base}/?name=Arel#invite=${invite}`);
+    await button(h.page, "Fight bots").click();
+    const setupPreview = h.page.locator(".eb-sparring-stage [data-ui=fighter-preview]");
+    await expect(setupPreview).toHaveAttribute("data-model-kit", "sv", { timeout: 20_000 });
+    await expect(setupPreview).toHaveAttribute("data-animating", "false");
+    await button(h.page, "Back to game").click();
+    await expect(setupPreview).not.toHaveAttribute("data-model-kit");
+    await expect(h.page.locator(".eb-sparring-preview-canvas")).toHaveCount(0);
+    await button(h.page, "Play with friends").click();
+    const lobbyPreview = h.page.locator(".eb-screen [data-ui=fighter-preview]");
+    await expect(lobbyPreview).toHaveAttribute("data-model-kit", "sv", { timeout: 20_000 });
+    await expect(lobbyPreview).toHaveAttribute("data-animating", "false");
+    await expect(h.page.locator("canvas")).toHaveCount(1);
+    expect(h.errors).toEqual([]);
+  } finally { await h.ctx.close(); }
+});
 async function open(): Promise<{ ctx: BrowserContext; page: Page; errors: string[] }> {
   const ctx = await browser.newContext({ viewport: { width: 1024, height: 768 }, hasTouch: true });
   // Clipboard denial exercises the selectable fallback using the real link route. Secrets stay in memory.
@@ -66,7 +146,7 @@ async function host(bots: Difficulty[]) {
   if (bots.length === 0) await button(h.page, "Remove Bot 1").click();
   for (let i = 1; i < bots.length; i++) await button(h.page, "Add opponent").click();
   for (let i = 0; i < bots.length; i++) await h.page.getByLabel(`Bot ${i + 1} difficulty`).selectOption(bots[i]!);
-  await h.page.getByLabel("Your fighter").selectOption("td");
+  await h.page.getByRole("button", { name: "Tide Duelist", exact: true }).click();
   const created = h.page.waitForResponse(r => new URL(r.url()).pathname === "/api/sparring" && r.request().method() === "POST");
   await button(h.page, "Start match").click();
   const code = (await (await created).json() as { roomCode: string }).roomCode;

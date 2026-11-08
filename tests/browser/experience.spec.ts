@@ -204,7 +204,7 @@ test("UX08: host setup includes Ember Artificer and starts the actual server fig
   const { ctx, page, errors } = await open("&name=Arel");
   try {
     await page.getByRole("button", { name: "Fight bots", exact: true }).click();
-    await page.getByLabel("Your fighter").selectOption("ea");
+    await page.getByRole("button", { name: "Ember Artificer", exact: true }).click();
     await page.getByRole("button", { name: "Start match", exact: true }).click();
     await page.waitForFunction(() => (window as unknown as { __eb?: unknown }).__eb !== undefined, undefined, { timeout: 30000 });
     await expect.poll(async () => (await snap(page)).players.find(p => p.local)?.kitId).toBe("ea");

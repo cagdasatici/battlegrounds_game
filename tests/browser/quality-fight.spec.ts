@@ -100,7 +100,7 @@ test(`Q01: four-fighter workload ${LONG ? `long ${MINUTES} min` : "smoke"} recor
     await button(host.page, "Add opponent").click();
     await host.page.getByLabel("Bot 1 difficulty").selectOption("easy");
     await host.page.getByLabel("Bot 2 difficulty").selectOption("medium");
-    await host.page.getByLabel("Your fighter").selectOption("td");
+    await host.page.getByRole("button", { name: "Tide Duelist", exact: true }).click();
     const created = host.page.waitForResponse((r) => new URL(r.url()).pathname === "/api/sparring" && r.request().method() === "POST");
     await button(host.page, "Start match").click();
     const code = (await (await created).json() as { roomCode: string }).roomCode;
