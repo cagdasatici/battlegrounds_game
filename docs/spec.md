@@ -354,7 +354,7 @@ First visit and joining
 1. Boot loads a small shell, checks WebGL2 and WebAssembly, and displays “Preparing arena” with byte
 based asset progress. Unsupported hardware shows a readable explanation and Retry, with no join
 request.
-2. Welcome shows Play, Practice, Settings and a connection status. Arel and Nora are local preset labels;
+2. Welcome shows Play, Practice, Settings and a connection status. Arel, Nora and Cagdas are local preset labels;
 selecting a name never authenticates a player. An adult supplied invitation authenticates the session
 separately.
 3. Play exchanges the invitation for a session, then shows a private lobby with room status, fighter
@@ -1481,7 +1481,7 @@ merely by guessing its ID or calling joinOrCreate directly. Allow only configure
 room creation. Cookie is Secure, HttpOnly, SameSite=Strict, Path=/, 8 hour idle session with 24 hour
 absolute expiry. Refresh idle expiry only on authenticated activity.
 Display names are plain text 1–16 Unicode grapheme clusters; reject control characters and render with
-textContent. Presets Arel and Nora are conveniences, not identities. Invitation tokens never appear in logs.
+textContent. Presets Arel, Nora and Cagdas are conveniences, not identities. Invitation tokens never appear in logs.
 Invitation links use a URL fragment consumed by the Welcome page and removed with
 history.replaceState before requests. No token in query strings, analytics or referrers.
 Session and invitation hashes are stored in a small local SQLite file or an atomic JSON store for P0;

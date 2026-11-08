@@ -184,6 +184,18 @@ test("Welcome hierarchy: one primary, Practice and Fight bots, then room, guide 
     await expect(page.locator("[data-ui=presets]")).toHaveText("Choose the name shown in the arena.");
     await expect(page.locator("body")).not.toContainText("invitation unlocks");
     await expect(page.locator(".eb-launcher:visible")).toHaveCount(0);
+    await page.setViewportSize({ width: 390, height: 844 });
+    const presets = page.locator("[data-act=name]");
+    await expect(presets).toHaveText(["Arel", "Nora", "Cagdas"]);
+    await page.getByRole("button", { name: "Cagdas", exact: true }).tap();
+    await expect(page.locator('[data-act=name][aria-pressed="true"]')).toHaveText("Cagdas");
+    for (const preset of await presets.all()) {
+      const box = (await preset.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(390);
+      expect(box.height).toBeGreaterThanOrEqual(44);
+    }
+    await page.screenshot({ path: path.join(outDir, "NP01-welcome-390x844.png") });
     expect(errors).toEqual([]);
   } finally { await ctx.close(); }
 });

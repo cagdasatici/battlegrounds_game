@@ -161,7 +161,7 @@ export class Lobby {
       this.add("p", st.busy ? BUSY_TEXT[st.busy] : "Practice, bot sparring and private matches.", { "data-ui": "status", role: "status" });
       const names = this.doc.createElement("div");
       names.className = "eb-name-row";
-      for (const n of ["Arel", "Nora"]) {
+      for (const n of ["Arel", "Nora", "Cagdas"]) {
         const b = this.doc.createElement("button");
         b.dataset["act"] = "name"; b.dataset["name"] = n; b.textContent = n;
         b.setAttribute("aria-pressed", String(n === this.name));
