@@ -279,7 +279,7 @@ test("expiry: an expired guest link is refused with no membership; a guest seat 
   } finally { await g?.ctx.close(); await late.ctx.close(); await h.ctx.close(); }
 });
 
-test("update held back inside a room, offered only after leaving, applied only by tap", async () => {
+test("update held back inside a room and applied automatically after leaving", async () => {
   test.setTimeout(120_000);
   const { ctx, page, errors } = await open();
   try {
@@ -296,29 +296,26 @@ test("update held back inside a room, offered only after leaving, applied only b
     await sleep(500);
     await expect(page.locator('button[data-act="update"]')).toHaveCount(0);
 
-    // Publish a second build, then join a room: no Update control in the room and no reload under the player.
-    const prev = JSON.parse(readFileSync(join(served, "asset-manifest.json"), "utf8")) as { assets: string[] };
-    writeFileSync(join(served, "assets/qw01-next.js"), "// next build\n");
-    writeFileSync(join(served, "asset-manifest.json"), JSON.stringify({ ...prev, buildId: "qw01-next", assets: [...prev.assets, "/assets/qw01-next.js"] }) + "\n");
-    writeFileSync(join(served, "sw.js"), readFileSync(join(served, "sw.js"), "utf8").replace(/const BUILD_ID = "[^"]*"/, 'const BUILD_ID = "qw01-next"'));
-    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
-    await expect(page.locator('button[data-act="update"]')).toBeVisible({ timeout: 15_000 });
     let navigations = 0;
     page.on("framenavigated", (f) => { if (f === page.mainFrame()) navigations++; });
     await page.click("[data-act=practice]");
     await page.click("[data-act=ready]");
     await expect.poll(async () => hasProbe(page), { timeout: 30_000 }).toBe(true);
+    // Publish a second build while in the room: no Update control and no reload under the player.
+    const prev = JSON.parse(readFileSync(join(served, "asset-manifest.json"), "utf8")) as { assets: string[] };
+    writeFileSync(join(served, "assets/qw01-next.js"), "// next build\n");
+    writeFileSync(join(served, "asset-manifest.json"), JSON.stringify({ ...prev, buildId: "qw01-next", assets: [...prev.assets, "/assets/qw01-next.js"] }) + "\n");
+    writeFileSync(join(served, "sw.js"), readFileSync(join(served, "sw.js"), "utf8").replace(/const BUILD_ID = "[^"]*"/, 'const BUILD_ID = "qw01-next"'));
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
     await sleep(1500);
     expect(await page.locator('button[data-act="update"]').count()).toBe(0);
     expect(navigations).toBe(0);
     expect(await hasProbe(page)).toBe(true);
 
-    // Leave: the offer returns, nothing has reloaded yet, and a tap applies it.
+    // Leave: back on the lobby the next check applies the build with no tap.
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: /leave/i }).click();
-    await expect(page.locator('button[data-act="update"]')).toBeVisible({ timeout: 15_000 });
-    expect(navigations).toBe(0);
-    await Promise.all([page.waitForEvent("framenavigated", { timeout: 15_000 }), page.locator('button[data-act="update"]').click()]);
+    await expect.poll(async () => { await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange"))).catch(() => undefined); return navigations; }, { timeout: 15_000 }).toBeGreaterThan(0);
     await page.waitForLoadState("load");
     await expect.poll(() => page.evaluate(() => caches.keys()), { timeout: 10_000 }).toEqual(["eb-shell-qw01-next"]);
     expect(errors).toEqual([]);

@@ -1,7 +1,7 @@
 /**
  * WEB2: decides when to offer the Update button. Pure of DOM: every dependency is injected so it is unit-testable.
  * The button compares the client bundle (asset-manifest.json), never buildId, so server-only releases do not nag.
- * It never reloads on its own; apply() runs only from a user tap.
+ * A new build is applied on its own only on the Welcome/Lobby screen, never during a match, and at most once per guard window.
  */
 export interface UpdateDeps {
   /** Asset paths of the bundle this page was loaded from (e.g. its entry script src). */
@@ -24,6 +24,8 @@ export interface UpdateDeps {
   onVisible(fn: () => void): () => void;
   /** Fires when a new worker finishes installing (becomes waiting). Returns an unsubscribe. */
   onWaiting?(fn: () => void): () => void;
+  /** Claims one automatic reload; false while one just happened (loop guard) or the player is typing. Absent = no automatic update. */
+  claimAutoReload?(): boolean;
 }
 
 export interface UpdateState {
@@ -34,6 +36,8 @@ export interface UpdateState {
 }
 
 export const UPDATE_CHECK_MS = 10 * 60_000;
+/** A page that still looks outdated right after an automatic reload waits this long, so a bad deploy cannot reload forever. */
+export const AUTO_RELOAD_GUARD_MS = 5 * 60_000;
 
 export class UpdateWatcher {
   private newBundle = false;
@@ -42,6 +46,7 @@ export class UpdateWatcher {
   private offVisible: (() => void) | null = null;
   private disposed = false;
   private checking: Promise<void> | null = null;
+  private autoApplying = false;
   private readonly subs = new Set<(s: UpdateState) => void>();
 
   constructor(private readonly d: UpdateDeps) {}
@@ -89,7 +94,7 @@ export class UpdateWatcher {
     this.emit();
   }
 
-  /** User tap only. Waiting worker takes over, then the page reloads. */
+  /** Update button or automatic update. Waiting worker takes over, then the page reloads. */
   async apply(): Promise<void> {
     if (this.disposed || this.d.inMatch() || !this.state.available) return;
     try { await this.d.activate(); } finally { this.d.reload(); }
@@ -99,6 +104,13 @@ export class UpdateWatcher {
     if (this.disposed) return;
     const s = this.state;
     for (const fn of this.subs) fn(s);
+    this.maybeAutoApply(s);
+  }
+
+  private maybeAutoApply(s: UpdateState): void {
+    if (this.autoApplying || !s.available || this.d.inMatch() || !this.d.onLobbyScreen() || !this.d.claimAutoReload?.()) return;
+    this.autoApplying = true;
+    void this.apply();
   }
 
   dispose(): void {
@@ -110,6 +122,8 @@ export class UpdateWatcher {
     this.subs.clear();
   }
 }
+
+const AUTO_RELOAD_KEY = "eb-auto-reload-at";
 
 /** Browser wiring. Kept separate so the class above never touches the DOM. */
 export function browserUpdateDeps(opts: {
@@ -175,6 +189,18 @@ export function browserUpdateDeps(opts: {
     },
     onWaiting: (fn) => { waitingSubs.add(fn); return () => { waitingSubs.delete(fn); }; },
     reload: () => { location.reload(); },
+    claimAutoReload: () => {
+      // First visit: a new worker passes through "waiting" with nothing to replace; that is not an update.
+      if (!navigator.serviceWorker?.controller) return false;
+      const el = document.activeElement;
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return false;
+      try {
+        const last = Number(sessionStorage.getItem(AUTO_RELOAD_KEY) ?? 0);
+        if (Date.now() - last < AUTO_RELOAD_GUARD_MS) return false;
+        sessionStorage.setItem(AUTO_RELOAD_KEY, String(Date.now()));
+        return true;
+      } catch { return false; } // no storage means no loop guard, so leave it to the Update button
+    },
     inMatch: opts.inMatch,
     onLobbyScreen: opts.onLobbyScreen,
     setInterval: (fn, ms) => window.setInterval(fn, ms),

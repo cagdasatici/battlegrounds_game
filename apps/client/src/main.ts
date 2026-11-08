@@ -150,7 +150,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
 
   // WEB2: update button. Hidden while a room is joined; checks run only on the welcome/lobby screens.
   const updater = new UpdateWatcher(browserUpdateDeps({
-    inMatch: () => room !== null,
+    inMatch: () => room !== null || !!flowRef.current?.state.busy, // joining counts: never reload mid-join
     onLobbyScreen: () => flowRef.current?.state.screen !== "match",
     reg: swRegistration,
   }));

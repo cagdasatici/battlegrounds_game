@@ -24,6 +24,32 @@ function make(over: Partial<UpdateDeps> = {}) {
 }
 
 describe("UpdateWatcher", () => {
+  describe("automatic update", () => {
+    const flush = async (): Promise<void> => { for (let i = 0; i < 5; i++) await Promise.resolve(); };
+    it("applies a new bundle on the lobby screen exactly once", async () => {
+      const { w, st } = make({ claimAutoReload: () => true });
+      st.manifest = { assets: ["/assets/b.js"] };
+      await w.check(); await w.check(); await flush();
+      expect(st.activated).toBe(1);
+      expect(st.reloads).toBe(1);
+    });
+    it("waits during a match, then applies once the match is left", async () => {
+      const { w, st } = make({ claimAutoReload: () => true });
+      st.manifest = { assets: ["/assets/b.js"] }; st.match = true;
+      await w.check(); await flush();
+      expect(st.reloads).toBe(0);
+      st.match = false; w.refresh(); await flush();
+      expect(st.reloads).toBe(1);
+    });
+    it("does not reload off the lobby screen, when the guard refuses, or with no update", async () => {
+      const a = make({ claimAutoReload: () => true }); a.st.manifest = { assets: ["/assets/b.js"] }; a.st.lobby = false;
+      await a.w.check(); await flush(); expect(a.st.reloads).toBe(0);
+      const b = make({ claimAutoReload: () => false }); b.st.manifest = { assets: ["/assets/b.js"] };
+      await b.w.check(); await flush(); expect(b.st.reloads).toBe(0);
+      const c = make({ claimAutoReload: () => true });
+      await c.w.check(); await flush(); expect(c.st.reloads).toBe(0);
+    });
+  });
   it("same build: no button, buildId recorded for display", async () => {
     const { w } = make();
     await w.check();
