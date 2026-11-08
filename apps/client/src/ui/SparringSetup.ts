@@ -1,5 +1,5 @@
 import { P0_KITS, type KitId } from "@eb/shared/protocol";
-import { KIT_CHOICE, KIT_LABEL } from "./Lobby.js";
+import { KIT_CHOICE, KIT_LABEL, baseMoveLabels } from "./Lobby.js";
 import type { FighterPreview } from "./FighterPreview.js";
 import { adoptCss } from "./adoptCss.js";
 import { DEFAULT_MAP_ID, MAP_REGISTRY } from "@eb/shared/config/maps";
@@ -41,6 +41,7 @@ export function mountSparringSetup(root: HTMLElement, actions: SparringSetupActi
     const loading = doc.createElement("span"); loading.textContent = "Loading fighter preview…";
     stage.append(loading, preview.el);
   } else stage.hidden = true;
+  const stageName = doc.createElement("strong"); stageName.className = "eb-sparring-stagename"; stage.append(stageName);
   const fighters = doc.createElement("div"); fighters.className = "eb-sparring-kits"; fighterPane.append(fighters);
   fighters.setAttribute("role", "group"); fighters.setAttribute("aria-label", "Your fighter");
   let kit: KitId = "sv";
@@ -50,10 +51,13 @@ export function mountSparringSetup(root: HTMLElement, actions: SparringSetupActi
     kitButtons.set(value, card);
   }
   const role = doc.createElement("p"); role.className = "eb-sparring-role"; fighterPane.append(role);
+  const moves = doc.createElement("ul"); moves.className = "eb-sparring-moves"; moves.setAttribute("aria-label", "Base moves"); fighterPane.append(moves);
   const chooseKit = (value: KitId): void => {
     kit = value;
     for (const [id, card] of kitButtons) card.setAttribute("aria-pressed", String(id === kit));
     role.textContent = KIT_CHOICE[kit].role;
+    stageName.textContent = KIT_LABEL[kit];
+    moves.replaceChildren(...baseMoveLabels(kit).map((label) => { const li = doc.createElement("li"); li.textContent = label; return li; }));
     preview?.show(kit);
   };
   chooseKit(kit);
@@ -78,20 +82,21 @@ export function mountSparringSetup(root: HTMLElement, actions: SparringSetupActi
   };
   chooseMap(mapId);
   heading("Match rules", settings);
+  const rules = doc.createElement("div"); rules.className = "eb-sparring-rules"; settings.append(rules);
   const listedLabel = doc.createElement("label");
   const listedBox = doc.createElement("input"); listedBox.type = "checkbox"; listedBox.style.minHeight = "24px";
   listedLabel.append(listedBox, "List this match for other players");
-  settings.append(listedLabel);
+  rules.append(listedLabel);
   const teamLabel = doc.createElement("label");
   const teamBox = doc.createElement("input"); teamBox.type = "checkbox"; teamBox.style.minHeight = "24px"; teamBox.dataset["teamPlay"] = "1";
   teamLabel.append(teamBox, "Team play");
-  settings.append(teamLabel);
+  rules.append(teamLabel);
   const roundLabel = doc.createElement("label"); roundLabel.append("Round length");
   const roundSelect = doc.createElement("select"); roundSelect.dataset["roundTarget"] = "1";
   for (const [value, text] of [["0", "Endless"], ["5", "First to 5 KOs"], ["10", "First to 10 KOs"]] as const) {
     const option = doc.createElement("option"); option.value = value; option.textContent = text; roundSelect.append(option);
   }
-  roundLabel.append(roundSelect); settings.append(roundLabel);
+  roundLabel.append(roundSelect); rules.append(roundLabel);
   heading("Opponents", settings);
   const teamHint = doc.createElement("p"); teamHint.className = "eb-sparring-team-note"; teamHint.hidden = true;
   teamHint.textContent = `Up to ${TEAM_PLAY.maxHumans} players work together. Start against ${TEAM_PLAY.startBots} Easy bots. The opposition grows to ${TEAM_PLAY.maxBots}.`;
