@@ -42,7 +42,7 @@ import { BEAST_ENTITY_ID, skillCooldownTicks } from "@eb/shared/config/beast";
 import type { LoopBeast } from "./scene/BeastView.js";
 import { RoundResults, objectiveText } from "./ui/RoundResults.js";
 import {
-  BlockNotice, RejectionNotice, freezeKo, type KoRecord, cooldownFraction, cooldownLabel, dashStatus, equippedSkillNames, formTimerText, skillAvailability, meterLabel, respawnSecondsLeft, scoreboardRows, stillpointText,
+  BlockNotice, RejectionNotice, freezeKo, type KoRecord, cooldownFraction, cooldownLabel, dashStatus, beastTimerText, equippedSkillNames, formTimerText, skillAvailability, meterLabel, respawnSecondsLeft, scoreboardRows, stillpointText,
 } from "./ui/HudFormat.js";
 import { mountHowToPlay } from "./ui/HowToPlay.js";
 import { KIT_LABEL, Lobby, type LobbyView } from "./ui/Lobby.js";
@@ -522,7 +522,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     const router = new PointerRouter(computeLayout({ x0: 0, y0: 0, W: window.innerWidth, H: window.innerHeight }), {
       onFacingLockChange: on => { settings.update({ facingLock: on }); },
       isChargeSlot: (slot) => { const me = localOf(); return me?.kitId === "ea" && me.form === "Base" && slot === 3; },
-      awakeningReady: () => { const me = localOf(); return me !== undefined && meterFraction(me.kitId, me.meter100 ?? 0) >= 1; },
+      awakeningReady: () => { const me = localOf(); return me !== undefined && ((me as { beast?: boolean }).beast === true || meterFraction(me.kitId, me.meter100 ?? 0) >= 1); },
       onMenu: () => {
         // Escape closes the top overlay first; only with none open does it toggle the pause menu.
         if (disposeMoves) closeMoves();
@@ -765,7 +765,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       const dead = me?.action === "Dead" && ko !== null && !roundOver;
       const pending = me?.owner?.pendingKit ?? "";
       const st = {
-        name: me?.displayName ?? lobby.displayName, hp: (me?.hp100 ?? 10000) / 100, maxHp: 100, meter: ml.fraction, meterText: ml.text, meter2: ml.second, beastReady: ml.beastReady,
+        name: me?.displayName ?? lobby.displayName, hp: (me?.hp100 ?? 10000) / 100, maxHp: 100, meter: ml.fraction, meterText: ml.text, meter2: ml.second, beastReady: ml.beastReady, inBeast: (me as { beast?: boolean } | undefined)?.beast === true,
         facingLock: router.facingLock, portrait: portrait(),
         objective,
         castText: castDescription(me?.moveId ?? "", me?.action ?? ""),
@@ -780,7 +780,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
         dash: me ? dashStatus(me.action, me.actionStartTick ?? 0, me.owner?.evasiveEndTick ?? 0, now) : null,
         cooldownFracs: skillDefinitions(me?.kitId ?? opts.kitId, me?.form ?? "Base").map((d, i) => cooldownFraction(me?.cooldownEndTicks?.[i] ?? 0, now, skillCooldownTicks(d, (me as { beast?: boolean } | undefined)?.beast === true))),
         reducedMotion: settings.get().reducedMotion,
-        formText: me ? ((me as { beast?: boolean }).beast ? "Beast · until HP runs out" : formTimerText(me.form, me.formEndTick, now, me.kitId)) : "",
+        formText: me ? ((me as { beast?: boolean }).beast ? beastTimerText(me.formEndTick, now) : formTimerText(me.form, me.formEndTick, now, me.kitId)) : "",
         stillpointText: stillpointText(me?.owner?.lethalCounterRemaining ?? 0),
         rejection: rejections.current(performance.now()),
         respawn: dead && ko ? koCard(ko, now) : null,

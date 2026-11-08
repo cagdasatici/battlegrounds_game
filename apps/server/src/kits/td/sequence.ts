@@ -1,3 +1,4 @@
+import { BEAST_FORM } from "@eb/shared/config/beast";
 import { launchVector } from "../../sim/Knockback.js";
 import { applyReaction, enterCaptured, isAlive, type Fighter } from "../../sim/ActionMachine.js";
 import {
@@ -31,6 +32,8 @@ export interface SequenceSpec {
   eligible?(target: Fighter, pose: AbilityPose, c: CastContext): boolean;
   /** Damage in hundredths for scheduled hit `index` (default: def.damage100). */
   damageOf?(c: CastContext, st: SeqState, index: number): number;
+  /** Beast form: the probe reaches BEAST_FORM.reachScale times farther (the beast body would otherwise swallow the range). */
+  beastReach?: boolean;
   /** T15: exact offset (ticks after the capture) at which the victim is released; default last hit offset + 1. */
   releaseOffset?: number;
   /** T15: the capture shields both participants from third parties (CaptureRegistry.shieldsFrom). */
@@ -107,7 +110,14 @@ export function makeSequenceHandler(spec: SequenceSpec): AbilityHandler {
         // Probe: only inside the original active window. After it, nothing can attach (recovery is inert).
         if (c.tick < c.cast.activeStart || c.tick >= st.probeEnd) return [];
         const out: HitCandidate[] = [];
-        for (const id of queryTargets(c, spec.eligible ? { excludeCaptured: true, filter: (t: Fighter, p: AbilityPose) => spec.eligible!(t, p, c) } : { excludeCaptured: true })) {
+        const probe: Parameters<typeof queryTargets>[1] = { excludeCaptured: true };
+        if (spec.eligible) probe.filter = (t: Fighter, p: AbilityPose) => spec.eligible!(t, p, c);
+        if (spec.beastReach && c.fighter.beast && d.shape.kind === "box") {
+          const reach = d.range * BEAST_FORM.reachScale;
+          probe.range = reach;
+          probe.shape = { ...d.shape, d: d.shape.d * BEAST_FORM.reachScale }; // the default box depth is the range
+        }
+        for (const id of queryTargets(c, probe)) {
           const cand = buildCandidate(c, id, 0, ap.x, ap.z);
           cand.reaction = { kind: "none" };
           cand.damage100 = spec.damageOf?.(c, st, 0) ?? d.damage100[0]!;

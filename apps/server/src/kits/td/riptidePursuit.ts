@@ -98,7 +98,7 @@ function eligibleOthers(c: CastContext, ap: AbilityPose): { id: number; pose: Ab
 }
 
 const closeReach = (ap: AbilityPose, tp: AbilityPose): boolean =>
-  Math.hypot(Math.hypot(tp.x - ap.x, tp.z - ap.z), Math.max(0, Math.abs(tp.y - ap.y) - COMBAT.capsule.halfHeight)) <= RIPTIDE_CLOSE_RANGE_M;
+  Math.hypot(Math.hypot(tp.x - ap.x, tp.z - ap.z), Math.max(0, (tp.y - ap.y) - COMBAT.capsule.halfHeight)) <= RIPTIDE_CLOSE_RANGE_M;
 
 const base = makeAwakenedSequence({
   name: "riptidePursuit",
@@ -121,7 +121,7 @@ function startChain(c: CastContext, st: SeqState): void {
   const ap = c.host.pose(c.fighter.entityId);
   if (!ap || !isAlive(c.fighter)) return;
   const cand = eligibleOthers(c, ap).filter((o) => o.id !== st.victimId
-    && Math.hypot(o.dist, Math.max(0, Math.abs(o.pose.y - ap.y) - COMBAT.capsule.halfHeight)) <= CHAIN_RANGE_M)[0];
+    && Math.hypot(o.dist, Math.max(0, (o.pose.y - ap.y) - COMBAT.capsule.halfHeight)) <= CHAIN_RANGE_M)[0];
   if (!cand) return;
   const dx = cand.pose.x - ap.x, dz = cand.pose.z - ap.z;
   const len = Math.hypot(dx, dz);

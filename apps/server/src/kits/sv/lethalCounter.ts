@@ -1,6 +1,7 @@
+import { BEAST_STILLPOINT } from "@eb/shared/config/beast";
 import { COMBAT } from "@eb/shared/config/combat";
 import { isAlive, releaseToIdle, type Fighter } from "../../sim/ActionMachine.js";
-import type { AbilityHandler, AbilityHost, AbilityRunner, CastContext } from "../../sim/AbilityRunner.js";
+import { buildCandidate, queryTargets, type AbilityHandler, type AbilityHost, type AbilityRunner, type CastContext } from "../../sim/AbilityRunner.js";
 import type { HitCandidate, HitResult } from "../../sim/HitResolver.js";
 import { captureNow, holdsCapture, releaseVictim, scheduledCandidate, seqOf } from "../td/sequence.js";
 
@@ -22,6 +23,11 @@ import { captureNow, holdsCapture, releaseVictim, scheduledCandidate, seqOf } fr
  * tick heals the caster to 100 HP. Otherwise (too far, wall in between, attacker already captured, capture lost)
  * the hit is absorbed and the status simply ends: no damage, no heal, no recovery (D: base actions were allowed).
  * A noncounterable hit is never intercepted: it damages normally, and if it kills, the status dies with the caster.
+ *
+ * Beast form (D): the waiting counter is replaced by an immediate shockwave. No status and no lethalCounterUntil are
+ * set; the caster is a detached cast (Active 12, Recovery 30). At activeStart every target within 9 m (3D-free sphere
+ * query, standing, air or ragdoll, no wall between) takes BEAST_STILLPOINT.damage100 (doubled by beastFormDamage100),
+ * ragdoll 60 and launch F8 U8, noncounterable, U block. The reload is commit + 12 + 30 + 240 ticks.
  */
 export const LETHAL_COUNTER_REACH_M = 40;
 export const RESPONSE_DAMAGE_OFFSET = 60;
@@ -74,6 +80,16 @@ export const LETHAL_COUNTER: AbilityHandler = {
   name: "lethalCounter",
   onCommit(c) {
     const f = c.fighter;
+    if (f.beast) {
+      c.runner.cancel(f.entityId);
+      releaseToIdle(f, c.tick);
+      f.cooldowns.delete(c.cast.def.id); // the framework stored the 600 tick reload; beginDetachedCast would refuse it
+      const cast = c.runner.beginDetachedCast(f, c.tick, c.cast.def, BEAST_STILLPOINT.activeTicks, BEAST_STILLPOINT.recoveryTicks, { beastWave: true });
+      // beginCast stores cooldown 0 for a detached cast, so the reload is set after it.
+      f.cooldowns.set(c.cast.def.id, c.tick + BEAST_STILLPOINT.activeTicks + BEAST_STILLPOINT.recoveryTicks + BEAST_STILLPOINT.restTicks);
+      void cast;
+      return;
+    }
     const end = c.tick + c.cast.def.active;
     statusesOf(c.runner).set(f.entityId, { lifeId: f.lifeId, startTick: c.tick, endTick: end });
     f.lethalCounterUntil = end;
@@ -105,6 +121,22 @@ export const LETHAL_COUNTER: AbilityHandler = {
     }
   },
   candidates(c): HitCandidate[] {
+    if (c.cast.data.beastWave === true) {
+      const ap = c.host.pose(c.fighter.entityId);
+      if (!ap || c.tick !== c.cast.activeStart) return [];
+      // def.maxTargets is 1 (the response hits one attacker); the wave is an AoE, so lift the cap for this query only.
+      const wide: CastContext = { ...c, cast: { ...c.cast, def: { ...c.cast.def, maxTargets: 16 } } };
+      const ids = queryTargets(wide, { shape: { kind: "sphere", r: BEAST_STILLPOINT.radius }, range: 0, targetStates: ["standing", "air", "ragdoll"] });
+      return ids.map((id) => {
+        const cand = buildCandidate(c, id, 0, ap.x, ap.z);
+        cand.damage100 = BEAST_STILLPOINT.damage100;
+        cand.reaction = { kind: "ragdoll", ticks: BEAST_STILLPOINT.ragdollTicks };
+        cand.launch = { forward: BEAST_STILLPOINT.launch.forward, up: BEAST_STILLPOINT.launch.up };
+        cand.block = "U";
+        cand.counterable = false;
+        return cand;
+      });
+    }
     if (c.cast.data.resp !== true) return [];
     const st = seqOf(c);
     if (st.victimId === null || st.released || !holdsCapture(c, st)) return [];

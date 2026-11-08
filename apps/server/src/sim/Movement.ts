@@ -51,6 +51,8 @@ export class MovementSystem {
 
   /** CRATER01: installs (or clears with null) the sunken-ground function; sparring only. */
   setGround(fn: ((x: number, z: number, tick: number) => number) | null): void { this.groundFn = fn; }
+  /** Crater ground offset (<= 0) at x,z; world y = flat physical y + offset. */
+  groundOffsetAt(x: number, z: number): number { return this.groundAt(x, z); }
   private groundAt(x: number, z: number): number { return this.groundFn ? this.groundFn(x, z, this.tick) : 0; }
 
   add(entityId: number, centre: MapVec3, facingYaw = 0): Body {
@@ -182,4 +184,14 @@ export class MovementSystem {
     this.disposed = true;
     this.world.rapier.removeCharacterController(this.controller);
   }
+}
+
+/** Line of sight in world coords: converts crater-offset y to flat physical y before the Rapier raycast. */
+export function craterAwareBlocked(world: World, movement: MovementSystem | undefined | null, a: readonly number[], b: readonly number[]): boolean {
+  const oa = movement?.groundOffsetAt(a[0]!, a[2]!) ?? 0, ob = movement?.groundOffsetAt(b[0]!, b[2]!) ?? 0;
+  let ya = a[1]! - oa, yb = b[1]! - ob; // world y -> flat physical y (Rapier stays flat)
+  // Limit: any endpoint in a crater lifts both ends to the higher physical y so the flat slab never
+  // occludes the shot (incl. a horizontal beam leaving a bowl); walls still block.
+  if (oa < 0 || ob < 0) ya = yb = Math.max(ya, yb);
+  return world.segmentBlocked([a[0]!, ya, a[2]!], [b[0]!, yb, b[2]!]);
 }

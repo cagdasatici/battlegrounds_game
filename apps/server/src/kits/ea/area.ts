@@ -16,7 +16,7 @@ export function areaTargets(
     const tp = host.pose(t.entityId);
     if (!tp) continue;
     if (host.blocked([centre.x, centre.y, centre.z], [tp.x, tp.y, tp.z])) continue;
-    const dy = Math.max(0, Math.abs(tp.y - centre.y) - COMBAT.capsule.halfHeight);
+    const dy = Math.max(0, (tp.y - centre.y) - COMBAT.capsule.halfHeight);
     const d = Math.hypot(Math.hypot(tp.x - centre.x, tp.z - centre.z), dy);
     if (d <= radius + COMBAT.capsule.radius) near.push({ id: t.entityId, d });
   }

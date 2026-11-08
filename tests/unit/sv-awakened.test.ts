@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { SV_DEFS } from "../../packages/shared/src/config/kits/sv.js";
 import { ALL_HANDLERS, buildKitRegistry } from "../../apps/server/src/kits/index.js";
 import { lethalCounterRemaining } from "../../apps/server/src/kits/sv/lethalCounter.js";
+import { BEAST_STILLPOINT } from "../../packages/shared/src/config/beast.js";
 import { COMBAT } from "../../packages/shared/src/config/combat.js";
 import { CAPTOR_RELEASE_RECOVERY, applyReaction } from "../../apps/server/src/sim/ActionMachine.js";
 import { CombatSystem } from "../../apps/server/src/sim/Combat.js";
@@ -410,6 +411,75 @@ describe("sv.a1 Stillpoint Reversal (lethalCounter)", () => {
   });
 });
 
+describe("sv.a1 beast shockwave (D)", () => {
+  const B = BEAST_STILLPOINT;
+  const beastRig = (n = 3) => { const r = makeRig(n); r.awaken(); r.cs.get(1)!.beast = true; return r; };
+  const hitsOn = (r: ReturnType<typeof makeRig>, t: number) => r.dealt(1, t);
+
+  test("hits a target inside 9 m for doubled damage exactly once, ragdoll 60, launch F8 U8; no status is armed", () => {
+    const r = beastRig(2);
+    r.poses.get(2)!.z = -8;
+    r.step(T0, { press: [{ slot: 1 }] });
+    expect(r.outcomes[0]!.o).toMatchObject({ kind: "started", moveId: "sv.a1" });
+    const f = r.cs.get(1)!;
+    expect(f.lethalCounterUntil).toBe(0);
+    expect(lethalCounterRemaining(r.runner, 1, T0)).toBe(0);
+    r.run(T0 + 1, T0 + 12 + 30 + 5);
+    expect(hitsOn(r, 2)).toEqual([[T0, B.damage100 * 2]]);
+    expect(r.hp(2)).toBe(HP - 5000);
+    const hit = r.results.find((x) => x.r.candidate.targetId === 2)!.r.candidate;
+    expect([hit.launch, hit.reaction]).toEqual([{ forward: 8, up: 8 }, { kind: "ragdoll", ticks: 60 }]);
+  });
+
+  test("misses a target beyond 9 m", () => {
+    const r = beastRig(2);
+    r.poses.get(2)!.z = -9.5;
+    r.step(T0, { press: [{ slot: 1 }] });
+    r.run(T0 + 1, T0 + 50);
+    expect(hitsOn(r, 2)).toEqual([]);
+    expect(r.hp(2)).toBe(HP);
+  });
+
+  test("a duplicate tick never rehits", () => {
+    const r = beastRig(2);
+    r.step(T0, { press: [{ slot: 1 }] });
+    r.step(T0);
+    r.step(T0 + 1);
+    expect(hitsOn(r, 2).length).toBe(1);
+  });
+
+  test("caster death during the wave deals no further hit", () => {
+    const r = beastRig(2);
+    r.step(T0, { press: [{ slot: 1 }] });
+    r.cs.get(1)!.hp100 = 0;
+    r.cs.get(1)!.action = "Dead";
+    r.run(T0 + 1, T0 + 50);
+    expect(hitsOn(r, 2).length).toBe(1);
+  });
+
+  test("an interrupted caster (stun before activeStart is impossible: startup 0) deals the hit at commit only", () => {
+    const r = beastRig(2);
+    r.step(T0, { press: [{ slot: 1 }], extra: [r.strike(2, 1, { counterable: false })] });
+    r.run(T0 + 1, T0 + 30);
+    expect(hitsOn(r, 2).length).toBeLessThanOrEqual(1);
+  });
+
+  test("cooldown ends at commit + 12 + 30 + 240", () => {
+    const r = beastRig(2);
+    r.step(T0, { press: [{ slot: 1 }] });
+    expect(r.cs.get(1)!.cooldowns.get("sv.a1")).toBe(T0 + B.activeTicks + B.recoveryTicks + B.restTicks);
+  });
+
+  test("non-beast sv.a1 still arms the counter and hits nobody", () => {
+    const r = makeRig(2);
+    r.awaken();
+    r.step(T0, { press: [{ slot: 1 }] });
+    r.run(T0 + 1, T0 + 30);
+    expect(r.cs.get(1)!.lethalCounterUntil).toBe(T0 + 600);
+    expect(hitsOn(r, 2)).toEqual([]);
+  });
+});
+
 describe("awakened damage never feeds the next meter (D)", () => {
   test("a resolved sv.a2 or sv.a1 hit adds no meter although the form is already Base", () => {
     const cs = new CombatSystem();
@@ -557,7 +627,7 @@ describe("sv.a2 Skybreak (groundWave)", () => {
     expect(hit(5, 0, 1 + 4.2)).toBe(true); // capsule overlaps the 8 m high box
     expect(hit(5, 0, 1 + 5.5)).toBe(true); // R05: box centred 2 m above the caster, so it spans -2 to +6 m
     expect(hit(5, 0, 1 + 7)).toBe(false);
-    expect(hit(5, 0, 1 - 3)).toBe(false);
+    expect(hit(5, 0, 1 - 3)).toBe(true); // owner rule: same level or lower always connects
     expect(hit(-3, 0)).toBe(false);
   });
 
@@ -1186,7 +1256,7 @@ describe("sv.a4 Orbit Collapse (cinematicGrab)", () => {
 // @@END
 
 describe("R05 shape anchors follow spec 16", () => {
-  test("Skybreak hits a target 5.5 m above the caster and misses one 3 m below", () => {
+  test("Skybreak hits a target 5.5 m above the caster and one 3 m below (downward is never out of reach)", () => {
     const hit = (y: number): boolean => {
       const r = makeRig(2);
       r.awaken();
@@ -1196,7 +1266,7 @@ describe("R05 shape anchors follow spec 16", () => {
       return r.dealt(1, 2).length === 1;
     };
     expect(hit(1 + 5.5)).toBe(true);
-    expect(hit(1 - 3)).toBe(false);
+    expect(hit(1 - 3)).toBe(true); // owner rule: targets below are never out of reach
   });
 
   test("Horizon Break splits near and far at 8 m from the beam origin, not from the caster centre", () => {

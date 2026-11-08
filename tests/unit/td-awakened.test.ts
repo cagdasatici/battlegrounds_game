@@ -127,6 +127,20 @@ describe("td awakened definitions match the spec 15 table", () => {
   });
 });
 
+describe("td.a1 beast reach (D)", () => {
+  test("beast caster catches a target 5 m ahead; a non-beast caster misses at 5 m", () => {
+    for (const beast of [true, false]) {
+      const r = makeRig(2);
+      r.awaken();
+      r.cs.get(1)!.beast = beast;
+      r.poses.get(2)!.z = -5;
+      r.step(T0, { press: [{ slot: 1 }] });
+      r.run(T0 + 1, T0 + 8);
+      expect(r.cs.get(2)!.action === "Captured").toBe(beast);
+    }
+  });
+});
+
 describe("td.a1 Cascade Chain (cascadeChain)", () => {
   const C = T0 + 8; // capture tick = activeStart
 

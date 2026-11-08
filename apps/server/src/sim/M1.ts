@@ -86,11 +86,11 @@ export function m1Overlaps(a: M1Pose, t: M1Pose, variant: FourthVariant | null):
   const fx = -Math.sin(a.facingYaw), fz = -Math.cos(a.facingYaw);
   const rx = Math.cos(a.facingYaw), rz = -Math.sin(a.facingYaw);
   const fwd = dx * fx + dz * fz, right = dx * rx + dz * rz;
-  // Vertical gap between the capsule segment and the box slab.
+  // One-sided vertical gap: only a target ABOVE the box is out of reach; same level or lower always connects.
   const capR = t.hurtRadius ?? CAP_R, capHalf = t.hurtHalfHeight ?? CAP_HALF;
   const segLo = t.y - capHalf, segHi = t.y + capHalf;
   const boxLo = a.y - (M.box.height * rs) / 2, boxHi = a.y + (M.box.height * rs) / 2;
-  const dv = Math.max(0, boxLo - segHi, segLo - boxHi);
+  const dv = Math.max(0, segLo - boxHi);
   const cx = Math.max((-M.box.width * rs) / 2, Math.min((M.box.width * rs) / 2, right));
   const cf = Math.max(BOX_NEAR, Math.min(M.box.frontFace * rs, fwd));
   const dh = Math.hypot(right - cx, fwd - cf);

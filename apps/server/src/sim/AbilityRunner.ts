@@ -183,7 +183,7 @@ export function shapeOverlaps(
   const dx = t.x - a.x, dz = t.z - a.z;
   const fwd = dx * fx + dz * fz, right = dx * rx + dz * rz;
   const segLo = t.y - CAP_HALF, segHi = t.y + CAP_HALF;
-  const gap = (lo: number, hi: number): number => Math.max(0, lo - segHi, segLo - hi);
+  const gap = (lo: number, hi: number): number => Math.max(0, segLo - hi);
   if (shape.kind === "box") {
     const cy = a.y + boxCentreY;
     const dv = gap(cy - shape.h / 2, cy + shape.h / 2);
@@ -192,12 +192,12 @@ export function shapeOverlaps(
     return Math.hypot(Math.hypot(right - cr, fwd - cf), dv) <= CAP_R;
   }
   if (shape.kind === "sphere") {
-    const dyc = Math.max(0, Math.abs(t.y - a.y) - CAP_HALF); // vertical gap to a feature at attacker height
+    const dyc = Math.max(0, (t.y - a.y) - CAP_HALF); // one-sided: only a target ABOVE the attacker is out of reach
     return Math.hypot(Math.hypot(right, fwd - range), dyc) <= shape.r + CAP_R;
   }
   // Beam: measured from its origin (beamOrigin.forward ahead of the capsule centre, beamOrigin.up above it).
   const fwdO = fwd - beamOrigin.forward;
-  const dyb = Math.max(0, Math.abs(t.y - (a.y + beamOrigin.up)) - CAP_HALF);
+  const dyb = Math.max(0, (t.y - (a.y + beamOrigin.up)) - CAP_HALF);
   const len = Math.min(shape.length, maxLength ?? shape.length);
   const cf = Math.max(0, Math.min(len, fwdO));
   return Math.hypot(Math.hypot(right, fwdO - cf), dyb) <= shape.radius + CAP_R;
@@ -459,7 +459,7 @@ export class AbilityRunner {
     this.casts.set(f.entityId, cast);
     if (def.oncePerForm && !f.beast) f.awakenedUsedMask |= bit;
     // consumesForm: the awakening is spent at commit; the current ability still resolves from `cast`.
-    if (def.consumesForm && !f.beast) { f.form = "Base"; f.formEndTick = 0; } // Beast Awaken keeps the form for its full 10 s
+    if (def.consumesForm && !f.beast) { f.form = "Base"; f.formEndTick = 0; } // Beast Awaken keeps the form for its full duration
     handler.onCommit?.({ tick, fighter: f, cast, host: this.host, runner: this });
     this.syncArmor(f, cast, tick);
     return { kind: "started", castCounter: f.castCounter, moveId: def.id };

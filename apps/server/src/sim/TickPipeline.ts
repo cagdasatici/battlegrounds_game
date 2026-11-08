@@ -12,7 +12,7 @@ import type { AbilityRunner, SkillOutcome } from "./AbilityRunner.js";
 import type { AwakeningSystem, AwakenOutcome } from "./Awakening.js";
 import { MOVE_DT } from "@eb/shared/movement";
 import { safeTravelDistance } from "@eb/shared/dashSafety";
-import type { MovementSystem, HorizontalOverride } from "./Movement.js";
+import { craterAwareBlocked, type MovementSystem, type HorizontalOverride } from "./Movement.js";
 import type { World } from "./World.js";
 import type { ProjectileSystem } from "./Projectiles.js";
 import type { UrnSystem } from "./Urns.js";
@@ -260,10 +260,11 @@ export class TickPipeline {
   private queries(tick: number): void {
     const w = this.d.world();
     const pose = (id: number): M1Pose | undefined => this.d.poseOf(id);
+    const los = (a: M1Pose, t: M1Pose): boolean => !!w && craterAwareBlocked(w, this.d.movement(), [a.x, a.y, a.z], [t.x, t.y, t.z]);
     this.candidates = [
       ...this.d.m1.candidates(tick, this.d.combat.all(), pose,
-        (a, t) => !!w && w.segmentBlocked([a.x, a.y, a.z], [t.x, t.y, t.z])),
-      ...dashCandidates(tick, this.d.combat.all(), pose, (a, t) => !!w && w.segmentBlocked([a.x, a.y, a.z], [t.x, t.y, t.z])),
+        los),
+      ...dashCandidates(tick, this.d.combat.all(), pose, los),
       ...this.d.abilities.collect(tick),
       ...(this.d.projectiles?.collect(tick) ?? []),
       ...this.d.awakening.collect(tick),
@@ -517,7 +518,8 @@ export class TickPipeline {
       this.d.sendActionResult(sessionId, seat, edgeId, seq, tick, true, undefined, `${f.entityId}.${o.castCounter}`);
       this.d.broadcastEvent(tick, "cast", f.entityId, undefined, f.lifeId, o.moveId);
       if (this.d.combat.get(f.entityId)?.beast) this.d.onBeastSpecial?.(tick, f.entityId, o.moveId);
-    } else this.d.sendActionResult(sessionId, seat, edgeId, seq, tick, false, o.reason);
+    } else if (o.kind === "exited") this.d.sendActionResult(sessionId, seat, edgeId, seq, tick, true);
+    else this.d.sendActionResult(sessionId, seat, edgeId, seq, tick, false, o.reason);
   }
 
   /** Facing Movement would pick from this tick's intent (R07 host hook for AbilityRunner turnRate). */

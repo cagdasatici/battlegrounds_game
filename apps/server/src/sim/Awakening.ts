@@ -58,6 +58,7 @@ interface Activation { kit: string; startTick: number; endTick: number; generati
 
 export type AwakenOutcome =
   | { kind: "started"; castCounter: number; moveId: string }
+  | { kind: "exited" }
   | { kind: "rejected"; reason: RejectReason };
 
 export interface AwakeningHost {
@@ -83,6 +84,11 @@ export class AwakeningSystem {
     const cfg = ACTIVATIONS[kit];
     if (!cfg) return { kind: "rejected", reason: "INVALID" };
     if (!isAlive(f) || f.action !== "Idle") return { kind: "rejected", reason: "STATE" };
+    if (f.beast) {
+      // Exit Beast: the same Awaken press while transformed returns to the normal character (server reads f.beast only).
+      f.beast = false; f.armored = false; f.form = "Base"; f.formEndTick = 0; f.awakenedUsedMask = 0; f.contextSpent = false;
+      return { kind: "exited" };
+    }
     if (f.form === "Awakened") return { kind: "rejected", reason: "FORM" };
     if (f.meter100 < meterRequired100(kit)) return { kind: "rejected", reason: "METER" };
     const pose = this.host.pose(f.entityId);
@@ -138,8 +144,8 @@ export class AwakeningSystem {
         f.contextSpent = false;
         f.formEndTick = cfg.formTicks > 0 ? tick + cfg.formTicks : 0;
         if (act.beast) {
-          // Beast Awaken: untimed (lasts until its HP is depleted, see HitResolver.applyDamage), armoured, full health.
-          f.beast = true; f.armored = true; f.formEndTick = 0;
+          // Beast Awaken: timed (BEAST_FORM.ticks; HP depletion ends it early, see HitResolver.applyDamage), armoured, full health.
+          f.beast = true; f.armored = true; f.formEndTick = tick + BEAST_FORM.ticks;
           this.host.combat.heal(f, COMBAT.hp100Max, `${f.kitId}.beast`, tick);
         }
         if (cfg.healAtCompletion100 > 0) this.host.combat.heal(f, cfg.healAtCompletion100, `${f.kitId}.activate`, tick);
@@ -172,7 +178,7 @@ export class AwakeningSystem {
         const tp = this.host.pose(t.entityId);
         if (!tp) continue;
         if (this.host.blocked([ap.x, ap.y, ap.z], [tp.x, tp.y, tp.z])) continue;
-        const dy = Math.max(0, Math.abs(tp.y - ap.y) - 0.55);
+        const dy = Math.max(0, (tp.y - ap.y) - 0.55);
         const d = Math.hypot(Math.hypot(tp.x - ap.x, tp.z - ap.z), dy);
         if (d <= burst.radius + 0.35) near.push({ id: t.entityId, d });
       }

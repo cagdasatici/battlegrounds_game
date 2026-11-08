@@ -40,7 +40,7 @@ export class ContextSystem {
       const tp = this.host.pose(t.entityId);
       if (!tp) continue;
       const d = Math.hypot(tp.x - ap.x, tp.z - ap.z);
-      if (d > COMBAT.wall.attackerReach || Math.abs(tp.y - ap.y) > 1.2) continue;
+      if (d > COMBAT.wall.attackerReach || tp.y - ap.y > 1.2) continue;
       if (!this.host.nearWall(tp.x, tp.y, tp.z) || this.host.blocked([ap.x, ap.y, ap.z], [tp.x, tp.y, tp.z])) continue;
       if (!best || d < best.d || (d === best.d && t.entityId < best.id)) best = { id: t.entityId, d };
     }

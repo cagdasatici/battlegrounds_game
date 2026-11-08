@@ -74,6 +74,12 @@ export function meterLabel(kitId: string, meter100: number): { fraction: number;
   return { fraction, text, second, beastReady };
 }
 
+/** Beast form countdown, `Beast · m:ss` (seconds rounded up, floored at 0:00). */
+export function beastTimerText(formEndTick: number, nowTick: number): string {
+  const s = Math.max(0, Math.ceil((formEndTick - nowTick) / TICK_RATE));
+  return `Beast \u00b7 ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
 export function formTimerText(form: string, formEndTick: number, nowTick: number, kitId?: string): string {
   if (form === "Base") return "";
   if (form === "Awakened" && formEndTick === 0 && kitId === "sv") return "Awakened \u00b7 choose one finisher";

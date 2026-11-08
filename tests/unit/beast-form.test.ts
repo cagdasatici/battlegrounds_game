@@ -79,7 +79,7 @@ describe("Beast Awaken", () => {
     expect(f.beast).toBe(false);
   });
 
-  test("two bars transform: Awakened underneath, beast flag, full HP, armour, untimed, meter spent", () => {
+  test("two bars transform: Awakened underneath, beast flag, full HP, armour, timed, meter spent", () => {
     const r = rig();
     const f = r.cs.get(1)!;
     f.hp100 = 3000;
@@ -90,11 +90,19 @@ describe("Beast Awaken", () => {
     expect(f.hp100).toBe(COMBAT.hp100Max);
     expect(f.armored).toBe(true);
     expect(f.meter100).toBe(0);
-    expect(f.formEndTick).toBe(0);
-    // BEAST03: no timer, still a beast long after the old 10 s.
-    r.step(T0 + 30 + BEAST_FORM.ticks * 3);
+    expect(f.formEndTick).toBe(T0 + 30 + BEAST_FORM.ticks);
+    const end = f.formEndTick;
+    r.step(end - 1);
     expect(f.beast).toBe(true);
     expect(f.form).toBe("Awakened");
+    r.step(end);
+    expect(f.beast).toBe(false);
+    expect(f.form).toBe("Base");
+    expect(f.armored).toBe(false);
+  });
+
+  test("beast duration is 2.5 minutes at 60 Hz", () => {
+    expect(BEAST_FORM.ticks).toBe(9000);
   });
 
   test("depleting beast HP reverts to Base form at full HP instead of dying", () => {
@@ -221,5 +229,75 @@ describe("BEAST04 beast specials reload", () => {
     const cd = skillCooldownTicks({ ...def, slot: 1, oncePerForm: true, cooldown: 0 }, true);
     for (let t = t1; t < t1 + cd + 2; t++) r.step(t);
     expect(run.commit(f, t1 + cd + 2, def).kind).toBe("started");
+  });
+});
+
+describe("any kit can become a beast", () => {
+  test.each(["sv", "td", "ea"] as const)("%s with a full two-bar meter completes Awaken as a beast", (kit) => {
+    const r = rig(kit);
+    const f = r.cs.get(1)!;
+    f.meter100 = meterCap100(kit);
+    expect(r.awaken().kind).toBe("started");
+    expect(f.form).toBe("Awakened");
+    expect(f.beast).toBe(true);
+    expect(f.meter100).toBe(0);
+  });
+});
+
+describe("Exit Beast (Awaken press while transformed)", () => {
+  const beast = () => {
+    const r = rig();
+    const f = r.cs.get(1)!;
+    f.meter100 = meterCap100("sv");
+    r.awaken();
+    expect(f.beast).toBe(true);
+    return { r, f };
+  };
+
+  test("in Idle returns to Base, keeps HP, clears armour, timer and bits", () => {
+    const { r, f } = beast();
+    f.hp100 = 4321;
+    expect(r.aw.request(f, T0 + 200)).toEqual({ kind: "exited" });
+    expect(f.beast).toBe(false);
+    expect(f.armored).toBe(false);
+    expect(f.form).toBe("Base");
+    expect(f.formEndTick).toBe(0);
+    expect(f.awakenedUsedMask).toBe(0);
+    expect(f.hp100).toBe(4321);
+    expect(f.meter100).toBe(0);
+  });
+
+  test("while casting is rejected STATE and stays beast", () => {
+    const { r, f } = beast();
+    expect(r.runner.skillDown(f, T0 + 200, 1, 9).kind).toBe("started");
+    expect(f.action).not.toBe("Idle");
+    expect(r.aw.request(f, T0 + 201)).toEqual({ kind: "rejected", reason: "STATE" });
+    expect(f.beast).toBe(true);
+    expect(f.form).toBe("Awakened");
+  });
+
+  test("a dead fighter cannot exit", () => {
+    const { r, f } = beast();
+    f.hp100 = 0; f.action = "Dead";
+    expect(r.aw.request(f, T0 + 200)).toEqual({ kind: "rejected", reason: "STATE" });
+  });
+
+  test("afterwards Awaken works again with enough meter, skills are Base, and expiry does nothing", () => {
+    const { r, f } = beast();
+    const end = f.formEndTick;
+    expect(r.aw.request(f, T0 + 200).kind).toBe("exited");
+    r.step(T0 + 201);
+    expect(f.form).toBe("Base");
+    expect(r.aw.request(f, T0 + 202)).toEqual({ kind: "rejected", reason: "METER" });
+    f.meter100 = meterRequired100("sv");
+    expect(r.aw.request(f, T0 + 203).kind).toBe("started");
+    for (let t = T0 + 203; t <= T0 + 240; t++) r.step(t);
+    expect(f.form).toBe("Awakened");
+    expect(f.beast).toBe(false);
+    f.form = "Base"; f.formEndTick = 0;
+    r.step(end);
+    r.step(end + 1);
+    expect(f.beast).toBe(false);
+    expect(f.form).toBe("Base");
   });
 });

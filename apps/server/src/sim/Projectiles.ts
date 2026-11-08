@@ -97,7 +97,7 @@ const clampN = (v: number, lo: number, hi: number): number => Math.max(lo, Math.
 
 /** Distance from a point to a fighter capsule's vertical core segment. */
 function distToCapsule(px: number, py: number, pz: number, cx: number, cy: number, cz: number): number {
-  const dy = Math.max(0, Math.abs(py - cy) - CAP_HALF);
+  const dy = Math.max(0, (cy - py) - CAP_HALF);
   return Math.hypot(Math.hypot(px - cx, pz - cz), dy);
 }
 

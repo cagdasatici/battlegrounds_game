@@ -14,7 +14,7 @@ import { FixedClock } from "../sim/FixedClock.js";
 import { World, loadMapFile, mapFileUrl } from "../sim/World.js";
 import { DEFAULT_MAP_ID, getMapDefinition, type MapDefinition } from "@eb/shared/config/maps";
 import { safeTravelDistance } from "@eb/shared/dashSafety";
-import { MovementSystem, type HorizontalOverride } from "../sim/Movement.js";
+import { craterAwareBlocked, MovementSystem, type HorizontalOverride } from "../sim/Movement.js";
 import { CombatSystem } from "../sim/Combat.js";
 import { OffensiveBuffer } from "../sim/OffensiveBuffer.js";
 import { M1System, type M1Pose } from "../sim/M1.js";
@@ -450,7 +450,7 @@ export class ArenaRoom extends Room {
       combat: this.combat,
       occupantOf: (id) => this.occupantOf(id),
       pose: (id) => this.poseOf(id),
-      blocked: (a, b) => !!this.world && this.world.segmentBlocked([a[0], a[1], a[2]], [b[0], b[1], b[2]]),
+      blocked: (a, b) => !!this.world && craterAwareBlocked(this.world, this.movement, a, b),
       requestedYaw: (id) => this.pipeline.requestedYawOf(id),
       launch: (id, vx, vy, vz) => this.movement?.setVelocity(id, vx, vy, vz),
       moveTogether: (ids, dx, dz) => this.movement?.moveTogether(ids, dx, dz) ?? { dx: 0, dz: 0 },

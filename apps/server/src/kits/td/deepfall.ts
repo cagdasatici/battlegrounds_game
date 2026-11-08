@@ -41,7 +41,7 @@ function areaCandidates(c: CastContext): HitCandidate[] {
     const tp = c.host.pose(t.entityId);
     if (!tp) continue;
     if (c.host.blocked([vp.x, vp.y, vp.z], [tp.x, tp.y, tp.z])) continue;
-    const dy = Math.max(0, Math.abs(tp.y - vp.y) - COMBAT.capsule.halfHeight);
+    const dy = Math.max(0, (tp.y - vp.y) - COMBAT.capsule.halfHeight);
     const d = Math.hypot(Math.hypot(tp.x - vp.x, tp.z - vp.z), dy);
     if (d <= DEEPFALL_AREA_RADIUS + COMBAT.capsule.radius) near.push({ id: t.entityId, d });
   }

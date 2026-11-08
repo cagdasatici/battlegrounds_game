@@ -145,8 +145,8 @@ function norm(x: number, z: number): [number, number] | null {
  * specials, their cooldowns and the once-per-form rule are unchanged); `beast` is an extra flag on the fighter.
  */
 export const BEAST_FORM = {
-  /** BEAST03: unused for duration; the form now lasts until its HP is depleted (then Base form at full HP). */
-  ticks: 600,
+  /** 2.5 minutes at 60 Hz (D, owner request); HP depletion still ends the form early. */
+  ticks: 9000,
   scale: 5.5,
   /** Full bars needed to transform (a normal awaken still needs one). */
   stacks: 2,
@@ -173,6 +173,12 @@ const AWAKENED_SPECIAL = /^(sv|td|ea)\.a[1-4]$/;
  * skills. Reload after the cast ends, in ticks, by slot 1..4 (4..7 s).
  */
 export const BEAST_SPECIAL_REST_TICKS: readonly number[] = [240, 300, 360, 420];
+
+/**
+ * Beast form sv.a1 (D, local design): the waiting counter is replaced by an immediate shockwave around the caster.
+ * Damage is doubled by beastFormDamage100 like every awakened special. restTicks is the reload after the cast ends.
+ */
+export const BEAST_STILLPOINT = { radius: 9, damage100: 2500, activeTicks: 12, recoveryTicks: 30, ragdollTicks: 60, launch: { forward: 8, up: 8 }, restTicks: 240 } as const;
 
 /** Cooldown (ticks from commit, as `beginCast` stores it) for a skill; Beast form gives once-per-form specials a reload. */
 export function skillCooldownTicks(def: { slot?: number | null; oncePerForm?: boolean; cooldown: number; startup: number; active: number; recovery: number }, beast: boolean): number {

@@ -19,6 +19,8 @@ export interface HudState {
   /** BEAST02: second banked awaken bar, 0..1, and whether both bars are full (Awaken will transform). */
   meter2?: number;
   beastReady?: boolean;
+  /** Local fighter is in beast form: the Awaken button reads "Exit Beast" and is ready. */
+  inBeast?: boolean;
   /** Four slot texts from cooldownEndTicks (empty string = ready). */
   cooldowns?: readonly string[];
   /** Four equipped short skill names for the current form. When given, skill buttons show name and readiness. */
@@ -62,7 +64,7 @@ const LABELS: Record<ControlId, string> = {
 
 function boxLabel(id: ControlId, st: HudState, meterText: string): string {
   if (id === "health") return st.name;
-  if (id === "awaken") return `${LABELS[id]} ${meterText}`;
+  if (id === "awaken") return st.inBeast === true ? "Exit Beast" : `${LABELS[id]} ${meterText}`;
   const slot = id === "skill1" ? 0 : id === "skill2" ? 1 : id === "skill3" ? 2 : id === "skill4" ? 3 : -1;
   const cd = slot >= 0 ? st.cooldowns?.[slot] ?? "" : "";
   return cd === "" ? LABELS[id] : `${LABELS[id]} ${cd}`;
@@ -94,7 +96,7 @@ export function hudModel(layout: Layout, st: HudState): HudModel {
     boxes, panel, meterText,
     hpText: `${Math.max(0, Math.round(st.hp))} / ${st.maxHp}`,
     meterPct: Math.round(meter * 100),
-    awakenReady: meter >= 1,
+    awakenReady: meter >= 1 || st.inBeast === true,
     meter2Pct: Math.round(Math.min(1, Math.max(0, st.meter2 ?? 0)) * 100),
     beastReady: st.beastReady === true,
   };

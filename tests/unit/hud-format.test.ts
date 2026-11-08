@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
-  RejectionNotice, freezeKo, cooldownFraction, cooldownLabel, formTimerText, meterLabel, rejectionText, respawnSecondsLeft, scoreboardRows, stillpointText,
+  RejectionNotice, freezeKo, cooldownFraction, beastTimerText, cooldownLabel, formTimerText, meterLabel, rejectionText, respawnSecondsLeft, scoreboardRows, stillpointText,
 } from "../../apps/client/src/ui/HudFormat.js";
 import { EA_DEFS, SV_DEFS, TD_DEFS } from "../../packages/shared/src/config/kits/index.js";
 import { COMBAT } from "../../packages/shared/src/config/combat.js";
@@ -93,6 +93,14 @@ describe("hudModel extras", () => {
     expect(m.boxes.find((b) => b.id === "skill1")!.label).toBe("1");
     expect(m.boxes.find((b) => b.id === "awaken")!.label).toBe("Awaken Ready");
     expect(m.awakenReady).toBe(true);
+  });
+  test("in beast form the Awaken button reads Exit Beast and is ready even with an empty meter", () => {
+    const L = computeLayout({ x0: 0, y0: 0, W: 1024, H: 768 });
+    const st = { name: "Arel", hp: 100, maxHp: 100, meter: 0, meterText: "0%", facingLock: false, portrait: false, inBeast: true };
+    const m = hudModel(L, st);
+    expect(m.boxes.find((b) => b.id === "awaken")!.label).toBe("Exit Beast");
+    expect(m.awakenReady).toBe(true);
+    expect(hudModel(L, { ...st, inBeast: false }).boxes.find((b) => b.id === "awaken")!.label).toBe("Awaken 0%");
   });
 });
 
@@ -375,5 +383,13 @@ describe("GR11 KO card facts and skill button structure", () => {
     expect(find().children).not.toBe(kids);
     expect(find().getAttribute("aria-label")).toContain("Other Move");
     hud.dispose();
+  });
+});
+
+describe("beastTimerText (m:ss countdown)", () => {
+  test("full, last tick, past end", () => {
+    expect(beastTimerText(10000 + 9000, 10000)).toBe("Beast \u00b7 2:30");
+    expect(beastTimerText(10001, 10000)).toBe("Beast \u00b7 0:01");
+    expect(beastTimerText(10000, 10500)).toBe("Beast \u00b7 0:00");
   });
 });
