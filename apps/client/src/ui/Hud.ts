@@ -2,7 +2,7 @@
  * Touch HUD: original, unbranded control visuals placed from ControlLayout. Display only;
  * all values shown (HP, meter) come from server snapshots supplied by the caller.
  */
-import type { ControlId, Layout, SafeRect } from "../input/ControlLayout.js";
+import { MIN_GAP_PX, MIN_TARGET_PX, PHONE_HEIGHT, type ControlId, type Layout, type SafeRect } from "../input/ControlLayout.js";
 import { shortSkillLabel, skillStatus, type ScoreRow, type SkillAvailability } from "./HudFormat.js";
 import { LAYER } from "./Layers.js";
 
@@ -144,7 +144,8 @@ export class Hud {
     this.root.className = "eb-hud";
     this.root.style.cssText = "position:fixed;inset:0;pointer-events:none;font:600 13px Inter,system-ui,sans-serif;color:#fff";
     this.panel = doc.createElement("div");
-    this.panel.style.cssText = `z-index:${LAYER.modalContent};position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#000c;font-size:20px`;
+    this.panel.style.cssText = `z-index:${LAYER.modalContent};position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#000c;font-size:20px;text-align:center`;
+    this.panel.dataset.hud = "orientation";
     this.root.appendChild(this.panel);
     const mk = (cls: string, css: string): HTMLElement => {
       const el = doc.createElement("div");
@@ -198,6 +199,42 @@ export class Hud {
     const pct = Math.round(Math.min(1, Math.max(0, frac)) * 100);
     el.style.setProperty?.("--fill", `${pct}%`);
     el.dataset["low"] = pct <= 30 ? "1" : "0"; // CSS draws the bar and turns it red when low
+  }
+
+  private placeExtras(layout: Layout): void {
+    const { x0, y0, W, H } = layout.safe;
+    const compact = H < PHONE_HEIGHT;
+    const health = layout.controls.health;
+    const awaken = layout.controls.awaken;
+    // Keep the header near health if a custom layout places Awaken elsewhere.
+    const compactHeader = health.cy + health.vh / 2 + MIN_TARGET_PX + 2 * MIN_GAP_PX;
+    const awakenBottom = awaken.cy + awaken.hh / 2;
+    const awakenInHeader = awaken.cy - awaken.hh / 2 < compactHeader + 46;
+    const objectiveY = !compact ? y0 + 68 : awakenInHeader ? Math.max(compactHeader, awakenBottom + MIN_GAP_PX) : compactHeader;
+    // Leave room for the right-hand skill arc even at the narrowest supported landscape width.
+    const statusWidth = compact ? Math.min(240, Math.max(0, W - 360)) : Math.min(360, Math.max(0, W - 16));
+    const center = x0 + W / 2;
+    if (compact) this.root.dataset["compact"] = "";
+    else delete this.root.dataset["compact"];
+    for (const [el, top] of [[this.objectiveEl, objectiveY], [this.info, objectiveY + (compact ? 22 : 24)]] as const) {
+      el.style.left = `${center}px`;
+      el.style.top = `${top}px`;
+      el.style.maxWidth = `${statusWidth}px`;
+    }
+    this.badge.style.left = this.toast.style.left = `${center}px`;
+    // The compact objective and cast rows can extend below 44% on short screens.
+    this.badge.style.top = `${compact ? Math.max(y0 + H * 0.44, objectiveY + 48) : y0 + H * 0.44}px`;
+    this.toast.style.top = `${compact ? Math.max(y0 + H * 0.56, objectiveY + 86) : y0 + H * 0.56}px`;
+    this.board.style.right = `calc(100% - ${x0 + W - 12}px)`;
+    this.board.style.top = `${y0 + 60}px`;
+    for (const el of [this.kitPanel, this.menuPanel]) {
+      el.style.left = `${center}px`;
+      el.style.top = `${y0 + H / 2}px`;
+      el.style.boxSizing = "border-box";
+      el.style.maxWidth = `${Math.max(0, W - 16)}px`;
+      el.style.maxHeight = `${Math.max(0, H - 16)}px`;
+      el.style.overflow = "auto";
+    }
   }
 
   private renderExtras(st: HudState): void {
@@ -388,6 +425,7 @@ export class Hud {
       if (b.id === "awaken") { el.style.opacity = String(m.awakenReady ? o : o * 0.65); el.style.setProperty?.("--fill", `${Math.max(0, Math.min(100, m.meterPct))}%`); el.style.setProperty?.("--fill2", `${m.meter2Pct}%`); el.dataset["ready"] = m.awakenReady ? "1" : "0"; el.dataset["beast"] = m.beastReady ? "1" : m.meter2Pct > 0 ? "saving" : "0"; }
       if (b.id === "health") this.fill(el, st.maxHp > 0 ? st.hp / st.maxHp : 0);
     }
+    this.placeExtras(layout);
     this.renderExtras(st);
     this.panel.style.display = m.panel ? "flex" : "none";
     this.panel.textContent = m.panel === "rotate" ? "Turn your device sideways" : m.panel === "enlarge" ? "Enlarge the window to play" : "";

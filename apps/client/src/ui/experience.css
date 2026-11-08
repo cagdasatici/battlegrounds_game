@@ -105,6 +105,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .eb-screen,.eb-hud,.eb-hud *,[data-ui=settings],[data-ui=sparring-setup],[data-ui=room-list],[data-ui=how-to-play],.eb-move-guide,.eb-move-guide button,.eb-screen button,[data-ui=settings] button,[data-ui=sparring-setup] button,[data-ui=practice],[data-ui=practice] button{font-family:var(--eb-font)!important;font-feature-settings:"cv11","ss01","tnum" 0;font-optical-sizing:auto;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 .eb-hud{font-family:var(--eb-font)!important}
 .eb-hud [data-hud=info]{font-weight:650;font-size:14px;letter-spacing:.01em;font-variant-numeric:tabular-nums}
+.eb-hud[data-compact] [data-hud=objective],.eb-hud[data-compact] [data-hud=info]{box-sizing:border-box;font-size:12px!important;line-height:16px}
+.eb-hud[data-compact] [data-hud=info]{padding:3px 8px}
 /* Skill slots: stacked label / hint / state that fit their box */
 .eb-hud [data-control]{flex-direction:column!important;gap:2px;overflow:hidden;padding:4px 6px;text-align:center;line-height:1.1}
 .eb-hud [data-control]:not([data-structure]) span:first-child{font-size:11px;font-weight:700;letter-spacing:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:100%}

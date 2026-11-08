@@ -127,3 +127,44 @@ for (const [W, H] of [[1024, 768], [1180, 820]] as const) {
     await page.close();
   });
 }
+
+for (const [width, height, compact, hand] of [
+  [844, 390, true, "right"], [844, 340, true, "left"],
+  [568, 319, true, "right"], [1024, 768, false, "right"],
+] as const) {
+  test(`RP01 ${width}×${height} with simulated safe insets, ${hand}-handed`, async () => {
+    const page = await browser.newPage({ viewport: { width, height }, hasTouch: true, deviceScaleFactor: 2 });
+    try {
+      let attackX = 0;
+      for (const frames of ["fast", "slow"]) {
+        await page.goto(`${base}?rp01=1&frames=${frames}${hand === "left" ? "&left=1" : ""}`);
+        await expect(page.locator("[data-hud=objective]")).toBeVisible();
+        const info = await page.evaluate(() => (window as unknown as { __layout: {
+          issues: unknown[]; quality: string; layout: { safe: { x0: number; y0: number; W: number; H: number } };
+        } }).__layout);
+        expect(info.issues).toEqual([]);
+        expect(info.quality).toBe(frames === "fast" ? "high" : "medium");
+        expect(info.layout.safe).toEqual({ x0: 47, y0: 8, W: width - 88, H: height - 29 });
+        expect(await page.locator(".eb-hud").getAttribute("data-compact")).toBe(compact ? "" : null);
+        const attack = (await page.locator("[data-control=attack]").boundingBox())!;
+        if (frames === "fast") attackX = attack.x;
+        else expect(attack.x).toBe(attackX);
+        expect(attack.x > width / 2).toBe(hand === "right");
+        const awaken = (await page.locator("[data-control=awaken]").boundingBox())!;
+        if (hand === "left") {
+          const health = (await page.locator("[data-control=health]").boundingBox())!;
+          expect(awaken.y - (health.y + health.height)).toBeCloseTo(18, 1);
+        }
+        const objective = (await page.locator("[data-hud=objective]").boundingBox())!;
+        const cast = (await page.locator("[data-hud=info]").boundingBox())!;
+        expect(Math.abs(objective.x + objective.width / 2 - (47 + (width - 88) / 2))).toBeLessThan(1);
+        expect(cast.y).toBeGreaterThanOrEqual(objective.y + objective.height + 4);
+        if (compact) expect(objective.y).toBeGreaterThanOrEqual(awaken.y + awaken.height + 8);
+        else expect([objective.y, cast.y]).toEqual([76, 100]);
+        if (frames === "fast" && width === 844 && height === 390) {
+          await page.screenshot({ path: path.join(outDir, "RP01-phone-landscape-844x390.png"), scale: "css" });
+        }
+      }
+    } finally { await page.close(); }
+  });
+}

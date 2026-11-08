@@ -24,6 +24,7 @@ const GL_ARGS = ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-s
 interface Dev { close(): Promise<void>; listen(): Promise<unknown> }
 interface Snap {
   localEntityId: number | null; serverTick: number;
+  render: { tier: string } | null;
   players: { name: string; kitId: string; action: string; form: string; x: number; z: number; local: boolean; kills: number; deaths: number; meter100: number; hp100: number }[];
   practice: { step: number; skillMask: number; dummyGuard: boolean; dummyRagdoll: boolean } | null;
 }
@@ -145,6 +146,36 @@ test("overlays suspend gameplay: no motion, no casts, no typing into settings; f
     expect(dist(await pos(page), p1)).toBeLessThan(0.05);
     await page.keyboard.press("Escape");
     await expect(page.locator("[data-ui=settings]")).toBeHidden();
+
+    // RP01: a portrait viewport wide enough to pass the size gate still stops gameplay.
+    const tier = (await snap(page)).render?.tier;
+    expect(tier).toBe("low"); // This suite uses SwiftShader.
+    const orientation = page.locator("[data-hud=orientation]");
+    await page.setViewportSize({ width: 600, height: 800 });
+    await expect(orientation).toHaveText("Turn your device sideways");
+    await expect(orientation).toBeVisible();
+    const portraitPosition = await pos(page);
+    await hold(page, "KeyS", 450);
+    expect(dist(await pos(page), portraitPosition)).toBeLessThan(0.05);
+
+    await page.setViewportSize({ width: 844, height: 390 });
+    await expect(orientation).toBeHidden();
+    await expect(page.locator(".eb-hud")).toHaveAttribute("data-compact", "");
+    expect((await snap(page)).render?.tier).toBe(tier);
+    await page.keyboard.down("KeyS");
+    await until(async () => (dist(await pos(page), portraitPosition) > 0.3) || null, 8000, "fresh press moves after rotation");
+    await page.keyboard.up("KeyS");
+
+    // Browser chrome can change visualViewport without changing the layout viewport.
+    const attack = page.locator("[data-control=attack]");
+    const initialAttack = (await attack.boundingBox())!;
+    await page.evaluate(() => {
+      const viewport = window.visualViewport!;
+      Object.defineProperty(viewport, "offsetLeft", { value: 14 });
+      viewport.dispatchEvent(new Event("scroll"));
+    });
+    await expect.poll(async () => (await attack.boundingBox())!.x - initialAttack.x).toBeCloseTo(14, 1);
+    expect((await snap(page)).render?.tier).toBe(tier);
     expect(errors).toEqual([]);
   } finally {
     await closeContext(ctx);

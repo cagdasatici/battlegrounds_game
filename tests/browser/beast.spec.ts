@@ -96,6 +96,15 @@ test("beast: warning banner, spawn with boss bar, telegraphed attack, defeat ban
     mkdirSync(evidenceDir(root), { recursive: true });
     await h.page.screenshot({ path: path.join(evidenceDir(root), "BEAST01-warning.png") });
     await expect(bar).toContainText("The Beast", { timeout: 10_000 });
+    await h.page.setViewportSize({ width: 844, height: 390 });
+    await expect(h.page.locator(".eb-hud")).toHaveAttribute("data-compact", "");
+    const bossBox = (await bar.boundingBox())!;
+    const awakenBox = (await h.page.locator("[data-control=awaken]").boundingBox())!;
+    const joystickBox = (await h.page.locator("[data-control=joystick]").boundingBox())!;
+    expect(bossBox.x + bossBox.width + 8).toBeLessThanOrEqual(awakenBox.x);
+    expect(bossBox.y + bossBox.height + 8).toBeLessThanOrEqual(joystickBox.y);
+    await h.page.screenshot({ path: path.join(evidenceDir(root), "RP01-sparring-beast-844x390.png") });
+    await h.page.setViewportSize({ width: 1024, height: 768 });
     const human = (await snap(h.page)).players.find(p => p.name === "Arel")!;
     const b = room.movement!.position(254)!;
     place(room, human.entityId, b[0], b[2] + 11); // far enough that the first swing is only a telegraph; the default camera looks toward -Z, at the beast

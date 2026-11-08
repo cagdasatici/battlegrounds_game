@@ -24,7 +24,7 @@ import type { AttackTelegraphs } from "./fx/AttackTelegraphs.js";
 import { AdaptiveQuality } from "./app/AdaptiveQuality.js";
 import type { LoopPlayer, LoopState } from "./app/GameLoop.js";
 import { SettingsStore } from "./app/SettingsStore.js";
-import { computeLayout, placeSparringRect, type Layout } from "./input/ControlLayout.js";
+import { computeLayout, placeSparringRect, type Layout, type SafeRect } from "./input/ControlLayout.js";
 import { resolveLayout, viewportClass } from "./input/LayoutEdit.js";
 import { attachKeyboardRouter } from "./input/KeyboardRouter.js";
 import { IntentSampler } from "./input/IntentSampler.js";
@@ -593,19 +593,32 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     };
     matchCleanups.push(() => cues.dispose());
     let hudKey = "";
-    const currentLayout = (): Layout => {
-      const base = computeLayout(readSafeRect(window, probe));
+    const currentLayout = (safe = readSafeRect(window, probe)): Layout => {
+      const base = computeLayout(safe);
       const st = settings.get();
       return resolveLayout(base, st.layouts[viewportClass(base.safe.W)], st.handedness).layout;
     };
     let lastLayout = currentLayout();
+    const portrait = (): boolean => lastLayout.safe.H > lastLayout.safe.W;
     router.setLayout(lastLayout);
+    beastBar.setLayout(lastLayout);
     router.facingLock = settings.get().facingLock;
     router.cameraFollow = settings.get().cameraFollow;
     router.autoRun = settings.get().autoRun; router.quickUse = settings.get().quickUse;
     router.sensitivity = settings.get().sensitivity;
     // Repaint now rather than on the next HUD interval tick, so the visible HUD never lags the hit-test layout.
-    const relayout = (): void => { lastLayout = currentLayout(); router.setLayout(lastLayout); syncGate(); hudKey = ""; drawHud(); placeSparButton(lastLayout); };
+    const relayout = (safe?: SafeRect): void => {
+      lastLayout = currentLayout(safe);
+      router.setLayout(lastLayout);
+      beastBar.setLayout(lastLayout);
+      hudKey = "";
+      drawHud();
+      placeSparButton(lastLayout);
+    };
+    const onViewportChange = (): void => {
+      const safe = readSafeRect(window, probe), previous = lastLayout.safe;
+      if (safe.x0 !== previous.x0 || safe.y0 !== previous.y0 || safe.W !== previous.W || safe.H !== previous.H) relayout(safe);
+    };
     matchCleanups.push(() => { placeSparButton(null); });
     // Opening Settings releases every held input; the arena keeps running (spec section 6).
     const onSettingsOpen = (): void => { router.releaseAll(); };
@@ -624,7 +637,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       gate.set("moves", disposeMoves !== null);
       gate.set("settings", settingsRef?.panel.isVisible === true);
       gate.set("sparring", sparControls.style.display !== "none");
-      gate.set("orientation", lastLayout.tooSmall);
+      gate.set("orientation", lastLayout.tooSmall || portrait());
       gate.set("connection", !(lifecycle?.inputEnabled ?? false));
       gate.set("round", (r.state as { phase?: string }).phase === "roundOver");
       // GR11: while a modal owns input, hide world labels and transient combat callouts (state is untouched).
@@ -649,9 +662,17 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
     settingsOpenHooks.add(onSettingsOpen);
     settingsChangeHooks.add(onSettingsChange);
     matchCleanups.push(() => { settingsOpenHooks.delete(onSettingsOpen); settingsChangeHooks.delete(onSettingsChange); settingsRef?.panel.close(); closeMoves(); });
-    window.addEventListener("resize", relayout);
-    window.addEventListener("orientationchange", relayout);
-    matchCleanups.push(() => { window.removeEventListener("resize", relayout); window.removeEventListener("orientationchange", relayout); });
+    const viewport = window.visualViewport;
+    window.addEventListener("resize", onViewportChange);
+    window.addEventListener("orientationchange", onViewportChange);
+    viewport?.addEventListener("resize", onViewportChange);
+    viewport?.addEventListener("scroll", onViewportChange);
+    matchCleanups.push(() => {
+      window.removeEventListener("resize", onViewportChange);
+      window.removeEventListener("orientationchange", onViewportChange);
+      viewport?.removeEventListener("resize", onViewportChange);
+      viewport?.removeEventListener("scroll", onViewportChange);
+    });
     const canvas = canvasHost.querySelector("canvas") as HTMLCanvasElement;
     matchCleanups.push(attachPointerRouter(router, canvas, window, document));
     matchCleanups.push(attachKeyboardRouter(router, window, canvas));
@@ -745,7 +766,7 @@ export async function boot(app: HTMLElement, opts: BootOptions = readBootOptions
       const pending = me?.owner?.pendingKit ?? "";
       const st = {
         name: me?.displayName ?? lobby.displayName, hp: (me?.hp100 ?? 10000) / 100, maxHp: 100, meter: ml.fraction, meterText: ml.text, meter2: ml.second, beastReady: ml.beastReady,
-        facingLock: router.facingLock, portrait: window.innerHeight > window.innerWidth,
+        facingLock: router.facingLock, portrait: portrait(),
         objective,
         castText: castDescription(me?.moveId ?? "", me?.action ?? ""),
         skillRoles: skillRoles(me?.kitId ?? opts.kitId, me?.form ?? "Base"),

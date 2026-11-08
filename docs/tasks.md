@@ -127,6 +127,7 @@ Plan and file ownership are in [the web plan](web-plan.md); hosting steps are in
 
 | Task | Title | Depends on | Status | Commit | Test report | Notes |
 |---|---|---|---|---|---|---|
+| RP01 | Safe-area HUD for compact landscape and portrait input gate | T07 T27 GR05 GR11 FB06 BEAST01 | IMPLEMENTED (DEVICE CHECK PENDING) | see git log (RP01 commit) | docs/test-results/RP01.md | Physical phone and iPad NOT RUN |
 | FB06 | Thumb-arc skill layout | FB01 | IMPLEMENTED, DEVICE CHECK PENDING | 6de5e74 | docs/test-results/FB06.md | Owner choice 2026-11-04 |
 | ORB2 | Render Ember Orb from replicated server state (item 2) | T19 T20 T21 | IMPLEMENTED (DEVICE CHECK PENDING) | b19f246 | docs/test-results/ORB2.md | Two Chromium contexts: flight, reflection, expiry. Physical iPad NOT RUN |
 | FB04 | Awaken fills 2.5x and survives death | GR14 | DONE | 5b27a12 | docs/test-results/FB04.md | Owner report 2026-11-04 |
