@@ -129,6 +129,7 @@ Plan and file ownership are in [the web plan](web-plan.md); hosting steps are in
 |---|---|---|---|---|---|---|
 | RP01 | Safe-area HUD for compact landscape and portrait input gate | T07 T27 GR05 GR11 FB06 BEAST01 | IMPLEMENTED (DEVICE CHECK PENDING) | 54fc294 | docs/test-results/RP01.md | Physical phone and iPad NOT RUN |
 | BEAST06 | Crater downward hits, 2.5 min beast timer and exit, all kits transform, beast special 1 | BEAST04 CRATER01 | IMPLEMENTED (DEVICE CHECK PENDING) | d8a3ed5 | docs/test-results/BEAST06.md | FB03 bot ratio test failing intermittently; physical devices NOT RUN |
+| WEB3 | Apply new client builds automatically outside matches | WEB2 | IMPLEMENTED (DEVICE CHECK PENDING) | 3c80d05 | docs/test-results/WEB3.md | quality-release line 188 fails before this work; physical devices NOT RUN |
 | FB06 | Thumb-arc skill layout | FB01 | IMPLEMENTED, DEVICE CHECK PENDING | 6de5e74 | docs/test-results/FB06.md | Owner choice 2026-11-04 |
 | ORB2 | Render Ember Orb from replicated server state (item 2) | T19 T20 T21 | IMPLEMENTED (DEVICE CHECK PENDING) | b19f246 | docs/test-results/ORB2.md | Two Chromium contexts: flight, reflection, expiry. Physical iPad NOT RUN |
 | FB04 | Awaken fills 2.5x and survives death | GR14 | DONE | 5b27a12 | docs/test-results/FB04.md | Owner report 2026-11-04 |
