@@ -127,7 +127,7 @@ Plan and file ownership are in [the web plan](web-plan.md); hosting steps are in
 
 | Task | Title | Depends on | Status | Commit | Test report | Notes |
 |---|---|---|---|---|---|---|
-| HS01 | Host sparring setup, fighter and arena selection, Cagdas open-join fix | BOT5 GR12 NP01 WORLD02 | IMPLEMENTED (DEVICE CHECK PENDING) | see git log (HS01 commit) | docs/test-results/HS01.md | Physical phone and iPad NOT RUN |
+| HS01 | Host sparring setup, fighter and arena selection, Cagdas open-join fix | BOT5 GR12 NP01 WORLD02 | IMPLEMENTED (DEVICE CHECK PENDING) | 1ef2277 | docs/test-results/HS01.md | Physical phone and iPad NOT RUN |
 | NP01 | Cagdas Welcome display-name preset | T18c | IMPLEMENTED (DEVICE CHECK PENDING) | 82bc14b | docs/test-results/NP01.md | Physical device NOT RUN |
 | RP01 | Safe-area HUD for compact landscape and portrait input gate | T07 T27 GR05 GR11 FB06 BEAST01 | IMPLEMENTED (DEVICE CHECK PENDING) | 54fc294 | docs/test-results/RP01.md | Physical phone and iPad NOT RUN |
 | BEAST06 | Crater downward hits, 2.5 min beast timer and exit, all kits transform, beast special 1 | BEAST04 CRATER01 | IMPLEMENTED (DEVICE CHECK PENDING) | d8a3ed5 | docs/test-results/BEAST06.md | FB03 bot ratio test failing intermittently; physical devices NOT RUN |
